@@ -49,6 +49,10 @@ test("public view: a VERIFIED candidate is exposed, but without internal verific
   assert.equal(profile.officialWebsite?.url, "https://example.com/");
   assert.equal(profile.officialWebsite?.canonicalDomain, "example.com");
   assert.ok(profile.officialWebsite?.verifiedAt instanceof Date);
+  // legalName is surfaced in the public detail page as secondary/progressive
+  // disclosure info — must keep passing through toPublicDeveloperProfile.
+  assert.equal(profile.legalName, developer.legalName);
+  assert.equal(profile.displayName, developer.displayName);
 
   const serialized = JSON.stringify(profile);
   assert.ok(!serialized.includes("confidenceScore"));

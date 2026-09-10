@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
+import { CandidateStatusBadge } from "@/components/admin/candidate-status-badge";
 import { buttonClassName } from "@/components/ui/button";
 
 export default async function AdminDeveloperDetailPage({
@@ -57,7 +58,7 @@ export default async function AdminDeveloperDetailPage({
                     {candidate.discoverySource} · confidence {candidate.confidenceScore}
                   </p>
                 </div>
-                <span className="text-sm text-muted-foreground">{candidate.verificationStatus}</span>
+                <CandidateStatusBadge status={candidate.verificationStatus} />
               </Link>
             </li>
           ))}

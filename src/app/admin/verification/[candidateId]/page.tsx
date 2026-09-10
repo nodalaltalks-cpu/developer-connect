@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { SectionHeading } from "@/components/admin/empty-state";
+import { CandidateStatusBadge } from "@/components/admin/candidate-status-badge";
 import { VerificationActionForm } from "@/components/admin/verification-action-form";
 import { EvidenceIntakeForm } from "@/components/admin/evidence-intake-form";
 import {
@@ -78,7 +79,9 @@ export default async function AdminVerificationDetailPage({
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Status</dt>
-              <dd className="text-foreground">{candidate.verificationStatus}</dd>
+              <dd className="text-foreground">
+                <CandidateStatusBadge status={candidate.verificationStatus} />
+              </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Confidence (triage only)</dt>

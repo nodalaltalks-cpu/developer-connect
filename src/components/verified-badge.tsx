@@ -21,7 +21,7 @@ export function VerifiedBadge({ full = false }: { full?: boolean }) {
           strokeLinejoin="round"
         />
       </svg>
-      {full ? "Verified by Developer Connect" : "Verified"}
+      {full ? "Official website verified by Developer Connect" : "Official website verified"}
     </span>
   );
 }

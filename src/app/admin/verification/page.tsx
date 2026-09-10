@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
+import { CandidateStatusBadge } from "@/components/admin/candidate-status-badge";
 
 export default async function AdminVerificationQueuePage() {
   const repos = createPostgresRepositories();
@@ -44,9 +45,9 @@ export default async function AdminVerificationQueuePage() {
                   </p>
                   <p className="text-sm text-muted-foreground">{candidate.canonicalDomain}</p>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">{candidate.verificationStatus}</span>
-                  {" · confidence "}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CandidateStatusBadge status={candidate.verificationStatus} />
+                  {"confidence "}
                   {candidate.confidenceScore}
                 </div>
               </Link>

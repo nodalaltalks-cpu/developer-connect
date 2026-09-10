@@ -415,6 +415,18 @@ test(
   },
 );
 
+test(
+  "postgres: getById returns null (not a thrown error) for a malformed, non-UUID id",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const repos = createPostgresRepositories();
+
+    assert.equal(await repos.developers.getById("not-a-uuid"), null);
+    assert.equal(await repos.candidates.getById("also-not-a-uuid"), null);
+  },
+);
+
 test.after(async () => {
   if (!hasDatabase) return;
   const { closeDb } = await import("../client.ts");

@@ -89,17 +89,27 @@ export function SearchBox() {
                   onClick={() => {
                     void recordSearchResultClick(developer.id, query.trim(), index);
                   }}
-                  className="flex min-h-11 items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
+                  className="flex min-h-11 items-start justify-between gap-4 px-5 py-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
                 >
-                  <span>
-                    <span className="block font-medium text-foreground">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-foreground">
                       {developer.displayName}
                     </span>
                     <span className="block text-sm text-muted-foreground">
                       {developer.city}, {developer.state}
                     </span>
+                    <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <VerifiedBadge />
+                      {developer.officialWebsite && (
+                        <span className="truncate font-mono text-xs text-muted-foreground">
+                          {developer.officialWebsite.canonicalDomain}
+                        </span>
+                      )}
+                    </span>
                   </span>
-                  <VerifiedBadge />
+                  <span aria-hidden="true" className="mt-1 shrink-0 text-muted-foreground">
+                    →
+                  </span>
                 </Link>
               </li>
             ))}

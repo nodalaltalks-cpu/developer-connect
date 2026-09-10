@@ -66,9 +66,7 @@ export default async function DeveloperPage({
       <main className="flex-1">
         <Container className="py-12 sm:py-20">
           <div className="mx-auto max-w-xl">
-            {developer.officialWebsite && <VerifiedBadge full />}
-
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               {developer.displayName}
             </h1>
 
@@ -77,8 +75,14 @@ export default async function DeveloperPage({
               {developer.headquartersLocation ? ` · ${developer.headquartersLocation}` : ""}
             </p>
 
+            {developer.officialWebsite && (
+              <div className="mt-4">
+                <VerifiedBadge full />
+              </div>
+            )}
+
             {developer.officialWebsite ? (
-              <div className="mt-8 rounded-lg border border-border bg-muted p-6">
+              <div className="mt-6 rounded-lg border border-border bg-muted p-6">
                 <p className="text-sm text-muted-foreground">You&apos;ll go to</p>
                 <p className="mt-1 break-all font-mono text-lg text-foreground">
                   {developer.officialWebsite.canonicalDomain}
@@ -102,6 +106,12 @@ export default async function DeveloperPage({
                   website yet. Check back soon.
                 </p>
               </div>
+            )}
+
+            {developer.legalName !== developer.displayName && (
+              <p className="mt-6 text-xs text-muted-foreground">
+                Registered as {developer.legalName}
+              </p>
             )}
           </div>
         </Container>

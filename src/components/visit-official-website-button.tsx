@@ -29,8 +29,8 @@ export function VisitOfficialWebsiteButton({
       }}
       className={buttonClassName("primary", "w-full sm:w-auto text-base px-6 py-3.5")}
     >
-      Visit Official Website
-      <span aria-hidden="true">→</span>
+      Visit official website
+      <span aria-hidden="true">↗</span>
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
   );

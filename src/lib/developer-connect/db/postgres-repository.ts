@@ -26,6 +26,19 @@ function likePattern(query: string): string {
   return `%${escaped}%`;
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * `id` columns are Postgres `uuid`. A malformed id (e.g. a route param
+ * that isn't actually a UUID) makes the driver throw "invalid input
+ * syntax for type uuid" instead of just finding no row — this guard lets
+ * getById-style lookups return null like any other not-found case.
+ */
+function isValidUuid(id: string): boolean {
+  return UUID_PATTERN.test(id);
+}
+
 function toDeveloper(row: typeof schema.developers.$inferSelect): Developer {
   return {
     id: row.id,
@@ -94,6 +107,7 @@ function buildDeveloperRepository(db: DbOrTx): DeveloperRepository {
       return toDeveloper(row);
     },
     async getById(id) {
+      if (!isValidUuid(id)) return null;
       const [row] = await db.select().from(schema.developers).where(eq(schema.developers.id, id));
       return row ? toDeveloper(row) : null;
     },
@@ -159,6 +173,7 @@ function buildWebsiteCandidateRepository(db: DbOrTx): WebsiteCandidateRepository
       return toWebsiteCandidate(row);
     },
     async getById(id) {
+      if (!isValidUuid(id)) return null;
       const [row] = await db
         .select()
         .from(schema.websiteCandidates)

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { currentUser } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
-import { ProfileCompletionSummary } from "@/components/profile-completion-summary";
+import { ProfileEditor } from "@/components/profile/profile-editor";
 import { requireUserId } from "@/lib/auth";
 import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
 import { getOrCreateProfile } from "@/lib/profile/profile-service";
@@ -26,7 +26,7 @@ export default async function ProfilePage() {
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
 
-  const { completion } = await getOrCreateProfile(repo, userId, {
+  const { profile, completion } = await getOrCreateProfile(repo, userId, {
     sink: postgresAnalyticsSink,
     sessionId,
     deviceType,
@@ -37,8 +37,8 @@ export default async function ProfilePage() {
       <SiteHeader />
 
       <main className="flex-1">
-        <Container className="py-12 sm:py-16">
-          <div className="mx-auto max-w-xl">
+        <Container className="py-8 sm:py-12">
+          <div className="mx-auto max-w-2xl">
             <div className="flex items-center gap-4">
               {user?.imageUrl && (
                 <Image
@@ -62,25 +62,22 @@ export default async function ProfilePage() {
               </div>
             </div>
 
-            <div className="mt-8 rounded-lg border border-border bg-muted p-6">
-              {PROFILE_FIELD_CONFIG.length === 0 ? (
-                <>
-                  <p className="font-medium text-foreground">Nothing to complete yet</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Developer Connect doesn&apos;t have any profile information to add yet. When
-                    it does, you&apos;ll be able to fill it in here — a little at a time, at your
-                    own pace. Nothing here is ever required to keep using Developer Connect.
-                  </p>
-                </>
-              ) : (
-                <ProfileCompletionSummary completion={completion} />
-              )}
-            </div>
-
-            <p className="mt-4 text-xs text-muted-foreground">
+            <p className="mb-6 mt-4 text-xs text-muted-foreground">
               Your profile is private. It&apos;s never shown to other visitors and never appears
-              on any developer page.
+              on any developer page. Nothing here is ever required to keep using Developer
+              Connect.
             </p>
+
+            {PROFILE_FIELD_CONFIG.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted p-6">
+                <p className="font-medium text-foreground">Nothing to complete yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Developer Connect doesn&apos;t have any profile information to add yet.
+                </p>
+              </div>
+            ) : (
+              <ProfileEditor initialData={profile.data} initialCompletion={completion} />
+            )}
           </div>
         </Container>
       </main>

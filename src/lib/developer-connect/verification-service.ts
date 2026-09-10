@@ -1,7 +1,11 @@
 import type { Actor, VerificationStatus, WebsiteCandidate } from "./types.ts";
 import type { DeveloperConnectRepositories } from "./repository.ts";
 import { assertValidTransition } from "./lifecycle.ts";
-import { NotFoundError, UnauthorizedVerificationActionError } from "./errors.ts";
+import {
+  NotFoundError,
+  UnauthorizedVerificationActionError,
+  CrossDeveloperDomainConflictError,
+} from "./errors.ts";
 
 function requireFounder(actor: Actor, action: string): void {
   if (actor.actorType !== "FOUNDER") {
@@ -88,6 +92,21 @@ export async function approveCandidate(
     const candidate = await txRepos.candidates.getById(candidateId);
     if (!candidate) {
       throw new NotFoundError(`Website candidate ${candidateId} not found`);
+    }
+
+    // Cross-developer guard, checked before any mutation: the same domain
+    // must never be VERIFIED for two different developers at once. Unlike
+    // the same-developer case below (a legitimate domain change, handled
+    // by retiring the old candidate), this is never auto-resolved — it
+    // means either this candidate or the existing one is wrong, and only
+    // a founder investigating both records can tell which.
+    const domainConflict = await txRepos.candidates.findVerifiedByDomain(candidate.canonicalDomain);
+    if (domainConflict && domainConflict.developerId !== candidate.developerId) {
+      throw new CrossDeveloperDomainConflictError(
+        `${candidate.canonicalDomain} is already the verified official website for a different developer. Resolve this manually before approving.`,
+        domainConflict.developerId,
+        domainConflict.id,
+      );
     }
 
     const existingVerified = await txRepos.candidates.getVerifiedForDeveloper(candidate.developerId);

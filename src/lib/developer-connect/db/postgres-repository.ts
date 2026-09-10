@@ -210,6 +210,18 @@ function buildWebsiteCandidateRepository(db: DbOrTx): WebsiteCandidateRepository
         );
       return row ? toWebsiteCandidate(row) : null;
     },
+    async findVerifiedByDomain(canonicalDomain) {
+      const [row] = await db
+        .select()
+        .from(schema.websiteCandidates)
+        .where(
+          and(
+            eq(schema.websiteCandidates.canonicalDomain, canonicalDomain),
+            eq(schema.websiteCandidates.verificationStatus, "VERIFIED"),
+          ),
+        );
+      return row ? toWebsiteCandidate(row) : null;
+    },
     async update(id, patch) {
       const [row] = await db
         .update(schema.websiteCandidates)

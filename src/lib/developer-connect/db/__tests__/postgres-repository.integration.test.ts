@@ -177,9 +177,16 @@ test(
       country: "India",
     });
 
+    // Domains are unique per run (not just the developer name above) —
+    // the cross-developer VERIFIED-domain guard in approveCandidate now
+    // means a fixed domain reused across repeated test runs against this
+    // shared, never-truncated test database would collide with a leftover
+    // VERIFIED candidate from an earlier run and fail for the wrong reason.
+    const runId = randomUUID();
+
     const first = await submitWebsiteCandidate(repos, {
       developerId: developer.id,
-      url: "https://first.example.com",
+      url: `https://first-${runId}.example.com`,
       discoverySource: "MANUAL_SUBMISSION",
       actor: founder,
     });
@@ -188,7 +195,7 @@ test(
 
     const second = await submitWebsiteCandidate(repos, {
       developerId: developer.id,
-      url: "https://second.example.com",
+      url: `https://second-${runId}.example.com`,
       discoverySource: "MANUAL_SUBMISSION",
       actor: founder,
     });
@@ -284,9 +291,13 @@ test(
       country: "India",
     });
 
+    // Domains are unique per run for the same reason as the end-to-end
+    // test above — see its comment.
+    const runId = randomUUID();
+
     const candidateA = await submitWebsiteCandidate(repos, {
       developerId: developer.id,
-      url: "https://a.example.com",
+      url: `https://a-${runId}.example.com`,
       discoverySource: "MANUAL_SUBMISSION",
       actor: founder,
     });
@@ -300,7 +311,7 @@ test(
     // must be undone along with everything else.
     const candidateB = await submitWebsiteCandidate(repos, {
       developerId: developer.id,
-      url: "https://b.example.com",
+      url: `https://b-${runId}.example.com`,
       discoverySource: "MANUAL_SUBMISSION",
       actor: founder,
     });

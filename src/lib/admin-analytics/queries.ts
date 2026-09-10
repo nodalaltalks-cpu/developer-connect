@@ -9,10 +9,10 @@ import {
   profiles,
   evidence,
 } from "../developer-connect/db/schema.ts";
-import { PROFILE_FIELD_CONFIG } from "../profile/field-config.ts";
+import { PROFILE_FIELD_CONFIG, PROFILE_SECTIONS } from "../profile/field-config.ts";
 import { calculateProfileCompletion } from "../profile/completion.ts";
 import { computeRate } from "./rate.ts";
-import { comparePeriods } from "./period-comparison.ts";
+import { comparePeriods, MIN_SAMPLE_FOR_COMPARISON } from "./period-comparison.ts";
 import type {
   ExecutiveOverview,
   SearchIntelligence,
@@ -22,6 +22,7 @@ import type {
   AuditLogEntry,
   AiReadiness,
   UserAndProfileIntelligence,
+  EngagementByCompletion,
   VerificationOpportunity,
   ConversionStep,
 } from "./types.ts";
@@ -487,6 +488,30 @@ export async function getAiReadiness(): Promise<AiReadiness> {
  * stored/stale percentage).
  * Window: all-time.
  */
+function completionBucketLabel(percentage: number): string {
+  if (percentage >= 100) return "100%";
+  if (percentage >= 76) return "76–99%";
+  if (percentage >= 51) return "51–75%";
+  if (percentage >= 26) return "26–50%";
+  return "0–25%";
+}
+
+const COMPLETION_BUCKET_LABELS = ["0–25%", "26–50%", "51–75%", "76–99%", "100%"];
+
+/** Documented, fixed thresholds — never derived from a statistical test, same spirit as MIN_SAMPLE_FOR_COMPARISON. */
+function dropOffLevel(percent: number): "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH" {
+  if (percent >= 80) return "LOW";
+  if (percent >= 60) return "MEDIUM";
+  if (percent >= 40) return "HIGH";
+  return "VERY_HIGH";
+}
+
+const ENGAGEMENT_EVENT_NAMES = [
+  "search_performed",
+  "developer_page_viewed",
+  "official_website_clicked",
+] as const;
+
 export async function getUserAndProfileIntelligence(): Promise<UserAndProfileIntelligence> {
   const db = getDb();
 
@@ -502,14 +527,100 @@ export async function getUserAndProfileIntelligence(): Promise<UserAndProfileInt
   const distinctSessions = Number(sessionsRow?.n ?? 0);
   const distinctAuthenticatedUsers = Number(usersRow?.n ?? 0);
 
-  const allProfiles = await db.select({ data: profiles.data }).from(profiles);
-  const percentages = allProfiles
-    .map((row) => calculateProfileCompletion(row.data as Record<string, unknown>).percentage)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [newProfilesRow] = await db
+    .select({ n: count() })
+    .from(profiles)
+    .where(gte(profiles.createdAt, sevenDaysAgo));
+  const [activeProfilesRow] = await db
+    .select({ n: count() })
+    .from(profiles)
+    .where(gte(profiles.updatedAt, sevenDaysAgo));
+
+  const allProfiles = await db.select({ userId: profiles.userId, data: profiles.data }).from(profiles);
+  const completions = allProfiles.map((row) => ({
+    userId: row.userId,
+    completion: calculateProfileCompletion(row.data as Record<string, unknown>),
+  }));
+  const percentages = completions
+    .map((c) => c.completion.percentage)
     .filter((value): value is number => value !== null);
   const averageCompletionPercent =
     percentages.length > 0
       ? Math.round((percentages.reduce((sum, value) => sum + value, 0) / percentages.length) * 10) / 10
       : null;
+
+  const completionDistribution: CompletionBucketAccumulator = Object.fromEntries(
+    COMPLETION_BUCKET_LABELS.map((label) => [label, 0]),
+  );
+  for (const percentage of percentages) {
+    completionDistribution[completionBucketLabel(percentage)] += 1;
+  }
+
+  const sectionCompletion = PROFILE_SECTIONS.map((section) => {
+    const completeCount = completions.filter((c) =>
+      c.completion.sections.find((s) => s.sectionId === section.id)?.complete,
+    ).length;
+    const rate = computeRate(completeCount, percentages.length);
+    return {
+      sectionId: section.id,
+      title: section.title,
+      completionRate: rate,
+      dropOff:
+        percentages.length >= MIN_SAMPLE_FOR_COMPARISON && rate.percent !== null
+          ? dropOffLevel(rate.percent)
+          : null,
+    };
+  });
+
+  let engagementByCompletion: EngagementByCompletion[] = [];
+  if (PROFILE_FIELD_CONFIG.length > 0) {
+    const engagementRows = await db
+      .select({ userId: analyticsEvents.userId, eventName: analyticsEvents.eventName, n: count() })
+      .from(analyticsEvents)
+      .where(
+        and(
+          sql`${analyticsEvents.userId} is not null`,
+          inArray(analyticsEvents.eventName, [...ENGAGEMENT_EVENT_NAMES]),
+        ),
+      )
+      .groupBy(analyticsEvents.userId, analyticsEvents.eventName);
+
+    const eventCountsByUser = new Map<string, Map<string, number>>();
+    for (const row of engagementRows) {
+      if (!row.userId) continue;
+      const byEvent = eventCountsByUser.get(row.userId) ?? new Map<string, number>();
+      byEvent.set(row.eventName, row.n);
+      eventCountsByUser.set(row.userId, byEvent);
+    }
+
+    const higherGroup = completions.filter((c) => (c.completion.percentage ?? 0) >= 50);
+    const lowerGroup = completions.filter((c) => (c.completion.percentage ?? 0) < 50);
+
+    const metricKey: Record<(typeof ENGAGEMENT_EVENT_NAMES)[number], EngagementByCompletion["metric"]> = {
+      search_performed: "searches",
+      developer_page_viewed: "developerPageViews",
+      official_website_clicked: "officialWebsiteClicks",
+    };
+
+    engagementByCompletion = ENGAGEMENT_EVENT_NAMES.map((eventName) => {
+      const average = (group: typeof completions) =>
+        group.length > 0
+          ? group.reduce((sum, c) => sum + (eventCountsByUser.get(c.userId)?.get(eventName) ?? 0), 0) /
+            group.length
+          : null;
+
+      return {
+        metric: metricKey[eventName],
+        higherCompletionAverage: average(higherGroup) !== null ? Math.round(average(higherGroup)! * 10) / 10 : null,
+        lowerCompletionAverage: average(lowerGroup) !== null ? Math.round(average(lowerGroup)! * 10) / 10 : null,
+        higherGroupSize: higherGroup.length,
+        lowerGroupSize: lowerGroup.length,
+        sufficientData:
+          higherGroup.length >= MIN_SAMPLE_FOR_COMPARISON && lowerGroup.length >= MIN_SAMPLE_FOR_COMPARISON,
+      };
+    });
+  }
 
   return {
     distinctSessions,
@@ -519,7 +630,17 @@ export async function getUserAndProfileIntelligence(): Promise<UserAndProfileInt
         ? Math.round((distinctSessions / distinctAuthenticatedUsers) * 10) / 10
         : null,
     profilesStarted: profilesRow?.n ?? 0,
+    newProfilesLast7Days: newProfilesRow?.n ?? 0,
+    activeProfilesLast7Days: activeProfilesRow?.n ?? 0,
     profileFieldsConfigured: PROFILE_FIELD_CONFIG.length,
     averageCompletionPercent,
+    completionDistribution: COMPLETION_BUCKET_LABELS.map((label) => ({
+      label,
+      count: completionDistribution[label],
+    })),
+    sectionCompletion,
+    engagementByCompletion,
   };
 }
+
+type CompletionBucketAccumulator = Record<string, number>;

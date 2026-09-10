@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { SignInButton, UserButton } from "@clerk/nextjs";
 import { Container } from "@/components/ui/container";
+import { NotificationBell } from "@/components/notification-bell";
 
 /**
  * Shared public header. Deliberately carries no admin/founder navigation
@@ -30,10 +31,18 @@ export async function SiteHeader() {
               >
                 Profile
               </Link>
+              <NotificationBell />
               <UserButton />
             </>
           ) : (
-            <SignInButton mode="modal">
+            // forceRedirectUrl always lands on /post-sign-in after a
+            // successful sign-in, regardless of which page this button was
+            // clicked from — that page alone decides (via the existing,
+            // unchanged isFounder() check) whether to continue on to
+            // /admin or back to the public site. This is the one place
+            // Founder auto-routing hooks in; nothing else about sign-in
+            // changes.
+            <SignInButton mode="modal" forceRedirectUrl="/post-sign-in">
               <button className="min-h-11 text-sm font-medium text-foreground hover:text-accent-hover">
                 Sign in
               </button>

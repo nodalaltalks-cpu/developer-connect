@@ -13,7 +13,7 @@ test("getOrCreateProfile: creates an empty profile shell on first access", async
 
   assert.equal(profile.userId, "user-1");
   assert.deepEqual(profile.data, {});
-  assert.equal(completion.percentage, null); // no fields configured yet — genuinely undefined
+  assert.equal(completion.percentage, 0); // real fields are configured (Phase 3B) — an empty profile is 0%, not null
 });
 
 test("getOrCreateProfile: fires profile_started only on first creation, not on subsequent fetches", async () => {

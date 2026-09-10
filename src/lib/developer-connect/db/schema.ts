@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   index,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -209,3 +210,31 @@ export const profiles = pgTable("profiles", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const notificationTypeEnum = pgEnum("notification_type", ["PROFILE_COMPLETION"]);
+
+/**
+ * In-house notifications (Phase 3B) — deliberately minimal: a title/body
+ * the app itself generates (see notifications/profile-completion-notifier.ts),
+ * never third-party push/email content. `userId` is a Clerk user id, same
+ * convention as `profiles.userId` — not a foreign key into a users table
+ * this project doesn't own.
+ */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    type: notificationTypeEnum("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    targetRoute: text("target_route"),
+    read: boolean("read").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("notifications_user_created_idx").on(table.userId, table.createdAt),
+    index("notifications_user_unread_idx").on(table.userId, table.read),
+  ],
+);

@@ -11,11 +11,40 @@ export interface Profile {
   updatedAt: Date;
 }
 
+export type ProfileFieldType =
+  | "text"
+  | "date"
+  | "select"
+  | "multiselect"
+  | "boolean"
+  | "range"
+  | "location-multiselect";
+
+export interface ProfileFieldOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
 export interface ProfileFieldConfig {
   key: string;
   label: string;
-  /** Relative contribution to completion. Weights need not sum to 100 — completion is weight / totalWeight. */
+  /** Relative contribution to completion. Weights need not sum to 100 — completion is weight / totalWeight. Uniform (1) across every field today — deliberately, not arbitrarily differentiated. */
   weight: number;
+  /** Which ProfileSection (see PROFILE_SECTIONS) this field belongs to. */
+  section: string;
+  type: ProfileFieldType;
+  options?: ProfileFieldOption[];
+  placeholder?: string;
+  helperText?: string;
+  /** Shown once per section, not per field, when set on that section's first field. */
+  privacyNote?: string;
+}
+
+export interface ProfileSection {
+  id: string;
+  title: string;
+  helperText?: string;
 }
 
 export type CompletionBand =
@@ -25,10 +54,22 @@ export type CompletionBand =
   | "ALMOST_COMPLETE"
   | "FULLY_COMPLETED";
 
+export interface ProfileSectionCompletion {
+  sectionId: string;
+  title: string;
+  totalFields: number;
+  completedFields: number;
+  /** null when the section has no configured fields (should not happen for a real section, but kept honest). */
+  percentage: number | null;
+  complete: boolean;
+}
+
 export interface ProfileCompletion {
   /** null when PROFILE_FIELD_CONFIG is empty — genuinely undefined, never fabricated as 0 or 100. */
   percentage: number | null;
   band: CompletionBand | null;
   completedFieldKeys: string[];
   missingFieldKeys: string[];
+  /** Same source data as the fields above, just grouped by section — one calculation, never a second competing one. */
+  sections: ProfileSectionCompletion[];
 }

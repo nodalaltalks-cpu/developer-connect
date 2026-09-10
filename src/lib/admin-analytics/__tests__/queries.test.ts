@@ -61,10 +61,14 @@ test(
     const auditLog = await getAuditLog();
     assert.ok(Array.isArray(auditLog));
 
+    const { PROFILE_FIELD_CONFIG } = await import("../../profile/field-config.ts");
+
     const readiness = await getAiReadiness();
-    assert.equal(readiness.profileFieldsConfigured, 0); // PROFILE_FIELD_CONFIG is empty
+    assert.equal(readiness.profileFieldsConfigured, PROFILE_FIELD_CONFIG.length);
 
     const userIntel = await getUserAndProfileIntelligence();
-    assert.equal(userIntel.profileFieldsConfigured, 0);
+    assert.equal(userIntel.profileFieldsConfigured, PROFILE_FIELD_CONFIG.length);
+    assert.ok(Array.isArray(userIntel.completionDistribution));
+    assert.ok(Array.isArray(userIntel.sectionCompletion));
   },
 );

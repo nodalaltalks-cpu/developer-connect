@@ -137,6 +137,14 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
       }
       return null;
     },
+    async findVerifiedByDomain(canonicalDomain) {
+      for (const candidate of candidates.values()) {
+        if (candidate.canonicalDomain === canonicalDomain && candidate.verificationStatus === "VERIFIED") {
+          return candidate;
+        }
+      }
+      return null;
+    },
     async update(id, patch) {
       const existing = candidates.get(id);
       if (!existing) throw new NotFoundError(`Website candidate ${id} not found`);

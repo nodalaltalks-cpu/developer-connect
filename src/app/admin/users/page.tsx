@@ -1,6 +1,20 @@
 import { getUserAndProfileIntelligence } from "@/lib/admin-analytics/queries";
+import { formatRate } from "@/lib/admin-analytics/rate";
 import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { SectionHeading } from "@/components/admin/empty-state";
+
+const DROP_OFF_LABEL: Record<string, string> = {
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High",
+  VERY_HIGH: "Very High",
+};
+
+const METRIC_LABEL: Record<string, string> = {
+  searches: "Searches",
+  developerPageViews: "Developer page views",
+  officialWebsiteClicks: "Official website clicks",
+};
 
 export default async function AdminUsersPage() {
   const intel = await getUserAndProfileIntelligence();
@@ -28,6 +42,8 @@ export default async function AdminUsersPage() {
       <div className="mt-3">
         <StatGrid>
           <StatTile label="Profiles started" value={intel.profilesStarted} />
+          <StatTile label="New (last 7 days)" value={intel.newProfilesLast7Days} />
+          <StatTile label="Active (last 7 days)" value={intel.activeProfilesLast7Days} />
           <StatTile label="Fields configured" value={intel.profileFieldsConfigured} />
           <StatTile
             label="Average completion"
@@ -36,13 +52,94 @@ export default async function AdminUsersPage() {
         </StatGrid>
       </div>
 
-      {intel.profileFieldsConfigured === 0 && (
+      {intel.profileFieldsConfigured === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">
           Completion tracking will activate the moment product defines the first profile field
           (see PROFILE_FIELD_CONFIG) — everything downstream (this page, the profile page, the
           analytics events) already reads that single source of truth, so no further work is
           needed here when that happens.
         </p>
+      ) : (
+        <>
+          <h3 className="mt-8 text-sm font-semibold text-foreground">Completion distribution</h3>
+          <div className="mt-3">
+            <StatGrid>
+              {intel.completionDistribution.map((bucket) => (
+                <StatTile key={bucket.label} label={bucket.label} value={bucket.count} />
+              ))}
+            </StatGrid>
+          </div>
+
+          <h3 className="mt-8 text-sm font-semibold text-foreground">
+            Section completion & drop-off
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Drop-off is a fixed, documented banding of the completion rate (≥80% Low, 60–79%
+            Medium, 40–59% High, &lt;40% Very High) — shown only once enough profiles exist to be
+            meaningful.
+          </p>
+          <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="px-4 py-2 font-medium">Section</th>
+                  <th className="px-4 py-2 font-medium">Completion</th>
+                  <th className="px-4 py-2 font-medium">Drop-off</th>
+                </tr>
+              </thead>
+              <tbody>
+                {intel.sectionCompletion.map((section) => (
+                  <tr key={section.sectionId} className="border-b border-border last:border-b-0">
+                    <td className="px-4 py-2 text-foreground">{section.title}</td>
+                    <td className="px-4 py-2 text-foreground">{formatRate(section.completionRate)}</td>
+                    <td className="px-4 py-2 text-foreground">
+                      {section.dropOff ? DROP_OFF_LABEL[section.dropOff] : "Insufficient data"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="mt-8 text-sm font-semibold text-foreground">
+            Profile completion vs. engagement
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            OBSERVATION, not causation: a correlation here does not mean completing a profile
+            causes more engagement — the same users may simply be more engaged in general. Shown
+            only once both groups (≥50% complete vs &lt;50%) reach a meaningful sample size.
+          </p>
+          <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="px-4 py-2 font-medium">Metric</th>
+                  <th className="px-4 py-2 font-medium">Avg. for ≥50% complete</th>
+                  <th className="px-4 py-2 font-medium">Avg. for &lt;50% complete</th>
+                </tr>
+              </thead>
+              <tbody>
+                {intel.engagementByCompletion.map((row) => (
+                  <tr key={row.metric} className="border-b border-border last:border-b-0">
+                    <td className="px-4 py-2 text-foreground">{METRIC_LABEL[row.metric]}</td>
+                    <td className="px-4 py-2 text-foreground">
+                      {row.sufficientData ? row.higherCompletionAverage : "Insufficient data"}
+                      {row.sufficientData && (
+                        <span className="text-muted-foreground"> (n={row.higherGroupSize})</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-foreground">
+                      {row.sufficientData ? row.lowerCompletionAverage : "Insufficient data"}
+                      {row.sufficientData && (
+                        <span className="text-muted-foreground"> (n={row.lowerGroupSize})</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

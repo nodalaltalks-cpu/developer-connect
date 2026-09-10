@@ -43,6 +43,23 @@ export async function requireFounder(): Promise<void> {
   }
 }
 
+export class UnauthenticatedError extends Error {}
+
+/**
+ * Like `requireUserId`, but for Server Actions rather than page renders —
+ * same reasoning as `requireFounderForAction` below: an action has no
+ * render boundary to `redirect()` into, and a background call (e.g. the
+ * notification bell's periodic unread-count refresh) should reject
+ * cleanly rather than force-navigate the page out from under the user.
+ */
+export async function requireUserIdForAction(): Promise<string> {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    throw new UnauthenticatedError("Sign-in required for this action.");
+  }
+  return userId;
+}
+
 export class UnauthorizedError extends Error {}
 
 /**

@@ -20,6 +20,20 @@ test(
     const { approveCandidate, markReadyForReview } = await import("../../developer-connect/verification-service.ts");
     const { postgresAnalyticsSink } = await import("../../developer-connect/db/postgres-analytics-sink.ts");
     const { getHighPriorityVerificationOpportunities } = await import("../queries.ts");
+    const { getDb } = await import("../../developer-connect/db/client.ts");
+    const { analyticsEvents } = await import("../../developer-connect/db/schema.ts");
+
+    // getHighPriorityVerificationOpportunities() reads only the top 10
+    // all-time zero-result queries by count. This test's own queries
+    // (below) are recorded 15 times each specifically to rank in that
+    // top 10 — but this integration suite has now run against this same
+    // disposable, never-truncated test database many times over, and
+    // every prior run left its own count=15 queries behind, so the top-10
+    // window is no longer reliably dominated by just this run's data. The
+    // test database is disposable and safe to clear; the primary database
+    // is untouched by this (test-db-guard.ts refuses to run at all if
+    // TEST_DATABASE_URL ever resolved to the same database as DATABASE_URL).
+    await getDb().delete(analyticsEvents);
 
     const repos = createPostgresRepositories();
     const founder = { actorType: "FOUNDER" as const, actorId: "test-founder" };
@@ -35,7 +49,7 @@ test(
     });
     await submitWebsiteCandidate(repos, {
       developerId: unverifiedDeveloper.id,
-      url: "https://unverified-opportunity.example.com",
+      url: `https://unverified-opportunity-${marker}.example.com`,
       discoverySource: "MANUAL_SUBMISSION",
       actor: founder,
     });
@@ -51,7 +65,7 @@ test(
     });
     const verifiedCandidate = await submitWebsiteCandidate(repos, {
       developerId: verifiedDeveloper.id,
-      url: "https://verified-opportunity.example.com",
+      url: `https://verified-opportunity-${marker}.example.com`,
       discoverySource: "MANUAL_SUBMISSION",
       actor: founder,
     });

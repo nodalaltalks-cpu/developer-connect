@@ -86,6 +86,13 @@ export interface WebsiteCandidateRepository {
   ): Promise<WebsiteCandidate | null>;
   /** Enforces the "only one verified candidate per developer" invariant. */
   getVerifiedForDeveloper(developerId: string): Promise<WebsiteCandidate | null>;
+  /**
+   * Cross-developer check: is there already a VERIFIED candidate at this
+   * canonical domain, regardless of which developer it belongs to? Used
+   * to prevent the same domain silently becoming the verified official
+   * site for two different Developer records.
+   */
+  findVerifiedByDomain(canonicalDomain: string): Promise<WebsiteCandidate | null>;
   update(id: string, patch: WebsiteCandidatePatch): Promise<WebsiteCandidate>;
 }
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
+import { buttonClassName } from "@/components/ui/button";
 
 export default async function AdminDeveloperDetailPage({
   params,
@@ -22,11 +23,18 @@ export default async function AdminDeveloperDetailPage({
         description={`${developer.legalName} · ${developer.city}, ${developer.state} · ${developer.status}`}
       />
 
-      <h2 className="text-base font-semibold text-foreground">Website candidates</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Every candidate ever submitted for this developer — rejected and superseded ones stay
-        here for the record, they&apos;re never deleted.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Website candidates</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Every candidate ever submitted for this developer — rejected and superseded ones stay
+            here for the record, they&apos;re never deleted.
+          </p>
+        </div>
+        <Link href={`/admin/developers/${developer.id}/candidates/new`} className={buttonClassName("primary")}>
+          Add website candidate
+        </Link>
+      </div>
 
       {candidates.length === 0 ? (
         <div className="mt-4">

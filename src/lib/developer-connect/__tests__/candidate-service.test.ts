@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { submitWebsiteCandidate } from "../candidate-service.ts";
+import { submitWebsiteCandidate, addEvidence } from "../candidate-service.ts";
 import { rejectCandidate } from "../verification-service.ts";
 import { DuplicateCandidateError, NotFoundError } from "../errors.ts";
 import { setUpTestDeveloper } from "./test-helpers.ts";
@@ -112,4 +112,37 @@ test("candidate-service: submitting for a nonexistent developer fails", async ()
       }),
     NotFoundError,
   );
+});
+
+test("candidate-service: attaching evidence to a nonexistent candidate fails (ownership validation)", async () => {
+  const { repos } = await setUpTestDeveloper();
+
+  await assert.rejects(
+    () =>
+      addEvidence(repos, "does-not-exist", [
+        { evidenceType: "MANUAL_CONFIRMATION", detail: "Confirmed by phone" },
+      ]),
+    NotFoundError,
+  );
+});
+
+test("candidate-service: evidence attaches to the correct candidate and recomputes its confidence score", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://example.com",
+    discoverySource: "MANUAL_SUBMISSION",
+    actor: founder,
+  });
+  assert.equal(candidate.confidenceScore, 0);
+
+  const added = await addEvidence(repos, candidate.id, [
+    { evidenceType: "MANUAL_CONFIRMATION", detail: "Confirmed by phone", sourceUrl: "https://mca.gov.in/example" },
+  ]);
+
+  assert.equal(added.length, 1);
+  assert.equal(added[0].websiteCandidateId, candidate.id);
+
+  const updated = await repos.candidates.getById(candidate.id);
+  assert.ok(updated && updated.confidenceScore > 0);
 });

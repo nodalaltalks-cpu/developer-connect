@@ -97,14 +97,50 @@ export interface AuditLogEntry {
   createdAt: Date;
 }
 
+export interface CompletionBucket {
+  /** e.g. "0–25%" */
+  label: string;
+  count: number;
+}
+
+export type DropOffLevel = "LOW" | "MEDIUM" | "HIGH" | "VERY_HIGH";
+
+export interface SectionDropOff {
+  sectionId: string;
+  title: string;
+  /** n of d profiles that have completed every field in this section. */
+  completionRate: RateMetric;
+  /** null when the sample size is below MIN_SAMPLE_FOR_COMPARISON — never fabricated. */
+  dropOff: DropOffLevel | null;
+}
+
+export interface EngagementByCompletion {
+  metric: "searches" | "developerPageViews" | "officialWebsiteClicks";
+  /** Average event count per user, for users with completion >= 50%. */
+  higherCompletionAverage: number | null;
+  /** Average event count per user, for users with completion < 50%. */
+  lowerCompletionAverage: number | null;
+  higherGroupSize: number;
+  lowerGroupSize: number;
+  /** true only when both groups reach MIN_SAMPLE_FOR_COMPARISON — an OBSERVATION requires this; below it, this is not evidence of anything. */
+  sufficientData: boolean;
+}
+
 export interface UserAndProfileIntelligence {
   distinctSessions: number;
   distinctAuthenticatedUsers: number;
   sessionsPerUser: number | null;
   profilesStarted: number;
+  /** Profiles created / updated within the last 7 days — the closest available proxy for "new"/"active" without a separate activity table. */
+  newProfilesLast7Days: number;
+  activeProfilesLast7Days: number;
   /** Always 0 while PROFILE_FIELD_CONFIG is empty — genuinely nothing to complete yet. */
   profileFieldsConfigured: number;
   averageCompletionPercent: number | null;
+  completionDistribution: CompletionBucket[];
+  sectionCompletion: SectionDropOff[];
+  /** Correlation only, never causation — see PART 13's OBSERVATION-vs-HYPOTHESIS rule. Empty when profileFieldsConfigured is 0. */
+  engagementByCompletion: EngagementByCompletion[];
 }
 
 export interface AiReadiness {

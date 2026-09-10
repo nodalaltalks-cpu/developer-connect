@@ -1,4 +1,8 @@
-import { getUserAndProfileIntelligence } from "@/lib/admin-analytics/queries";
+import {
+  getUserAndProfileIntelligence,
+  getUserBehaviorIntelligence,
+  getRetentionMetrics,
+} from "@/lib/admin-analytics/queries";
 import { formatRate } from "@/lib/admin-analytics/rate";
 import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { SectionHeading } from "@/components/admin/empty-state";
@@ -16,8 +20,20 @@ const METRIC_LABEL: Record<string, string> = {
   officialWebsiteClicks: "Official website clicks",
 };
 
+const SEGMENT_LABEL: Record<string, string> = {
+  NEW: "New",
+  RETURNING: "Returning",
+  HIGH_INTENT: "High intent",
+  RESEARCHING: "Researching",
+  ZERO_RESULT_ONLY: "Zero-result only",
+};
+
 export default async function AdminUsersPage() {
-  const intel = await getUserAndProfileIntelligence();
+  const [intel, behavior, retention] = await Promise.all([
+    getUserAndProfileIntelligence(),
+    getUserBehaviorIntelligence(),
+    getRetentionMetrics(),
+  ]);
 
   return (
     <div>
@@ -35,8 +51,76 @@ export default async function AdminUsersPage() {
             label="Sessions per user"
             value={intel.sessionsPerUser === null ? "—" : intel.sessionsPerUser}
           />
+          <StatTile
+            label="Avg. searches / session"
+            value={behavior.avgSearchesPerSession ?? "—"}
+          />
+          <StatTile
+            label="Avg. developer pages / session"
+            value={behavior.avgDeveloperPageViewsPerSession ?? "—"}
+          />
+          <StatTile
+            label="Avg. official-site clicks / session"
+            value={behavior.avgOfficialWebsiteClicksPerSession ?? "—"}
+          />
+          <StatTile label="Mobile share" value={formatRate(behavior.mobileShare)} />
         </StatGrid>
       </div>
+
+      <h2 className="mt-8 text-base font-semibold text-foreground">User segments</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Deterministic, rule-based tags — never an inferred classification. A session can match
+        more than one; these are independent signals, not a strict partition.
+      </p>
+      <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-muted-foreground">
+              <th className="px-4 py-2 font-medium">Segment</th>
+              <th className="px-4 py-2 font-medium">Sessions</th>
+              <th className="px-4 py-2 font-medium">Rule</th>
+            </tr>
+          </thead>
+          <tbody>
+            {behavior.segments.map((s) => (
+              <tr key={s.segment} className="border-b border-border last:border-b-0">
+                <td className="px-4 py-2 font-medium text-foreground">{SEGMENT_LABEL[s.segment]}</td>
+                <td className="px-4 py-2 text-foreground">{s.count}</td>
+                <td className="px-4 py-2 text-muted-foreground">{s.definition}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mt-8 text-base font-semibold text-foreground">Retention</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        &ldquo;Returned within N days&rdquo; — a session is only counted once its first-ever visit
+        is at least N days old, so there&apos;s been time to actually observe a return.
+      </p>
+      <div className="mt-3">
+        <StatGrid>
+          {retention.windows.map((w) => (
+            <StatTile
+              key={w.windowDays}
+              label={`D${w.windowDays} return rate`}
+              value={w.eligibleSessions > 0 ? formatRate(w.rate) : "Insufficient data"}
+              hint={w.eligibleSessions > 0 ? undefined : `only ${w.eligibleSessions} eligible sessions so far`}
+            />
+          ))}
+        </StatGrid>
+      </div>
+      <p className="mt-3 text-sm text-muted-foreground">
+        7-day return rate — reached an official-website click vs. didn&apos;t:{" "}
+        {retention.returnByOfficialWebsiteClick.sufficientData ? (
+          <>
+            {formatRate(retention.returnByOfficialWebsiteClick.clicked)} vs.{" "}
+            {formatRate(retention.returnByOfficialWebsiteClick.didNotClick)}
+          </>
+        ) : (
+          "Insufficient data"
+        )}
+      </p>
 
       <h2 className="mt-8 text-base font-semibold text-foreground">Profile completion</h2>
       <div className="mt-3">

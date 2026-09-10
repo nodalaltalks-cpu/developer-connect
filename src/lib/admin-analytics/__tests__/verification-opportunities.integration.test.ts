@@ -9,6 +9,11 @@ import { hasTestDatabase } from "../../developer-connect/db/test-db-guard.ts";
  * one piece of new logic in this round that most needs a real end-to-end
  * check, since it joins search events against the live directory.
  * Skipped unless TEST_DATABASE_URL is set.
+ *
+ * Relies on test FILES running sequentially (see `--test-concurrency=1`
+ * on the `test` npm script) — this is one of two tests that clear the
+ * whole analytics_events table (the other is
+ * behavior-intelligence.integration.test.ts); see that file for why.
  */
 test(
   "getHighPriorityVerificationOpportunities: correctly distinguishes NOT_INDEXED, INDEXED_UNVERIFIED, and INDEXED_VERIFIED",

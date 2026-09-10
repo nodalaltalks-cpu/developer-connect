@@ -34,12 +34,22 @@ export interface TopQuery {
   count: number;
 }
 
+export interface SearchBehaviorStats {
+  /** Sessions where the exact same (lowercased) query was searched more than once. */
+  repeatedSearchSessions: number;
+  /** Sessions that tried more than one distinct query — refining their search. */
+  refinedSearchSessions: number;
+  /** Denominator for both of the above: sessions with at least one search. */
+  searchingSessions: number;
+}
+
 export interface SearchIntelligence {
   totalSearches: number;
   uniqueQueries: number;
   topQueries: TopQuery[];
   /** Zero-result queries — literally "high demand, no verified website yet." */
   highDemandUnverified: TopQuery[];
+  searchBehavior: SearchBehaviorStats;
 }
 
 /**
@@ -141,6 +151,48 @@ export interface UserAndProfileIntelligence {
   sectionCompletion: SectionDropOff[];
   /** Correlation only, never causation — see PART 13's OBSERVATION-vs-HYPOTHESIS rule. Empty when profileFieldsConfigured is 0. */
   engagementByCompletion: EngagementByCompletion[];
+}
+
+/**
+ * Deterministic, rule-based session tags (Part 8) — never an inferred/AI
+ * classification. A session can match more than one of these; they are
+ * independent signals, not a strict partition. Each carries its own exact
+ * rule so the founder never has to trust an opaque label.
+ */
+export type UserSegment = "NEW" | "RETURNING" | "HIGH_INTENT" | "RESEARCHING" | "ZERO_RESULT_ONLY";
+
+export interface UserSegmentCount {
+  segment: UserSegment;
+  count: number;
+  /** The exact, human-readable rule used to classify a session into this segment. */
+  definition: string;
+}
+
+export interface UserBehaviorIntelligence {
+  distinctSessions: number;
+  avgSearchesPerSession: number | null;
+  avgDeveloperPageViewsPerSession: number | null;
+  avgOfficialWebsiteClicksPerSession: number | null;
+  mobileShare: RateMetric;
+  segments: UserSegmentCount[];
+}
+
+export interface RetentionWindow {
+  windowDays: 1 | 7 | 30;
+  /** Sessions first seen at least `windowDays` ago — old enough that a return could have been observed. */
+  eligibleSessions: number;
+  /** Of those, sessions with at least one later event within the window. */
+  rate: RateMetric;
+}
+
+export interface RetentionMetrics {
+  windows: RetentionWindow[];
+  /** 7-day return rate for sessions that DID vs did NOT reach an official-website click — the single behavioral comparison most tied to the North Star. */
+  returnByOfficialWebsiteClick: {
+    clicked: RateMetric;
+    didNotClick: RateMetric;
+    sufficientData: boolean;
+  };
 }
 
 export interface AiReadiness {

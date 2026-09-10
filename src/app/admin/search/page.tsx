@@ -26,6 +26,16 @@ export default async function AdminSearchIntelligencePage() {
       <StatGrid>
         <StatTile label="Total searches" value={intel.totalSearches} />
         <StatTile label="Unique queries" value={intel.uniqueQueries} />
+        <StatTile
+          label="Sessions that refined their search"
+          value={intel.searchBehavior.refinedSearchSessions}
+          hint={`of ${intel.searchBehavior.searchingSessions} searching sessions — tried more than one query`}
+        />
+        <StatTile
+          label="Sessions that repeated a search"
+          value={intel.searchBehavior.repeatedSearchSessions}
+          hint="searched the exact same term again"
+        />
       </StatGrid>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

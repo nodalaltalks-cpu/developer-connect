@@ -16,6 +16,7 @@ import { comparePeriods, MIN_SAMPLE_FOR_COMPARISON } from "./period-comparison.t
 import type {
   ExecutiveOverview,
   SearchIntelligence,
+  SearchBehaviorStats,
   DeveloperStat,
   VerificationOperations,
   DataQuality,
@@ -25,6 +26,11 @@ import type {
   EngagementByCompletion,
   VerificationOpportunity,
   ConversionStep,
+  UserSegment,
+  UserSegmentCount,
+  UserBehaviorIntelligence,
+  RetentionMetrics,
+  RetentionWindow,
 } from "./types.ts";
 
 /**
@@ -199,11 +205,53 @@ export async function getSearchIntelligence(): Promise<SearchIntelligence> {
     (await countRows(eq(analyticsEvents.eventName, "search_performed"))) +
     (await countRows(eq(analyticsEvents.eventName, "zero_result_search")));
 
+  const searchBehavior = await getSearchBehaviorStats(db);
+
   return {
     totalSearches,
     uniqueQueries: Number(uniqueRow?.n ?? 0),
     topQueries,
     highDemandUnverified,
+    searchBehavior,
+  };
+}
+
+/**
+ * Definition: per-session search patterns, never a per-query aggregate —
+ * "repeated" means the SAME session tried the same query again;
+ * "refined" means the same session tried more than one distinct query.
+ * Both are real signals of how people search, not just what they search
+ * for. Source: search_performed + zero_result_search, grouped by
+ * session_id. Window: all-time.
+ */
+async function getSearchBehaviorStats(db: ReturnType<typeof getDb>): Promise<SearchBehaviorStats> {
+  const result = await db.execute<{
+    searching_sessions: string;
+    repeated_search_sessions: string;
+    refined_search_sessions: string;
+  }>(sql`
+    with session_queries as (
+      select session_id, lower(payload->>'query') as query
+      from ${analyticsEvents}
+      where event_name in ('search_performed', 'zero_result_search')
+    ),
+    per_session as (
+      select session_id, count(*) as total, count(distinct query) as distinct_queries
+      from session_queries
+      group by session_id
+    )
+    select
+      count(*) as searching_sessions,
+      count(*) filter (where total > distinct_queries) as repeated_search_sessions,
+      count(*) filter (where distinct_queries > 1) as refined_search_sessions
+    from per_session
+  `);
+  const row = result.rows[0];
+
+  return {
+    searchingSessions: Number(row?.searching_sessions ?? 0),
+    repeatedSearchSessions: Number(row?.repeated_search_sessions ?? 0),
+    refinedSearchSessions: Number(row?.refined_search_sessions ?? 0),
   };
 }
 
@@ -644,3 +692,187 @@ export async function getUserAndProfileIntelligence(): Promise<UserAndProfileInt
 }
 
 type CompletionBucketAccumulator = Record<string, number>;
+
+/**
+ * Definition: deterministic, rule-based session tags (Part 8 of the Phase
+ * 3C brief) — never an inferred or AI-generated classification. A session
+ * can match more than one tag; these are independent signals read off the
+ * existing event stream, not a strict partition. Source: analytics_events,
+ * grouped by session_id (the same long-lived, 1-year session cookie used
+ * everywhere else — see session.ts). Window: all-time.
+ */
+export async function getUserBehaviorIntelligence(): Promise<UserBehaviorIntelligence> {
+  const db = getDb();
+
+  const [sessionsRow] = await db
+    .select({ n: sql<number>`count(distinct ${analyticsEvents.sessionId})` })
+    .from(analyticsEvents);
+  const distinctSessions = Number(sessionsRow?.n ?? 0);
+
+  const searchCount = await countRows(
+    sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`,
+  );
+  const pageViewCount = await countRows(eq(analyticsEvents.eventName, "developer_page_viewed"));
+  const clickCount = await countRows(eq(analyticsEvents.eventName, "official_website_clicked"));
+
+  const [mobileRow] = await db
+    .select({ n: count() })
+    .from(analyticsEvents)
+    .where(sql`${analyticsEvents.payload}->>'deviceType' = 'mobile'`);
+  const [deviceKnownRow] = await db
+    .select({ n: count() })
+    .from(analyticsEvents)
+    .where(
+      sql`${analyticsEvents.payload}->>'deviceType' is not null and ${analyticsEvents.payload}->>'deviceType' != 'unknown'`,
+    );
+
+  const segmentResult = await db.execute<{
+    new_sessions: string;
+    returning_sessions: string;
+    high_intent_sessions: string;
+    researching_sessions: string;
+    zero_result_only_sessions: string;
+  }>(sql`
+    with session_summary as (
+      select
+        session_id,
+        count(distinct occurred_at::date) as distinct_days,
+        bool_or(event_name = 'official_website_clicked') as has_click,
+        bool_or(event_name = 'developer_page_viewed') as has_page_view,
+        bool_or(event_name = 'search_performed') as has_successful_search,
+        bool_or(event_name = 'zero_result_search') as has_zero_result_search
+      from ${analyticsEvents}
+      group by session_id
+    )
+    select
+      count(*) filter (where distinct_days = 1) as new_sessions,
+      count(*) filter (where distinct_days > 1) as returning_sessions,
+      count(*) filter (where has_click) as high_intent_sessions,
+      count(*) filter (where has_page_view and not has_click) as researching_sessions,
+      count(*) filter (where has_zero_result_search and not has_successful_search) as zero_result_only_sessions
+    from session_summary
+  `);
+  const s = segmentResult.rows[0];
+
+  const segmentDefinitions: Record<UserSegment, string> = {
+    NEW: "All of this session's activity happened on a single calendar day.",
+    RETURNING: "This session has activity on more than one calendar day.",
+    HIGH_INTENT: "This session reached at least one official-website click.",
+    RESEARCHING: "This session viewed at least one developer page but hasn't clicked an official website yet.",
+    ZERO_RESULT_ONLY: "Every search this session made returned zero results — never a single successful search.",
+  };
+  const segmentCounts: Record<UserSegment, number> = {
+    NEW: Number(s?.new_sessions ?? 0),
+    RETURNING: Number(s?.returning_sessions ?? 0),
+    HIGH_INTENT: Number(s?.high_intent_sessions ?? 0),
+    RESEARCHING: Number(s?.researching_sessions ?? 0),
+    ZERO_RESULT_ONLY: Number(s?.zero_result_only_sessions ?? 0),
+  };
+  const segments: UserSegmentCount[] = (Object.keys(segmentDefinitions) as UserSegment[]).map((segment) => ({
+    segment,
+    count: segmentCounts[segment],
+    definition: segmentDefinitions[segment],
+  }));
+
+  return {
+    distinctSessions,
+    avgSearchesPerSession: distinctSessions > 0 ? Math.round((searchCount / distinctSessions) * 10) / 10 : null,
+    avgDeveloperPageViewsPerSession:
+      distinctSessions > 0 ? Math.round((pageViewCount / distinctSessions) * 10) / 10 : null,
+    avgOfficialWebsiteClicksPerSession:
+      distinctSessions > 0 ? Math.round((clickCount / distinctSessions) * 10) / 10 : null,
+    mobileShare: computeRate(mobileRow?.n ?? 0, deviceKnownRow?.n ?? 0),
+    segments,
+  };
+}
+
+/**
+ * Definition: "returned within N days" — simple, explainable retention,
+ * deliberately not a full day-exact cohort grid (Part 10 explicitly warns
+ * against building unnecessary cohort-analysis complexity). A session is
+ * "eligible" for a window once its first-ever event is at least that many
+ * days in the past — otherwise there hasn't been time to observe a
+ * return yet, and it's excluded rather than counted as churned.
+ * Source: analytics_events, grouped by session_id. Window: all-time
+ * (eligibility is what keeps this honest, not a date filter).
+ */
+export async function getRetentionMetrics(): Promise<RetentionMetrics> {
+  const db = getDb();
+
+  async function retentionWindow(windowDays: 1 | 7 | 30): Promise<RetentionWindow> {
+    const result = await db.execute<{ eligible: string; returned: string }>(sql`
+      with session_first as (
+        select session_id, min(occurred_at) as first_seen
+        from ${analyticsEvents}
+        group by session_id
+      )
+      select
+        count(*) filter (where first_seen <= now() - interval '${sql.raw(String(windowDays))} days') as eligible,
+        count(*) filter (
+          where first_seen <= now() - interval '${sql.raw(String(windowDays))} days'
+          and exists (
+            select 1 from ${analyticsEvents} ae
+            where ae.session_id = session_first.session_id
+              and ae.occurred_at > session_first.first_seen + interval '1 hour'
+              and ae.occurred_at <= session_first.first_seen + interval '${sql.raw(String(windowDays))} days'
+          )
+        ) as returned
+      from session_first
+    `);
+    const row = result.rows[0];
+    const eligible = Number(row?.eligible ?? 0);
+    const returned = Number(row?.returned ?? 0);
+    return { windowDays, eligibleSessions: eligible, rate: computeRate(returned, eligible) };
+  }
+
+  const [d1, d7, d30] = await Promise.all([retentionWindow(1), retentionWindow(7), retentionWindow(30)]);
+
+  const clickComparisonResult = await db.execute<{
+    clicked_eligible: string;
+    clicked_returned: string;
+    not_clicked_eligible: string;
+    not_clicked_returned: string;
+  }>(sql`
+    with session_first as (
+      select session_id, min(occurred_at) as first_seen
+      from ${analyticsEvents}
+      group by session_id
+    ),
+    session_click as (
+      select session_id, bool_or(event_name = 'official_website_clicked') as has_click
+      from ${analyticsEvents}
+      group by session_id
+    ),
+    joined as (
+      select sf.session_id, sf.first_seen, sc.has_click,
+        exists (
+          select 1 from ${analyticsEvents} ae
+          where ae.session_id = sf.session_id
+            and ae.occurred_at > sf.first_seen + interval '1 hour'
+            and ae.occurred_at <= sf.first_seen + interval '7 days'
+        ) as returned
+      from session_first sf
+      join session_click sc on sc.session_id = sf.session_id
+      where sf.first_seen <= now() - interval '7 days'
+    )
+    select
+      count(*) filter (where has_click) as clicked_eligible,
+      count(*) filter (where has_click and returned) as clicked_returned,
+      count(*) filter (where not has_click) as not_clicked_eligible,
+      count(*) filter (where not has_click and returned) as not_clicked_returned
+    from joined
+  `);
+  const c = clickComparisonResult.rows[0];
+  const clickedEligible = Number(c?.clicked_eligible ?? 0);
+  const notClickedEligible = Number(c?.not_clicked_eligible ?? 0);
+
+  return {
+    windows: [d1, d7, d30],
+    returnByOfficialWebsiteClick: {
+      clicked: computeRate(Number(c?.clicked_returned ?? 0), clickedEligible),
+      didNotClick: computeRate(Number(c?.not_clicked_returned ?? 0), notClickedEligible),
+      sufficientData:
+        clickedEligible >= MIN_SAMPLE_FOR_COMPARISON && notClickedEligible >= MIN_SAMPLE_FOR_COMPARISON,
+    },
+  };
+}

@@ -2,6 +2,8 @@ import {
   getSearchIntelligence,
   getExecutiveOverview,
   getHighPriorityVerificationOpportunities,
+  getUserBehaviorIntelligence,
+  getRetentionMetrics,
 } from "@/lib/admin-analytics/queries";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 import { formatRate, computeRate } from "@/lib/admin-analytics/rate";
@@ -15,10 +17,12 @@ import { formatRate, computeRate } from "@/lib/admin-analytics/rate";
  * carries its own counts rather than a bare, over-confident percentage.
  */
 export default async function AdminLearningPage() {
-  const [search, overview, opportunities] = await Promise.all([
+  const [search, overview, opportunities, behavior, retention] = await Promise.all([
     getSearchIntelligence(),
     getExecutiveOverview(),
     getHighPriorityVerificationOpportunities(),
+    getUserBehaviorIntelligence(),
+    getRetentionMetrics(),
   ]);
 
   const observations: string[] = [];
@@ -41,6 +45,23 @@ export default async function AdminLearningPage() {
     observations.push(
       `${unverifiedOpportunities.length} indexed developer${unverifiedOpportunities.length === 1 ? " has" : "s have"} real search demand and no verified website yet — see Search Intelligence for the list.`,
     );
+  }
+  const zeroResultOnly = behavior.segments.find((s) => s.segment === "ZERO_RESULT_ONLY");
+  if (zeroResultOnly && zeroResultOnly.count > 0 && behavior.distinctSessions > 0) {
+    const rate = computeRate(zeroResultOnly.count, behavior.distinctSessions);
+    observations.push(
+      `${formatRate(rate)} of all sessions searched at least once and never once got a successful result — see Users & Profiles for the segment breakdown.`,
+    );
+  }
+  const d7 = retention.windows.find((w) => w.windowDays === 7);
+  if (d7 && d7.eligibleSessions > 0) {
+    observations.push(
+      `${formatRate(d7.rate)} of sessions old enough to measure came back within 7 days of their first visit.`,
+    );
+  }
+  if (search.searchBehavior.searchingSessions > 0 && search.searchBehavior.refinedSearchSessions > 0) {
+    const refinedRate = computeRate(search.searchBehavior.refinedSearchSessions, search.searchBehavior.searchingSessions);
+    observations.push(`${formatRate(refinedRate)} of searching sessions tried more than one query — refining their search rather than finding what they wanted on the first try.`);
   }
 
   return (

@@ -98,3 +98,19 @@ export async function recordOfficialWebsiteClick(
     targetDomain,
   });
 }
+
+export async function recordDeveloperShare(
+  developerId: string,
+  method: "whatsapp" | "email" | "copy_link" | "native_share",
+): Promise<void> {
+  const sessionId = await getOrCreateSessionId();
+  const deviceType = await getDeviceType();
+  await safeRecordAnalyticsEvent(postgresAnalyticsSink, {
+    eventName: "developer_shared",
+    occurredAt: new Date(),
+    sessionId,
+    deviceType,
+    developerId,
+    method,
+  });
+}

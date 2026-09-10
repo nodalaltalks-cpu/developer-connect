@@ -31,6 +31,7 @@ import type {
   UserBehaviorIntelligence,
   RetentionMetrics,
   RetentionWindow,
+  UserActivityEvent,
 } from "./types.ts";
 
 /**
@@ -875,4 +876,69 @@ export async function getRetentionMetrics(): Promise<RetentionMetrics> {
         clickedEligible >= MIN_SAMPLE_FOR_COMPARISON && notClickedEligible >= MIN_SAMPLE_FOR_COMPARISON,
     },
   };
+}
+
+/**
+ * A real, chronological read of this one user's own analytics_events rows
+ * — nothing invented, nothing aggregated away. Used only by the
+ * founder-only individual user admin page (Part 25). Joins developers
+ * only to turn a developerId into a human-readable name; never exposes
+ * internal verification fields.
+ */
+export async function getUserActivityTimeline(
+  userId: string,
+  limit = 50,
+): Promise<UserActivityEvent[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      eventName: analyticsEvents.eventName,
+      occurredAt: analyticsEvents.occurredAt,
+      payload: analyticsEvents.payload,
+      developerName: developers.displayName,
+    })
+    .from(analyticsEvents)
+    .leftJoin(developers, eq(developers.id, analyticsEvents.developerId))
+    .where(eq(analyticsEvents.userId, userId))
+    .orderBy(desc(analyticsEvents.occurredAt))
+    .limit(limit);
+
+  return rows.map((row) => ({
+    eventName: row.eventName,
+    occurredAt: row.occurredAt,
+    detail: describeActivity(row.eventName, row.payload as Record<string, unknown>, row.developerName),
+  }));
+}
+
+function describeActivity(
+  eventName: string,
+  payload: Record<string, unknown>,
+  developerName: string | null,
+): string | null {
+  switch (eventName) {
+    case "search_performed":
+      return typeof payload.query === "string" ? `Searched "${payload.query}"` : null;
+    case "zero_result_search":
+      return typeof payload.query === "string" ? `No results for "${payload.query}"` : null;
+    case "search_result_clicked":
+      return developerName ? `Opened ${developerName} from search results` : null;
+    case "developer_page_viewed":
+      return developerName ? `Viewed ${developerName}'s page` : null;
+    case "official_website_clicked":
+      return developerName
+        ? `Visited ${developerName}'s official website`
+        : typeof payload.targetDomain === "string"
+          ? `Visited ${payload.targetDomain}`
+          : null;
+    case "profile_started":
+      return "Started their profile";
+    case "profile_field_completed":
+      return typeof payload.fieldKey === "string" ? `Added a value for "${payload.fieldKey}"` : null;
+    case "profile_updated":
+      return "Updated their profile";
+    case "profile_completion_reached":
+      return typeof payload.percentage === "number" ? `Profile reached ${payload.percentage}%` : null;
+    default:
+      return null;
+  }
 }

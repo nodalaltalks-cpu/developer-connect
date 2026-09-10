@@ -416,6 +416,40 @@ test(
 );
 
 test(
+  "postgres: the analytics sink records a real developer_shared event with its method",
+  { skip: !hasDatabase },
+  async () => {
+    const { getDb } = await import("../client.ts");
+    const { analyticsEvents } = await import("../schema.ts");
+    const { postgresAnalyticsSink } = await import("../postgres-analytics-sink.ts");
+    const { eq } = await import("drizzle-orm");
+
+    const db = getDb();
+    const developerId = randomUUID();
+    const sessionId = `test-session-${randomUUID()}`;
+
+    await postgresAnalyticsSink.record({
+      eventName: "developer_shared",
+      occurredAt: new Date(),
+      sessionId,
+      deviceType: "mobile",
+      developerId,
+      method: "whatsapp",
+    });
+
+    const rows = await db
+      .select()
+      .from(analyticsEvents)
+      .where(eq(analyticsEvents.sessionId, sessionId));
+
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].eventName, "developer_shared");
+    assert.equal(rows[0].developerId, developerId);
+    assert.deepEqual(rows[0].payload, { method: "whatsapp", deviceType: "mobile" });
+  },
+);
+
+test(
   "postgres: getById returns null (not a thrown error) for a malformed, non-UUID id",
   { skip: !hasDatabase },
   async () => {

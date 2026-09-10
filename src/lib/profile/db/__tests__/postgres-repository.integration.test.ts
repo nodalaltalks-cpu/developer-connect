@@ -41,3 +41,27 @@ test(
     assert.deepEqual(created.data, { fieldA: "value" });
   },
 );
+
+test(
+  "postgres profiles: getManyByUserIds batches a lookup, skipping ids with no profile row and an empty list",
+  { skip: !hasTestDatabase },
+  async () => {
+    const { createPostgresProfileRepository } = await import("../postgres-repository.ts");
+    const repo = createPostgresProfileRepository();
+    const userA = `test-user-${randomUUID()}`;
+    const userB = `test-user-${randomUUID()}`;
+    const userWithNoProfile = `test-user-${randomUUID()}`;
+
+    await repo.updateFields(userA, { fieldA: "a" });
+    await repo.updateFields(userB, { fieldA: "b" });
+
+    const results = await repo.getManyByUserIds([userA, userB, userWithNoProfile]);
+    assert.equal(results.length, 2);
+    assert.deepEqual(
+      results.map((p) => p.userId).sort(),
+      [userA, userB].sort(),
+    );
+
+    assert.deepEqual(await repo.getManyByUserIds([]), []);
+  },
+);

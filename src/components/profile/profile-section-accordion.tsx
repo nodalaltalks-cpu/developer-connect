@@ -11,7 +11,7 @@ function StatusBadge({ status }: { status: ProfileSectionCompletion | undefined 
   if (status.completedFields === 0) {
     return (
       <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Not completed
+        Not started yet
       </span>
     );
   }
@@ -69,6 +69,9 @@ export function ProfileSectionAccordion({
 
       {isOpen && (
         <div className="space-y-5 border-t border-border px-4 py-5">
+          {section.whyItMatters && (
+            <p className="text-sm text-muted-foreground">{section.whyItMatters}</p>
+          )}
           {section.helperText && <p className="text-sm text-muted-foreground">{section.helperText}</p>}
           {privacyNote && (
             <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{privacyNote}</p>

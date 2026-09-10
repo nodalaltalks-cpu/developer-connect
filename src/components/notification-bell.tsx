@@ -36,6 +36,8 @@ export function NotificationBell() {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
+  const toggleButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const refreshUnreadCount = useCallback(() => {
     getUnreadNotificationCountAction()
@@ -56,8 +58,18 @@ export function NotificationBell() {
         setOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        toggleButtonRef.current?.focus();
+      }
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open]);
 
   function handleToggle() {
@@ -69,6 +81,7 @@ export function NotificationBell() {
         setNotifications(result.notifications);
         setUnreadCount(result.unreadCount);
       });
+      requestAnimationFrame(() => panelRef.current?.focus());
     }
   }
 
@@ -99,9 +112,16 @@ export function NotificationBell() {
 
   return (
     <div className="relative" ref={containerRef}>
+      <span className="sr-only" role="status" aria-live="polite">
+        {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}` : ""}
+      </span>
+
       <button
+        ref={toggleButtonRef}
         type="button"
         onClick={handleToggle}
+        aria-haspopup="true"
+        aria-expanded={open}
         aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
         className="relative flex h-11 w-11 items-center justify-center rounded-md text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
@@ -126,7 +146,13 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-background shadow-lg">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label="Notifications"
+          tabIndex={-1}
+          className="absolute right-0 top-12 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-background shadow-lg focus:outline-none"
+        >
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <p className="text-sm font-semibold text-foreground">Notifications</p>
             {unreadCount > 0 && (

@@ -1,11 +1,17 @@
+import Link from "next/link";
 import {
   getUserAndProfileIntelligence,
   getUserBehaviorIntelligence,
   getRetentionMetrics,
 } from "@/lib/admin-analytics/queries";
 import { formatRate } from "@/lib/admin-analytics/rate";
+import { listClerkUsers } from "@/lib/admin-analytics/clerk-users";
+import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
+import { calculateProfileCompletion } from "@/lib/profile/completion";
 import { StatGrid, StatTile } from "@/components/admin/stat-tile";
-import { SectionHeading } from "@/components/admin/empty-state";
+import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
+
+const PAGE_SIZE = 20;
 
 const DROP_OFF_LABEL: Record<string, string> = {
   LOW: "Low",
@@ -28,21 +34,86 @@ const SEGMENT_LABEL: Record<string, string> = {
   ZERO_RESULT_ONLY: "Zero-result only",
 };
 
-export default async function AdminUsersPage() {
-  const [intel, behavior, retention] = await Promise.all([
+export default async function AdminUsersPage({
+  searchParams,
+}: PageProps<"/admin/users">) {
+  const resolvedSearchParams = await searchParams;
+  const page = Math.max(1, Number(resolvedSearchParams.page) || 1);
+
+  const [intel, behavior, retention, people] = await Promise.all([
     getUserAndProfileIntelligence(),
     getUserBehaviorIntelligence(),
     getRetentionMetrics(),
+    listClerkUsers({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
   ]);
+
+  const profileRepo = createPostgresProfileRepository();
+  const profiles = await profileRepo.getManyByUserIds(people.users.map((u) => u.id));
+  const profileByUserId = new Map(profiles.map((p) => [p.userId, p]));
+
+  const totalPages = Math.max(1, Math.ceil(people.totalCount / PAGE_SIZE));
 
   return (
     <div>
       <SectionHeading
         title="Users & Profiles"
-        description="Aggregate behaviour only — never individual profile answers."
+        description="Individual users below; aggregate behaviour further down."
       />
 
-      <h2 className="text-base font-semibold text-foreground">Sessions & accounts</h2>
+      <h2 className="text-base font-semibold text-foreground">People</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Every signed-up user, newest first. Completion uses the exact same calculation the user
+        sees on their own profile page.
+      </p>
+      {people.users.length === 0 ? (
+        <div className="mt-3">
+          <EmptyState title="No users yet" description="Nobody has signed up yet." />
+        </div>
+      ) : (
+        <ul className="mt-3 divide-y divide-border rounded-lg border border-border">
+          {people.users.map((user) => {
+            const profile = profileByUserId.get(user.id);
+            const completion = calculateProfileCompletion(profile?.data ?? {});
+            return (
+              <li key={user.id}>
+                <Link
+                  href={`/admin/users/${user.id}`}
+                  className="flex min-h-11 items-center justify-between gap-4 px-4 py-3 hover:bg-muted"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{user.displayName}</p>
+                    {user.primaryEmail && (
+                      <p className="text-xs text-muted-foreground">{user.primaryEmail}</p>
+                    )}
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {completion.percentage === null ? "—" : `${completion.percentage}% complete`}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {totalPages > 1 && (
+        <div className="mt-3 flex items-center gap-4 text-sm">
+          {page > 1 && (
+            <Link href={`/admin/users?page=${page - 1}`} className="text-accent-hover hover:underline">
+              ← Newer
+            </Link>
+          )}
+          <span className="text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages && (
+            <Link href={`/admin/users?page=${page + 1}`} className="text-accent-hover hover:underline">
+              Older →
+            </Link>
+          )}
+        </div>
+      )}
+
+      <h2 className="mt-10 text-base font-semibold text-foreground">Sessions & accounts</h2>
       <div className="mt-3">
         <StatGrid>
           <StatTile label="Distinct sessions" value={intel.distinctSessions} />

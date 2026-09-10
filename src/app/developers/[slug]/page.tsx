@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { VisitOfficialWebsiteButton } from "@/components/visit-official-website-button";
 import { DeveloperPageViewTracker } from "@/components/developer-page-view-tracker";
+import { ShareDeveloper } from "@/components/share-developer";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicDeveloperBySlug } from "@/lib/developer-connect/search-service";
 
@@ -107,6 +108,10 @@ export default async function DeveloperPage({
                 </p>
               </div>
             )}
+
+            <div className="mt-6">
+              <ShareDeveloper developerId={developer.id} developerName={developer.displayName} />
+            </div>
 
             {developer.legalName !== developer.displayName && (
               <p className="mt-6 text-xs text-muted-foreground">

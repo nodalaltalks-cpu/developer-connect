@@ -33,30 +33,51 @@ import type { ProfileFieldConfig, ProfileSection } from "./types.ts";
  */
 
 export const PROFILE_SECTIONS: ProfileSection[] = [
-  { id: "personal-details", title: "Personal Details" },
+  {
+    id: "personal-details",
+    title: "Personal Details",
+    whyItMatters: "Helps us recognize you and keep your profile accurate.",
+  },
   {
     id: "budget",
     title: "Budget",
     helperText: 'Type an amount (e.g. "1.2 Cr" or "75 Lakh") or drag the range.',
+    whyItMatters: "Helps us understand the kind of properties you're considering.",
   },
   {
     id: "property-type",
     title: "Property Type & Configuration",
     helperText: "Select any that apply.",
+    whyItMatters: "Helps us understand what you're actually looking for.",
   },
   {
     id: "property-status",
     title: "Property Status",
     helperText: "What construction stage are you open to? Select any that apply.",
+    whyItMatters: "Helps us understand your timeline.",
   },
-  { id: "purpose", title: "What are you looking for?", helperText: "Select any that apply." },
-  { id: "preferred-locations", title: "Preferred Locations" },
+  {
+    id: "purpose",
+    title: "What are you looking for?",
+    helperText: "Select any that apply.",
+    whyItMatters: "Helps us tailor your experience.",
+  },
+  {
+    id: "preferred-locations",
+    title: "Preferred Locations",
+    whyItMatters: "Helps us make your research more relevant.",
+  },
   {
     id: "family-household",
     title: "Family / Household",
     helperText: "Optional and private — never shown publicly. Helps us understand space and budget needs.",
+    whyItMatters: "Helps us understand space and budget needs.",
   },
-  { id: "notification-settings", title: "Notification Settings" },
+  {
+    id: "notification-settings",
+    title: "Notification Settings",
+    whyItMatters: "Your choice — you can turn these on or off any time.",
+  },
 ];
 
 const PREFERRED_LOCALITIES = [

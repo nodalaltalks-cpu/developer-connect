@@ -65,6 +65,7 @@ export const analyticsEventNameEnum = pgEnum("analytics_event_name", [
   "profile_field_completed",
   "profile_updated",
   "profile_completion_reached",
+  "developer_shared",
 ]);
 
 export const developers = pgTable(

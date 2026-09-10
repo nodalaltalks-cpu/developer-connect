@@ -1,0 +1,1 @@
+ALTER TYPE "public"."analytics_event_name" ADD VALUE 'developer_shared';

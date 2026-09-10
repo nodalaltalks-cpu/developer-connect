@@ -17,7 +17,7 @@ export function StickySaveBar({ state, onSave }: { state: SaveState; onSave: () 
         ? "Saved"
         : state === "error"
           ? "Try again"
-          : "Save preference";
+          : "Save details";
 
   const disabled = state === "idle" || state === "saving" || state === "saved";
 

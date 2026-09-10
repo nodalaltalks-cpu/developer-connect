@@ -16,11 +16,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: PageProps<"/profile">) {
   // proxy.ts already redirects signed-out visitors before this renders;
   // requireUserId is the defense-in-depth backstop.
   const userId = await requireUserId();
   const user = await currentUser();
+  const resolvedSearchParams = await searchParams;
+  const requestedSection =
+    typeof resolvedSearchParams.section === "string" ? resolvedSearchParams.section : undefined;
 
   const repo = createPostgresProfileRepository();
   const sessionId = await getOrCreateSessionId();
@@ -31,6 +36,8 @@ export default async function ProfilePage() {
     sessionId,
     deviceType,
   });
+
+  const firstName = user?.firstName?.trim();
 
   return (
     <div className="flex flex-1 flex-col">
@@ -52,20 +59,18 @@ export default async function ProfilePage() {
               )}
               <div>
                 <h1 className="text-2xl font-semibold text-foreground">
-                  {user?.fullName || "Your profile"}
+                  Your Developer Connect profile
                 </h1>
-                {user?.primaryEmailAddress && (
-                  <p className="text-sm text-muted-foreground">
-                    {user.primaryEmailAddress.emailAddress}
-                  </p>
-                )}
+                <p className="text-sm text-muted-foreground">
+                  {firstName ? `Good to have you here, ${firstName}.` : user?.fullName}
+                </p>
               </div>
             </div>
 
-            <p className="mb-6 mt-4 text-xs text-muted-foreground">
-              Your profile is private. It&apos;s never shown to other visitors and never appears
-              on any developer page. Nothing here is ever required to keep using Developer
-              Connect.
+            <p className="mb-6 mt-4 text-sm text-muted-foreground">
+              Tell us a little about what you&apos;re looking for. The more you share, the more
+              useful your experience can become — nothing here is ever required to keep using
+              Developer Connect, and it&apos;s never shown to anyone else.
             </p>
 
             {PROFILE_FIELD_CONFIG.length === 0 ? (
@@ -76,7 +81,11 @@ export default async function ProfilePage() {
                 </p>
               </div>
             ) : (
-              <ProfileEditor initialData={profile.data} initialCompletion={completion} />
+              <ProfileEditor
+                initialData={profile.data}
+                initialCompletion={completion}
+                requestedSectionId={requestedSection}
+              />
             )}
           </div>
         </Container>

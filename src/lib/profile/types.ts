@@ -45,6 +45,14 @@ export interface ProfileSection {
   id: string;
   title: string;
   helperText?: string;
+  /**
+   * One honest sentence on why this section is useful to the user
+   * themselves — never a promise the product doesn't keep (e.g. never
+   * "better recommendations" unless a recommendation engine exists).
+   * Shown on the profile page next to the section; this is the single
+   * source of truth for that copy, same as everything else here.
+   */
+  whyItMatters?: string;
 }
 
 export type CompletionBand =

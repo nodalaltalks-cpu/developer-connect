@@ -2,6 +2,8 @@ import type { Profile } from "./types.ts";
 
 export interface ProfileRepository {
   getByUserId(userId: string): Promise<Profile | null>;
+  /** Batch lookup for admin views that need several users' profiles at once — avoids one query per user. Missing ids are simply absent from the result, never an error. */
+  getManyByUserIds(userIds: string[]): Promise<Profile[]>;
   /** Creates an empty profile shell if one doesn't exist yet; otherwise returns the existing one untouched. */
   createIfMissing(userId: string): Promise<Profile>;
   /**

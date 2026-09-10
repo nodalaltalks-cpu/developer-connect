@@ -195,6 +195,14 @@ export interface RetentionMetrics {
   };
 }
 
+/** One real, already-recorded analytics event, reshaped for a human-readable admin timeline. Never fabricated — a 1:1 read of analytics_events. */
+export interface UserActivityEvent {
+  eventName: string;
+  occurredAt: Date;
+  /** Human-readable summary of the event's own payload (query text, developer name, field key, etc.) — null when the event type has nothing extra to show. */
+  detail: string | null;
+}
+
 export interface AiReadiness {
   labeledVerificationDecisions: number;
   totalSearchEvents: number;

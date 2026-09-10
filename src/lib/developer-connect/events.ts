@@ -13,7 +13,8 @@ export type AnalyticsEventName =
   | "profile_started"
   | "profile_field_completed"
   | "profile_updated"
-  | "profile_completion_reached";
+  | "profile_completion_reached"
+  | "developer_shared";
 
 export type DeviceType = "mobile" | "desktop" | "unknown";
 
@@ -85,6 +86,16 @@ export interface ProfileCompletionReachedEvent extends AnalyticsEventBase {
   percentage: number;
 }
 
+/** Which sharing method the user chose — for understanding which channels people actually use, never for anything else. */
+export type ShareMethod = "whatsapp" | "email" | "copy_link" | "native_share";
+
+/** Fires when a user shares a developer's public page via any of the share options. Never fires just from viewing the page. */
+export interface DeveloperSharedEvent extends AnalyticsEventBase {
+  eventName: "developer_shared";
+  developerId: string;
+  method: ShareMethod;
+}
+
 export type AnalyticsEvent =
   | SearchPerformedEvent
   | ZeroResultSearchEvent
@@ -94,7 +105,8 @@ export type AnalyticsEvent =
   | ProfileStartedEvent
   | ProfileFieldCompletedEvent
   | ProfileUpdatedEvent
-  | ProfileCompletionReachedEvent;
+  | ProfileCompletionReachedEvent
+  | DeveloperSharedEvent;
 
 /** Swappable sink so a real collector can be dropped in later without touching call sites. */
 export interface AnalyticsEventSink {

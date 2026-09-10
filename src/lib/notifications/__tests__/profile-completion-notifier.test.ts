@@ -30,7 +30,7 @@ test("profile-completion-notifier: does not notify at 100% complete — nothing 
   assert.equal(await repo.countUnreadForUser("user-1"), 0);
 });
 
-test("profile-completion-notifier: notifies once meaningfully in progress, naming the next incomplete section", async () => {
+test("profile-completion-notifier: notifies once meaningfully in progress, naming the next incomplete section and deep-linking to it", async () => {
   const repo = createInMemoryNotificationRepository();
   // Leave every "preferred-locations" field (there's exactly one) missing;
   // everything else filled — comfortably above 50%.
@@ -43,7 +43,22 @@ test("profile-completion-notifier: notifies once meaningfully in progress, namin
   const list = await repo.listForUser("user-1");
   assert.equal(list.length, 1);
   assert.ok(list[0].body.includes("Preferred Locations"));
-  assert.equal(list[0].targetRoute, "/profile");
+  // Exactly one field is missing — the "one step away" special case.
+  assert.ok(list[0].body.includes("one step away"));
+  assert.equal(list[0].targetRoute, "/profile?section=preferred-locations");
+});
+
+test("profile-completion-notifier: names the count, not 'one step away', when more than one field remains", async () => {
+  const repo = createInMemoryNotificationRepository();
+  const data = dataMissingOnly(["preferredLocations", "budgetRange"]);
+  const completion = calculateProfileCompletion(data);
+  assert.ok((completion.percentage ?? 0) >= 50);
+
+  await maybeNotifyProfileCompletion(repo, "user-1", completion, data);
+
+  const [notification] = await repo.listForUser("user-1");
+  assert.ok(!notification.body.includes("one step away"));
+  assert.ok(notification.body.includes(`${completion.percentage}%`));
 });
 
 test("profile-completion-notifier: never creates a second notification while one is still unread (anti-spam)", async () => {

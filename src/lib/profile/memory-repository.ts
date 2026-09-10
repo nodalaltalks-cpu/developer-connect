@@ -9,6 +9,9 @@ export function createInMemoryProfileRepository(): ProfileRepository {
     async getByUserId(userId) {
       return profiles.get(userId) ?? null;
     },
+    async getManyByUserIds(userIds) {
+      return userIds.map((id) => profiles.get(id)).filter((p): p is Profile => p !== undefined);
+    },
     async createIfMissing(userId) {
       const existing = profiles.get(userId);
       if (existing) return existing;

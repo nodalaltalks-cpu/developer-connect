@@ -30,22 +30,32 @@ export async function maybeNotifyProfileCompletion(
   const alreadyPending = await repo.hasUnreadOfType(userId, "PROFILE_COMPLETION");
   if (alreadyPending) return;
 
-  const nextSection = firstIncompleteSectionTitle(completion);
+  const nextSection = firstIncompleteSection(completion);
   if (!nextSection) return;
+
+  const remaining = completion.missingFieldKeys.length;
 
   await repo.create({
     userId,
     type: "PROFILE_COMPLETION",
-    title: `Your profile is ${completion.percentage}% complete`,
-    body: `Add ${nextSection} to make your research more relevant.`,
-    targetRoute: "/profile",
+    title: "Make your profile more useful",
+    body:
+      remaining === 1
+        ? `You're one step away — add ${nextSection.title} to finish up.`
+        : `You're ${completion.percentage}% done. Add ${nextSection.title} to tell us more about what you're looking for.`,
+    // Deep-links straight to the specific incomplete section, not just the
+    // page — the profile page reads this ?section param and opens/scrolls
+    // to it (see profile-editor.tsx).
+    targetRoute: `/profile?section=${nextSection.id}`,
   });
 }
 
-function firstIncompleteSectionTitle(completion: ProfileCompletion): string | null {
+function firstIncompleteSection(
+  completion: ProfileCompletion,
+): { id: string; title: string } | null {
   const incomplete = PROFILE_SECTIONS.find((section) => {
     const status = completion.sections.find((s) => s.sectionId === section.id);
     return status && !status.complete;
   });
-  return incomplete?.title ?? null;
+  return incomplete ? { id: incomplete.id, title: incomplete.title } : null;
 }

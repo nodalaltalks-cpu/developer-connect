@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "../../developer-connect/db/client.ts";
 import { profiles } from "../../developer-connect/db/schema.ts";
 import type { Profile } from "../types.ts";
@@ -26,6 +26,11 @@ export function createPostgresProfileRepository(): ProfileRepository {
     async getByUserId(userId) {
       const [row] = await db.select().from(profiles).where(eq(profiles.userId, userId));
       return row ? toProfile(row) : null;
+    },
+    async getManyByUserIds(userIds) {
+      if (userIds.length === 0) return [];
+      const rows = await db.select().from(profiles).where(inArray(profiles.userId, userIds));
+      return rows.map(toProfile);
     },
     async createIfMissing(userId) {
       const [inserted] = await db

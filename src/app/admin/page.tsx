@@ -3,6 +3,7 @@ import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { NorthStarMetric } from "@/components/admin/north-star-metric";
 import { RateDisplay } from "@/components/admin/rate-display";
+import { PlatformHealthSummaryCard } from "@/components/admin/platform-health-summary-card";
 
 export default async function AdminOverviewPage() {
   const overview = await getExecutiveOverview();
@@ -13,6 +14,10 @@ export default async function AdminOverviewPage() {
         title="Overview"
         description="Real counts from the database — nothing here is estimated or fabricated."
       />
+
+      <div className="mb-6">
+        <PlatformHealthSummaryCard />
+      </div>
 
       <NorthStarMetric
         officialWebsiteClicks={overview.officialWebsiteClicks}

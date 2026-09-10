@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+.env*
+
+# local Claude Code tooling (skill cache, task locks) — not application code
+.agents
+.claude

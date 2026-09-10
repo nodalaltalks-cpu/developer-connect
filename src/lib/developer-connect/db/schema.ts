@@ -1,0 +1,211 @@
+import { sql } from "drizzle-orm";
+import {
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  real,
+  uuid,
+  uniqueIndex,
+  index,
+  jsonb,
+} from "drizzle-orm/pg-core";
+
+/**
+ * Drizzle schema for Developer Connect's developer directory and
+ * official-website verification pipeline. This mirrors the domain types
+ * in `../types.ts`, but is the one place database-specific integrity
+ * rules live — constraints here hold even if application code has a bug,
+ * per the Phase 2B.1 requirement not to rely on TypeScript alone for
+ * critical invariants.
+ */
+
+export const developerStatusEnum = pgEnum("developer_status", ["ACTIVE", "INACTIVE"]);
+
+export const verificationStatusEnum = pgEnum("verification_status", [
+  "DISCOVERED",
+  "PENDING_VERIFICATION",
+  "VERIFIED",
+  "REJECTED",
+  "NEEDS_REVERIFICATION",
+  "INACTIVE",
+]);
+
+export const discoverySourceEnum = pgEnum("discovery_source", [
+  "MANUAL_SUBMISSION",
+  "SEARCH_ENGINE",
+  "REGULATORY_FILING",
+  "AGENT_CRAWL",
+  "OTHER",
+]);
+
+export const evidenceTypeEnum = pgEnum("evidence_type", [
+  "BRANDING_MATCH",
+  "CORPORATE_IDENTITY_MATCH",
+  "LEGAL_NAME_MATCH",
+  "OFFICIAL_SOCIAL_BACKLINK",
+  "REGULATORY_FILING_REFERENCE",
+  "DOMAIN_OWNERSHIP_SIGNAL",
+  "SSL_DOMAIN_CONSISTENCY",
+  "OFFICIAL_CONTACT_INFO",
+  "MANUAL_CONFIRMATION",
+  "OTHER",
+]);
+
+export const actorTypeEnum = pgEnum("actor_type", ["FOUNDER", "SYSTEM", "AGENT"]);
+
+export const analyticsEventNameEnum = pgEnum("analytics_event_name", [
+  "search_performed",
+  "zero_result_search",
+  "search_result_clicked",
+  "developer_page_viewed",
+  "official_website_clicked",
+  "profile_started",
+  "profile_field_completed",
+  "profile_updated",
+  "profile_completion_reached",
+]);
+
+export const developers = pgTable(
+  "developers",
+  {
+    id: uuid("id").primaryKey(),
+    legalName: text("legal_name").notNull(),
+    displayName: text("display_name").notNull(),
+    slug: text("slug").notNull(),
+    // Geography is data, not schema: Mumbai is a row value, never a column assumption.
+    city: text("city").notNull(),
+    state: text("state").notNull(),
+    country: text("country").notNull(),
+    headquartersLocation: text("headquarters_location"),
+    status: developerStatusEnum("status").notNull().default("ACTIVE"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("developers_slug_key").on(table.slug),
+    index("developers_city_idx").on(table.city),
+  ],
+);
+
+export const websiteCandidates = pgTable(
+  "website_candidates",
+  {
+    id: uuid("id").primaryKey(),
+    developerId: uuid("developer_id")
+      .notNull()
+      .references(() => developers.id, { onDelete: "restrict" }),
+    // Original submitted/discovered URL, kept intact (path and query preserved).
+    url: text("url").notNull(),
+    canonicalDomain: text("canonical_domain").notNull(),
+    discoverySource: discoverySourceEnum("discovery_source").notNull(),
+    verificationStatus: verificationStatusEnum("verification_status").notNull().default("DISCOVERED"),
+    // A triage signal only — the schema does not let this field drive VERIFIED; only reviewedBy/reviewedAt do.
+    confidenceScore: real("confidence_score").notNull().default(0),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("website_candidates_developer_idx").on(table.developerId),
+    index("website_candidates_domain_idx").on(table.developerId, table.canonicalDomain),
+    // The critical, database-enforced invariant: at most one VERIFIED candidate per developer.
+    // A TypeScript bug in verification-service.ts cannot violate this — the database rejects it.
+    uniqueIndex("website_candidates_one_verified_per_developer")
+      .on(table.developerId)
+      .where(sql`${table.verificationStatus} = 'VERIFIED'`),
+  ],
+);
+
+export const evidence = pgTable(
+  "evidence",
+  {
+    id: uuid("id").primaryKey(),
+    websiteCandidateId: uuid("website_candidate_id")
+      .notNull()
+      .references(() => websiteCandidates.id, { onDelete: "restrict" }),
+    evidenceType: evidenceTypeEnum("evidence_type").notNull(),
+    detail: text("detail").notNull(),
+    sourceUrl: text("source_url"),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("evidence_candidate_idx").on(table.websiteCandidateId)],
+);
+
+/**
+ * Append-only by construction: no repository method updates or deletes a
+ * row here, and a database trigger (see migrations) additionally rejects
+ * any UPDATE/DELETE at the SQL level regardless of caller.
+ */
+export const verificationEvents = pgTable(
+  "verification_events",
+  {
+    id: uuid("id").primaryKey(),
+    websiteCandidateId: uuid("website_candidate_id")
+      .notNull()
+      .references(() => websiteCandidates.id, { onDelete: "restrict" }),
+    previousStatus: verificationStatusEnum("previous_status"),
+    newStatus: verificationStatusEnum("new_status").notNull(),
+    reason: text("reason").notNull(),
+    actorType: actorTypeEnum("actor_type").notNull(),
+    actorId: text("actor_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("verification_events_candidate_idx").on(table.websiteCandidateId)],
+);
+
+/**
+ * Real product-analytics events (Phase 2A's event taxonomy), not a
+ * dashboard and not fabricated data. Analytics writes are best-effort —
+ * see events.ts's `safeRecordAnalyticsEvent` — so a failure here must
+ * never be able to break the primary user action.
+ */
+export const analyticsEvents = pgTable(
+  "analytics_events",
+  {
+    id: uuid("id").primaryKey(),
+    eventName: analyticsEventNameEnum("event_name").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    sessionId: text("session_id").notNull(),
+    anonymousUserId: text("anonymous_user_id"),
+    // The authenticated user (Clerk user id) at the moment this event was
+    // recorded, when the request happened to be signed in. Never
+    // retroactively backfilled onto earlier anonymous events — see
+    // profile-service.ts / auth.ts for how this is populated.
+    userId: text("user_id"),
+    // Deliberately no foreign key: analytics must never be blocked by, or
+    // block, changes to developer data.
+    developerId: uuid("developer_id"),
+    // Event-specific fields (query, resultCount, position, targetDomain,
+    // referrerQuery, deviceType) — see AnalyticsEvent in events.ts.
+    payload: jsonb("payload").notNull().default({}),
+  },
+  (table) => [
+    index("analytics_events_name_time_idx").on(table.eventName, table.occurredAt),
+    index("analytics_events_developer_idx").on(table.developerId),
+    index("analytics_events_user_idx").on(table.userId),
+  ],
+);
+
+/**
+ * A user's profile shell. Deliberately field-agnostic: `data` holds
+ * whatever profile fields the product has actually defined via
+ * `PROFILE_FIELD_CONFIG` (see src/lib/profile/field-config.ts) — currently
+ * empty, because no historical profile field list could be verified
+ * anywhere in this repository (see Phase 2D report). This table is real
+ * infrastructure, not a placeholder: it is ready to hold real fields the
+ * moment product defines them, without a schema migration per field.
+ *
+ * `userId` is a Clerk user id, not a foreign key into a users table this
+ * project doesn't own — Clerk is the identity provider and source of
+ * truth for the account itself.
+ */
+export const profiles = pgTable("profiles", {
+  userId: text("user_id").primaryKey(),
+  data: jsonb("data").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

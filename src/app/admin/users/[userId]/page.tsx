@@ -71,6 +71,12 @@ export default async function AdminUserDetailPage({
               </dd>
             </div>
             <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Last activity</dt>
+              <dd className="text-right text-foreground">
+                {activity[0] ? timeAgo(activity[0].occurredAt) : "No recorded activity"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Has a profile</dt>
               <dd className="text-right text-foreground">{profile ? "Yes" : "Not started"}</dd>
             </div>

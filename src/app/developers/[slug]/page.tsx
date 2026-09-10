@@ -6,6 +6,7 @@ import { VerifiedBadge } from "@/components/verified-badge";
 import { VisitOfficialWebsiteButton } from "@/components/visit-official-website-button";
 import { DeveloperPageViewTracker } from "@/components/developer-page-view-tracker";
 import { ShareDeveloper } from "@/components/share-developer";
+import { SiteFooter } from "@/components/site-footer";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicDeveloperBySlug } from "@/lib/developer-connect/search-service";
 
@@ -122,11 +123,7 @@ export default async function DeveloperPage({
         </Container>
       </main>
 
-      <footer className="border-t border-border">
-        <Container className="flex h-14 items-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Developer Connect
-        </Container>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

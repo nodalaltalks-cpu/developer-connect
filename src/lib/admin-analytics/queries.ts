@@ -32,6 +32,7 @@ import type {
   RetentionMetrics,
   RetentionWindow,
   UserActivityEvent,
+  ActivityBand,
 } from "./types.ts";
 
 /**
@@ -908,6 +909,42 @@ export async function getUserActivityTimeline(
     occurredAt: row.occurredAt,
     detail: describeActivity(row.eventName, row.payload as Record<string, unknown>, row.developerName),
   }));
+}
+
+/**
+ * One grouped query for a whole page of users — never N+1. Used by the
+ * admin Users list to show a real "last active" / activity band per user,
+ * the same recency-based idea as getUserActivityTimeline's data, just
+ * batched.
+ */
+export async function getLastActivityByUserIds(
+  userIds: string[],
+): Promise<Map<string, Date>> {
+  if (userIds.length === 0) return new Map();
+  const db = getDb();
+  const rows = await db
+    .select({
+      userId: analyticsEvents.userId,
+      lastActive: sql<Date>`max(${analyticsEvents.occurredAt})`,
+    })
+    .from(analyticsEvents)
+    .where(inArray(analyticsEvents.userId, userIds))
+    .groupBy(analyticsEvents.userId);
+
+  const map = new Map<string, Date>();
+  for (const row of rows) {
+    if (row.userId) map.set(row.userId, new Date(row.lastActive));
+  }
+  return map;
+}
+
+export function activityBandFor(lastActive: Date | undefined, now: Date = new Date()): ActivityBand {
+  if (!lastActive) return "NEVER";
+  const days = (now.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
+  if (days <= 1) return "DAILY";
+  if (days <= 7) return "WEEKLY";
+  if (days <= 30) return "MONTHLY";
+  return "INACTIVE";
 }
 
 function describeActivity(

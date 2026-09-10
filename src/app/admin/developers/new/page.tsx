@@ -6,7 +6,7 @@ export default function AdminNewDeveloperPage() {
     <div className="max-w-xl">
       <SectionHeading
         title="Add a developer"
-        description="Create the developer record first. You'll add its official website candidate and supporting evidence next — creating this record does not verify or publish anything yet."
+        description="Create the developer record and its official website candidate together. Nothing here verifies or publishes anything yet — you'll add supporting evidence and review it separately."
       />
       <DeveloperIntakeForm />
     </div>

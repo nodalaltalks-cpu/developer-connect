@@ -195,6 +195,9 @@ export interface RetentionMetrics {
   };
 }
 
+/** Derived purely from recency of the user's own last analytics event — never fabricated, never inferred beyond that. */
+export type ActivityBand = "DAILY" | "WEEKLY" | "MONTHLY" | "INACTIVE" | "NEVER";
+
 /** One real, already-recorded analytics event, reshaped for a human-readable admin timeline. Never fabricated — a 1:1 read of analytics_events. */
 export interface UserActivityEvent {
   eventName: string;

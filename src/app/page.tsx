@@ -1,6 +1,7 @@
 import { Container } from "@/components/ui/container";
 import { SearchBox } from "@/components/search-box";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function Home() {
   return (
@@ -29,11 +30,7 @@ export default function Home() {
         </Container>
       </main>
 
-      <footer className="border-t border-border">
-        <Container className="flex h-14 items-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Developer Connect
-        </Container>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

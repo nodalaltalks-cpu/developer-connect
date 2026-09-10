@@ -3,7 +3,10 @@ import {
   getUserAndProfileIntelligence,
   getUserBehaviorIntelligence,
   getRetentionMetrics,
+  getLastActivityByUserIds,
+  activityBandFor,
 } from "@/lib/admin-analytics/queries";
+import type { ActivityBand } from "@/lib/admin-analytics/types";
 import { formatRate } from "@/lib/admin-analytics/rate";
 import { listClerkUsers } from "@/lib/admin-analytics/clerk-users";
 import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
@@ -12,6 +15,26 @@ import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 
 const PAGE_SIZE = 20;
+
+const ACTIVITY_LABEL: Record<ActivityBand, string> = {
+  DAILY: "Active today",
+  WEEKLY: "Active this week",
+  MONTHLY: "Active this month",
+  INACTIVE: "Inactive 30d+",
+  NEVER: "No activity yet",
+};
+
+const ACTIVITY_STYLE: Record<ActivityBand, string> = {
+  DAILY: "bg-accent-soft text-accent-hover border-accent-soft",
+  WEEKLY: "bg-accent-soft text-accent-hover border-accent-soft",
+  MONTHLY: "bg-muted text-muted-foreground border-border",
+  INACTIVE: "bg-amber-50 text-amber-800 border-amber-200",
+  NEVER: "bg-muted text-muted-foreground border-border",
+};
+
+function formatJoined(date: Date): string {
+  return date.toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
+}
 
 const DROP_OFF_LABEL: Record<string, string> = {
   LOW: "Low",
@@ -47,8 +70,12 @@ export default async function AdminUsersPage({
     listClerkUsers({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
   ]);
 
+  const userIds = people.users.map((u) => u.id);
   const profileRepo = createPostgresProfileRepository();
-  const profiles = await profileRepo.getManyByUserIds(people.users.map((u) => u.id));
+  const [profiles, lastActivityByUserId] = await Promise.all([
+    profileRepo.getManyByUserIds(userIds),
+    getLastActivityByUserIds(userIds),
+  ]);
   const profileByUserId = new Map(profiles.map((p) => [p.userId, p]));
 
   const totalPages = Math.max(1, Math.ceil(people.totalCount / PAGE_SIZE));
@@ -70,30 +97,48 @@ export default async function AdminUsersPage({
           <EmptyState title="No users yet" description="Nobody has signed up yet." />
         </div>
       ) : (
-        <ul className="mt-3 divide-y divide-border rounded-lg border border-border">
-          {people.users.map((user) => {
-            const profile = profileByUserId.get(user.id);
-            const completion = calculateProfileCompletion(profile?.data ?? {});
-            return (
-              <li key={user.id}>
-                <Link
-                  href={`/admin/users/${user.id}`}
-                  className="flex min-h-11 items-center justify-between gap-4 px-4 py-3 hover:bg-muted"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{user.displayName}</p>
-                    {user.primaryEmail && (
-                      <p className="text-xs text-muted-foreground">{user.primaryEmail}</p>
-                    )}
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {completion.percentage === null ? "—" : `${completion.percentage}% complete`}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-muted-foreground">
+                <th className="px-4 py-2 font-medium">User</th>
+                <th className="px-4 py-2 font-medium">Joined</th>
+                <th className="px-4 py-2 font-medium">Profile</th>
+                <th className="px-4 py-2 font-medium">Activity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.users.map((user) => {
+                const profile = profileByUserId.get(user.id);
+                const completion = calculateProfileCompletion(profile?.data ?? {});
+                const band = activityBandFor(lastActivityByUserId.get(user.id));
+                return (
+                  <tr key={user.id} className="border-b border-border last:border-b-0 hover:bg-muted">
+                    <td className="px-4 py-2">
+                      <Link href={`/admin/users/${user.id}`} className="block min-h-11 py-1">
+                        <p className="font-medium text-foreground">{user.displayName}</p>
+                        {user.primaryEmail && (
+                          <p className="text-xs text-muted-foreground">{user.primaryEmail}</p>
+                        )}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-foreground">{formatJoined(user.createdAt)}</td>
+                    <td className="px-4 py-2 text-foreground">
+                      {completion.percentage === null ? "—" : `${completion.percentage}%`}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${ACTIVITY_STYLE[band]}`}
+                      >
+                        {ACTIVITY_LABEL[band]}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {totalPages > 1 && (
         <div className="mt-3 flex items-center gap-4 text-sm">

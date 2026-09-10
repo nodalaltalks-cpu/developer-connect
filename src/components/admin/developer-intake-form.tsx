@@ -3,6 +3,7 @@
 import { useState, useTransition, FormEvent } from "react";
 import Link from "next/link";
 import { buttonClassName } from "@/components/ui/button";
+import { CandidateStatusBadge } from "@/components/admin/candidate-status-badge";
 import {
   createDeveloperAction,
   type CreateDeveloperActionResult,
@@ -19,6 +20,7 @@ interface FieldsState {
   state: string;
   country: string;
   headquartersLocation: string;
+  officialWebsite: string;
 }
 
 const EMPTY_FIELDS: FieldsState = {
@@ -28,6 +30,7 @@ const EMPTY_FIELDS: FieldsState = {
   state: "Maharashtra",
   country: "India",
   headquartersLocation: "",
+  officialWebsite: "",
 };
 
 /**
@@ -57,6 +60,7 @@ export function DeveloperIntakeForm() {
         state: fields.state,
         country: fields.country,
         headquartersLocation: fields.headquartersLocation || undefined,
+        officialWebsite: fields.officialWebsite,
       });
       setResult(outcome);
       if (outcome.ok) {
@@ -67,22 +71,52 @@ export function DeveloperIntakeForm() {
 
   if (result?.ok && result.developer) {
     const developer = result.developer;
+    const candidate = result.candidate;
     return (
       <div className="rounded-lg border border-border bg-muted p-4">
         <p className="text-sm font-medium text-foreground">
-          &ldquo;{developer.displayName}&rdquo; was created.
+          Developer created — <span className="font-semibold">{developer.displayName}</span>
         </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          This developer isn&apos;t public yet — nothing is visible in search until a website
-          candidate is submitted and a founder verifies it.
-        </p>
+
+        {candidate ? (
+          <div className="mt-3 rounded-md border border-border bg-background p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Official website candidate
+            </p>
+            <p className="mt-1 font-mono text-sm text-foreground">{candidate.canonicalDomain}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Status:</span>
+              <CandidateStatusBadge status={candidate.verificationStatus} />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              This isn&apos;t public yet — it becomes visible only after evidence is reviewed and a
+              founder verifies it.
+            </p>
+          </div>
+        ) : (
+          result.candidateError && (
+            <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <p>The developer was created, but the website couldn&apos;t be added: {result.candidateError}</p>
+            </div>
+          )
+        )}
+
         <div className="mt-3 flex flex-wrap gap-3">
-          <Link
-            href={`/admin/developers/${developer.id}/candidates/new`}
-            className={buttonClassName("primary")}
-          >
-            Add its website candidate
-          </Link>
+          {candidate ? (
+            <Link
+              href={`/admin/verification/${candidate.id}`}
+              className={buttonClassName("primary")}
+            >
+              Add evidence / review
+            </Link>
+          ) : (
+            <Link
+              href={`/admin/developers/${developer.id}/candidates/new`}
+              className={buttonClassName("primary")}
+            >
+              Add its official website
+            </Link>
+          )}
           <Link href={`/admin/developers/${developer.id}`} className={buttonClassName("secondary")}>
             View developer
           </Link>
@@ -127,6 +161,26 @@ export function DeveloperIntakeForm() {
           onChange={(e) => update("legalName", e.target.value)}
           className={inputClassName}
           placeholder="e.g. Macrotech Developers Limited"
+        />
+      </div>
+
+      <div className="rounded-lg border border-accent-soft bg-accent-soft/40 p-4">
+        <label className={labelClassName} htmlFor="officialWebsite">
+          Official website
+        </label>
+        <p className="text-xs text-muted-foreground">
+          The website you believe belongs to this developer. It will still require verification
+          before appearing publicly.
+        </p>
+        <input
+          id="officialWebsite"
+          required
+          type="url"
+          inputMode="url"
+          value={fields.officialWebsite}
+          onChange={(e) => update("officialWebsite", e.target.value)}
+          className={inputClassName}
+          placeholder="https://www.lodha.com"
         />
       </div>
 

@@ -450,6 +450,59 @@ test(
 );
 
 test(
+  "postgres: a newly created developer + website candidate is never publicly visible until a founder verifies it (Part 33's end-to-end workflow)",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-service.ts");
+    const { submitWebsiteCandidate } = await import("../../candidate-service.ts");
+    const { approveCandidate, markReadyForReview } = await import("../../verification-service.ts");
+    const { searchPublicDevelopers, getPublicDeveloperBySlug } = await import("../../search-service.ts");
+
+    const repos = createPostgresRepositories();
+    const founder = { actorType: "FOUNDER" as const, actorId: "test-founder" };
+    const uniqueName = `TEST — Intake Workflow Co ${randomUUID()}`;
+
+    // Step 1: create the developer (this alone must never make it public).
+    const developer = await createDeveloper(repos.developers, {
+      legalName: uniqueName,
+      displayName: uniqueName,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+
+    let results = await searchPublicDevelopers(repos, uniqueName);
+    assert.deepEqual(results, [], "developer must not be searchable before any website is verified");
+
+    const publicBeforeCandidate = await getPublicDeveloperBySlug(repos, developer.slug);
+    assert.equal(publicBeforeCandidate?.officialWebsite, null);
+
+    // Step 2: submit the official website candidate, exactly as the
+    // combined "Add a developer" intake now does.
+    const candidate = await submitWebsiteCandidate(repos, {
+      developerId: developer.id,
+      url: `https://intake-workflow-${randomUUID()}.example.com`,
+      discoverySource: "MANUAL_SUBMISSION",
+      actor: founder,
+    });
+    assert.equal(candidate.verificationStatus, "DISCOVERED");
+
+    results = await searchPublicDevelopers(repos, uniqueName);
+    assert.deepEqual(results, [], "a freshly submitted candidate must not be public yet");
+
+    // Step 3: only after evidence review + explicit approval does it
+    // become public.
+    await markReadyForReview(repos, candidate.id, founder);
+    await approveCandidate(repos, candidate.id, founder, "Confirmed via WHOIS");
+
+    results = await searchPublicDevelopers(repos, uniqueName);
+    assert.equal(results.length, 1);
+    assert.ok(results[0].officialWebsite?.canonicalDomain.startsWith("intake-workflow-"));
+  },
+);
+
+test(
   "postgres: getById returns null (not a thrown error) for a malformed, non-UUID id",
   { skip: !hasDatabase },
   async () => {

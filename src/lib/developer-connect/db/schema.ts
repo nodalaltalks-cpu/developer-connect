@@ -212,7 +212,10 @@ export const profiles = pgTable("profiles", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const notificationTypeEnum = pgEnum("notification_type", ["PROFILE_COMPLETION"]);
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "PROFILE_COMPLETION",
+  "FOUNDER_MESSAGE",
+]);
 
 /**
  * In-house notifications (Phase 3B) — deliberately minimal: a title/body

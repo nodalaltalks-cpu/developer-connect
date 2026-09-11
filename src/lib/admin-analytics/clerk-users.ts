@@ -87,6 +87,28 @@ export async function listClerkUsers(
   return { users, totalCount };
 }
 
+const CLERK_PAGE_SIZE = 100;
+/** Sanity cap only — real user counts today are tiny; this just guards against an unbounded loop if Clerk's count endpoint ever disagreed with what pagination actually returns. */
+const MAX_USERS_TO_FETCH = 2000;
+
+/**
+ * Every signed-up user, for founder-notification audience targeting
+ * (Phase 4B) — "all users" / "incomplete profile" / "below X%" / "missing
+ * section" all need the FULL user base, not one admin-list page. Pages
+ * through Clerk's list endpoint at CLERK_PAGE_SIZE per call.
+ */
+export async function listAllClerkUsers(): Promise<ClerkUserSummary[]> {
+  const all: ClerkUserSummary[] = [];
+  let offset = 0;
+  for (;;) {
+    const { users, totalCount } = await listClerkUsers({ limit: CLERK_PAGE_SIZE, offset });
+    all.push(...users);
+    offset += users.length;
+    if (users.length === 0 || offset >= totalCount || offset >= MAX_USERS_TO_FETCH) break;
+  }
+  return all;
+}
+
 /** A single user by Clerk id, for the individual admin user page. Returns null if not found. */
 export async function getClerkUser(userId: string): Promise<ClerkUserSummary | null> {
   try {

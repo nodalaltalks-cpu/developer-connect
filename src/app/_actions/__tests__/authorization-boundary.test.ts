@@ -73,6 +73,10 @@ test("authorization boundary: admin/_actions/verification-actions.ts is Founder-
   assertAllUse("admin/_actions/verification-actions.ts", "requireFounderForAction", "requireUserIdForAction");
 });
 
+test("authorization boundary: admin/_actions/notification-actions.ts is Founder-only", () => {
+  assertAllUse("admin/_actions/notification-actions.ts", "requireFounderForAction", "requireUserIdForAction");
+});
+
 test("authorization boundary: _actions/profile-actions.ts requires only an authenticated user, never Founder", () => {
   assertAllUse("_actions/profile-actions.ts", "requireUserIdForAction", "requireFounderForAction");
 });

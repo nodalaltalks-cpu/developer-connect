@@ -84,5 +84,28 @@ export function createPostgresNotificationRepository(): NotificationRepository {
         .limit(1);
       return Boolean(row);
     },
+    async findUnreadByTarget(userId, targetRoute) {
+      const [row] = await db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.userId, userId),
+            eq(notifications.targetRoute, targetRoute),
+            eq(notifications.read, false),
+          ),
+        )
+        .limit(1);
+      return row ? toNotification(row) : null;
+    },
+    async listByType(type, limit = 50) {
+      const rows = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.type, type))
+        .orderBy(desc(notifications.createdAt))
+        .limit(limit);
+      return rows.map(toNotification);
+    },
   };
 }

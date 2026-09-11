@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/admin/verification", label: "Verification" },
   { href: "/admin/search", label: "Search Intelligence" },
   { href: "/admin/users", label: "Users & Profiles" },
+  { href: "/admin/notifications", label: "Notifications" },
   { href: "/admin/data-quality", label: "Data Quality" },
   { href: "/admin/automation", label: "Automation" },
   { href: "/admin/audit-log", label: "Audit Log" },

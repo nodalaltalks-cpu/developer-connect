@@ -43,6 +43,13 @@
       "when": 1789070795409,
       "tag": "0005_lively_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789082126222,
+      "tag": "0006_conscious_junta",
+      "breakpoints": true
     }
   ]
 }

@@ -30,7 +30,23 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <ClerkProvider afterSignOutUrl="/">{children}</ClerkProvider>
+        <ClerkProvider
+          afterSignOutUrl="/"
+          appearance={{
+            variables: {
+              colorPrimary: "#2563eb",
+              colorBackground: "#ffffff",
+              colorForeground: "#111318",
+              colorMuted: "#f7f8fa",
+              colorMutedForeground: "#6b7280",
+              colorBorder: "#e5e7eb",
+              borderRadius: "0.375rem",
+              fontFamily: "var(--font-geist-sans), sans-serif",
+            },
+          }}
+        >
+          {children}
+        </ClerkProvider>
       </body>
     </html>
   );

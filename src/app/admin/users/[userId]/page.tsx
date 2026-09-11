@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getClerkUser } from "@/lib/admin-analytics/clerk-users";
 import { getUserActivityTimeline } from "@/lib/admin-analytics/queries";
@@ -7,6 +8,7 @@ import { calculateProfileCompletion } from "@/lib/profile/completion";
 import { PROFILE_FIELD_CONFIG } from "@/lib/profile/field-config";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 import { ProfileCompletionSummary } from "@/components/profile-completion-summary";
+import { buttonClassName } from "@/components/ui/button";
 
 function timeAgo(date: Date): string {
   const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
@@ -51,10 +53,15 @@ export default async function AdminUserDetailPage({
 
   return (
     <div className="max-w-3xl">
-      <SectionHeading
-        title={clerkUser.displayName}
-        description={clerkUser.primaryEmail ?? undefined}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionHeading
+          title={clerkUser.displayName}
+          description={clerkUser.primaryEmail ?? undefined}
+        />
+        <Link href={`/admin/notifications/new?userId=${clerkUser.id}`} className={buttonClassName("secondary")}>
+          Send notification
+        </Link>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-border p-4">

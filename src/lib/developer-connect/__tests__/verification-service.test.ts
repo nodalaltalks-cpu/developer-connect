@@ -6,6 +6,7 @@ import {
   rejectCandidate,
   markReadyForReview,
 } from "../verification-service.ts";
+import { searchPublicDevelopers } from "../search-service.ts";
 import { UnauthorizedVerificationActionError, CrossDeveloperDomainConflictError } from "../errors.ts";
 import { createDeveloper } from "../developer-service.ts";
 import { setUpTestDeveloper } from "./test-helpers.ts";
@@ -56,6 +57,38 @@ test("verification: only a FOUNDER actor may approve a candidate", async () => {
 
   const stillPending = await repos.candidates.getById(candidate.id);
   assert.equal(stillPending?.verificationStatus, "PENDING_VERIFICATION");
+});
+
+test("automation safety boundary: a candidate discovered/proposed by SYSTEM or AGENT never becomes publicly visible until a FOUNDER explicitly approves it", async () => {
+  const { repos, developer } = await setUpTestDeveloper({ displayName: "Test Automation Boundary Co" });
+
+  // Automation is allowed to discover and propose — creating a candidate
+  // itself never requires a FOUNDER actor.
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://example.com",
+    discoverySource: "AGENT_CRAWL",
+    actor: agent,
+  });
+  assert.equal(candidate.verificationStatus, "DISCOVERED");
+
+  let results = await searchPublicDevelopers(repos, "Test Automation Boundary Co");
+  assert.deepEqual(results, [], "an automation-discovered candidate must not be public before review");
+
+  await markReadyForReview(repos, candidate.id, founder);
+
+  // Automation/system actors cannot grant the final approval, no matter
+  // how confident or "ready" the candidate looks.
+  await assert.rejects(() => approveCandidate(repos, candidate.id, agent, "auto-confirmed"), UnauthorizedVerificationActionError);
+  await assert.rejects(() => approveCandidate(repos, candidate.id, system, "auto-confirmed"), UnauthorizedVerificationActionError);
+
+  results = await searchPublicDevelopers(repos, "Test Automation Boundary Co");
+  assert.deepEqual(results, [], "still not public after a rejected automation approval attempt");
+
+  await approveCandidate(repos, candidate.id, founder, "Confirmed via WHOIS");
+
+  results = await searchPublicDevelopers(repos, "Test Automation Boundary Co");
+  assert.equal(results.length, 1, "only a real FOUNDER approval makes it public");
 });
 
 test("verification: founder approval marks the candidate VERIFIED with reviewer metadata", async () => {

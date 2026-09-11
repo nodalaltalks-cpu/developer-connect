@@ -54,5 +54,18 @@ export function createInMemoryNotificationRepository(): NotificationRepository {
         (n) => n.userId === userId && n.type === type && !n.read,
       );
     },
+    async findUnreadByTarget(userId, targetRoute) {
+      return (
+        Array.from(notifications.values()).find(
+          (n) => n.userId === userId && n.targetRoute === targetRoute && !n.read,
+        ) ?? null
+      );
+    },
+    async listByType(type, limit = 50) {
+      return Array.from(notifications.values())
+        .filter((n) => n.type === type)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, limit);
+    },
   };
 }

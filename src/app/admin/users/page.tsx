@@ -105,6 +105,9 @@ export default async function AdminUsersPage({
                 <th className="px-4 py-2 font-medium">Joined</th>
                 <th className="px-4 py-2 font-medium">Profile</th>
                 <th className="px-4 py-2 font-medium">Activity</th>
+                <th className="px-4 py-2 font-medium">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -132,6 +135,14 @@ export default async function AdminUsersPage({
                       >
                         {ACTIVITY_LABEL[band]}
                       </span>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <Link
+                        href={`/admin/notifications/new?userId=${user.id}`}
+                        className="text-sm text-accent-hover hover:underline"
+                      >
+                        Send notification
+                      </Link>
                     </td>
                   </tr>
                 );

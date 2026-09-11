@@ -127,6 +127,45 @@ export async function approveCandidate(
   });
 }
 
+/**
+ * The Founder-facing "Approve & Publish" action. A brand-new candidate
+ * always starts at DISCOVERED, and the state machine has never allowed a
+ * direct DISCOVERED -> VERIFIED jump (see lifecycle.ts) — previously the
+ * only way to approve one was a separate, hidden "mark ready for review"
+ * step the onboarding UI never exposed, so every first-time Approve click
+ * threw InvalidTransitionError. This composes the existing, unmodified
+ * markReadyForReview + approveCandidate steps into one atomic action so a
+ * founder never has to take that intermediate step themselves — no new
+ * transition is added to lifecycle.ts, and every transition still goes
+ * through assertValidTransition and produces its own real history event.
+ */
+export async function approveAndPublishCandidate(
+  repos: DeveloperConnectRepositories,
+  candidateId: string,
+  actor: Actor,
+  reason: string,
+): Promise<WebsiteCandidate> {
+  requireFounder(actor, "Approving and publishing a website candidate");
+
+  return repos.runInTransaction(async (txRepos) => {
+    const candidate = await txRepos.candidates.getById(candidateId);
+    if (!candidate) {
+      throw new NotFoundError(`Website candidate ${candidateId} not found`);
+    }
+
+    if (candidate.verificationStatus === "DISCOVERED") {
+      await markReadyForReview(
+        txRepos,
+        candidateId,
+        actor,
+        "Queued for founder review as part of Approve & Publish",
+      );
+    }
+
+    return approveCandidate(txRepos, candidateId, actor, reason);
+  });
+}
+
 export async function rejectCandidate(
   repos: DeveloperConnectRepositories,
   candidateId: string,

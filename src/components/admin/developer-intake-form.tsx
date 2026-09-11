@@ -89,8 +89,8 @@ export function DeveloperIntakeForm() {
               <CandidateStatusBadge status={candidate.verificationStatus} />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              This isn&apos;t public yet — it becomes visible only after evidence is reviewed and a
-              founder verifies it.
+              This isn&apos;t public yet — it becomes visible only after a founder reviews and
+              approves it.
             </p>
           </div>
         ) : (
@@ -107,7 +107,7 @@ export function DeveloperIntakeForm() {
               href={`/admin/verification/${candidate.id}`}
               className={buttonClassName("primary")}
             >
-              Add evidence / review
+              Review candidate
             </Link>
           ) : (
             <Link

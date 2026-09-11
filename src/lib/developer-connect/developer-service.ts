@@ -38,6 +38,48 @@ export async function createDeveloper(
   });
 }
 
+export interface UpdateDeveloperInput {
+  legalName: string;
+  displayName: string;
+  city: string;
+  state: string;
+  country: string;
+  headquartersLocation?: string;
+}
+
+/**
+ * Founder edits to an existing developer record's core fields. Reuses the
+ * same required-field validation and trimming as createDeveloper, applied
+ * via the existing DeveloperRepository.update — no new validation rules,
+ * no slug regeneration (the slug is left untouched even if displayName
+ * changes, since it's a stable public identifier, not a derived display
+ * value).
+ */
+export async function updateDeveloper(
+  developers: DeveloperRepository,
+  id: string,
+  input: UpdateDeveloperInput,
+): Promise<Developer> {
+  const legalName = input.legalName.trim();
+  const displayName = input.displayName.trim();
+  const city = input.city.trim();
+  const state = input.state.trim();
+  const country = input.country.trim();
+
+  if (!legalName || !displayName || !city || !state || !country) {
+    throw new Error("legalName, displayName, city, state, and country are required");
+  }
+
+  return developers.update(id, {
+    legalName,
+    displayName,
+    city,
+    state,
+    country,
+    headquartersLocation: input.headquartersLocation?.trim() || undefined,
+  });
+}
+
 /**
  * Deterministic, non-fuzzy duplicate check for Founder-driven intake: an
  * existing developer whose display name or legal name normalizes (via the

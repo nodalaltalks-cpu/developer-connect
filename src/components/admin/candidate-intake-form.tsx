@@ -48,7 +48,7 @@ export function CandidateIntakeForm({ developerId }: { developerId: string }) {
           Status: <span className="font-medium">{candidate.verificationStatus}</span>
           {candidate.verificationStatus === "REJECTED"
             ? " — automatically rejected. This domain is on the known-portal/aggregator/social-platform denylist, not treated as an official site."
-            : " — this is not verified. Add evidence, then review and decide on the verification screen."}
+            : " — this is not verified yet. Review it on the verification screen."}
         </p>
         <div className="mt-3 flex flex-wrap gap-3">
           <Link href={`/admin/verification/${candidate.id}`} className={buttonClassName("primary")}>

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { buttonClassName, type ButtonVariant } from "@/components/ui/button";
+import type { VerificationActionResult } from "@/app/admin/_actions/verification-actions";
 
 interface VerificationActionFormProps {
   label: string;
   variant: ButtonVariant;
-  action: (candidateId: string, reason: string) => Promise<void>;
+  action: (candidateId: string, reason: string) => Promise<VerificationActionResult>;
   candidateId: string;
   reasonPlaceholder: string;
 }
@@ -16,6 +17,10 @@ interface VerificationActionFormProps {
  * Every founder decision goes through one of the Server Actions in
  * app/admin/_actions/verification-actions.ts, which themselves call only
  * verification-service.ts — this component never touches the database.
+ *
+ * The Server Action always returns `{ ok, error }` rather than throwing,
+ * so whatever specific, real reason it gives is shown here verbatim —
+ * never replaced with a generic "something went wrong."
  */
 export function VerificationActionForm({
   label,
@@ -28,19 +33,30 @@ export function VerificationActionForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const containerRef = useRef<HTMLFormElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (error) {
+      containerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      errorRef.current?.focus();
+    }
+  }, [error]);
 
   return (
     <form
+      ref={containerRef}
       onSubmit={(event) => {
         event.preventDefault();
+        if (isPending) return;
         setError(null);
         startTransition(async () => {
-          try {
-            await action(candidateId, reason);
+          const result = await action(candidateId, reason);
+          if (result.ok) {
             setReason("");
             router.refresh();
-          } catch {
-            setError("That action didn't go through. Please try again.");
+          } else {
+            setError(result.error ?? "Could not complete this action.");
           }
         });
       }}
@@ -55,7 +71,17 @@ export function VerificationActionForm({
         rows={2}
         className="mt-2 w-full rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
-      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+      {error && (
+        <p
+          ref={errorRef}
+          tabIndex={-1}
+          role="alert"
+          aria-live="polite"
+          className="mt-2 text-sm text-red-700 focus:outline-none"
+        >
+          {error}
+        </p>
+      )}
       <button
         type="submit"
         disabled={isPending}

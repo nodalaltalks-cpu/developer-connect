@@ -19,17 +19,33 @@ export default async function AdminDeveloperDetailPage({
 
   const verifiedCandidate = candidates.find((c) => c.verificationStatus === "VERIFIED") ?? null;
   const activeCandidate = verifiedCandidate ?? candidates[0] ?? null;
-  const activeEvidence = activeCandidate
-    ? await repos.evidence.listByCandidate(activeCandidate.id)
-    : [];
+  // A decision has been made once the active candidate has left its
+  // starting DISCOVERED state — VERIFIED and REJECTED both count as
+  // "reviewed," they just differ in outcome.
+  const reviewed =
+    activeCandidate !== null &&
+    activeCandidate.verificationStatus !== "DISCOVERED" &&
+    activeCandidate.verificationStatus !== "PENDING_VERIFICATION";
+  const published = verifiedCandidate !== null && developer.status === "ACTIVE";
 
   const steps = [
     { label: "Developer created", done: true },
     { label: "Website added", done: candidates.length > 0 },
-    { label: "Evidence added", done: activeEvidence.length > 0 },
-    { label: "Verification completed", done: verifiedCandidate !== null },
-    { label: "Published", done: verifiedCandidate !== null && developer.status === "ACTIVE" },
+    { label: "Founder review", done: reviewed },
+    { label: "Published", done: published },
   ];
+
+  const banner =
+    candidates.length === 0
+      ? { tone: "text-muted-foreground", label: "No official website yet — add one to begin review." }
+      : published
+        ? { tone: "text-accent-hover", label: "Published — visible in public search." }
+        : activeCandidate?.verificationStatus === "REJECTED"
+          ? {
+              tone: "text-red-700",
+              label: "Review required before publishing — the current website was rejected.",
+            }
+          : { tone: "text-accent-hover", label: "Everything is ready for your review." };
 
   return (
     <div>
@@ -38,7 +54,7 @@ export default async function AdminDeveloperDetailPage({
         description={`${developer.legalName} · ${developer.city}, ${developer.state} · ${developer.status}`}
       />
 
-      <ol className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm">
+      <ol className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm">
         {steps.map((step, i) => (
           <li key={step.label} className="flex items-center gap-2">
             <span
@@ -56,6 +72,18 @@ export default async function AdminDeveloperDetailPage({
           </li>
         ))}
       </ol>
+
+      <p className={`mb-6 text-sm font-medium ${banner.tone}`}>
+        {banner.label}
+        {activeCandidate && !published && (
+          <>
+            {" "}
+            <Link href={`/admin/verification/${activeCandidate.id}`} className="underline hover:no-underline">
+              Review now →
+            </Link>
+          </>
+        )}
+      </p>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

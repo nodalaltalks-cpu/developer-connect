@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { createDeveloper, findLikelyDuplicateDeveloper } from "@/lib/developer-connect/developer-service";
+import { createDeveloper, updateDeveloper, findLikelyDuplicateDeveloper } from "@/lib/developer-connect/developer-service";
 import { submitWebsiteCandidate } from "@/lib/developer-connect/candidate-service";
 import type { Developer, WebsiteCandidate } from "@/lib/developer-connect/types";
 
@@ -98,5 +98,49 @@ export async function createDeveloperAction(
     }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create developer." };
+  }
+}
+
+export interface UpdateDeveloperActionInput {
+  id: string;
+  legalName: string;
+  displayName: string;
+  city: string;
+  state: string;
+  country: string;
+  headquartersLocation?: string;
+}
+
+export interface UpdateDeveloperActionResult {
+  ok: boolean;
+  developer?: Developer;
+  error?: string;
+}
+
+/**
+ * Founder edit of an existing developer's core fields, used by the
+ * "Save changes" control on the developer/candidate review page. This is
+ * the ONLY place a developer record's fields can be changed after
+ * creation — it never touches verification status, so saving edits can
+ * never itself approve, reject, or publish anything.
+ */
+export async function updateDeveloperAction(
+  input: UpdateDeveloperActionInput,
+): Promise<UpdateDeveloperActionResult> {
+  try {
+    await requireFounderForAction();
+  } catch {
+    return { ok: false, error: "You don't have permission to edit developers. Founder access is required." };
+  }
+
+  const repos = createPostgresRepositories();
+  try {
+    const developer = await updateDeveloper(repos.developers, input.id, input);
+    revalidatePath(`/admin/developers/${input.id}`);
+    revalidatePath("/admin/developers");
+    revalidatePath(`/admin/verification`);
+    return { ok: true, developer };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not save changes." };
   }
 }

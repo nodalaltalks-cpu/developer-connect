@@ -1,5 +1,18 @@
 import { Container } from "@/components/ui/container";
 
+/**
+ * Scoped to the (marketing) route group — deliberately NOT at the app
+ * root. A root-level loading.js becomes the nearest loading boundary for
+ * every route without one of its own, and per Next.js's prefetch rules a
+ * dynamic route is normally skipped for full-route <Link> prefetching
+ * unless it has such a boundary. Previously this file lived at
+ * src/app/loading.tsx, which made every dynamic /admin/* route eligible
+ * for full prefetching via the admin sidebar's own links — the actual
+ * root cause of a real bug where /admin/developers/new and
+ * /admin/developers each rendered two copies of their content (a
+ * prefetched/staged copy plus the live one). Keep this boundary scoped to
+ * the homepage only; do not move it back to the app root.
+ */
 export default function HomeLoading() {
   return (
     <div className="flex flex-1 flex-col">

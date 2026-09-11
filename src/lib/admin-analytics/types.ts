@@ -70,12 +70,38 @@ export interface DeveloperStat {
   developerId: string;
   displayName: string;
   slug: string;
+  /** The developer's effective VerificationStatus, derived from its website-candidate lifecycle — never null in practice (a developer with no candidate at all reads as "DISCOVERED"); see effectiveVerificationStatusSql() in queries.ts. */
   verificationStatus: string | null;
   /** Count of search_result_clicked events for this developer — the real, available proxy for search demand (not total search volume, which isn't attributed per-developer). */
   searchResultClicks: number;
   pageViews: number;
   officialWebsiteClicks: number;
   ctr: RateMetric;
+}
+
+export interface DeveloperIntelligenceQuery {
+  /** Matched against display name, legal name, or any of the developer's website-candidate domains — server-side, across the entire table. */
+  search?: string;
+  /**
+   * "ALL" | "VERIFIED" | "NOT_VERIFIED" (any non-verified reason) | a
+   * specific VerificationStatus value ("DISCOVERED",
+   * "PENDING_VERIFICATION", "REJECTED", "NEEDS_REVERIFICATION",
+   * "INACTIVE") — the granular values reflect a developer's *effective*
+   * status, derived from its website-candidate lifecycle; see
+   * effectiveVerificationStatusSql() in queries.ts.
+   */
+  status?: string;
+  /** 1-based. */
+  page?: number;
+  pageSize?: number;
+}
+
+export interface DeveloperIntelligencePage {
+  developers: DeveloperStat[];
+  /** Total developers matching the search/status filters — independent of pageSize, for "Showing X–Y of Z". */
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface VerificationOperations {

@@ -7,9 +7,21 @@ import { SectionHeading } from "@/components/admin/empty-state";
 import { DeveloperManagementTable } from "@/components/admin/developer-management-table";
 import { buttonClassName } from "@/components/ui/button";
 
-export default async function AdminDevelopersPage() {
-  const [developers, opportunities] = await Promise.all([
-    getDeveloperIntelligence(),
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function AdminDevelopersPage({
+  searchParams,
+}: PageProps<"/admin/developers">) {
+  const resolvedSearchParams = await searchParams;
+  const search = firstParam(resolvedSearchParams.q);
+  const status = firstParam(resolvedSearchParams.status);
+  const pageParam = Number(firstParam(resolvedSearchParams.page));
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+
+  const [{ developers, totalCount, pageSize }, opportunities] = await Promise.all([
+    getDeveloperIntelligence({ search, status, page }),
     getHighPriorityVerificationOpportunities(),
   ]);
 
@@ -30,7 +42,15 @@ export default async function AdminDevelopersPage() {
           Add developer
         </Link>
       </div>
-      <DeveloperManagementTable developers={developers} needsAttentionIds={needsAttentionIds} />
+      <DeveloperManagementTable
+        developers={developers}
+        needsAttentionIds={needsAttentionIds}
+        totalCount={totalCount}
+        page={page}
+        pageSize={pageSize}
+        initialSearch={search ?? ""}
+        initialStatus={status ?? "ALL"}
+      />
     </div>
   );
 }

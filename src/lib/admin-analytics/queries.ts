@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { getDb } from "../developer-connect/db/client.ts";
 import { createPostgresRepositories } from "../developer-connect/db/postgres-repository.ts";
 import {
@@ -25,6 +25,8 @@ import type {
   UserAndProfileIntelligence,
   EngagementByCompletion,
   VerificationOpportunity,
+  DeveloperIntelligenceQuery,
+  DeveloperIntelligencePage,
   ConversionStep,
   UserSegment,
   UserSegmentCount,
@@ -305,44 +307,174 @@ export async function getHighPriorityVerificationOpportunities(): Promise<Verifi
   return opportunities;
 }
 
+const DEFAULT_DEVELOPER_PAGE_SIZE = 25;
+
+/** Escapes ILIKE wildcard/escape characters so search input matches literally, not as a pattern — mirrors the same helper in postgres-repository.ts. */
+function escapeLikePattern(query: string): string {
+  return query.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+/**
+ * The real, granular verification-status values a developer's status
+ * filter may request directly (as opposed to "ALL"/"NOT_VERIFIED", which
+ * are composite filters over these). Matches verificationStatusEnum in
+ * schema.ts exactly — no state is invented here.
+ */
+const GRANULAR_VERIFICATION_STATUSES = [
+  "DISCOVERED",
+  "PENDING_VERIFICATION",
+  "VERIFIED",
+  "REJECTED",
+  "NEEDS_REVERIFICATION",
+  "INACTIVE",
+] as const;
+
+/**
+ * A developer's *effective* verification status — the source of truth is
+ * the candidate lifecycle (website_candidates.verification_status), not
+ * any field on developers itself (there is none). A developer can have
+ * several website candidates at once (a rejected one and a fresh
+ * resubmission, a verified one and a superseded/inactive one, etc.), each
+ * independently at its own point in the state machine
+ * (lifecycle.ts/verification-service.ts), so "the" developer-level status
+ * is the single most currently-relevant candidate status, in this
+ * precedence order (most urgent/current first):
+ *   VERIFIED > NEEDS_REVERIFICATION > PENDING_VERIFICATION > DISCOVERED
+ *   > REJECTED > INACTIVE
+ * This matches how a founder actually thinks about it: an active verified
+ * site, or one flagged for re-check, or one awaiting a decision, always
+ * outranks a candidate whose lifecycle already ended (REJECTED/INACTIVE) —
+ * e.g. a developer with one REJECTED candidate and one brand-new
+ * resubmission is correctly DISCOVERED, not REJECTED. A developer with no
+ * website candidate at all (the developer record was created but the
+ * "Add website" step failed or hasn't happened yet — a real, reachable
+ * state, see createDeveloperAction) is treated as DISCOVERED, matching the
+ * column's own default value for "nothing has happened yet."
+ * This is read-only: it never writes to website_candidates, and it does
+ * not change what "VERIFIED" means for public visibility, which still
+ * comes exclusively from getVerifiedForDeveloper()/search-service.ts.
+ */
+function effectiveVerificationStatusSql() {
+  const db = getDb();
+  // Built via the query builder (not a hand-written correlated `sql`
+  // fragment) so Drizzle fully table-qualifies every column reference —
+  // when this same correlation is written as raw sql and used directly as
+  // a SELECT-projection value (rather than inside a WHERE clause), Drizzle
+  // renders `developers.id` unqualified, and Postgres silently resolves it
+  // to website_candidates' OWN "id" column instead (since that name exists
+  // in the subquery's own scope too), making the correlation always false.
+  const priority = sql`case ${websiteCandidates.verificationStatus}
+    when 'VERIFIED' then 1
+    when 'NEEDS_REVERIFICATION' then 2
+    when 'PENDING_VERIFICATION' then 3
+    when 'DISCOVERED' then 4
+    when 'REJECTED' then 5
+    when 'INACTIVE' then 6
+  end`;
+  const subquery = db
+    .select({ status: websiteCandidates.verificationStatus })
+    .from(websiteCandidates)
+    .where(eq(websiteCandidates.developerId, developers.id))
+    .orderBy(priority)
+    .limit(1);
+  return sql<string>`coalesce((${subquery}), 'DISCOVERED')`;
+}
+
 /**
  * Definition: per-developer attention and conversion, for ACTIVE
- * developers only.
- * Source: developers (identity), website_candidates (verification
- * status), analytics_events (search_result_clicked, developer_page_viewed,
+ * developers only, one page at a time.
+ * Source: developers (identity, search: display/legal name),
+ * website_candidates (verification status, search: canonical domain),
+ * analytics_events (search_result_clicked, developer_page_viewed,
  * official_website_clicked).
  * Window: all-time.
- * Limitation: `searchResultClicks` is the real available proxy for search
- * demand per developer — raw search volume isn't attributed to a specific
- * developer (only which result someone clicked is), so this is never
- * labeled "search volume." One query per developer — fine at current
- * scale (single digits to low hundreds); would need batching in the
- * thousands.
+ *
+ * Pagination and search/status filtering happen in SQL — `search` matches
+ * display name, legal name, or any of the developer's website-candidate
+ * domains (past or present, not just the verified one), and `totalCount`
+ * reflects the full filtered set, not just this page. Ordered by display
+ * name (then id as a tiebreaker) for stable, deterministic paging.
+ *
+ * `status` accepts "ALL", the composite "VERIFIED"/"NOT_VERIFIED"
+ * filters, or any of GRANULAR_VERIFICATION_STATUSES — each backed by the
+ * real candidate-lifecycle data via effectiveVerificationStatusSql(), not
+ * a stale or invented field. See that function's doc comment for exactly
+ * how a developer's single effective status is derived when it has
+ * multiple website candidates.
+ *
+ * Limitation: `searchResultClicks`/`pageViews`/`officialWebsiteClicks` are
+ * still one extra round trip each per developer — bounded by `pageSize`
+ * now (25 by default) rather than by the whole table, which is what
+ * keeps this affordable as the developer count grows into the hundreds.
  */
-export async function getDeveloperIntelligence(limit = 50): Promise<DeveloperStat[]> {
+export async function getDeveloperIntelligence(
+  query: DeveloperIntelligenceQuery = {},
+): Promise<DeveloperIntelligencePage> {
   const db = getDb();
+  const pageSize = query.pageSize && query.pageSize > 0 ? query.pageSize : DEFAULT_DEVELOPER_PAGE_SIZE;
+  const page = query.page && query.page > 0 ? Math.floor(query.page) : 1;
+  const status = query.status ?? "ALL";
+  const searchTerm = query.search?.trim();
+
+  const conditions = [eq(developers.status, "ACTIVE")];
+
+  if (searchTerm) {
+    const pattern = `%${escapeLikePattern(searchTerm)}%`;
+    conditions.push(
+      or(
+        ilike(developers.displayName, pattern),
+        ilike(developers.legalName, pattern),
+        sql`exists (
+          select 1 from ${websiteCandidates}
+          where ${websiteCandidates.developerId} = ${developers.id}
+            and ${websiteCandidates.canonicalDomain} ilike ${pattern}
+        )`,
+      )!,
+    );
+  }
+
+  if (status === "VERIFIED") {
+    conditions.push(sql`exists (
+      select 1 from ${websiteCandidates}
+      where ${websiteCandidates.developerId} = ${developers.id}
+        and ${websiteCandidates.verificationStatus} = 'VERIFIED'
+    )`);
+  } else if (status === "NOT_VERIFIED") {
+    conditions.push(sql`not exists (
+      select 1 from ${websiteCandidates}
+      where ${websiteCandidates.developerId} = ${developers.id}
+        and ${websiteCandidates.verificationStatus} = 'VERIFIED'
+    )`);
+  } else if ((GRANULAR_VERIFICATION_STATUSES as readonly string[]).includes(status)) {
+    conditions.push(sql`${effectiveVerificationStatusSql()} = ${status}`);
+  } else if (status !== "ALL") {
+    // An unrecognized status value (e.g. a stale/hand-edited URL) matches
+    // nothing rather than silently falling back to "ALL".
+    conditions.push(sql`false`);
+  }
+
+  const whereClause = and(...conditions);
+
+  const [{ n: totalCount }] = await db
+    .select({ n: count() })
+    .from(developers)
+    .where(whereClause);
+
   const rows = await db
     .select({
       developerId: developers.id,
       displayName: developers.displayName,
       slug: developers.slug,
+      verificationStatus: effectiveVerificationStatusSql(),
     })
     .from(developers)
-    .where(eq(developers.status, "ACTIVE"))
-    .limit(limit);
+    .where(whereClause)
+    .orderBy(asc(developers.displayName), asc(developers.id))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
 
   const stats: DeveloperStat[] = [];
   for (const row of rows) {
-    const [verified] = await db
-      .select({ status: websiteCandidates.verificationStatus })
-      .from(websiteCandidates)
-      .where(
-        and(
-          eq(websiteCandidates.developerId, row.developerId),
-          eq(websiteCandidates.verificationStatus, "VERIFIED"),
-        ),
-      );
-
     const searchResultClicks = await countRows(
       and(
         eq(analyticsEvents.eventName, "search_result_clicked"),
@@ -366,7 +498,7 @@ export async function getDeveloperIntelligence(limit = 50): Promise<DeveloperSta
       developerId: row.developerId,
       displayName: row.displayName,
       slug: row.slug,
-      verificationStatus: verified?.status ?? null,
+      verificationStatus: row.verificationStatus,
       searchResultClicks,
       pageViews,
       officialWebsiteClicks: clicks,
@@ -374,7 +506,7 @@ export async function getDeveloperIntelligence(limit = 50): Promise<DeveloperSta
     });
   }
 
-  return stats.sort((a, b) => b.pageViews - a.pageViews);
+  return { developers: stats, totalCount, page, pageSize };
 }
 
 /**

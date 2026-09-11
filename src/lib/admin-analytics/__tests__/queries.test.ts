@@ -45,9 +45,12 @@ test(
       assert.ok(["NOT_INDEXED", "INDEXED_UNVERIFIED", "INDEXED_VERIFIED"].includes(opportunity.status));
     }
 
-    const developers = await getDeveloperIntelligence();
-    assert.ok(Array.isArray(developers));
-    for (const developer of developers) {
+    const developerPage = await getDeveloperIntelligence();
+    assert.ok(Array.isArray(developerPage.developers));
+    assert.ok(developerPage.totalCount >= 0);
+    assert.equal(developerPage.page, 1);
+    assert.ok(developerPage.pageSize > 0);
+    for (const developer of developerPage.developers) {
       assert.ok("numerator" in developer.ctr && "denominator" in developer.ctr);
       assert.ok(typeof developer.searchResultClicks === "number");
     }

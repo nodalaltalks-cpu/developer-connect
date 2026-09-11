@@ -74,8 +74,16 @@ export default async function DeveloperPage({
 
             <p className="mt-2 text-muted-foreground">
               {developer.city}, {developer.state}
-              {developer.headquartersLocation ? ` · ${developer.headquartersLocation}` : ""}
             </p>
+
+            {developer.headquartersLocation && (
+              <div className="mt-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Head office
+                </p>
+                <p className="mt-0.5 text-sm text-foreground">{developer.headquartersLocation}</p>
+              </div>
+            )}
 
             {developer.officialWebsite && (
               <div className="mt-4">

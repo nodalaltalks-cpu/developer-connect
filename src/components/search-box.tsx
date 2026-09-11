@@ -122,12 +122,10 @@ export function SearchBox() {
 
 function SearchSkeleton() {
   return (
-    <div
-      className="space-y-3 rounded-lg border border-border p-5"
-      aria-hidden="true"
-    >
-      <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
-      <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+    <div className="space-y-3 rounded-lg border border-border p-5">
+      <span className="sr-only">Searching…</span>
+      <div aria-hidden="true" className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+      <div aria-hidden="true" className="h-4 w-1/2 animate-pulse rounded bg-muted" />
     </div>
   );
 }

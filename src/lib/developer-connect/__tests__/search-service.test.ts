@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { searchPublicDevelopers, getPublicDeveloperBySlug } from "../search-service.ts";
+import { searchPublicDevelopers, getPublicDeveloperBySlug, listVerifiedDevelopers } from "../search-service.ts";
 import { submitWebsiteCandidate } from "../candidate-service.ts";
 import { approveCandidate, markReadyForReview } from "../verification-service.ts";
+import { createDeveloper } from "../developer-service.ts";
 import { setUpTestDeveloper } from "./test-helpers.ts";
 
 const founder = { actorType: "FOUNDER" as const, actorId: "founder-1" };
@@ -73,6 +74,67 @@ test("search-service: search results never expose internal verification fields",
   assert.ok(!serialized.includes("confidenceScore"));
   assert.ok(!serialized.includes("reviewedBy"));
   assert.ok(!serialized.includes(founder.actorId));
+});
+
+test("listVerifiedDevelopers: returns nothing when no developer has a verified website", async () => {
+  const { repos, developer } = await setUpTestDeveloper({ displayName: "Test Unlisted Co" });
+  await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://example.com",
+    discoverySource: "MANUAL_SUBMISSION",
+    actor: founder,
+  }); // left at DISCOVERED — never approved
+
+  assert.deepEqual(await listVerifiedDevelopers(repos), []);
+});
+
+test("listVerifiedDevelopers: lists every verified developer, alphabetically by display name, never an unverified one", async () => {
+  const { repos, developer: zebra } = await setUpTestDeveloper({
+    legalName: "Test Zebra Developers Private Limited",
+    displayName: "Zebra Developers",
+  });
+  await verifyDeveloper(repos, zebra.id, "https://zebra.example");
+
+  const alpha = await createDeveloper(repos.developers, {
+    legalName: "Test Alpha Developers Private Limited",
+    displayName: "Alpha Developers",
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, alpha.id, "https://alpha.example");
+
+  // A third developer with no verified website at all — must never appear.
+  await setUpTestDeveloper({
+    legalName: "Test Hidden Developers Private Limited",
+    displayName: "Hidden Developers",
+  });
+
+  const results = await listVerifiedDevelopers(repos);
+  assert.deepEqual(
+    results.map((d) => d.displayName),
+    ["Alpha Developers", "Zebra Developers"],
+  );
+  assert.ok(results.every((d) => d.officialWebsite !== null));
+});
+
+test("listVerifiedDevelopers: never exposes internal verification fields", async () => {
+  const { repos, developer } = await setUpTestDeveloper({ displayName: "Test Developer One" });
+  await verifyDeveloper(repos, developer.id, "https://example.com");
+
+  const results = await listVerifiedDevelopers(repos);
+  const serialized = JSON.stringify(results);
+  assert.ok(!serialized.includes("confidenceScore"));
+  assert.ok(!serialized.includes("reviewedBy"));
+  assert.ok(!serialized.includes(founder.actorId));
+});
+
+test("listVerifiedDevelopers: an INACTIVE developer never appears, even with a verified candidate", async () => {
+  const { repos, developer } = await setUpTestDeveloper({ displayName: "Test Deactivated Co" });
+  await verifyDeveloper(repos, developer.id, "https://example.com");
+  await repos.developers.update(developer.id, { status: "INACTIVE" });
+
+  assert.deepEqual(await listVerifiedDevelopers(repos), []);
 });
 
 test("getPublicDeveloperBySlug: returns null for a slug that doesn't exist", async () => {

@@ -115,6 +115,40 @@ export interface VerificationOperations {
   averageTurnaroundHours: number | null;
 }
 
+/**
+ * Every ACTIVE developer, bucketed by its single effective verification
+ * status (see effectiveVerificationStatusSql() in queries.ts) — a
+ * developer-level count, deliberately distinct from VerificationOperations
+ * above (which counts website candidates, not developers). Used by
+ * Platform Health so its counts agree with what /admin/developers shows
+ * when filtered by status.
+ */
+export interface DeveloperVerificationBreakdown {
+  discovered: number;
+  pendingVerification: number;
+  verified: number;
+  needsReverification: number;
+  rejected: number;
+  inactive: number;
+}
+
+/** Exact row counts for every application table — never estimated. */
+export interface InfrastructureEntityCounts {
+  developers: number;
+  websiteCandidates: number;
+  evidence: number;
+  verificationEvents: number;
+  profiles: number;
+  notifications: number;
+  analyticsEvents: number;
+}
+
+/** One table's real, measured size — pg_total_relation_size() (table + indexes + TOAST), a cheap metadata read, never a scan. */
+export interface TableSizeInfo {
+  tableName: string;
+  sizeBytes: number;
+}
+
 export interface DataQuality {
   developersWithoutVerifiedWebsite: number;
   candidatesWithNoEvidence: number;

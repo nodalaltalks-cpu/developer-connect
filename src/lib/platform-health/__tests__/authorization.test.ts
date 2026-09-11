@@ -1,0 +1,40 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+/**
+ * Platform Health V2 adds real infrastructure detail (database size,
+ * per-table breakdown, deployment identifiers) to a page that must stay
+ * Founder-only. This can't be proven by rendering the page in
+ * `node --test` (the admin layout imports `@clerk/nextjs/server`, which
+ * this project's Node test runner can't load — see
+ * authorization-boundary.test.ts for the same constraint), so this is a
+ * static source check: the admin layout that wraps every /admin/* page,
+ * including /admin/platform-health, must call requireFounder()
+ * unconditionally — not inside an `if` that could skip it.
+ */
+test("authorization: admin/layout.tsx (which wraps /admin/platform-health) calls requireFounder() unconditionally", () => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const layoutPath = path.resolve(here, "../../../app/admin/layout.tsx");
+  const source = readFileSync(layoutPath, "utf8");
+
+  assert.ok(source.includes("requireFounder()"), "admin/layout.tsx must call requireFounder()");
+  assert.ok(
+    source.includes("/admin/platform-health"),
+    "admin/layout.tsx must still list /admin/platform-health as one of the routes it wraps",
+  );
+
+  // The call must not be nested inside a conditional guard that could
+  // skip it for some request — it must run before anything else renders.
+  const callIndex = source.indexOf("requireFounder()");
+  const before = source.slice(0, callIndex);
+  const openBraces = (before.match(/\{/g) ?? []).length;
+  const closeBraces = (before.match(/\}/g) ?? []).length;
+  const netNestingBeforeCall = openBraces - closeBraces;
+  assert.ok(
+    netNestingBeforeCall <= 1,
+    "requireFounder() appears to be nested inside a conditional block rather than always running",
+  );
+});

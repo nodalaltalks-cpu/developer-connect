@@ -30,6 +30,110 @@ test(
 );
 
 test(
+  "checkDatabaseHealth: table breakdown is real — every application table appears exactly once, sizes are positive, percentages never exceed 100 and are only present because a real total was measured",
+  { skip: !hasTestDatabase },
+  async () => {
+    const { checkDatabaseHealth } = await import("../health-checks.ts");
+    const result = await checkDatabaseHealth();
+
+    assert.ok(result.storage.measured);
+    const expectedTables = [
+      "developers",
+      "website_candidates",
+      "evidence",
+      "verification_events",
+      "profiles",
+      "notifications",
+      "analytics_events",
+    ];
+    const seenTables = result.tableBreakdown.map((t) => t.tableName).sort();
+    assert.deepEqual(seenTables, expectedTables.sort());
+
+    for (const table of result.tableBreakdown) {
+      assert.ok(table.rowCount >= 0, `${table.tableName} rowCount must be >= 0`);
+      assert.ok(table.sizeBytes >= 0, `${table.tableName} sizeBytes must be >= 0`);
+      if (table.percentOfTotal !== null) {
+        assert.ok(
+          table.percentOfTotal >= 0 && table.percentOfTotal <= 100,
+          `${table.tableName} percentOfTotal (${table.percentOfTotal}) must be within 0-100`,
+        );
+      }
+    }
+
+    // Never a fabricated capacity/remaining figure alongside the real breakdown.
+    assert.equal(result.storage.limitBytes, null);
+  },
+);
+
+test(
+  "checkProductDataHealth: developer status breakdown sums to totalDevelopers, and agrees with getDeveloperVerificationBreakdown directly",
+  { skip: !hasTestDatabase },
+  async () => {
+    const { checkProductDataHealth } = await import("../health-checks.ts");
+    const { getDeveloperVerificationBreakdown, getInfrastructureEntityCounts } = await import(
+      "../../admin-analytics/queries.ts"
+    );
+
+    const [result, directBreakdown, directEntityCounts] = await Promise.all([
+      checkProductDataHealth(),
+      getDeveloperVerificationBreakdown(),
+      getInfrastructureEntityCounts(),
+    ]);
+
+    assert.deepEqual(result.developerStatusBreakdown, directBreakdown);
+
+    const sum = Object.values(result.developerStatusBreakdown).reduce((a, b) => a + b, 0);
+    // totalDevelopers counts ALL developers (any status column value);
+    // the breakdown counts only ACTIVE ones — so the sum can be less
+    // than or equal to totalDevelopers, never more.
+    assert.ok(sum <= result.totalDevelopers);
+
+    assert.deepEqual(result.entityCounts, {
+      websiteCandidates: directEntityCounts.websiteCandidates,
+      evidence: directEntityCounts.evidence,
+      verificationEvents: directEntityCounts.verificationEvents,
+      profiles: directEntityCounts.profiles,
+      notifications: directEntityCounts.notifications,
+      analyticsEvents: directEntityCounts.analyticsEvents,
+    });
+    for (const value of Object.values(result.entityCounts)) {
+      assert.ok(value >= 0);
+    }
+  },
+);
+
+test("checkObjectStorageHealth: always honestly NOT_MEASURED — no object storage provider is configured in this project", async () => {
+  const { checkObjectStorageHealth } = await import("../health-checks.ts");
+  const result = checkObjectStorageHealth();
+  assert.equal(result.status, "NOT_MEASURED");
+  assert.equal(result.inUse, false);
+  assert.equal(result.provider, null);
+});
+
+test("checkDeploymentHealth: off Vercel, every new field is null rather than fabricated", async () => {
+  const originalSha = process.env.VERCEL_GIT_COMMIT_SHA;
+  const originalUrl = process.env.VERCEL_URL;
+  delete process.env.VERCEL_GIT_COMMIT_SHA;
+  delete process.env.VERCEL_URL;
+  delete process.env.VERCEL_REGION;
+  delete process.env.VERCEL_GIT_COMMIT_REF;
+  delete process.env.VERCEL_DEPLOYMENT_ID;
+  try {
+    const { checkDeploymentHealth } = await import("../health-checks.ts");
+    const result = checkDeploymentHealth();
+    assert.equal(result.status, "NOT_MEASURED");
+    assert.equal(result.commitSha, null);
+    assert.equal(result.deploymentUrl, null);
+    assert.equal(result.region, null);
+    assert.equal(result.gitBranch, null);
+    assert.equal(result.deploymentId, null);
+  } finally {
+    if (originalSha !== undefined) process.env.VERCEL_GIT_COMMIT_SHA = originalSha;
+    if (originalUrl !== undefined) process.env.VERCEL_URL = originalUrl;
+  }
+});
+
+test(
   "checkProductDataHealth: returns well-formed counts regardless of what's currently in the table",
   { skip: !hasTestDatabase },
   async () => {
@@ -91,9 +195,35 @@ test(
           developersWithoutVerifiedWebsite: 0,
           candidatesWithNoEvidence: 0,
           verifiedNeverReChecked: 0,
+          developerStatusBreakdown: {
+            discovered: 0,
+            pendingVerification: 0,
+            verified: 0,
+            needsReverification: 0,
+            rejected: 0,
+            inactive: 0,
+          },
+          entityCounts: {
+            websiteCandidates: 0,
+            evidence: 0,
+            verificationEvents: 0,
+            profiles: 0,
+            notifications: 0,
+            analyticsEvents: 0,
+          },
         },
         application: { status: "NOT_MEASURED", summary: "", detail: "" },
-        deployment: { status: "NOT_MEASURED", summary: "", detail: "", commitSha: null, environment: null },
+        deployment: {
+          status: "NOT_MEASURED",
+          summary: "",
+          detail: "",
+          commitSha: null,
+          environment: null,
+          deploymentUrl: null,
+          region: null,
+          gitBranch: null,
+          deploymentId: null,
+        },
       });
       const dbWarning = warnings.find((w) => w.category === "DATABASE");
       assert.ok(dbWarning);

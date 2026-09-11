@@ -1,7 +1,13 @@
 import { sql, gte, count } from "drizzle-orm";
 import { getDb } from "../developer-connect/db/client.ts";
 import { analyticsEvents } from "../developer-connect/db/schema.ts";
-import { getDataQuality, getExecutiveOverview } from "../admin-analytics/queries.ts";
+import {
+  getDataQuality,
+  getExecutiveOverview,
+  getDeveloperVerificationBreakdown,
+  getInfrastructureEntityCounts,
+  getDatabaseTableSizes,
+} from "../admin-analytics/queries.ts";
 import {
   DATABASE_LATENCY_THRESHOLDS_MS,
   AUTHENTICATION_LATENCY_THRESHOLDS_MS,
@@ -11,11 +17,13 @@ import {
 import { computeOverallStatus, buildWarnings } from "./algorithm.ts";
 import type {
   DatabaseHealth,
+  DatabaseTableBreakdown,
   ApplicationHealth,
   AuthenticationHealth,
   ProductDataHealth,
   AnalyticsHealth,
   DeploymentHealth,
+  ObjectStorageHealth,
   PlatformHealth,
 } from "./types.ts";
 
@@ -37,6 +45,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
   let usedBytes: number | null = null;
   let storageMeasured = false;
   let storageReason: string | undefined;
+  let tableBreakdown: DatabaseTableBreakdown[] = [];
 
   try {
     const db = getDb();
@@ -55,6 +64,34 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
       }
     } catch {
       storageReason = "Developer Connect could not read database storage usage.";
+    }
+
+    if (storageMeasured) {
+      try {
+        const [sizes, entityCounts] = await Promise.all([getDatabaseTableSizes(), getInfrastructureEntityCounts()]);
+        const rowCountByTable: Record<string, number> = {
+          developers: entityCounts.developers,
+          website_candidates: entityCounts.websiteCandidates,
+          evidence: entityCounts.evidence,
+          verification_events: entityCounts.verificationEvents,
+          profiles: entityCounts.profiles,
+          notifications: entityCounts.notifications,
+          analytics_events: entityCounts.analyticsEvents,
+        };
+        tableBreakdown = sizes
+          .map((table) => ({
+            tableName: table.tableName,
+            rowCount: rowCountByTable[table.tableName] ?? 0,
+            sizeBytes: table.sizeBytes,
+            percentOfTotal: usedBytes! > 0 ? Math.round((table.sizeBytes / usedBytes!) * 1000) / 10 : null,
+          }))
+          .sort((a, b) => b.sizeBytes - a.sizeBytes);
+      } catch {
+        // Per-table breakdown is a bonus on top of the already-measured
+        // total — its failure never demotes storageMeasured/usedBytes,
+        // which are independently real.
+        tableBreakdown = [];
+      }
     }
   } catch {
     connectionOk = false;
@@ -106,6 +143,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
         ? undefined
         : (storageReason ?? "Developer Connect cannot currently read your Neon storage usage."),
     },
+    tableBreakdown,
     dataQuality: {
       developersWithoutVerifiedWebsite: dataQuality.developersWithoutVerifiedWebsite,
       candidatesWithNoEvidence: dataQuality.candidatesWithNoEvidence,
@@ -208,9 +246,23 @@ export async function checkAuthenticationHealth(): Promise<AuthenticationHealth>
   }
 }
 
-/** Product data: reuses the existing executive-overview + data-quality queries — no new tables, no new counts invented. */
+/**
+ * Product data: reuses the existing executive-overview + data-quality
+ * queries — no new tables, no new counts invented.
+ *
+ * developerStatusBreakdown counts developers by their real, current
+ * EFFECTIVE verification status (getDeveloperVerificationBreakdown —
+ * the same derivation the /admin/developers status filter uses), so
+ * these numbers always agree with what a Founder sees there. entityCounts
+ * are exact row counts for every other application table.
+ */
 export async function checkProductDataHealth(): Promise<ProductDataHealth> {
-  const [overview, dataQuality] = await Promise.all([getExecutiveOverview(), getDataQuality()]);
+  const [overview, dataQuality, developerStatusBreakdown, entityCounts] = await Promise.all([
+    getExecutiveOverview(),
+    getDataQuality(),
+    getDeveloperVerificationBreakdown(),
+    getInfrastructureEntityCounts(),
+  ]);
 
   const hasIssue =
     dataQuality.developersWithoutVerifiedWebsite > 0 ||
@@ -243,6 +295,15 @@ export async function checkProductDataHealth(): Promise<ProductDataHealth> {
     // issues" everywhere the other two counts are displayed. Now carried
     // through so the Founder can actually see what's flagged.
     verifiedNeverReChecked: dataQuality.verifiedNeverReChecked,
+    developerStatusBreakdown,
+    entityCounts: {
+      websiteCandidates: entityCounts.websiteCandidates,
+      evidence: entityCounts.evidence,
+      verificationEvents: entityCounts.verificationEvents,
+      profiles: entityCounts.profiles,
+      notifications: entityCounts.notifications,
+      analyticsEvents: entityCounts.analyticsEvents,
+    },
   };
 }
 
@@ -311,14 +372,23 @@ export async function checkAnalyticsHealth(): Promise<AnalyticsHealth> {
 }
 
 /**
- * Deployment: only what Vercel automatically injects at build/runtime
- * (commit SHA, environment) — no Vercel API token exists in this
- * project, so live deployment status (building/ready/error) is not
- * measurable and is reported as such rather than guessed.
+ * Deployment: only what Vercel automatically injects into every
+ * function's runtime environment for free (System Environment Variables
+ * — commit SHA, environment, deployment URL/id, region, git branch). No
+ * Vercel API token exists in this project, so anything that would
+ * require calling Vercel's REST API (build status, request/bandwidth
+ * quotas, live "building/ready/error" state) is not measurable and is
+ * reported as such rather than guessed or added automatically. There is
+ * also no standard system env var for "when this deployment was
+ * created" — that genuinely isn't available here either.
  */
 export function checkDeploymentHealth(): DeploymentHealth {
   const commitSha = process.env.VERCEL_GIT_COMMIT_SHA ?? null;
   const environment = process.env.VERCEL_ENV ?? null;
+  const deploymentUrl = process.env.VERCEL_URL ?? null;
+  const region = process.env.VERCEL_REGION ?? null;
+  const gitBranch = process.env.VERCEL_GIT_COMMIT_REF ?? null;
+  const deploymentId = process.env.VERCEL_DEPLOYMENT_ID ?? null;
 
   if (!commitSha) {
     return {
@@ -328,15 +398,44 @@ export function checkDeploymentHealth(): DeploymentHealth {
         "Live deployment monitoring is not currently connected — Developer Connect can only show this when running on Vercel.",
       commitSha: null,
       environment,
+      deploymentUrl,
+      region,
+      gitBranch,
+      deploymentId,
     };
   }
 
   return {
     status: "HEALTHY",
     summary: "Running the expected deployment",
-    detail: "This is the commit and environment currently serving Developer Connect.",
+    detail: "This is the commit, branch, and environment currently serving Developer Connect.",
     commitSha,
     environment,
+    deploymentUrl,
+    region,
+    gitBranch,
+    deploymentId,
+  };
+}
+
+/**
+ * Object/file storage: Developer Connect has no file-upload feature and
+ * no object-storage SDK installed (no @vercel/blob, no S3, no Firebase
+ * Storage) — confirmed by inspecting package.json and the codebase, not
+ * assumed. There is genuinely nothing to measure, so this is always
+ * NOT_MEASURED with inUse: false rather than a fabricated 0-byte usage
+ * figure or an invented capacity. If a real storage provider is ever
+ * added to this project, this is the one function that should start
+ * reporting its real usage.
+ */
+export function checkObjectStorageHealth(): ObjectStorageHealth {
+  return {
+    status: "NOT_MEASURED",
+    summary: "No object storage in use",
+    detail:
+      "Developer Connect doesn't currently use any object/file storage provider (Vercel Blob, S3, Firebase Storage, or similar) — there's no file-upload feature in the product today, so there's nothing to measure here.",
+    inUse: false,
+    provider: null,
   };
 }
 
@@ -356,6 +455,7 @@ export async function getPlatformHealth(): Promise<PlatformHealth> {
   ]);
   const application = checkApplicationHealth();
   const deployment = checkDeploymentHealth();
+  const storage = checkObjectStorageHealth();
 
   const overallStatus = computeOverallStatus([
     database.status,
@@ -364,6 +464,7 @@ export async function getPlatformHealth(): Promise<PlatformHealth> {
     productData.status,
     analytics.status,
     deployment.status,
+    storage.status,
   ]);
 
   const warnings = buildWarnings({ database, authentication, analytics, productData, application, deployment });
@@ -376,6 +477,7 @@ export async function getPlatformHealth(): Promise<PlatformHealth> {
     authentication,
     productData,
     analytics,
+    storage,
     deployment,
     warnings,
   };

@@ -18,6 +18,7 @@ function db(overrides: Partial<DatabaseHealth> = {}): DatabaseHealth {
     connectionOk: true,
     latencyMs: 10,
     storage: { measured: false, usedBytes: null, limitBytes: null, reason: "test" },
+    tableBreakdown: [],
     dataQuality: { developersWithoutVerifiedWebsite: 0, candidatesWithNoEvidence: 0, verifiedNeverReChecked: 0 },
     ...overrides,
   };
@@ -47,6 +48,22 @@ function productData(overrides: Partial<ProductDataHealth> = {}): ProductDataHea
     developersWithoutVerifiedWebsite: 0,
     candidatesWithNoEvidence: 0,
     verifiedNeverReChecked: 0,
+    developerStatusBreakdown: {
+      discovered: 0,
+      pendingVerification: 0,
+      verified: 1,
+      needsReverification: 0,
+      rejected: 0,
+      inactive: 0,
+    },
+    entityCounts: {
+      websiteCandidates: 0,
+      evidence: 0,
+      verificationEvents: 0,
+      profiles: 0,
+      notifications: 0,
+      analyticsEvents: 0,
+    },
     ...overrides,
   };
 }
@@ -54,7 +71,18 @@ function application(overrides: Partial<ApplicationHealth> = {}): ApplicationHea
   return { status: "NOT_MEASURED", summary: "", detail: "", ...overrides };
 }
 function deployment(overrides: Partial<DeploymentHealth> = {}): DeploymentHealth {
-  return { status: "NOT_MEASURED", summary: "", detail: "", commitSha: null, environment: null, ...overrides };
+  return {
+    status: "NOT_MEASURED",
+    summary: "",
+    detail: "",
+    commitSha: null,
+    environment: null,
+    deploymentUrl: null,
+    region: null,
+    gitBranch: null,
+    deploymentId: null,
+    ...overrides,
+  };
 }
 
 test("computeOverallStatus: all healthy (NOT_MEASURED categories ignored) is HEALTHY", () => {

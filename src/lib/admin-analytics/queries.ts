@@ -8,6 +8,7 @@ import {
   analyticsEvents,
   profiles,
   evidence,
+  notifications,
 } from "../developer-connect/db/schema.ts";
 import { PROFILE_FIELD_CONFIG, PROFILE_SECTIONS } from "../profile/field-config.ts";
 import { calculateProfileCompletion } from "../profile/completion.ts";
@@ -34,6 +35,9 @@ import type {
   RetentionMetrics,
   RetentionWindow,
   UserActivityEvent,
+  DeveloperVerificationBreakdown,
+  InfrastructureEntityCounts,
+  TableSizeInfo,
   ActivityBand,
 } from "./types.ts";
 
@@ -1110,4 +1114,140 @@ function describeActivity(
     default:
       return null;
   }
+}
+
+/**
+ * Infrastructure/capacity support queries for Platform Health. These are
+ * deliberately separate from the product-analytics functions above: they
+ * exist to answer "how big is this database and what's using the space",
+ * not "how is the product being used".
+ */
+
+/**
+ * Every ACTIVE developer's effective verification status, counted in one
+ * query. Uses the exact same precedence logic as
+ * effectiveVerificationStatusSql() (VERIFIED > NEEDS_REVERIFICATION >
+ * PENDING_VERIFICATION > DISCOVERED > REJECTED > INACTIVE; no candidate
+ * at all reads as DISCOVERED) — written out explicitly with table
+ * aliases here, rather than re-embedding that function's Drizzle-object
+ * output, to avoid a real bug this project already hit once: Drizzle
+ * silently drops table-qualification on a correlated-subquery column
+ * reference when the same raw `sql` fragment is reused as a SELECT
+ * projection value elsewhere. Hand-written, fully-qualified SQL sidesteps
+ * that class of bug entirely. If the precedence order ever changes, it
+ * must be changed in both places.
+ */
+export async function getDeveloperVerificationBreakdown(): Promise<DeveloperVerificationBreakdown> {
+  const db = getDb();
+  const result = await db.execute<{ effective_status: string; n: string }>(sql`
+    select sub.effective_status, count(*) as n
+    from (
+      select coalesce((
+        select ws.verification_status
+        from ${websiteCandidates} ws
+        where ws.developer_id = d.id
+        order by case ws.verification_status
+          when 'VERIFIED' then 1
+          when 'NEEDS_REVERIFICATION' then 2
+          when 'PENDING_VERIFICATION' then 3
+          when 'DISCOVERED' then 4
+          when 'REJECTED' then 5
+          when 'INACTIVE' then 6
+        end
+        limit 1
+      ), 'DISCOVERED') as effective_status
+      from ${developers} d
+      where d.status = 'ACTIVE'
+    ) sub
+    group by sub.effective_status
+  `);
+
+  const counts: DeveloperVerificationBreakdown = {
+    discovered: 0,
+    pendingVerification: 0,
+    verified: 0,
+    needsReverification: 0,
+    rejected: 0,
+    inactive: 0,
+  };
+  const keyByStatus: Record<string, keyof DeveloperVerificationBreakdown> = {
+    DISCOVERED: "discovered",
+    PENDING_VERIFICATION: "pendingVerification",
+    VERIFIED: "verified",
+    NEEDS_REVERIFICATION: "needsReverification",
+    REJECTED: "rejected",
+    INACTIVE: "inactive",
+  };
+  for (const row of result.rows) {
+    const key = keyByStatus[row.effective_status];
+    if (key) counts[key] = Number(row.n);
+  }
+  return counts;
+}
+
+/**
+ * Exact row counts for every application table Platform Health needs
+ * besides `developers` (already covered by getExecutiveOverview). Six
+ * independent, cheap count() queries run in parallel — not N+1 (a fixed,
+ * small set of aggregate queries, not one per row), and cheap at this
+ * project's current and near-term scale.
+ */
+export async function getInfrastructureEntityCounts(): Promise<InfrastructureEntityCounts> {
+  const db = getDb();
+  const [
+    [developersRow],
+    [websiteCandidatesRow],
+    [evidenceRow],
+    [verificationEventsRow],
+    [profilesRow],
+    [notificationsRow],
+    [analyticsEventsRow],
+  ] = await Promise.all([
+    db.select({ n: count() }).from(developers),
+    db.select({ n: count() }).from(websiteCandidates),
+    db.select({ n: count() }).from(evidence),
+    db.select({ n: count() }).from(verificationEvents),
+    db.select({ n: count() }).from(profiles),
+    db.select({ n: count() }).from(notifications),
+    db.select({ n: count() }).from(analyticsEvents),
+  ]);
+
+  return {
+    developers: developersRow?.n ?? 0,
+    websiteCandidates: websiteCandidatesRow?.n ?? 0,
+    evidence: evidenceRow?.n ?? 0,
+    verificationEvents: verificationEventsRow?.n ?? 0,
+    profiles: profilesRow?.n ?? 0,
+    notifications: notificationsRow?.n ?? 0,
+    analyticsEvents: analyticsEventsRow?.n ?? 0,
+  };
+}
+
+/**
+ * Real, exact size (table + its own indexes + TOAST) for every
+ * application table, in one query — pg_total_relation_size() reads
+ * on-disk metadata Postgres already tracks; it never scans table
+ * contents, so this stays cheap regardless of table size. The `in (...)`
+ * list is written as individual bound parameters (never a JS array
+ * interpolated into `= any(...)`) — this project already hit one real
+ * Drizzle raw-sql edge case (see effectiveVerificationStatusSql's doc
+ * comment), so array-parameter serialization here is deliberately not
+ * trusted without the same kind of direct verification.
+ */
+export async function getDatabaseTableSizes(): Promise<TableSizeInfo[]> {
+  const db = getDb();
+  const result = await db.execute<{ relname: string; size_bytes: string }>(sql`
+    select relname, pg_total_relation_size(relid) as size_bytes
+    from pg_stat_user_tables
+    where schemaname = 'public'
+      and relname in (
+        ${"developers"}, ${"website_candidates"}, ${"evidence"},
+        ${"verification_events"}, ${"profiles"}, ${"notifications"}, ${"analytics_events"}
+      )
+  `);
+
+  return result.rows.map((row) => ({
+    tableName: row.relname,
+    sizeBytes: Number(row.size_bytes),
+  }));
 }

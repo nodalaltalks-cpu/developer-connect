@@ -68,7 +68,9 @@ export default async function PlatformHealthPage() {
                   ? formatBytes(health.database.storage.usedBytes)
                   : "⚪ Not currently measured"}
               </p>
-              {!health.database.storage.measured && (
+              {health.database.storage.measured ? (
+                <p>Capacity: Not exposed by provider</p>
+              ) : (
                 <p className="text-xs">{health.database.storage.reason}</p>
               )}
             </>
@@ -79,6 +81,27 @@ export default async function PlatformHealthPage() {
             <li>Candidates with no evidence: {health.database.dataQuality.candidatesWithNoEvidence}</li>
             <li>Verified, never re-checked: {health.database.dataQuality.verifiedNeverReChecked}</li>
           </ul>
+
+          {health.database.tableBreakdown.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Storage by table
+              </p>
+              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                {health.database.tableBreakdown.map((table) => (
+                  <li key={table.tableName} className="flex justify-between gap-3">
+                    <span>
+                      {table.tableName} ({table.rowCount.toLocaleString()} rows)
+                    </span>
+                    <span>
+                      {formatBytes(table.sizeBytes)}
+                      {table.percentOfTotal !== null ? ` · ${table.percentOfTotal}%` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </PlatformHealthCategoryCard>
 
         <PlatformHealthCategoryCard
@@ -108,6 +131,7 @@ export default async function PlatformHealthPage() {
           facts={
             health.productData.totalDevelopers === 0 ? undefined : (
               <>
+                <p>Total developers: {health.productData.totalDevelopers}</p>
                 <p>Verified developers: {health.productData.verifiedDevelopers}</p>
                 <p>Candidates awaiting review: {health.productData.pendingVerification}</p>
                 <p>Developers without a verified website: {health.productData.developersWithoutVerifiedWebsite}</p>
@@ -116,7 +140,38 @@ export default async function PlatformHealthPage() {
               </>
             )
           }
-        />
+        >
+          {health.productData.totalDevelopers > 0 && (
+            <>
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Developers by verification status
+                </p>
+                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                  <li>Discovered: {health.productData.developerStatusBreakdown.discovered}</li>
+                  <li>Pending verification: {health.productData.developerStatusBreakdown.pendingVerification}</li>
+                  <li>Verified: {health.productData.developerStatusBreakdown.verified}</li>
+                  <li>Needs re-verification: {health.productData.developerStatusBreakdown.needsReverification}</li>
+                  <li>Rejected: {health.productData.developerStatusBreakdown.rejected}</li>
+                  <li>Inactive: {health.productData.developerStatusBreakdown.inactive}</li>
+                </ul>
+              </div>
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Other tables
+                </p>
+                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                  <li>Website candidates: {health.productData.entityCounts.websiteCandidates}</li>
+                  <li>Evidence: {health.productData.entityCounts.evidence}</li>
+                  <li>Verification events: {health.productData.entityCounts.verificationEvents}</li>
+                  <li>Profiles: {health.productData.entityCounts.profiles}</li>
+                  <li>Notifications: {health.productData.entityCounts.notifications}</li>
+                  <li>Analytics events: {health.productData.entityCounts.analyticsEvents}</li>
+                </ul>
+              </div>
+            </>
+          )}
+        </PlatformHealthCategoryCard>
 
         <PlatformHealthCategoryCard
           title="E. Analytics"
@@ -147,10 +202,27 @@ export default async function PlatformHealthPage() {
             health.deployment.commitSha ? (
               <>
                 <p>Commit: {health.deployment.commitSha.slice(0, 7)}</p>
+                <p>Branch: {health.deployment.gitBranch ?? "unknown"}</p>
                 <p>Environment: {health.deployment.environment ?? "unknown"}</p>
+                <p>Region: {health.deployment.region ?? "unknown"}</p>
               </>
             ) : undefined
           }
+        >
+          {health.deployment.deploymentUrl && (
+            <p className="mt-2 text-xs text-muted-foreground">URL: {health.deployment.deploymentUrl}</p>
+          )}
+          {health.deployment.deploymentId && (
+            <p className="mt-1 text-xs text-muted-foreground">Deployment ID: {health.deployment.deploymentId}</p>
+          )}
+          <p className="mt-1 text-xs text-muted-foreground">Deployment timestamp: Not available</p>
+        </PlatformHealthCategoryCard>
+
+        <PlatformHealthCategoryCard
+          title="G. Object Storage"
+          status={health.storage.status}
+          summary={health.storage.summary}
+          detail={health.storage.detail}
         />
       </div>
     </div>

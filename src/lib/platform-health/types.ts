@@ -48,6 +48,7 @@ export interface ProductDataHealth extends HealthCheckResult {
   pendingVerification: number;
   developersWithoutVerifiedWebsite: number;
   candidatesWithNoEvidence: number;
+  verifiedNeverReChecked: number;
 }
 
 export interface AnalyticsHealth extends HealthCheckResult {

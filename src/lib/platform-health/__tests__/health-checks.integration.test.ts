@@ -39,8 +39,70 @@ test(
     assert.ok(["HEALTHY", "NEEDS_ATTENTION", "NOT_MEASURED"].includes(result.status));
     assert.ok(result.totalDevelopers >= 0);
     assert.ok(result.verifiedDevelopers >= 0);
+    assert.ok(result.verifiedNeverReChecked >= 0);
     if (result.totalDevelopers === 0) {
       assert.equal(result.status, "NOT_MEASURED");
+    }
+    // The exact bug this guards: verifiedNeverReChecked feeds the
+    // NEEDS_ATTENTION decision (see checkProductDataHealth's `hasIssue`)
+    // but was previously dropped before reaching the returned object, so
+    // a status driven solely by this count showed "0" everywhere it was
+    // displayed. If it's the only nonzero count, the status must still
+    // reflect it.
+    if (
+      result.verifiedNeverReChecked > 0 &&
+      result.developersWithoutVerifiedWebsite === 0 &&
+      result.candidatesWithNoEvidence === 0
+    ) {
+      assert.equal(result.status, "NEEDS_ATTENTION");
+    }
+  },
+);
+
+test(
+  "checkDatabaseHealth + buildWarnings: a fast database with only data-quality counts is never reported as slow",
+  { skip: !hasTestDatabase },
+  async () => {
+    const { checkDatabaseHealth } = await import("../health-checks.ts");
+    const { buildWarnings } = await import("../algorithm.ts");
+    const { DATABASE_LATENCY_THRESHOLDS_MS } = await import("../thresholds.ts");
+    const database = await checkDatabaseHealth();
+
+    if (database.status === "NEEDS_ATTENTION" && database.latencyMs !== null) {
+      const isGenuinelySlow = database.latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.DEGRADED_ABOVE;
+      const warnings = buildWarnings({
+        database,
+        authentication: { status: "HEALTHY", summary: "", detail: "", clerkReachable: true, latencyMs: 10 },
+        analytics: {
+          status: "HEALTHY",
+          summary: "",
+          detail: "",
+          mostRecentEventAt: null,
+          eventsToday: 0,
+          totalEventsEver: 0,
+        },
+        productData: {
+          status: "HEALTHY",
+          summary: "",
+          detail: "",
+          totalDevelopers: 0,
+          verifiedDevelopers: 0,
+          pendingVerification: 0,
+          developersWithoutVerifiedWebsite: 0,
+          candidatesWithNoEvidence: 0,
+          verifiedNeverReChecked: 0,
+        },
+        application: { status: "NOT_MEASURED", summary: "", detail: "" },
+        deployment: { status: "NOT_MEASURED", summary: "", detail: "", commitSha: null, environment: null },
+      });
+      const dbWarning = warnings.find((w) => w.category === "DATABASE");
+      assert.ok(dbWarning);
+      if (!isGenuinelySlow) {
+        assert.equal(dbWarning!.id, "database-data-quality");
+        assert.ok(!dbWarning!.title.toLowerCase().includes("slow"));
+      } else {
+        assert.equal(dbWarning!.id, "database-response-slow");
+      }
     }
   },
 );

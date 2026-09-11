@@ -110,7 +110,9 @@ export default async function PlatformHealthPage() {
               <>
                 <p>Verified developers: {health.productData.verifiedDevelopers}</p>
                 <p>Candidates awaiting review: {health.productData.pendingVerification}</p>
-                <p>Data-quality issues: {health.productData.developersWithoutVerifiedWebsite + health.productData.candidatesWithNoEvidence}</p>
+                <p>Developers without a verified website: {health.productData.developersWithoutVerifiedWebsite}</p>
+                <p>Candidates with no evidence: {health.productData.candidatesWithNoEvidence}</p>
+                <p>Verified, never re-checked: {health.productData.verifiedNeverReChecked}</p>
               </>
             )
           }

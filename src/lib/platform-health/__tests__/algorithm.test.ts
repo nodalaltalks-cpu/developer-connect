@@ -46,6 +46,7 @@ function productData(overrides: Partial<ProductDataHealth> = {}): ProductDataHea
     pendingVerification: 0,
     developersWithoutVerifiedWebsite: 0,
     candidatesWithNoEvidence: 0,
+    verifiedNeverReChecked: 0,
     ...overrides,
   };
 }
@@ -129,7 +130,7 @@ test("buildWarnings: analytics staleness only warns when there IS history — ne
 
 test("buildWarnings: multiple simultaneous problems each produce their own warning", () => {
   const warnings = buildWarnings({
-    database: db({ status: "NEEDS_ATTENTION" }),
+    database: db({ status: "NEEDS_ATTENTION", latencyMs: 350, summary: "Database is responding slowly" }),
     authentication: auth({ status: "ACTION_REQUIRED", clerkReachable: false }),
     analytics: analytics(),
     productData: productData({ status: "NEEDS_ATTENTION", developersWithoutVerifiedWebsite: 2 }),
@@ -138,4 +139,79 @@ test("buildWarnings: multiple simultaneous problems each produce their own warni
   });
   const ids = warnings.map((w) => w.id).sort();
   assert.deepEqual(ids, ["authentication-unreachable", "database-response-slow", "product-data-quality"]);
+});
+
+test("buildWarnings: a database NEEDS_ATTENTION caused by genuinely slow latency is labeled as slow", () => {
+  const warnings = buildWarnings({
+    database: db({
+      status: "NEEDS_ATTENTION",
+      latencyMs: 350, // above DEGRADED_ABOVE (200)
+      summary: "Database is responding slowly",
+      detail: "Some database requests are taking longer than usual.",
+    }),
+    authentication: auth(),
+    analytics: analytics(),
+    productData: productData(),
+    application: application(),
+    deployment: deployment(),
+  });
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].id, "database-response-slow");
+  assert.equal(warnings[0].title, "Database is responding slowly");
+});
+
+test("buildWarnings: a database NEEDS_ATTENTION caused by data-quality counts (fast latency) is never mislabeled as slow — reproduces and fixes the reported inconsistency", () => {
+  const warnings = buildWarnings({
+    database: db({
+      status: "NEEDS_ATTENTION",
+      latencyMs: 3, // fast — well under DEGRADED_ABOVE (200)
+      summary: "Database is working normally, with some data to review",
+      detail: "The connection and speed are fine — a few developer records need attention (see below).",
+      dataQuality: { developersWithoutVerifiedWebsite: 0, candidatesWithNoEvidence: 0, verifiedNeverReChecked: 10 },
+    }),
+    authentication: auth(),
+    analytics: analytics(),
+    productData: productData(),
+    application: application(),
+    deployment: deployment(),
+  });
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].id, "database-data-quality");
+  assert.notEqual(warnings[0].title, "Database responding slowly");
+  assert.equal(warnings[0].title, "Database is working normally, with some data to review");
+  assert.ok(!warnings[0].explanation.toLowerCase().includes("slow"));
+});
+
+test("buildWarnings: product-data warning names the real counts causing it, including verifiedNeverReChecked", () => {
+  const warnings = buildWarnings({
+    database: db(),
+    authentication: auth(),
+    analytics: analytics(),
+    productData: productData({ status: "NEEDS_ATTENTION", verifiedNeverReChecked: 10 }),
+    application: application(),
+    deployment: deployment(),
+  });
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].id, "product-data-quality");
+  assert.ok(warnings[0].explanation.includes("10 verified websites never re-checked since approval"));
+  // Only cause present is the "not automated yet" one — recommendation must not imply an urgent backlog.
+  assert.ok(warnings[0].recommendedAction.includes("No urgent action needed"));
+});
+
+test("buildWarnings: product-data warning treats a real missing-website backlog as actionable, distinct from the re-check-only case", () => {
+  const warnings = buildWarnings({
+    database: db(),
+    authentication: auth(),
+    analytics: analytics(),
+    productData: productData({
+      status: "NEEDS_ATTENTION",
+      developersWithoutVerifiedWebsite: 2,
+      verifiedNeverReChecked: 10,
+    }),
+    application: application(),
+    deployment: deployment(),
+  });
+  assert.equal(warnings.length, 1);
+  assert.ok(warnings[0].explanation.includes("2 active developers without a verified website"));
+  assert.equal(warnings[0].recommendedAction, "Review Data Quality for the specific records that need attention.");
 });

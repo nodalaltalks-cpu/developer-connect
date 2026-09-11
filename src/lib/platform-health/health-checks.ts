@@ -238,6 +238,11 @@ export async function checkProductDataHealth(): Promise<ProductDataHealth> {
     pendingVerification: overview.pendingVerification,
     developersWithoutVerifiedWebsite: dataQuality.developersWithoutVerifiedWebsite,
     candidatesWithNoEvidence: dataQuality.candidatesWithNoEvidence,
+    // Previously computed into `hasIssue` above but never returned, so a
+    // NEEDS_ATTENTION status driven entirely by this count showed as "0
+    // issues" everywhere the other two counts are displayed. Now carried
+    // through so the Founder can actually see what's flagged.
+    verifiedNeverReChecked: dataQuality.verifiedNeverReChecked,
   };
 }
 

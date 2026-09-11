@@ -1,3 +1,4 @@
+import { DATABASE_LATENCY_THRESHOLDS_MS } from "./thresholds.ts";
 import type {
   HealthStatus,
   PlatformHealthWarning,
@@ -57,13 +58,28 @@ export function buildWarnings(input: {
       recommendedAction: "Check the database connection details below.",
     });
   } else if (input.database.status === "NEEDS_ATTENTION") {
+    // checkDatabaseHealth() puts a database into NEEDS_ATTENTION for two
+    // unrelated reasons — genuinely slow latency, or fast-but-flagged
+    // data-quality counts — and already worded `summary`/`detail`
+    // correctly for whichever one actually happened. Reusing those
+    // directly (rather than a second, hardcoded "responding slowly" text
+    // here) is what keeps this warning honest: previously this branch
+    // fired for BOTH causes with the same "Database responding slowly"
+    // copy, so a fast, healthy database with only data-quality follow-up
+    // was misreported as slow.
+    const isSlow =
+      input.database.latencyMs !== null &&
+      input.database.latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.DEGRADED_ABOVE;
+
     warnings.push({
-      id: "database-response-slow",
+      id: isSlow ? "database-response-slow" : "database-data-quality",
       category: "DATABASE",
       level: "NEEDS_ATTENTION",
-      title: "Database responding slowly",
-      explanation: "Some database requests are taking longer than usual.",
-      recommendedAction: "Check the database details.",
+      title: input.database.summary,
+      explanation: input.database.detail,
+      recommendedAction: isSlow
+        ? "Check the database details."
+        : "No database performance issue — review the data-quality counts below, or see Data Quality for the full list.",
     });
   }
 
@@ -99,13 +115,41 @@ export function buildWarnings(input: {
   }
 
   if (input.productData.status === "NEEDS_ATTENTION") {
+    const pd = input.productData;
+    const reasons: string[] = [];
+    if (pd.developersWithoutVerifiedWebsite > 0) {
+      reasons.push(
+        `${pd.developersWithoutVerifiedWebsite} active developer${pd.developersWithoutVerifiedWebsite === 1 ? "" : "s"} without a verified website`,
+      );
+    }
+    if (pd.candidatesWithNoEvidence > 0) {
+      reasons.push(
+        `${pd.candidatesWithNoEvidence} candidate${pd.candidatesWithNoEvidence === 1 ? "" : "s"} awaiting review with no evidence attached`,
+      );
+    }
+    // Never set anywhere yet (no periodic re-verification exists) — every
+    // VERIFIED candidate legitimately matches this until that automation
+    // is built, so it's called out separately as "expected for now"
+    // rather than implied to be equally urgent as the two counts above.
+    const onlyNeverRechecked = reasons.length === 0 && pd.verifiedNeverReChecked > 0;
+    if (pd.verifiedNeverReChecked > 0) {
+      reasons.push(
+        `${pd.verifiedNeverReChecked} verified website${pd.verifiedNeverReChecked === 1 ? "" : "s"} never re-checked since approval`,
+      );
+    }
+
     warnings.push({
       id: "product-data-quality",
       category: "PRODUCT_DATA",
       level: "NEEDS_ATTENTION",
       title: "Some data-quality issues need review",
-      explanation: "A few developer records need attention — see Data Quality for the exact list.",
-      recommendedAction: "Review Data Quality.",
+      explanation:
+        reasons.length > 0
+          ? `${reasons.join("; ")}.`
+          : "A few developer records need attention — see Data Quality for the exact list.",
+      recommendedAction: onlyNeverRechecked
+        ? "No urgent action needed — Developer Connect doesn't yet run automatic re-verification, so this is expected. Periodically reopen a verified developer's record to reconfirm its website."
+        : "Review Data Quality for the specific records that need attention.",
     });
   }
 

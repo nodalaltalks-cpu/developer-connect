@@ -1,18 +1,20 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "./client.ts";
 import * as schema from "./schema.ts";
-import type { Developer, WebsiteCandidate, Evidence, VerificationEvent } from "../types.ts";
+import type { Developer, WebsiteCandidate, Evidence, VerificationEvent, DeveloperEditEvent } from "../types.ts";
 import type {
   DeveloperRepository,
   WebsiteCandidateRepository,
   EvidenceRepository,
   VerificationEventRepository,
+  DeveloperEditEventRepository,
   NewDeveloperInput,
   NewWebsiteCandidateInput,
   NewEvidenceInput,
   NewVerificationEventInput,
+  NewDeveloperEditEventInput,
   DeveloperConnectRepositories,
 } from "../repository.ts";
 import { NotFoundError } from "../errors.ts";
@@ -50,6 +52,7 @@ function toDeveloper(row: typeof schema.developers.$inferSelect): Developer {
     country: row.country,
     headquartersLocation: row.headquartersLocation ?? undefined,
     status: row.status,
+    pendingChanges: row.pendingChanges ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -141,6 +144,42 @@ function buildDeveloperRepository(db: DbOrTx): DeveloperRepository {
         .where(eq(schema.developers.id, id))
         .returning();
       if (!row) throw new NotFoundError(`Developer ${id} not found`);
+      return toDeveloper(row);
+    },
+    async setPendingChanges(id, pendingChanges) {
+      const [row] = await db
+        .update(schema.developers)
+        .set({ pendingChanges, updatedAt: new Date() })
+        .where(eq(schema.developers.id, id))
+        .returning();
+      if (!row) throw new NotFoundError(`Developer ${id} not found`);
+      return toDeveloper(row);
+    },
+    async publishPendingChanges(id) {
+      // One atomic UPDATE: every published column is either replaced by
+      // its pending value (if the JSONB patch has that key) or left
+      // exactly as it was — never a partial/half-applied result, and
+      // pending_changes is cleared in the very same statement. The
+      // `isNotNull` guard means this is a genuine no-op (throws, doesn't
+      // silently "succeed") when there is nothing to publish.
+      const pc = schema.developers.pendingChanges;
+      const [row] = await db
+        .update(schema.developers)
+        .set({
+          legalName: sql`coalesce(${pc}->>'legalName', ${schema.developers.legalName})`,
+          displayName: sql`coalesce(${pc}->>'displayName', ${schema.developers.displayName})`,
+          city: sql`coalesce(${pc}->>'city', ${schema.developers.city})`,
+          state: sql`coalesce(${pc}->>'state', ${schema.developers.state})`,
+          country: sql`coalesce(${pc}->>'country', ${schema.developers.country})`,
+          headquartersLocation: sql`coalesce(${pc}->>'headquartersLocation', ${schema.developers.headquartersLocation})`,
+          pendingChanges: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(schema.developers.id, id), isNotNull(schema.developers.pendingChanges)))
+        .returning();
+      if (!row) {
+        throw new NotFoundError(`Developer ${id} not found, or has no unpublished changes to republish`);
+      }
       return toDeveloper(row);
     },
     async search(query, limit = 20) {
@@ -292,12 +331,51 @@ function buildVerificationEventRepository(db: DbOrTx): VerificationEventReposito
   };
 }
 
+function toDeveloperEditEvent(row: typeof schema.developerEditEvents.$inferSelect): DeveloperEditEvent {
+  return {
+    id: row.id,
+    developerId: row.developerId,
+    eventType: row.eventType,
+    fieldName: row.fieldName,
+    previousValue: row.previousValue,
+    newValue: row.newValue,
+    actorType: row.actorType,
+    actorId: row.actorId,
+    createdAt: row.createdAt,
+  };
+}
+
+function buildDeveloperEditEventRepository(db: DbOrTx): DeveloperEditEventRepository {
+  return {
+    // Note: there is deliberately no update/delete here to match the
+    // interface, and the database additionally enforces this with a
+    // trigger (see migrations) that rejects UPDATE/DELETE outright.
+    async append(input: NewDeveloperEditEventInput) {
+      const [row] = await db
+        .insert(schema.developerEditEvents)
+        .values({ id: randomUUID(), ...input })
+        .returning();
+      return toDeveloperEditEvent(row);
+    },
+    async listByDeveloper(developerId) {
+      const rows = await db
+        .select()
+        .from(schema.developerEditEvents)
+        .where(eq(schema.developerEditEvents.developerId, developerId));
+      return rows
+        .map(toDeveloperEditEvent)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    },
+  };
+}
+
 function buildRepositories(db: DbOrTx): DeveloperConnectRepositories {
   const repositories: DeveloperConnectRepositories = {
     developers: buildDeveloperRepository(db),
     candidates: buildWebsiteCandidateRepository(db),
     evidence: buildEvidenceRepository(db),
     events: buildVerificationEventRepository(db),
+    developerEditEvents: buildDeveloperEditEventRepository(db),
     async runInTransaction(fn) {
       // node-postgres transactions nest via SAVEPOINT automatically when
       // `db.transaction` is called while already inside one, so a service

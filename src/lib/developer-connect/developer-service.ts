@@ -1,6 +1,7 @@
-import type { DeveloperRepository } from "./repository.ts";
+import type { DeveloperRepository, DeveloperConnectRepositories } from "./repository.ts";
 import { makeUniqueSlug, slugify } from "./slug.ts";
-import type { Developer } from "./types.ts";
+import type { Actor, Developer, DeveloperEditableField, DeveloperMetadataPatch } from "./types.ts";
+import { NotFoundError } from "./errors.ts";
 
 export interface CreateDeveloperInput {
   legalName: string;
@@ -47,36 +48,202 @@ export interface UpdateDeveloperInput {
   headquartersLocation?: string;
 }
 
+/** Field key -> the human-readable label recorded in DeveloperEditEvent.fieldName. */
+const EDITABLE_FIELD_LABELS: Record<DeveloperEditableField, string> = {
+  legalName: "Legal name",
+  displayName: "Display name",
+  city: "City",
+  state: "State",
+  country: "Country",
+  headquartersLocation: "Headquarters location",
+};
+
+const EDITABLE_FIELDS = Object.keys(EDITABLE_FIELD_LABELS) as DeveloperEditableField[];
+
+function fieldOf(developer: Developer, field: DeveloperEditableField): string | null {
+  return developer[field] ?? null;
+}
+
+/**
+ * What the Founder should see and edit from: the published value for
+ * every field, overridden by whatever is in pendingChanges. This is
+ * deliberately NOT just the published columns — if an earlier Save
+ * already queued an unpublished headquarters change, a second edit must
+ * build on top of that pending value, not silently revert to the still-
+ * published one (see the "multiple edits before republish" requirement).
+ * Used both to pre-populate the edit form and, inside updateDeveloper,
+ * to compute each edit's own previous->new diff for history.
+ */
+export function effectiveDeveloperFields(developer: Developer): Record<DeveloperEditableField, string | null> {
+  const effective = {} as Record<DeveloperEditableField, string | null>;
+  for (const field of EDITABLE_FIELDS) {
+    effective[field] = developer.pendingChanges?.[field] ?? fieldOf(developer, field);
+  }
+  return effective;
+}
+
 /**
  * Founder edits to an existing developer record's core fields. Reuses the
- * same required-field validation and trimming as createDeveloper, applied
- * via the existing DeveloperRepository.update — no new validation rules,
- * no slug regeneration (the slug is left untouched even if displayName
- * changes, since it's a stable public identifier, not a derived display
- * value).
+ * same required-field validation and trimming as createDeveloper — no new
+ * validation rules, no slug regeneration (the slug is left untouched even
+ * if displayName changes, since it's a stable public identifier, not a
+ * derived display value).
+ *
+ * Every field that actually changed FROM WHAT THE FOUNDER WAS EDITING
+ * (the effective value — see effectiveDeveloperFields) is recorded as its
+ * own immutable DeveloperEditEvent, in the same transaction as the write.
+ *
+ * Where it writes depends on whether this developer is currently
+ * published (has a VERIFIED website candidate):
+ *   - NOT published: nothing public depends on these columns yet, so this
+ *     writes straight through to the published columns, exactly as
+ *     before this feature existed.
+ *   - Published: writing straight through would let a Save silently
+ *     change what the public page shows (the bug this task exists to
+ *     fix). Instead this computes a new pendingChanges patch — only the
+ *     fields that differ from the PUBLISHED value, so an edit that
+ *     matches what's already published is correctly not "pending"
+ *     anything — and never touches the published columns at all.
+ *     Nothing changes publicly until republishDeveloper() is called.
  */
 export async function updateDeveloper(
-  developers: DeveloperRepository,
+  repos: DeveloperConnectRepositories,
   id: string,
   input: UpdateDeveloperInput,
+  actor: Actor,
 ): Promise<Developer> {
   const legalName = input.legalName.trim();
   const displayName = input.displayName.trim();
   const city = input.city.trim();
   const state = input.state.trim();
   const country = input.country.trim();
+  const headquartersLocation = input.headquartersLocation?.trim() || undefined;
 
   if (!legalName || !displayName || !city || !state || !country) {
     throw new Error("legalName, displayName, city, state, and country are required");
   }
 
-  return developers.update(id, {
+  const proposed: Record<DeveloperEditableField, string | null> = {
     legalName,
     displayName,
     city,
     state,
     country,
-    headquartersLocation: input.headquartersLocation?.trim() || undefined,
+    headquartersLocation: headquartersLocation ?? null,
+  };
+
+  return repos.runInTransaction(async (txRepos) => {
+    const before = await txRepos.developers.getById(id);
+    if (!before) {
+      throw new NotFoundError(`Developer ${id} not found`);
+    }
+
+    const effective = effectiveDeveloperFields(before);
+    for (const field of EDITABLE_FIELDS) {
+      if (effective[field] !== proposed[field]) {
+        await txRepos.developerEditEvents.append({
+          developerId: id,
+          eventType: "FIELD_CHANGE",
+          fieldName: EDITABLE_FIELD_LABELS[field],
+          previousValue: effective[field],
+          newValue: proposed[field],
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+        });
+      }
+    }
+
+    const verified = await txRepos.candidates.getVerifiedForDeveloper(id);
+    if (!verified) {
+      // Not published yet — no public boundary to protect. Behaves
+      // exactly as it did before pendingChanges existed.
+      return txRepos.developers.update(id, {
+        legalName,
+        displayName,
+        city,
+        state,
+        country,
+        headquartersLocation,
+      });
+    }
+
+    // Published: build the new pending patch relative to the PUBLISHED
+    // values (not the effective ones) — a field edited back to exactly
+    // what's already published is not a pending change. A cleared
+    // optional field (headquartersLocation) is stored as an explicit ""
+    // rather than being omitted — omitting the key means "unchanged",
+    // which would silently drop a real "clear this field" edit.
+    const newPending: DeveloperMetadataPatch = {};
+    for (const field of EDITABLE_FIELDS) {
+      const publishedValue = fieldOf(before, field);
+      if (publishedValue !== proposed[field]) {
+        newPending[field] = proposed[field] ?? "";
+      }
+    }
+    const pendingChanges = Object.keys(newPending).length > 0 ? newPending : null;
+    return txRepos.developers.setPendingChanges(id, pendingChanges);
+  });
+}
+
+/**
+ * Makes a published developer's pending metadata changes live: one
+ * atomic update (see DeveloperRepository.publishPendingChanges) merges
+ * the pending patch onto the published columns and clears it, so the
+ * public page is never caught showing a mix of old and new values.
+ * Records a single REPUBLISHED history event — the per-field detail was
+ * already captured when each change was saved.
+ */
+export async function republishDeveloper(
+  repos: DeveloperConnectRepositories,
+  id: string,
+  actor: Actor,
+): Promise<Developer> {
+  return repos.runInTransaction(async (txRepos) => {
+    const after = await txRepos.developers.publishPendingChanges(id);
+    await txRepos.developerEditEvents.append({
+      developerId: id,
+      eventType: "REPUBLISHED",
+      fieldName: null,
+      previousValue: null,
+      newValue: null,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+    });
+    return after;
+  });
+}
+
+/**
+ * Discards a published developer's pending metadata changes without
+ * ever touching the published columns — the Founder changed their mind
+ * before republishing. Cheap and safe: setPendingChanges(id, null) is
+ * the exact same primitive updateDeveloper already uses to clear an
+ * edit that was reverted back to its published value.
+ */
+export async function discardPendingChanges(
+  repos: DeveloperConnectRepositories,
+  id: string,
+  actor: Actor,
+): Promise<Developer> {
+  return repos.runInTransaction(async (txRepos) => {
+    const before = await txRepos.developers.getById(id);
+    if (!before) {
+      throw new NotFoundError(`Developer ${id} not found`);
+    }
+    if (!before.pendingChanges) {
+      throw new Error("There are no unpublished changes to discard.");
+    }
+    const after = await txRepos.developers.setPendingChanges(id, null);
+    await txRepos.developerEditEvents.append({
+      developerId: id,
+      eventType: "DISCARDED",
+      fieldName: null,
+      previousValue: null,
+      newValue: null,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+    });
+    return after;
   });
 }
 

@@ -72,6 +72,8 @@ export interface DeveloperStat {
   slug: string;
   /** The developer's effective VerificationStatus, derived from its website-candidate lifecycle — never null in practice (a developer with no candidate at all reads as "DISCOVERED"); see effectiveVerificationStatusSql() in queries.ts. */
   verificationStatus: string | null;
+  /** True when developers.pendingChanges is non-null — a real, data-backed fact, never inferred from client state. */
+  hasPendingChanges: boolean;
   /** Count of search_result_clicked events for this developer — the real, available proxy for search demand (not total search volume, which isn't attributed per-developer). */
   searchResultClicks: number;
   pageViews: number;

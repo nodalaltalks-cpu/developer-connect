@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { getDb } from "../developer-connect/db/client.ts";
 import { createPostgresRepositories } from "../developer-connect/db/postgres-repository.ts";
 import {
@@ -470,6 +470,7 @@ export async function getDeveloperIntelligence(
       displayName: developers.displayName,
       slug: developers.slug,
       verificationStatus: effectiveVerificationStatusSql(),
+      hasPendingChanges: sql<boolean>`${isNotNull(developers.pendingChanges)}`,
     })
     .from(developers)
     .where(whereClause)
@@ -503,6 +504,7 @@ export async function getDeveloperIntelligence(
       displayName: row.displayName,
       slug: row.slug,
       verificationStatus: row.verificationStatus,
+      hasPendingChanges: row.hasPendingChanges,
       searchResultClicks,
       pageViews,
       officialWebsiteClicks: clicks,

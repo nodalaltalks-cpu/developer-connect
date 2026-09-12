@@ -3,7 +3,43 @@ import { notFound } from "next/navigation";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 import { CandidateStatusBadge } from "@/components/admin/candidate-status-badge";
+import { DeveloperEditToggle } from "@/components/admin/developer-edit-toggle";
+import { DeveloperPublishPanel } from "@/components/admin/developer-publish-panel";
+import { findPendingCandidate } from "@/lib/developer-connect/publish-state";
 import { buttonClassName } from "@/components/ui/button";
+import type { VerificationStatus, DeveloperEditEventType } from "@/lib/developer-connect/types";
+
+type HistoryEntry =
+  | {
+      type: "EDIT";
+      createdAt: Date;
+      actorType: string;
+      actorId: string;
+      eventType: DeveloperEditEventType;
+      fieldName: string | null;
+      previousValue: string | null;
+      newValue: string | null;
+    }
+  | {
+      type: "VERIFICATION";
+      createdAt: Date;
+      actorType: string;
+      actorId: string;
+      previousStatus: VerificationStatus | null;
+      newStatus: VerificationStatus;
+      reason: string;
+      candidateDomain: string;
+    };
+
+/** A verification-status transition landing on VERIFIED reads as "Published" — matches the existing "Approve & Publish" terminology used everywhere else in this admin UI, rather than introducing a new synonym. */
+function verificationActionLabel(entry: Extract<HistoryEntry, { type: "VERIFICATION" }>): string {
+  if (entry.newStatus === "VERIFIED") return "Published";
+  if (entry.newStatus === "REJECTED") return "Rejected";
+  if (entry.newStatus === "INACTIVE") return "Deactivated";
+  if (entry.newStatus === "NEEDS_REVERIFICATION") return "Flagged for re-verification";
+  if (entry.newStatus === "PENDING_VERIFICATION") return "Queued for review";
+  return "Discovered";
+}
 
 export default async function AdminDeveloperDetailPage({
   params,
@@ -14,7 +50,10 @@ export default async function AdminDeveloperDetailPage({
   const developer = await repos.developers.getById(id);
   if (!developer) notFound();
 
-  const candidates = await repos.candidates.listByDeveloper(id);
+  const [candidates, editEvents] = await Promise.all([
+    repos.candidates.listByDeveloper(id),
+    repos.developerEditEvents.listByDeveloper(id),
+  ]);
   candidates.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   const verifiedCandidate = candidates.find((c) => c.verificationStatus === "VERIFIED") ?? null;
@@ -27,6 +66,10 @@ export default async function AdminDeveloperDetailPage({
     activeCandidate.verificationStatus !== "DISCOVERED" &&
     activeCandidate.verificationStatus !== "PENDING_VERIFICATION";
   const published = verifiedCandidate !== null && developer.status === "ACTIVE";
+
+  // Real, data-backed "unpublished changes" signal — never fabricated,
+  // see publish-state.ts.
+  const pendingCandidate = published ? findPendingCandidate(candidates, verifiedCandidate!.id) : null;
 
   const steps = [
     { label: "Developer created", done: true },
@@ -46,6 +89,36 @@ export default async function AdminDeveloperDetailPage({
               label: "Review required before publishing — the current website was rejected.",
             }
           : { tone: "text-accent-hover", label: "Everything is ready for your review." };
+
+  const verificationEventLists = await Promise.all(candidates.map((c) => repos.events.listByCandidate(c.id)));
+  const history: HistoryEntry[] = [
+    ...editEvents.map(
+      (e): HistoryEntry => ({
+        type: "EDIT",
+        createdAt: e.createdAt,
+        actorType: e.actorType,
+        actorId: e.actorId,
+        eventType: e.eventType,
+        fieldName: e.fieldName,
+        previousValue: e.previousValue,
+        newValue: e.newValue,
+      }),
+    ),
+    ...candidates.flatMap((candidate, i) =>
+      verificationEventLists[i].map(
+        (e): HistoryEntry => ({
+          type: "VERIFICATION",
+          createdAt: e.createdAt,
+          actorType: e.actorType,
+          actorId: e.actorId,
+          previousStatus: e.previousStatus,
+          newStatus: e.newStatus,
+          reason: e.reason,
+          candidateDomain: candidate.canonicalDomain,
+        }),
+      ),
+    ),
+  ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return (
     <div>
@@ -73,17 +146,44 @@ export default async function AdminDeveloperDetailPage({
         ))}
       </ol>
 
-      <p className={`mb-6 text-sm font-medium ${banner.tone}`}>
-        {banner.label}
-        {activeCandidate && !published && (
-          <>
-            {" "}
-            <Link href={`/admin/verification/${activeCandidate.id}`} className="underline hover:no-underline">
-              Review now →
-            </Link>
-          </>
-        )}
-      </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className={`text-sm font-medium ${banner.tone}`}>
+          {banner.label}
+          {activeCandidate && !published && (
+            <>
+              {" "}
+              <Link href={`/admin/verification/${activeCandidate.id}`} className="underline hover:no-underline">
+                Review now →
+              </Link>
+            </>
+          )}
+          {published && developer.pendingChanges && (
+            <span className="ml-2 text-amber-800">● Unpublished changes</span>
+          )}
+        </p>
+        {published && <DeveloperEditToggle developer={developer} />}
+      </div>
+
+      {published && <DeveloperPublishPanel developer={developer} />}
+
+      {pendingCandidate && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-800">This developer has unpublished changes.</p>
+          <p className="mt-1 text-sm text-amber-800">
+            A newer official website (
+            <span className="font-mono">{pendingCandidate.canonicalDomain}</span>) hasn&apos;t been reviewed
+            yet. The current verified website (
+            <span className="font-mono">{verifiedCandidate!.canonicalDomain}</span>) stays live and public
+            until you decide.
+          </p>
+          <Link
+            href={`/admin/verification/${pendingCandidate.id}`}
+            className={buttonClassName("primary", "mt-3")}
+          >
+            Review changes
+          </Link>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -125,6 +225,52 @@ export default async function AdminDeveloperDetailPage({
           ))}
         </ul>
       )}
+
+      <details className="mt-6 rounded-lg border border-border p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-foreground">
+          History ({history.length})
+        </summary>
+        {history.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">No changes recorded yet.</p>
+        ) : (
+          <ul className="mt-3 space-y-3 text-sm">
+            {history.map((entry, i) => (
+              <li key={i} className="border-t border-border pt-3 first:border-t-0 first:pt-0">
+                <p className="text-xs text-muted-foreground">
+                  {entry.createdAt.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}
+                  {" • "}
+                  {entry.createdAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                  {" · "}
+                  {entry.actorType === "FOUNDER" ? "Founder" : entry.actorType}
+                </p>
+                {entry.type === "EDIT" ? (
+                  entry.eventType === "FIELD_CHANGE" ? (
+                    <p className="mt-1 text-foreground">
+                      Changed <span className="font-medium">{entry.fieldName}</span>:{" "}
+                      <span className="text-muted-foreground">{entry.previousValue || "—"}</span>
+                      {" → "}
+                      <span className="font-medium">{entry.newValue || "—"}</span>
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-foreground">
+                      <span className="font-medium">
+                        {entry.eventType === "REPUBLISHED" ? "Republished" : "Discarded unpublished changes"}
+                      </span>
+                    </p>
+                  )
+                ) : (
+                  <p className="mt-1 text-foreground">
+                    <span className="font-medium">{verificationActionLabel(entry)}</span>{" "}
+                    <span className="font-mono text-xs text-muted-foreground">{entry.candidateDomain}</span>
+                    {" — "}
+                    <span className="text-muted-foreground">{entry.reason}</span>
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
     </div>
   );
 }

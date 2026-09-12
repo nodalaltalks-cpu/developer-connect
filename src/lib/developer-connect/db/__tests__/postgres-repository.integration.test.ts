@@ -514,6 +514,397 @@ test(
   },
 );
 
+test(
+  "postgres: listByStatuses (the exact query the verification queue uses) excludes a candidate the moment it's approved, while other pending candidates remain",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-service.ts");
+    const { submitWebsiteCandidate } = await import("../../candidate-service.ts");
+    const { approveAndPublishCandidate } = await import("../../verification-service.ts");
+
+    const repos = createPostgresRepositories();
+    const founder = { actorType: "FOUNDER" as const, actorId: "queue-exclusion-test-founder" };
+    const token = randomUUID().slice(0, 8);
+
+    const toApprove = await createDeveloper(repos.developers, {
+      legalName: `TEST — Queue Exclusion Approve ${token} Private Limited`,
+      displayName: `TEST — Queue Exclusion Approve ${token}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+    const candidateToApprove = await submitWebsiteCandidate(repos, {
+      developerId: toApprove.id,
+      url: `https://www.queue-exclusion-approve-${token}.example`,
+      discoverySource: "MANUAL_SUBMISSION",
+      actor: founder,
+    });
+
+    const stillPending = await createDeveloper(repos.developers, {
+      legalName: `TEST — Queue Exclusion Pending ${token} Private Limited`,
+      displayName: `TEST — Queue Exclusion Pending ${token}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+    const candidateStillPending = await submitWebsiteCandidate(repos, {
+      developerId: stillPending.id,
+      url: `https://www.queue-exclusion-pending-${token}.example`,
+      discoverySource: "MANUAL_SUBMISSION",
+      actor: founder,
+    });
+
+    const pendingStatuses = ["PENDING_VERIFICATION", "NEEDS_REVERIFICATION", "DISCOVERED"] as const;
+
+    const beforeApproval = await repos.candidates.listByStatuses([...pendingStatuses]);
+    assert.ok(beforeApproval.some((c) => c.id === candidateToApprove.id));
+    assert.ok(beforeApproval.some((c) => c.id === candidateStillPending.id));
+
+    await approveAndPublishCandidate(repos, candidateToApprove.id, founder, "Reviewed and approved by founder");
+
+    const afterApproval = await repos.candidates.listByStatuses([...pendingStatuses]);
+    assert.ok(
+      !afterApproval.some((c) => c.id === candidateToApprove.id),
+      "the just-approved candidate must no longer appear in the pending verification queue",
+    );
+    assert.ok(
+      afterApproval.some((c) => c.id === candidateStillPending.id),
+      "an unrelated still-pending candidate must remain in the queue",
+    );
+
+    const verifiedOnly = await repos.candidates.listByStatuses(["VERIFIED"]);
+    assert.ok(verifiedOnly.some((c) => c.id === candidateToApprove.id));
+  },
+);
+
+test(
+  "postgres: developer_edit_events rejects UPDATE and DELETE at the database level, same as verification_events",
+  { skip: !hasDatabase },
+  async () => {
+    const { getDb } = await import("../client.ts");
+    const { developers, developerEditEvents } = await import("../schema.ts");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+
+    const [developer] = await db
+      .insert(developers)
+      .values({
+        id: randomUUID(),
+        legalName: "TEST — Edit History Append Only Co",
+        displayName: "TEST — Edit History Append Only Co",
+        slug: `test-edit-history-append-only-${randomUUID()}`,
+        city: "Mumbai",
+        state: "Maharashtra",
+        country: "India",
+      })
+      .returning();
+
+    const [event] = await db
+      .insert(developerEditEvents)
+      .values({
+        id: randomUUID(),
+        developerId: developer.id,
+        fieldName: "Headquarters location",
+        previousValue: "Worli",
+        newValue: "Lower Parel",
+        actorType: "FOUNDER",
+        actorId: "test-founder",
+      })
+      .returning();
+
+    await assert.rejects(() =>
+      db
+        .update(developerEditEvents)
+        .set({ newValue: "tampered" })
+        .where(eq(developerEditEvents.id, event.id)),
+    );
+    await assert.rejects(() => db.delete(developerEditEvents).where(eq(developerEditEvents.id, event.id)));
+  },
+);
+
+test(
+  "postgres: changing the official website of an already-VERIFIED developer never bypasses verification — the old site stays public and the new one starts DISCOVERED",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-service.ts");
+    const { submitWebsiteCandidate } = await import("../../candidate-service.ts");
+    const { approveAndPublishCandidate } = await import("../../verification-service.ts");
+    const { searchPublicDevelopers } = await import("../../search-service.ts");
+    const { findPendingCandidate } = await import("../../publish-state.ts");
+
+    const repos = createPostgresRepositories();
+    const founder = { actorType: "FOUNDER" as const, actorId: "domain-change-test-founder" };
+    const token = randomUUID().slice(0, 8);
+    const uniqueName = `TEST Domain Change ${token}`;
+
+    const developer = await createDeveloper(repos.developers, {
+      legalName: `${uniqueName} Private Limited`,
+      displayName: uniqueName,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+
+    const oldCandidate = await submitWebsiteCandidate(repos, {
+      developerId: developer.id,
+      url: `https://www.domain-change-old-${token}.example`,
+      discoverySource: "MANUAL_SUBMISSION",
+      actor: founder,
+    });
+    await approveAndPublishCandidate(repos, oldCandidate.id, founder, "Reviewed and approved by founder");
+
+    // Confirm it's genuinely live before touching anything.
+    let results = await searchPublicDevelopers(repos, uniqueName);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].officialWebsite?.canonicalDomain, `domain-change-old-${token}.example`);
+
+    // The Founder submits a new official website for this already-verified developer.
+    const newCandidate = await submitWebsiteCandidate(repos, {
+      developerId: developer.id,
+      url: `https://www.domain-change-new-${token}.example`,
+      discoverySource: "MANUAL_SUBMISSION",
+      actor: founder,
+    });
+    assert.equal(newCandidate.verificationStatus, "DISCOVERED", "a new candidate must never start pre-verified");
+
+    // The public page must be completely unaffected — still the OLD domain.
+    results = await searchPublicDevelopers(repos, uniqueName);
+    assert.equal(results.length, 1);
+    assert.equal(
+      results[0].officialWebsite?.canonicalDomain,
+      `domain-change-old-${token}.example`,
+      "the old verified domain must remain the live public one until the new one is explicitly approved",
+    );
+
+    // The developer detail page's real "unpublished changes" signal must
+    // now correctly detect the new, not-yet-reviewed candidate.
+    const allCandidates = await repos.candidates.listByDeveloper(developer.id);
+    const pending = findPendingCandidate(allCandidates, oldCandidate.id);
+    assert.equal(pending?.id, newCandidate.id);
+
+    // Only once the Founder explicitly approves the new candidate does it
+    // take over — reusing the exact existing approve/retire mechanism.
+    await approveAndPublishCandidate(repos, newCandidate.id, founder, "Reviewed and approved by founder");
+
+    results = await searchPublicDevelopers(repos, uniqueName);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].officialWebsite?.canonicalDomain, `domain-change-new-${token}.example`);
+
+    const oldAfter = await repos.candidates.getById(oldCandidate.id);
+    assert.equal(oldAfter?.verificationStatus, "INACTIVE", "the superseded candidate must be retired, not left VERIFIED");
+
+    const finalCandidates = await repos.candidates.listByDeveloper(developer.id);
+    assert.equal(findPendingCandidate(finalCandidates, newCandidate.id), null, "nothing pending once republished");
+  },
+);
+
+test(
+  "postgres: updateDeveloper writes the field change and its history event atomically, and history survives across multiple edits in order",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper, updateDeveloper } = await import("../../developer-service.ts");
+
+    const repos = createPostgresRepositories();
+    const founder = { actorType: "FOUNDER" as const, actorId: "edit-history-postgres-test-founder" };
+    const token = randomUUID().slice(0, 8);
+
+    const developer = await createDeveloper(repos.developers, {
+      legalName: `TEST Edit History ${token} Private Limited`,
+      displayName: `TEST Edit History ${token}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+      headquartersLocation: "Worli",
+    });
+
+    await updateDeveloper(
+      repos,
+      developer.id,
+      {
+        legalName: developer.legalName,
+        displayName: developer.displayName,
+        city: developer.city,
+        state: developer.state,
+        country: developer.country,
+        headquartersLocation: "Lower Parel",
+      },
+      founder,
+    );
+
+    await updateDeveloper(
+      repos,
+      developer.id,
+      {
+        legalName: developer.legalName,
+        displayName: developer.displayName,
+        city: "Thane",
+        state: developer.state,
+        country: developer.country,
+        headquartersLocation: "Lower Parel",
+      },
+      founder,
+    );
+
+    const reread = await repos.developers.getById(developer.id);
+    assert.equal(reread?.headquartersLocation, "Lower Parel");
+    assert.equal(reread?.city, "Thane");
+
+    const history = await repos.developerEditEvents.listByDeveloper(developer.id);
+    assert.equal(history.length, 2, "two separate edits, each changing exactly one field, must produce two events");
+    assert.equal(history[0].fieldName, "Headquarters location");
+    assert.equal(history[0].previousValue, "Worli");
+    assert.equal(history[0].newValue, "Lower Parel");
+    assert.equal(history[1].fieldName, "City");
+    assert.equal(history[1].previousValue, developer.city);
+    assert.equal(history[1].newValue, "Thane");
+    assert.ok(
+      history[0].createdAt.getTime() <= history[1].createdAt.getTime(),
+      "history must be returned in chronological order",
+    );
+  },
+);
+
+test(
+  "postgres: a PUBLISHED developer's metadata edit never changes what the public directory shows, until an explicit republish — and republish is a single atomic statement",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper, updateDeveloper, republishDeveloper } = await import("../../developer-service.ts");
+    const { submitWebsiteCandidate } = await import("../../candidate-service.ts");
+    const { approveAndPublishCandidate } = await import("../../verification-service.ts");
+    const { searchPublicDevelopers } = await import("../../search-service.ts");
+
+    const repos = createPostgresRepositories();
+    const founder = { actorType: "FOUNDER" as const, actorId: "publish-safety-test-founder" };
+    const token = randomUUID().slice(0, 8);
+    const uniqueName = `TEST Publish Safety ${token}`;
+
+    const developer = await createDeveloper(repos.developers, {
+      legalName: `${uniqueName} Private Limited`,
+      displayName: uniqueName,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+      headquartersLocation: "Worli",
+    });
+    const candidate = await submitWebsiteCandidate(repos, {
+      developerId: developer.id,
+      url: `https://www.publish-safety-${token}.example`,
+      discoverySource: "MANUAL_SUBMISSION",
+      actor: founder,
+    });
+    await approveAndPublishCandidate(repos, candidate.id, founder, "Reviewed and approved by founder");
+
+    // Confirm it's genuinely live and shows the original headquarters.
+    let results = await searchPublicDevelopers(repos, uniqueName);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].headquartersLocation, "Worli");
+
+    // Founder edits headquarters and legal name.
+    await updateDeveloper(
+      repos,
+      developer.id,
+      {
+        legalName: `${uniqueName} Renamed Private Limited`,
+        displayName: uniqueName,
+        city: developer.city,
+        state: developer.state,
+        country: developer.country,
+        headquartersLocation: "Lower Parel",
+      },
+      founder,
+    );
+
+    // The public directory must be COMPLETELY unaffected — same as before the edit.
+    results = await searchPublicDevelopers(repos, uniqueName);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].headquartersLocation, "Worli", "public page must still show the published value, not the pending one");
+    assert.equal(results[0].legalName, `${uniqueName} Private Limited`, "public legal name must be unaffected until republish");
+
+    const stillPending = await repos.developers.getById(developer.id);
+    assert.deepEqual(stillPending?.pendingChanges, {
+      legalName: `${uniqueName} Renamed Private Limited`,
+      headquartersLocation: "Lower Parel",
+    });
+
+    // Republish — one atomic statement, both fields become live together.
+    await republishDeveloper(repos, developer.id, founder);
+
+    results = await searchPublicDevelopers(repos, uniqueName);
+    assert.equal(results.length, 1);
+    assert.equal(results[0].headquartersLocation, "Lower Parel");
+    assert.equal(results[0].legalName, `${uniqueName} Renamed Private Limited`);
+
+    const afterRepublish = await repos.developers.getById(developer.id);
+    assert.equal(afterRepublish?.pendingChanges, null);
+  },
+);
+
+test(
+  "postgres: existing pre-migration developer_edit_events (FIELD_CHANGE rows) and the append-only trigger both still work after the event_type/pending_changes schema change",
+  { skip: !hasDatabase },
+  async () => {
+    const { getDb } = await import("../client.ts");
+    const { developers, developerEditEvents } = await import("../schema.ts");
+    const { eq } = await import("drizzle-orm");
+    const db = getDb();
+
+    const [developer] = await db
+      .insert(developers)
+      .values({
+        id: randomUUID(),
+        legalName: "TEST — Post Migration Append Only Co",
+        displayName: "TEST — Post Migration Append Only Co",
+        slug: `test-post-migration-append-only-${randomUUID()}`,
+        city: "Mumbai",
+        state: "Maharashtra",
+        country: "India",
+      })
+      .returning();
+    // A real developer inserted after this migration must default to no
+    // pending changes with zero backfill effort.
+    assert.equal(developer.pendingChanges, null);
+
+    const [fieldChangeEvent] = await db
+      .insert(developerEditEvents)
+      .values({
+        id: randomUUID(),
+        developerId: developer.id,
+        eventType: "FIELD_CHANGE",
+        fieldName: "City",
+        previousValue: "Mumbai",
+        newValue: "Thane",
+        actorType: "FOUNDER",
+        actorId: "test-founder",
+      })
+      .returning();
+    assert.equal(fieldChangeEvent.eventType, "FIELD_CHANGE");
+
+    const [republishEvent] = await db
+      .insert(developerEditEvents)
+      .values({
+        id: randomUUID(),
+        developerId: developer.id,
+        eventType: "REPUBLISHED",
+        fieldName: null,
+        previousValue: null,
+        newValue: null,
+        actorType: "FOUNDER",
+        actorId: "test-founder",
+      })
+      .returning();
+    assert.equal(republishEvent.fieldName, null);
+
+    await assert.rejects(() =>
+      db.update(developerEditEvents).set({ newValue: "tampered" }).where(eq(developerEditEvents.id, fieldChangeEvent.id)),
+    );
+    await assert.rejects(() => db.delete(developerEditEvents).where(eq(developerEditEvents.id, republishEvent.id)));
+  },
+);
+
 test.after(async () => {
   if (!hasDatabase) return;
   const { closeDb } = await import("../client.ts");

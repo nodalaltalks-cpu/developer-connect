@@ -1,14 +1,16 @@
 import { randomUUID } from "node:crypto";
-import type { Developer, WebsiteCandidate, Evidence, VerificationEvent } from "./types.ts";
+import type { Developer, WebsiteCandidate, Evidence, VerificationEvent, DeveloperEditEvent } from "./types.ts";
 import type {
   DeveloperRepository,
   WebsiteCandidateRepository,
   EvidenceRepository,
   VerificationEventRepository,
+  DeveloperEditEventRepository,
   NewDeveloperInput,
   NewWebsiteCandidateInput,
   NewEvidenceInput,
   NewVerificationEventInput,
+  NewDeveloperEditEventInput,
   DeveloperConnectRepositories,
 } from "./repository.ts";
 import { NotFoundError } from "./errors.ts";
@@ -29,6 +31,7 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
   const candidates = new Map<string, WebsiteCandidate>();
   const evidenceRecords = new Map<string, Evidence>();
   const events = new Map<string, VerificationEvent>();
+  const developerEditEventRecords = new Map<string, DeveloperEditEvent>();
 
   const developerRepository: DeveloperRepository = {
     async create(input: NewDeveloperInput) {
@@ -43,6 +46,7 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
         country: input.country,
         headquartersLocation: input.headquartersLocation,
         status: "ACTIVE",
+        pendingChanges: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -75,6 +79,27 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
       const existing = developers.get(id);
       if (!existing) throw new NotFoundError(`Developer ${id} not found`);
       const updated: Developer = { ...existing, ...patch, updatedAt: new Date() };
+      developers.set(id, updated);
+      return updated;
+    },
+    async setPendingChanges(id, pendingChanges) {
+      const existing = developers.get(id);
+      if (!existing) throw new NotFoundError(`Developer ${id} not found`);
+      const updated: Developer = { ...existing, pendingChanges, updatedAt: new Date() };
+      developers.set(id, updated);
+      return updated;
+    },
+    async publishPendingChanges(id) {
+      const existing = developers.get(id);
+      if (!existing || !existing.pendingChanges) {
+        throw new NotFoundError(`Developer ${id} not found, or has no unpublished changes to republish`);
+      }
+      const updated: Developer = {
+        ...existing,
+        ...existing.pendingChanges,
+        pendingChanges: null,
+        updatedAt: new Date(),
+      };
       developers.set(id, updated);
       return updated;
     },
@@ -196,11 +221,35 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
     },
   };
 
+  const developerEditEventRepository: DeveloperEditEventRepository = {
+    async append(input: NewDeveloperEditEventInput) {
+      const record: DeveloperEditEvent = {
+        id: randomUUID(),
+        developerId: input.developerId,
+        eventType: input.eventType,
+        fieldName: input.fieldName,
+        previousValue: input.previousValue,
+        newValue: input.newValue,
+        actorType: input.actorType,
+        actorId: input.actorId,
+        createdAt: new Date(),
+      };
+      developerEditEventRecords.set(record.id, record);
+      return record;
+    },
+    async listByDeveloper(developerId) {
+      return Array.from(developerEditEventRecords.values())
+        .filter((e) => e.developerId === developerId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    },
+  };
+
   const repositories: DeveloperConnectRepositories = {
     developers: developerRepository,
     candidates: candidateRepository,
     evidence: evidenceRepository,
     events: verificationEventRepository,
+    developerEditEvents: developerEditEventRepository,
     // Single in-process Map-backed store with no concurrent writers to
     // interleave with, so there is nothing to isolate — running `fn`
     // directly is equivalent to a transaction here.

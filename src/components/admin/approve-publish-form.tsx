@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { buttonClassName } from "@/components/ui/button";
 import { approveCandidateAction } from "@/app/admin/_actions/verification-actions";
 
@@ -72,9 +73,15 @@ export function ApprovePublishForm({ candidateId }: { candidateId: string }) {
       )}
 
       {justPublished && !error && (
-        <p className="mt-2 text-sm text-accent-hover" role="status" aria-live="polite">
-          Published.
-        </p>
+        <div className="mt-2 rounded-md border border-green-200 bg-green-50 px-3 py-2" role="status" aria-live="polite">
+          <p className="text-sm font-medium text-green-700">✓ Verified &amp; Published</p>
+          <p className="mt-1 text-sm text-green-700">
+            This developer is now publicly visible.{" "}
+            <Link href="/admin/verification" className="font-medium underline">
+              Back to verification queue
+            </Link>
+          </p>
+        </div>
       )}
 
       <button

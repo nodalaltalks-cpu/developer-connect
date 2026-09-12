@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { createDeveloper, updateDeveloper, findLikelyDuplicateDeveloper } from "@/lib/developer-connect/developer-service";
+import {
+  createDeveloper,
+  updateDeveloper,
+  republishDeveloper,
+  discardPendingChanges,
+  findLikelyDuplicateDeveloper,
+} from "@/lib/developer-connect/developer-service";
 import { submitWebsiteCandidate } from "@/lib/developer-connect/candidate-service";
 import type { Developer, WebsiteCandidate } from "@/lib/developer-connect/types";
 
@@ -127,20 +133,72 @@ export interface UpdateDeveloperActionResult {
 export async function updateDeveloperAction(
   input: UpdateDeveloperActionInput,
 ): Promise<UpdateDeveloperActionResult> {
+  let founderId: string;
   try {
-    await requireFounderForAction();
+    founderId = await requireFounderForAction();
   } catch {
     return { ok: false, error: "You don't have permission to edit developers. Founder access is required." };
   }
 
   const repos = createPostgresRepositories();
   try {
-    const developer = await updateDeveloper(repos.developers, input.id, input);
+    const developer = await updateDeveloper(repos, input.id, input, { actorType: "FOUNDER", actorId: founderId });
     revalidatePath(`/admin/developers/${input.id}`);
     revalidatePath("/admin/developers");
     revalidatePath(`/admin/verification`);
     return { ok: true, developer };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save changes." };
+  }
+}
+
+/**
+ * Makes a published developer's pending metadata changes live. Requires
+ * Founder authorization independently of updateDeveloperAction — a
+ * non-Founder must not be able to publish a change even if they somehow
+ * triggered a save. Revalidates the public developer page too, since
+ * this is the one action that actually changes what it shows.
+ */
+export async function republishDeveloperAction(developerId: string): Promise<UpdateDeveloperActionResult> {
+  let founderId: string;
+  try {
+    founderId = await requireFounderForAction();
+  } catch {
+    return { ok: false, error: "You don't have permission to republish developers. Founder access is required." };
+  }
+
+  const repos = createPostgresRepositories();
+  try {
+    const developer = await republishDeveloper(repos, developerId, { actorType: "FOUNDER", actorId: founderId });
+    revalidatePath(`/admin/developers/${developerId}`);
+    revalidatePath("/admin/developers");
+    revalidatePath(`/developers/${developer.slug}`);
+    revalidatePath("/");
+    return { ok: true, developer };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not republish this developer." };
+  }
+}
+
+/**
+ * Discards a published developer's pending metadata changes without
+ * ever touching what's currently published.
+ */
+export async function discardPendingChangesAction(developerId: string): Promise<UpdateDeveloperActionResult> {
+  let founderId: string;
+  try {
+    founderId = await requireFounderForAction();
+  } catch {
+    return { ok: false, error: "You don't have permission to discard changes. Founder access is required." };
+  }
+
+  const repos = createPostgresRepositories();
+  try {
+    const developer = await discardPendingChanges(repos, developerId, { actorType: "FOUNDER", actorId: founderId });
+    revalidatePath(`/admin/developers/${developerId}`);
+    revalidatePath("/admin/developers");
+    return { ok: true, developer };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not discard these changes." };
   }
 }

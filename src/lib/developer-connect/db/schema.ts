@@ -55,6 +55,12 @@ export const evidenceTypeEnum = pgEnum("evidence_type", [
 
 export const actorTypeEnum = pgEnum("actor_type", ["FOUNDER", "SYSTEM", "AGENT"]);
 
+export const developerEditEventTypeEnum = pgEnum("developer_edit_event_type", [
+  "FIELD_CHANGE",
+  "REPUBLISHED",
+  "DISCARDED",
+]);
+
 export const analyticsEventNameEnum = pgEnum("analytics_event_name", [
   "search_performed",
   "zero_result_search",
@@ -81,6 +87,20 @@ export const developers = pgTable(
     country: text("country").notNull(),
     headquartersLocation: text("headquarters_location"),
     status: developerStatusEnum("status").notNull().default("ACTIVE"),
+    /**
+     * Founder-saved metadata edits (display/legal name, city, state,
+     * country, headquarters) not yet republished — a partial patch of
+     * only the fields that differ from the published columns above.
+     * Null means "nothing pending", which is exactly what every existing
+     * developer already has (no backfill needed). The published columns
+     * above are the ONLY thing public pages ever read — Save writes here
+     * instead of there for an already-published developer, so there is
+     * no window where public data is half old/half new. Only
+     * publishPendingChanges() (an atomic single-statement UPDATE, see
+     * postgres-repository.ts) ever copies this onto the published
+     * columns, and only Republish calls it.
+     */
+    pendingChanges: jsonb("pending_changes").$type<Record<string, string>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -157,6 +177,43 @@ export const verificationEvents = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("verification_events_candidate_idx").on(table.websiteCandidateId)],
+);
+
+/**
+ * Append-only audit trail covering BOTH kinds of change to a Developer's
+ * own editable metadata: an individual FIELD_CHANGE (recorded the moment
+ * Save is clicked, whether or not the developer is currently published),
+ * and the REPUBLISHED/DISCARDED events that act on the whole pending
+ * patch at once (see developers.pendingChanges). One unified table
+ * rather than two, per the explicit instruction to reuse the existing
+ * history model instead of duplicating audit systems — the admin detail
+ * page already renders this merged with verification_events in one
+ * chronological list. Deliberately still separate from
+ * verification_events itself, which is specifically about a
+ * WebsiteCandidate's verification-status lifecycle and would be
+ * distorted by forcing unrelated metadata edits into it. Same
+ * append-only guarantee: no repository method updates or deletes a row
+ * here, and a database trigger (see migrations) additionally rejects any
+ * UPDATE/DELETE at the SQL level.
+ */
+export const developerEditEvents = pgTable(
+  "developer_edit_events",
+  {
+    id: uuid("id").primaryKey(),
+    developerId: uuid("developer_id")
+      .notNull()
+      .references(() => developers.id, { onDelete: "restrict" }),
+    eventType: developerEditEventTypeEnum("event_type").notNull().default("FIELD_CHANGE"),
+    // Null for REPUBLISHED/DISCARDED, which act on the whole pending
+    // patch rather than a single field.
+    fieldName: text("field_name"),
+    previousValue: text("previous_value"),
+    newValue: text("new_value"),
+    actorType: actorTypeEnum("actor_type").notNull(),
+    actorId: text("actor_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("developer_edit_events_developer_idx").on(table.developerId)],
 );
 
 /**

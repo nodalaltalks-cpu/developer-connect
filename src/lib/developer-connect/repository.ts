@@ -1,12 +1,15 @@
 import type {
   Developer,
   DeveloperStatus,
+  DeveloperMetadataPatch,
   WebsiteCandidate,
   VerificationStatus,
   Evidence,
   EvidenceType,
   DiscoverySource,
   VerificationEvent,
+  DeveloperEditEvent,
+  DeveloperEditEventType,
   ActorType,
 } from "./types.ts";
 
@@ -45,7 +48,18 @@ export interface DeveloperRepository {
   getBySlug(slug: string): Promise<Developer | null>;
   slugExists(slug: string): Promise<boolean>;
   list(filter?: { city?: string; status?: DeveloperStatus }): Promise<Developer[]>;
+  /** Writes directly to the published columns — used only when there is no public boundary to protect (a developer that has never been published). */
   update(id: string, patch: DeveloperPatch): Promise<Developer>;
+  /** Replaces (or clears, with null) the developer's pending, not-yet-published metadata patch. Never touches the published columns. */
+  setPendingChanges(id: string, pendingChanges: DeveloperMetadataPatch | null): Promise<Developer>;
+  /**
+   * Atomically merges pendingChanges onto the published columns and
+   * clears pendingChanges, in one statement — the only way published
+   * values change for an already-published developer. Throws
+   * NotFoundError if the developer doesn't exist or has no pending
+   * changes to publish.
+   */
+  publishPendingChanges(id: string): Promise<Developer>;
   /**
    * Case-insensitive partial match against legal/display name, restricted
    * to ACTIVE developers. Plain SQL ILIKE, not a search engine — this is
@@ -123,11 +137,28 @@ export interface VerificationEventRepository {
   listByCandidate(candidateId: string): Promise<VerificationEvent[]>;
 }
 
+export interface NewDeveloperEditEventInput {
+  developerId: string;
+  eventType: DeveloperEditEventType;
+  fieldName: string | null;
+  previousValue: string | null;
+  newValue: string | null;
+  actorType: ActorType;
+  actorId: string;
+}
+
+/** Append-only by design: no update or delete operation is exposed. */
+export interface DeveloperEditEventRepository {
+  append(input: NewDeveloperEditEventInput): Promise<DeveloperEditEvent>;
+  listByDeveloper(developerId: string): Promise<DeveloperEditEvent[]>;
+}
+
 export interface DeveloperConnectRepositories {
   developers: DeveloperRepository;
   candidates: WebsiteCandidateRepository;
   evidence: EvidenceRepository;
   events: VerificationEventRepository;
+  developerEditEvents: DeveloperEditEventRepository;
   /**
    * Runs `fn` with a repositories bundle scoped to a single atomic unit of
    * work. A real database adapter opens a transaction and passes back

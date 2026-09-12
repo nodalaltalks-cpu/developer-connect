@@ -50,6 +50,27 @@
       "when": 1789082126222,
       "tag": "0006_conscious_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789171585002,
+      "tag": "0007_massive_doctor_strange",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789171620817,
+      "tag": "0008_developer_edit_events_append_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789174868261,
+      "tag": "0009_parallel_energizer",
+      "breakpoints": true
     }
   ]
 }

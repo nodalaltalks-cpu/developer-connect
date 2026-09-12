@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { buttonClassName } from "@/components/ui/button";
 import { updateDeveloperAction } from "@/app/admin/_actions/developer-actions";
+import { effectiveDeveloperFields } from "@/lib/developer-connect/developer-service";
 import type { Developer } from "@/lib/developer-connect/types";
 
 const inputClassName =
@@ -19,14 +20,21 @@ interface FieldsState {
   headquartersLocation: string;
 }
 
+/**
+ * Pre-populates from the EFFECTIVE value (published, overridden by any
+ * already-pending change) — not just the published columns — so a second
+ * edit before republishing builds on the first one instead of silently
+ * reverting it. See effectiveDeveloperFields in developer-service.ts.
+ */
 function toFields(developer: Developer): FieldsState {
+  const effective = effectiveDeveloperFields(developer);
   return {
-    legalName: developer.legalName,
-    displayName: developer.displayName,
-    city: developer.city,
-    state: developer.state,
-    country: developer.country,
-    headquartersLocation: developer.headquartersLocation ?? "",
+    legalName: effective.legalName ?? "",
+    displayName: effective.displayName ?? "",
+    city: effective.city ?? "",
+    state: effective.state ?? "",
+    country: effective.country ?? "",
+    headquartersLocation: effective.headquartersLocation ?? "",
   };
 }
 
@@ -36,10 +44,18 @@ function toFields(developer: Developer): FieldsState {
  * own distinct event, so the "Saved" confirmation reliably reappears even
  * if the founder saves the exact same values twice in a row.
  */
-export function DeveloperEditForm({ developer }: { developer: Developer }) {
+export function DeveloperEditForm({
+  developer,
+  onCancel,
+}: {
+  developer: Developer;
+  /** When provided, renders a "Cancel" button next to "Save changes" — used by the collapsible edit toggle on the developer detail page. */
+  onCancel?: () => void;
+}) {
   const [fields, setFields] = useState<FieldsState>(() => toFields(developer));
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [savedAsPending, setSavedAsPending] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,6 +88,7 @@ export function DeveloperEditForm({ developer }: { developer: Developer }) {
       });
       if (result.ok && result.developer) {
         setFields(toFields(result.developer));
+        setSavedAsPending(result.developer.pendingChanges !== null);
         setSavedAt(Date.now());
         router.refresh();
       } else {
@@ -179,12 +196,23 @@ export function DeveloperEditForm({ developer }: { developer: Developer }) {
         >
           {isPending ? "Saving…" : "Save changes"}
         </button>
-        {savedAt && !error && !isPending && (
-          <span className="text-sm text-accent-hover" role="status" aria-live="polite">
-            Saved.
-          </span>
+        {onCancel && (
+          <button type="button" onClick={onCancel} disabled={isPending} className={buttonClassName("secondary")}>
+            Cancel
+          </button>
         )}
       </div>
+
+      {savedAt && !error && !isPending && (
+        <div className="mt-3 rounded-md border border-green-200 bg-green-50 px-3 py-2" role="status" aria-live="polite">
+          <p className="text-sm font-medium text-green-700">✓ Changes saved</p>
+          {savedAsPending && (
+            <p className="mt-1 text-sm text-green-700">
+              This developer is published — these changes are unpublished until you Republish (see below).
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

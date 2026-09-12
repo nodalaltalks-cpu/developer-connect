@@ -10,6 +10,7 @@ function stat(overrides: Partial<DeveloperStat>): DeveloperStat {
     displayName: "Test Developer",
     slug: "test-developer",
     verificationStatus: null,
+    hasPendingChanges: false,
     searchResultClicks: 0,
     pageViews: 0,
     officialWebsiteClicks: 0,

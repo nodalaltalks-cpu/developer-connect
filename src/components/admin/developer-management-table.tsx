@@ -237,6 +237,11 @@ export function DeveloperManagementTable({
                         ) : (
                           (developer.verificationStatus ?? "Not verified")
                         )}
+                        {developer.verificationStatus === "VERIFIED" && developer.hasPendingChanges && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-amber-800">
+                            ● Unpublished changes
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{developer.searchResultClicks}</td>
                       <td className="px-4 py-3 text-muted-foreground">{developer.pageViews}</td>

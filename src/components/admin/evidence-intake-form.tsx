@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useTransition, FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { buttonClassName } from "@/components/ui/button";
 import { addEvidenceAction } from "@/app/admin/_actions/candidate-actions";
-import type { EvidenceType } from "@/lib/developer-connect/types";
+import type { EvidenceType, Evidence, WebsiteCandidate } from "@/lib/developer-connect/types";
 
 const inputClassName =
   "mt-1.5 w-full rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -29,13 +28,19 @@ const EVIDENCE_TYPES: EvidenceType[] = [
  * Evidence informs a verification decision; it never makes one — nothing
  * here can move a candidate's status.
  */
-export function EvidenceIntakeForm({ candidateId }: { candidateId: string }) {
+export function EvidenceIntakeForm({
+  candidateId,
+  onAdded,
+}: {
+  candidateId: string;
+  /** Called with the newly added evidence and the candidate (its confidenceScore may have changed) instead of forcing a full route refresh. */
+  onAdded?: (addedEvidence: Evidence[], candidate: WebsiteCandidate | undefined) => void;
+}) {
   const [evidenceType, setEvidenceType] = useState<EvidenceType>("REGULATORY_FILING_REFERENCE");
   const [detail, setDetail] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,7 +55,7 @@ export function EvidenceIntakeForm({ candidateId }: { candidateId: string }) {
       if (outcome.ok) {
         setDetail("");
         setSourceUrl("");
-        router.refresh();
+        onAdded?.(outcome.addedEvidence ?? [], outcome.candidate);
       } else {
         setError(outcome.error ?? "Could not add evidence. Please try again.");
       }

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { buttonClassName } from "@/components/ui/button";
 import { approveCandidateAction } from "@/app/admin/_actions/verification-actions";
+import type { WebsiteCandidate } from "@/lib/developer-connect/types";
 
 const DEFAULT_REASON = "Reviewed and approved by founder";
 
@@ -16,12 +16,21 @@ const DEFAULT_REASON = "Reviewed and approved by founder";
  * mandatory reason field, since the lean workflow no longer requires the
  * founder to justify every approval in writing.
  */
-export function ApprovePublishForm({ candidateId }: { candidateId: string }) {
+export function ApprovePublishForm({
+  candidateId,
+  onApproved,
+  hideQueueLink,
+}: {
+  candidateId: string;
+  /** Called with the freshly-published candidate instead of forcing a full route refresh — lets an ancestor (e.g. the verification queue accordion) update its own local state, such as removing this row from the pending list. */
+  onApproved?: (candidate: WebsiteCandidate) => void;
+  /** Suppresses the "Back to verification queue" link — used when this form already lives inline inside that queue. */
+  hideQueueLink?: boolean;
+}) {
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [justPublished, setJustPublished] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
 
@@ -37,9 +46,9 @@ export function ApprovePublishForm({ candidateId }: { candidateId: string }) {
     setError(null);
     startTransition(async () => {
       const result = await approveCandidateAction(candidateId, note.trim() || DEFAULT_REASON);
-      if (result.ok) {
+      if (result.ok && result.candidate) {
         setJustPublished(true);
-        router.refresh();
+        onApproved?.(result.candidate);
       } else {
         setError(result.error ?? "Could not complete this action.");
       }
@@ -76,10 +85,15 @@ export function ApprovePublishForm({ candidateId }: { candidateId: string }) {
         <div className="mt-2 rounded-md border border-green-200 bg-green-50 px-3 py-2" role="status" aria-live="polite">
           <p className="text-sm font-medium text-green-700">✓ Verified &amp; Published</p>
           <p className="mt-1 text-sm text-green-700">
-            This developer is now publicly visible.{" "}
-            <Link href="/admin/verification" className="font-medium underline">
-              Back to verification queue
-            </Link>
+            This developer is now publicly visible.
+            {!hideQueueLink && (
+              <>
+                {" "}
+                <Link href="/admin/verification" className="font-medium underline">
+                  Back to verification queue
+                </Link>
+              </>
+            )}
           </p>
         </div>
       )}

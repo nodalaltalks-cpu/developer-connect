@@ -16,7 +16,7 @@ import {
   UnauthorizedVerificationActionError,
   CrossDeveloperDomainConflictError,
 } from "@/lib/developer-connect/errors";
-import type { WebsiteCandidate, VerificationStatus } from "@/lib/developer-connect/types";
+import type { WebsiteCandidate, VerificationStatus, Developer, Evidence, VerificationEvent } from "@/lib/developer-connect/types";
 
 /**
  * Every function here calls `requireFounderForAction` FIRST and passes
@@ -89,6 +89,56 @@ function revalidateCandidate(candidateId: string, developerId?: string) {
 
 /** Founder-friendly message for the (UI-unreachable, defense-in-depth-only) case of a direct call bypassing the founder-only page. */
 const AUTH_ERROR = "You don't have permission to do that. Founder access is required.";
+
+export interface CandidateReviewData {
+  candidate: WebsiteCandidate;
+  developer: Developer | null;
+  evidenceList: Evidence[];
+  history: VerificationEvent[];
+  /** Other website candidates ever submitted for the same developer, most recent first — excludes `candidate` itself. */
+  otherCandidates: WebsiteCandidate[];
+}
+
+export interface CandidateReviewDataResult {
+  ok: boolean;
+  data?: CandidateReviewData;
+  error?: string;
+}
+
+/**
+ * Everything the founder review screen (/admin/verification/[candidateId])
+ * already fetches server-side, available as one on-demand call — this is
+ * what powers the inline accordion review on /admin/verification: the
+ * collapsed queue row never pays for this data, only the row a founder
+ * actually expands does. Reuses the exact same repositories that page
+ * uses; no new query shape, no duplicated business logic.
+ */
+export async function getCandidateReviewDataAction(candidateId: string): Promise<CandidateReviewDataResult> {
+  try {
+    await requireFounderForAction();
+  } catch {
+    return { ok: false, error: AUTH_ERROR };
+  }
+
+  const repos = createPostgresRepositories();
+  const candidate = await repos.candidates.getById(candidateId);
+  if (!candidate) {
+    return { ok: false, error: "This website candidate could not be found. It may have been removed." };
+  }
+
+  const [developer, evidenceList, history, siblingCandidates] = await Promise.all([
+    repos.developers.getById(candidate.developerId),
+    repos.evidence.listByCandidate(candidateId),
+    repos.events.listByCandidate(candidateId),
+    repos.candidates.listByDeveloper(candidate.developerId),
+  ]);
+
+  const otherCandidates = siblingCandidates
+    .filter((c) => c.id !== candidate.id)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  return { ok: true, data: { candidate, developer, evidenceList, history, otherCandidates } };
+}
 
 export async function approveCandidateAction(
   candidateId: string,

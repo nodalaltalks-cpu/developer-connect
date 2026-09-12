@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { buttonClassName, type ButtonVariant } from "@/components/ui/button";
 import type { VerificationActionResult } from "@/app/admin/_actions/verification-actions";
+import type { WebsiteCandidate } from "@/lib/developer-connect/types";
 
 interface VerificationActionFormProps {
   label: string;
@@ -11,6 +11,8 @@ interface VerificationActionFormProps {
   action: (candidateId: string, reason: string) => Promise<VerificationActionResult>;
   candidateId: string;
   reasonPlaceholder: string;
+  /** Called with the freshly-updated candidate instead of forcing a full route refresh. */
+  onDone?: (candidate: WebsiteCandidate) => void;
 }
 
 /**
@@ -28,11 +30,11 @@ export function VerificationActionForm({
   action,
   candidateId,
   reasonPlaceholder,
+  onDone,
 }: VerificationActionFormProps) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
   const containerRef = useRef<HTMLFormElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
 
@@ -52,9 +54,9 @@ export function VerificationActionForm({
         setError(null);
         startTransition(async () => {
           const result = await action(candidateId, reason);
-          if (result.ok) {
+          if (result.ok && result.candidate) {
             setReason("");
-            router.refresh();
+            onDone?.(result.candidate);
           } else {
             setError(result.error ?? "Could not complete this action.");
           }

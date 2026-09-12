@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { buttonClassName } from "@/components/ui/button";
 import { updateDeveloperAction } from "@/app/admin/_actions/developer-actions";
 import { effectiveDeveloperFields } from "@/lib/developer-connect/developer-service";
@@ -47,17 +46,26 @@ function toFields(developer: Developer): FieldsState {
 export function DeveloperEditForm({
   developer,
   onCancel,
+  onSaved,
 }: {
   developer: Developer;
   /** When provided, renders a "Cancel" button next to "Save changes" — used by the collapsible edit toggle on the developer detail page. */
   onCancel?: () => void;
+  /**
+   * Called with the freshly-saved developer instead of this component
+   * ever forcing a full route refresh. The caller (an ancestor holding
+   * `developer` in state) is responsible for propagating it to whatever
+   * sibling UI depends on it — this keeps a plain field save an inline,
+   * local update rather than a full-page re-render that resets scroll
+   * position and collapses whatever section the founder had open.
+   */
+  onSaved?: (developer: Developer) => void;
 }) {
   const [fields, setFields] = useState<FieldsState>(() => toFields(developer));
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [savedAsPending, setSavedAsPending] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
 
@@ -90,7 +98,7 @@ export function DeveloperEditForm({
         setFields(toFields(result.developer));
         setSavedAsPending(result.developer.pendingChanges !== null);
         setSavedAt(Date.now());
-        router.refresh();
+        onSaved?.(result.developer);
       } else {
         setError(result.error ?? "Could not save changes.");
       }

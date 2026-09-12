@@ -114,6 +114,12 @@ function buildDeveloperRepository(db: DbOrTx): DeveloperRepository {
       const [row] = await db.select().from(schema.developers).where(eq(schema.developers.id, id));
       return row ? toDeveloper(row) : null;
     },
+    async getManyByIds(ids) {
+      const validIds = ids.filter(isValidUuid);
+      if (validIds.length === 0) return [];
+      const rows = await db.select().from(schema.developers).where(inArray(schema.developers.id, validIds));
+      return rows.map(toDeveloper);
+    },
     async getBySlug(slug) {
       const [row] = await db
         .select()

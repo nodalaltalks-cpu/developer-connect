@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { submitWebsiteCandidate, addEvidence } from "@/lib/developer-connect/candidate-service";
-import type { WebsiteCandidate, DiscoverySource, EvidenceType } from "@/lib/developer-connect/types";
+import type { WebsiteCandidate, Evidence, DiscoverySource, EvidenceType } from "@/lib/developer-connect/types";
 
 /**
  * Founder-only candidate + evidence intake. Both actions call
@@ -62,6 +62,10 @@ export interface AddEvidenceActionInput {
 
 export interface AddEvidenceActionResult {
   ok: boolean;
+  /** The newly added evidence item(s) — lets the caller update its own local state instead of re-fetching the whole page. */
+  addedEvidence?: Evidence[];
+  /** Adding evidence recomputes the candidate's confidenceScore as a side effect (see addEvidence in candidate-service.ts) — returned so the caller can keep that in sync too. */
+  candidate?: WebsiteCandidate;
   error?: string;
 }
 
@@ -72,15 +76,16 @@ export async function addEvidenceAction(
   const repos = createPostgresRepositories();
 
   try {
-    await addEvidence(repos, input.candidateId, [
+    const addedEvidence = await addEvidence(repos, input.candidateId, [
       {
         evidenceType: input.evidenceType,
         detail: input.detail,
         sourceUrl: input.sourceUrl || undefined,
       },
     ]);
+    const candidate = await repos.candidates.getById(input.candidateId);
     revalidatePath(`/admin/verification/${input.candidateId}`);
-    return { ok: true };
+    return { ok: true, addedEvidence, candidate: candidate ?? undefined };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not add evidence." };
   }

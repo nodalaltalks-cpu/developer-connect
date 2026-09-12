@@ -515,6 +515,41 @@ test(
 );
 
 test(
+  "postgres: getManyByIds returns exactly the requested developers in one query — powers the verification queue's batched developer-name lookup",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-service.ts");
+    const repos = createPostgresRepositories();
+    const token = randomUUID();
+
+    const a = await createDeveloper(repos.developers, {
+      legalName: `TEST — getManyByIds A ${token} Pvt Ltd`,
+      displayName: `TEST — getManyByIds A ${token}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+    const b = await createDeveloper(repos.developers, {
+      legalName: `TEST — getManyByIds B ${token} Pvt Ltd`,
+      displayName: `TEST — getManyByIds B ${token}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+
+    // Never an error for a mixed bag of real ids, a well-formed id that
+    // doesn't exist, and a malformed (non-UUID) id — mirrors getById's
+    // own honest-null behavior rather than throwing.
+    const result = await repos.developers.getManyByIds([a.id, b.id, randomUUID(), "not-a-uuid"]);
+    const resultIds = result.map((d) => d.id).sort();
+    assert.deepEqual(resultIds, [a.id, b.id].sort());
+
+    assert.deepEqual(await repos.developers.getManyByIds([]), []);
+  },
+);
+
+test(
   "postgres: listByStatuses (the exact query the verification queue uses) excludes a candidate the moment it's approved, while other pending candidates remain",
   { skip: !hasDatabase },
   async () => {

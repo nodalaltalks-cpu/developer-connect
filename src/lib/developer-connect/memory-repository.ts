@@ -56,6 +56,9 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
     async getById(id) {
       return developers.get(id) ?? null;
     },
+    async getManyByIds(ids) {
+      return ids.map((id) => developers.get(id)).filter((d): d is Developer => d !== undefined);
+    },
     async getBySlug(slug) {
       for (const developer of developers.values()) {
         if (developer.slug === slug) return developer;

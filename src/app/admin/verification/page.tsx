@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
+import { PENDING_VERIFICATION_STATUSES } from "@/lib/developer-connect/verification-queue-state";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
-import { CandidateStatusBadge } from "@/components/admin/candidate-status-badge";
-import { buttonClassName } from "@/components/ui/button";
+import { VerificationQueueList } from "@/components/admin/verification-queue-list";
 
 // Founder-only and already effectively dynamic (requireFounder() reads
 // per-request auth state via the admin layout), but Next.js still
@@ -17,83 +16,36 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminVerificationQueuePage() {
   const repos = createPostgresRepositories();
-  const candidates = await repos.candidates.listByStatuses([
-    "PENDING_VERIFICATION",
-    "NEEDS_REVERIFICATION",
-    "DISCOVERED",
-  ]);
+  const candidates = await repos.candidates.listByStatuses([...PENDING_VERIFICATION_STATUSES]);
 
-  const developerNames = new Map<string, string>();
-  for (const candidate of candidates) {
-    if (!developerNames.has(candidate.developerId)) {
-      const developer = await repos.developers.getById(candidate.developerId);
-      developerNames.set(candidate.developerId, developer?.displayName ?? "Unknown developer");
-    }
-  }
+  // One batched query for every developer name the collapsed rows need —
+  // not one round trip per candidate. Expanding a row fetches its own
+  // full review data separately (see verification-queue-list.tsx), so
+  // this initial load never pays for evidence/history/sibling-candidate
+  // data nobody has asked to see yet.
+  const developerIds = [...new Set(candidates.map((c) => c.developerId))];
+  const developers = await repos.developers.getManyByIds(developerIds);
+  const developerNames = new Map(developers.map((d) => [d.id, d.displayName]));
+
+  const rows = candidates.map((candidate) => ({
+    candidate,
+    developerName: developerNames.get(candidate.developerId) ?? "Unknown developer",
+  }));
 
   return (
     <div>
       <SectionHeading
         title="Website Verification"
-        description="Candidates that need a decision — pending review, flagged for re-verification, or freshly discovered."
+        description="Candidates that need a decision — pending review, flagged for re-verification, or freshly discovered. Click Review to open the full workspace inline."
       />
 
-      {candidates.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState
           title="Nothing waiting for review"
           description="No website candidates are pending, flagged for re-verification, or newly discovered right now."
         />
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border">
-          {candidates.map((candidate) => (
-            <li
-              key={candidate.id}
-              className="flex min-h-11 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <p className="font-medium text-foreground">
-                  {developerNames.get(candidate.developerId)}
-                </p>
-                <p className="truncate text-sm text-muted-foreground">{candidate.canonicalDomain}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CandidateStatusBadge status={candidate.verificationStatus} />
-                  {"confidence "}
-                  {candidate.confidenceScore}
-                </div>
-                {/* Native <details>/<summary> dropdown — no client JS needed,
-                    matches the "More actions" pattern already used on the
-                    candidate review page itself. Both options navigate to an
-                    existing route; neither approves or mutates anything. */}
-                <details className="relative shrink-0">
-                  <summary
-                    className={buttonClassName(
-                      "secondary",
-                      "min-h-9 cursor-pointer list-none px-3 py-1.5 text-xs [&::-webkit-details-marker]:hidden",
-                    )}
-                  >
-                    Review ▾
-                  </summary>
-                  <div className="absolute right-0 z-10 mt-1 w-52 rounded-md border border-border bg-background py-1 shadow-md">
-                    <Link
-                      href={`/admin/verification/${candidate.id}`}
-                      className="block min-h-11 px-3 py-2.5 text-sm leading-6 text-foreground hover:bg-muted"
-                    >
-                      Review developer
-                    </Link>
-                    <Link
-                      href={`/admin/developers/${candidate.developerId}`}
-                      className="block min-h-11 px-3 py-2.5 text-sm leading-6 text-foreground hover:bg-muted"
-                    >
-                      Open developer details
-                    </Link>
-                  </div>
-                </details>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <VerificationQueueList initialRows={rows} />
       )}
     </div>
   );

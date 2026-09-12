@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { buttonClassName } from "@/components/ui/button";
 import { republishDeveloperAction, discardPendingChangesAction } from "@/app/admin/_actions/developer-actions";
 import type { Developer, DeveloperEditableField } from "@/lib/developer-connect/types";
@@ -23,12 +22,18 @@ const FIELD_LABELS: Record<DeveloperEditableField, string> = {
  * are the only things that ever touch developer.pendingChanges after
  * Save.
  */
-export function DeveloperPublishPanel({ developer }: { developer: Developer }) {
+export function DeveloperPublishPanel({
+  developer,
+  onChange,
+}: {
+  developer: Developer;
+  /** Called with the freshly-updated developer instead of forcing a full route refresh. */
+  onChange?: (developer: Developer) => void;
+}) {
   const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [republishedAt, setRepublishedAt] = useState<Date | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   const pending = developer.pendingChanges;
   if (!pending && !republishedAt) return null;
@@ -45,7 +50,7 @@ export function DeveloperPublishPanel({ developer }: { developer: Developer }) {
       if (result.ok && result.developer) {
         setRepublishedAt(new Date());
         setReviewing(false);
-        router.refresh();
+        onChange?.(result.developer);
       } else {
         setError(result.error ?? "Could not republish this developer.");
       }
@@ -57,9 +62,9 @@ export function DeveloperPublishPanel({ developer }: { developer: Developer }) {
     setError(null);
     startTransition(async () => {
       const result = await discardPendingChangesAction(developer.id);
-      if (result.ok) {
+      if (result.ok && result.developer) {
         setReviewing(false);
-        router.refresh();
+        onChange?.(result.developer);
       } else {
         setError(result.error ?? "Could not discard these changes.");
       }

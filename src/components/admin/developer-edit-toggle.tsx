@@ -14,7 +14,14 @@ import type { Developer } from "@/lib/developer-connect/types";
  * where the edit form shouldn't compete with the verified/published
  * status for attention.
  */
-export function DeveloperEditToggle({ developer }: { developer: Developer }) {
+export function DeveloperEditToggle({
+  developer,
+  onSaved,
+}: {
+  developer: Developer;
+  /** Forwarded to DeveloperEditForm — see its own doc comment. */
+  onSaved?: (developer: Developer) => void;
+}) {
   const [open, setOpen] = useState(false);
 
   if (!open) {
@@ -32,7 +39,7 @@ export function DeveloperEditToggle({ developer }: { developer: Developer }) {
         it as unpublished — the public page keeps showing today&apos;s published information until you
         explicitly Republish.
       </p>
-      <DeveloperEditForm developer={developer} onCancel={() => setOpen(false)} />
+      <DeveloperEditForm developer={developer} onCancel={() => setOpen(false)} onSaved={onSaved} />
     </div>
   );
 }

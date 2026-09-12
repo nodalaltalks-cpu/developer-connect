@@ -45,6 +45,8 @@ export interface DeveloperPatch {
 export interface DeveloperRepository {
   create(input: NewDeveloperInput): Promise<Developer>;
   getById(id: string): Promise<Developer | null>;
+  /** Batch lookup by id — one query instead of N, for screens (like the verification queue) that need several developers' names at once. Missing/invalid ids are simply absent from the result, never an error. */
+  getManyByIds(ids: string[]): Promise<Developer[]>;
   getBySlug(slug: string): Promise<Developer | null>;
   slugExists(slug: string): Promise<boolean>;
   list(filter?: { city?: string; status?: DeveloperStatus }): Promise<Developer[]>;

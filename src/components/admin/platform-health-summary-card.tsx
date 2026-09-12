@@ -8,20 +8,17 @@ import { PlatformHealthStatusBadge } from "./platform-health-status-badge";
  * line comes from the same real getPlatformHealth() the full page uses,
  * never a hardcoded "HEALTHY". Deliberately small: this is a glance, not
  * a replacement for the North Star metric above it.
+ *
+ * Infrastructure-only, same as the full page: no developer verification
+ * or data-quality fact is ever shown here — see /admin/data-quality and
+ * /admin/developers for that.
  */
 export async function PlatformHealthSummaryCard() {
   const health = await getPlatformHealth();
 
   const facts: string[] = [
     health.database.connectionOk ? "Database connected" : "Database connection issue",
-    health.analytics.totalEventsEver === 0
-      ? "No activity recorded yet"
-      : health.analytics.status === "HEALTHY"
-        ? "Analytics receiving events"
-        : "Analytics quiet — check details",
-    health.productData.status === "NEEDS_ATTENTION"
-      ? "Some data-quality issues to review"
-      : "No critical data issues",
+    health.authentication.clerkReachable === false ? "Sign-in provider unreachable" : "Sign-in working normally",
   ];
 
   return (
@@ -39,6 +36,7 @@ export async function PlatformHealthSummaryCard() {
           Last checked: {formatRelativeTime(health.checkedAt)}
         </p>
       </div>
+      <p className="mt-2 text-sm text-foreground">{health.overallMessage}</p>
       <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
         {facts.map((fact) => (
           <li key={fact}>{fact}</li>

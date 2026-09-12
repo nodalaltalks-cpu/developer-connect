@@ -1,14 +1,5 @@
-import { DATABASE_LATENCY_THRESHOLDS_MS } from "./thresholds.ts";
-import type {
-  HealthStatus,
-  PlatformHealthWarning,
-  DatabaseHealth,
-  AuthenticationHealth,
-  AnalyticsHealth,
-  ProductDataHealth,
-  ApplicationHealth,
-  DeploymentHealth,
-} from "./types.ts";
+import { DATABASE_LATENCY_THRESHOLDS_MS, DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT } from "./thresholds.ts";
+import type { HealthStatus, PlatformHealthWarning, DatabaseHealth, AuthenticationHealth, DeploymentHealth } from "./types.ts";
 
 /**
  * The ENTIRE overall-status algorithm, in one place, deterministic, no AI,
@@ -22,6 +13,11 @@ import type {
  * NOT_MEASURED categories are otherwise excluded from the calculation —
  * "we don't know" never counts as either a pass or a failure, and never
  * silently degrades an otherwise-healthy platform.
+ *
+ * Every input category here is a genuine infrastructure/technical signal
+ * (database, sign-in provider, deployment, object storage) — developer
+ * verification status and other product/data-quality signals are never
+ * passed into this function, by construction (see health-checks.ts).
  */
 export function computeOverallStatus(categoryStatuses: HealthStatus[]): HealthStatus {
   if (categoryStatuses.some((s) => s === "ACTION_REQUIRED")) return "ACTION_REQUIRED";
@@ -31,55 +27,85 @@ export function computeOverallStatus(categoryStatuses: HealthStatus[]): HealthSt
 }
 
 /**
+ * The single sentence shown at the top of the page. Real-data-driven: the
+ * most severe active warning's own explanation (already correctly worded
+ * for its exact cause) when one exists, otherwise a canonical per-status
+ * message. Never a generic "something needs attention" that could be
+ * caused by developer/product data — this function's only inputs are the
+ * warnings this module itself produced from infrastructure checks.
+ */
+export function computeOverallMessage(overallStatus: HealthStatus, warnings: PlatformHealthWarning[]): string {
+  const mostSevere =
+    warnings.find((w) => w.level === "ACTION_REQUIRED") ?? warnings.find((w) => w.level === "NEEDS_ATTENTION");
+  if (mostSevere) return mostSevere.explanation;
+
+  switch (overallStatus) {
+    case "HEALTHY":
+      return "Everything is running normally.";
+    case "NOT_MEASURED":
+      return "Infrastructure health could not be measured right now.";
+    case "NEEDS_ATTENTION":
+      return "You're approaching an infrastructure limit.";
+    case "ACTION_REQUIRED":
+      return "An infrastructure service is unavailable.";
+  }
+}
+
+/**
  * Builds the founder-friendly warning cards from the same category
  * results the status came from — a warning only ever exists because a
  * documented threshold (see thresholds.ts) was genuinely crossed, never
  * invented for effect. Each warning's `id` is a stable, deterministic
  * string (category + condition), so a future persistence layer could key
  * on it directly without redesigning this function.
+ *
+ * Deliberately takes ONLY infrastructure category results — there is no
+ * parameter here for developer/product/data-quality signals, so a
+ * warning driven by that kind of data is structurally impossible to
+ * produce from this function.
  */
 export function buildWarnings(input: {
   database: DatabaseHealth;
   authentication: AuthenticationHealth;
-  analytics: AnalyticsHealth;
-  productData: ProductDataHealth;
-  application: ApplicationHealth;
   deployment: DeploymentHealth;
 }): PlatformHealthWarning[] {
   const warnings: PlatformHealthWarning[] = [];
 
-  if (input.database.status === "ACTION_REQUIRED") {
-    warnings.push({
-      id: "database-connection-failed",
-      category: "DATABASE",
-      level: "ACTION_REQUIRED",
-      title: "Database connection problem",
-      explanation: "Developer Connect may not be able to load or save data right now.",
-      recommendedAction: "Check the database connection details below.",
-    });
-  } else if (input.database.status === "NEEDS_ATTENTION") {
-    // checkDatabaseHealth() puts a database into NEEDS_ATTENTION for two
-    // unrelated reasons — genuinely slow latency, or fast-but-flagged
-    // data-quality counts — and already worded `summary`/`detail`
-    // correctly for whichever one actually happened. Reusing those
-    // directly (rather than a second, hardcoded "responding slowly" text
-    // here) is what keeps this warning honest: previously this branch
-    // fired for BOTH causes with the same "Database responding slowly"
-    // copy, so a fast, healthy database with only data-quality follow-up
-    // was misreported as slow.
-    const isSlow =
-      input.database.latencyMs !== null &&
-      input.database.latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.DEGRADED_ABOVE;
+  if (input.database.status === "ACTION_REQUIRED" || input.database.status === "NEEDS_ATTENTION") {
+    const level = input.database.status;
+    const { connectionOk, latencyMs, storage } = input.database;
+    const usagePercent = storage.usagePercent;
+
+    // Deterministic cause selection from the real measured fields —
+    // never inferred by elimination. Checked in the same priority order
+    // checkDatabaseHealth() itself uses to assign the status.
+    let id: string;
+    let recommendedAction: string;
+    if (!connectionOk) {
+      id = "database-connection-failed";
+      recommendedAction = "Check the database connection details below.";
+    } else if (latencyMs !== null && latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.DEGRADED_ABOVE) {
+      id = level === "ACTION_REQUIRED" ? "database-response-critical" : "database-response-slow";
+      recommendedAction = "Check the database details.";
+    } else if (
+      usagePercent !== null &&
+      usagePercent >= DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT.NEEDS_ATTENTION_ABOVE
+    ) {
+      id = level === "ACTION_REQUIRED" ? "database-storage-critical" : "database-storage-high";
+      recommendedAction = "Consider increasing database storage capacity with your provider.";
+    } else {
+      // Defensive fallback — should be unreachable given checkDatabaseHealth()'s own logic.
+      id = "database-issue";
+      recommendedAction = "Check the database details below.";
+    }
 
     warnings.push({
-      id: isSlow ? "database-response-slow" : "database-data-quality",
+      id,
       category: "DATABASE",
-      level: "NEEDS_ATTENTION",
+      level,
       title: input.database.summary,
       explanation: input.database.detail,
-      recommendedAction: isSlow
-        ? "Check the database details."
-        : "No database performance issue — review the data-quality counts below, or see Data Quality for the full list.",
+      recommendedAction,
     });
   }
 
@@ -100,56 +126,6 @@ export function buildWarnings(input: {
       title: "Sign-in service responding slowly",
       explanation: "Requests to the sign-in provider are taking longer than usual.",
       recommendedAction: "Check the authentication details.",
-    });
-  }
-
-  if (input.analytics.status === "NEEDS_ATTENTION") {
-    warnings.push({
-      id: "analytics-stopped",
-      category: "ANALYTICS",
-      level: "NEEDS_ATTENTION",
-      title: "Analytics has stopped receiving events",
-      explanation: "No analytics events have been recorded recently, even though there's a history of activity.",
-      recommendedAction: "Check the analytics details.",
-    });
-  }
-
-  if (input.productData.status === "NEEDS_ATTENTION") {
-    const pd = input.productData;
-    const reasons: string[] = [];
-    if (pd.developersWithoutVerifiedWebsite > 0) {
-      reasons.push(
-        `${pd.developersWithoutVerifiedWebsite} active developer${pd.developersWithoutVerifiedWebsite === 1 ? "" : "s"} without a verified website`,
-      );
-    }
-    if (pd.candidatesWithNoEvidence > 0) {
-      reasons.push(
-        `${pd.candidatesWithNoEvidence} candidate${pd.candidatesWithNoEvidence === 1 ? "" : "s"} awaiting review with no evidence attached`,
-      );
-    }
-    // Never set anywhere yet (no periodic re-verification exists) — every
-    // VERIFIED candidate legitimately matches this until that automation
-    // is built, so it's called out separately as "expected for now"
-    // rather than implied to be equally urgent as the two counts above.
-    const onlyNeverRechecked = reasons.length === 0 && pd.verifiedNeverReChecked > 0;
-    if (pd.verifiedNeverReChecked > 0) {
-      reasons.push(
-        `${pd.verifiedNeverReChecked} verified website${pd.verifiedNeverReChecked === 1 ? "" : "s"} never re-checked since approval`,
-      );
-    }
-
-    warnings.push({
-      id: "product-data-quality",
-      category: "PRODUCT_DATA",
-      level: "NEEDS_ATTENTION",
-      title: "Some data-quality issues need review",
-      explanation:
-        reasons.length > 0
-          ? `${reasons.join("; ")}.`
-          : "A few developer records need attention — see Data Quality for the exact list.",
-      recommendedAction: onlyNeverRechecked
-        ? "No urgent action needed — Developer Connect doesn't yet run automatic re-verification, so this is expected. Periodically reopen a verified developer's record to reconfirm its website."
-        : "Review Data Quality for the specific records that need attention.",
     });
   }
 

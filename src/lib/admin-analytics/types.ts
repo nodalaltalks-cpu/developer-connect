@@ -143,6 +143,7 @@ export interface InfrastructureEntityCounts {
   profiles: number;
   notifications: number;
   analyticsEvents: number;
+  developerEditEvents: number;
 }
 
 /** One table's real, measured size — pg_total_relation_size() (table + indexes + TOAST), a cheap metadata read, never a scan. */

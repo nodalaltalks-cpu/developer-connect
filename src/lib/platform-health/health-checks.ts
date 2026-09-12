@@ -1,45 +1,51 @@
-import { sql, gte, count } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { getDb } from "../developer-connect/db/client.ts";
-import { analyticsEvents } from "../developer-connect/db/schema.ts";
-import {
-  getDataQuality,
-  getExecutiveOverview,
-  getDeveloperVerificationBreakdown,
-  getInfrastructureEntityCounts,
-  getDatabaseTableSizes,
-} from "../admin-analytics/queries.ts";
+import { getInfrastructureEntityCounts, getDatabaseTableSizes } from "../admin-analytics/queries.ts";
 import {
   DATABASE_LATENCY_THRESHOLDS_MS,
   AUTHENTICATION_LATENCY_THRESHOLDS_MS,
-  ANALYTICS_STALE_AFTER_HOURS,
+  DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT,
   HEALTH_CHECK_TIMEOUT_MS,
 } from "./thresholds.ts";
-import { computeOverallStatus, buildWarnings } from "./algorithm.ts";
+import { computeOverallStatus, computeOverallMessage, buildWarnings } from "./algorithm.ts";
 import type {
   DatabaseHealth,
   DatabaseTableBreakdown,
-  ApplicationHealth,
+  CapacityInfo,
   AuthenticationHealth,
-  ProductDataHealth,
-  AnalyticsHealth,
   DeploymentHealth,
   ObjectStorageHealth,
   PlatformHealth,
 } from "./types.ts";
 
 /**
- * Database: a real timed query (never a row count pretending to be
- * storage) plus the existing data-quality signals — reused, not
- * duplicated. Storage is measured via Postgres's own
- * pg_database_size(), which needs no extra credentials beyond the
- * connection this app already has; the plan's storage LIMIT is not
- * measurable without a Neon Management API key, which this project does
- * not have configured, so it is reported as unmeasured rather than
- * assumed.
+ * Real Neon database storage CAPACITY (as opposed to usage, which
+ * pg_database_size() already measures directly). A capacity/quota is
+ * genuinely not obtainable in this project today: it would require
+ * Neon's separate Management API (not the Postgres connection itself,
+ * which carries no quota concept), and that API requires a
+ * NEON_API_KEY — confirmed absent from this project's environment (and
+ * from `vercel integration balance neon`, which also reports no
+ * balance/threshold data for either connected Neon resource). Rather
+ * than call an unverified, untestable API path with a credential that
+ * doesn't exist, this returns null honestly. If a NEON_API_KEY is ever
+ * added to this project, this is the one function that should start
+ * making a real call and returning a real capacity — never a hardcoded
+ * or guessed one.
+ */
+function realDatabaseCapacityBytes(): number | null {
+  return null;
+}
+
+/**
+ * Database: a real timed connectivity check plus real storage usage via
+ * Postgres's own pg_database_size() — never a row count pretending to be
+ * storage, and never mixed with developer/data-quality signals (those
+ * live in Data Quality/Verification/Developers, not here). Capacity is
+ * reported only when a real provider quota is available; see
+ * neonManagementApiKey() above for exactly why it currently is not.
  */
 export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
-  const dataQuality = await getDataQuality();
-
   let connectionOk = true;
   let latencyMs: number | null = null;
   let usedBytes: number | null = null;
@@ -77,6 +83,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
           profiles: entityCounts.profiles,
           notifications: entityCounts.notifications,
           analytics_events: entityCounts.analyticsEvents,
+          developer_edit_events: entityCounts.developerEditEvents,
         };
         tableBreakdown = sizes
           .map((table) => ({
@@ -98,10 +105,28 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
     storageReason = "Storage usage cannot be checked while the database connection itself is failing.";
   }
 
-  const hasQualityIssue =
-    dataQuality.developersWithoutVerifiedWebsite > 0 ||
-    dataQuality.candidatesWithNoEvidence > 0 ||
-    dataQuality.verifiedNeverReChecked > 0;
+  // Capacity: only ever populated by a real provider measurement — see
+  // realDatabaseCapacityBytes() above for exactly why that's null today.
+  const capacityBytes: number | null = realDatabaseCapacityBytes();
+  const remainingBytes = capacityBytes !== null && usedBytes !== null ? capacityBytes - usedBytes : null;
+  const usagePercent =
+    capacityBytes !== null && usedBytes !== null && capacityBytes > 0
+      ? Math.round((usedBytes / capacityBytes) * 1000) / 10
+      : null;
+
+  const storage: CapacityInfo = {
+    measured: storageMeasured,
+    usedBytes,
+    capacityBytes,
+    remainingBytes,
+    usagePercent,
+    reason: storageMeasured
+      ? undefined
+      : (storageReason ?? "Developer Connect cannot currently read your Neon storage usage."),
+    capacityUnavailableReason: storageMeasured
+      ? "Your database provider (Neon) doesn't expose a storage quota to this project — no Neon Management API credential is configured, and Postgres itself has no built-in quota concept."
+      : undefined,
+  };
 
   let status: DatabaseHealth["status"];
   let summary: string;
@@ -119,10 +144,14 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
     status = "NEEDS_ATTENTION";
     summary = "Database is responding slowly";
     detail = "Some database requests are taking longer than usual.";
-  } else if (hasQualityIssue) {
+  } else if (usagePercent !== null && usagePercent >= DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT.ACTION_REQUIRED_ABOVE) {
+    status = "ACTION_REQUIRED";
+    summary = "Database storage is almost full";
+    detail = `Database storage is at ${usagePercent}% of its capacity.`;
+  } else if (usagePercent !== null && usagePercent >= DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT.NEEDS_ATTENTION_ABOVE) {
     status = "NEEDS_ATTENTION";
-    summary = "Database is working normally, with some data to review";
-    detail = "The connection and speed are fine — a few developer records need attention (see below).";
+    summary = "Database storage is getting full";
+    detail = `Database storage is at ${usagePercent}% of its capacity.`;
   } else {
     status = "HEALTHY";
     summary = "Database is working normally";
@@ -135,36 +164,8 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
     detail,
     connectionOk,
     latencyMs,
-    storage: {
-      measured: storageMeasured,
-      usedBytes,
-      limitBytes: null,
-      reason: storageMeasured
-        ? undefined
-        : (storageReason ?? "Developer Connect cannot currently read your Neon storage usage."),
-    },
+    storage,
     tableBreakdown,
-    dataQuality: {
-      developersWithoutVerifiedWebsite: dataQuality.developersWithoutVerifiedWebsite,
-      candidatesWithNoEvidence: dataQuality.candidatesWithNoEvidence,
-      verifiedNeverReChecked: dataQuality.verifiedNeverReChecked,
-    },
-  };
-}
-
-/**
- * Application: honestly NOT_MEASURED. No APM/error-tracking vendor is
- * wired into this app — pretending a page render proves the application
- * is healthy would be exactly the fabricated-health this feature exists
- * to avoid (a rendering page tells you almost nothing about request
- * failures, background errors, or degraded paths elsewhere).
- */
-export function checkApplicationHealth(): ApplicationHealth {
-  return {
-    status: "NOT_MEASURED",
-    summary: "Detailed application monitoring isn't connected yet",
-    detail:
-      "Developer Connect doesn't have an application-performance monitoring tool wired up, so request-level errors and latency aren't tracked here yet.",
   };
 }
 
@@ -247,131 +248,6 @@ export async function checkAuthenticationHealth(): Promise<AuthenticationHealth>
 }
 
 /**
- * Product data: reuses the existing executive-overview + data-quality
- * queries — no new tables, no new counts invented.
- *
- * developerStatusBreakdown counts developers by their real, current
- * EFFECTIVE verification status (getDeveloperVerificationBreakdown —
- * the same derivation the /admin/developers status filter uses), so
- * these numbers always agree with what a Founder sees there. entityCounts
- * are exact row counts for every other application table.
- */
-export async function checkProductDataHealth(): Promise<ProductDataHealth> {
-  const [overview, dataQuality, developerStatusBreakdown, entityCounts] = await Promise.all([
-    getExecutiveOverview(),
-    getDataQuality(),
-    getDeveloperVerificationBreakdown(),
-    getInfrastructureEntityCounts(),
-  ]);
-
-  const hasIssue =
-    dataQuality.developersWithoutVerifiedWebsite > 0 ||
-    dataQuality.candidatesWithNoEvidence > 0 ||
-    dataQuality.verifiedNeverReChecked > 0;
-
-  const status = overview.developersTracked === 0 ? "NOT_MEASURED" : hasIssue ? "NEEDS_ATTENTION" : "HEALTHY";
-  const summary =
-    overview.developersTracked === 0
-      ? "No developer records yet"
-      : hasIssue
-        ? "Some data-quality issues need review"
-        : "Developer data looks healthy";
-  const detail =
-    overview.developersTracked === 0
-      ? "Nothing to check yet — this fills in once developers are added."
-      : "See the counts below for exactly what needs review, and Data Quality for the full list.";
-
-  return {
-    status,
-    summary,
-    detail,
-    totalDevelopers: overview.developersTracked,
-    verifiedDevelopers: overview.verifiedDevelopers,
-    pendingVerification: overview.pendingVerification,
-    developersWithoutVerifiedWebsite: dataQuality.developersWithoutVerifiedWebsite,
-    candidatesWithNoEvidence: dataQuality.candidatesWithNoEvidence,
-    // Previously computed into `hasIssue` above but never returned, so a
-    // NEEDS_ATTENTION status driven entirely by this count showed as "0
-    // issues" everywhere the other two counts are displayed. Now carried
-    // through so the Founder can actually see what's flagged.
-    verifiedNeverReChecked: dataQuality.verifiedNeverReChecked,
-    developerStatusBreakdown,
-    entityCounts: {
-      websiteCandidates: entityCounts.websiteCandidates,
-      evidence: entityCounts.evidence,
-      verificationEvents: entityCounts.verificationEvents,
-      profiles: entityCounts.profiles,
-      notifications: entityCounts.notifications,
-      analyticsEvents: entityCounts.analyticsEvents,
-    },
-  };
-}
-
-/**
- * Analytics: recency + volume from the existing analytics_events table.
- * The one rule this exists to enforce: zero events ever recorded is
- * "nothing to measure yet", never a failure — it's indistinguishable
- * from a product with no traffic, which is not a system problem.
- */
-export async function checkAnalyticsHealth(): Promise<AnalyticsHealth> {
-  const db = getDb();
-
-  const [mostRecentRow] = await db
-    .select({ occurredAt: analyticsEvents.occurredAt })
-    .from(analyticsEvents)
-    .orderBy(sql`${analyticsEvents.occurredAt} desc`)
-    .limit(1);
-
-  const [totalRow] = await db.select({ n: count() }).from(analyticsEvents);
-  const totalEventsEver = totalRow?.n ?? 0;
-
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const [todayRow] = await db
-    .select({ n: count() })
-    .from(analyticsEvents)
-    .where(gte(analyticsEvents.occurredAt, startOfToday));
-  const eventsToday = todayRow?.n ?? 0;
-
-  const mostRecentEventAt = mostRecentRow?.occurredAt ?? null;
-
-  if (totalEventsEver === 0) {
-    return {
-      status: "NOT_MEASURED",
-      summary: "No user activity recorded yet",
-      detail: "This isn't a problem — it just means nobody has used Developer Connect yet.",
-      mostRecentEventAt: null,
-      eventsToday: 0,
-      totalEventsEver: 0,
-    };
-  }
-
-  const hoursSinceLastEvent = mostRecentEventAt
-    ? (Date.now() - mostRecentEventAt.getTime()) / (1000 * 60 * 60)
-    : Infinity;
-
-  if (hoursSinceLastEvent > ANALYTICS_STALE_AFTER_HOURS) {
-    return {
-      status: "NEEDS_ATTENTION",
-      summary: "Analytics has stopped receiving events",
-      detail: `No analytics events have been recorded for over ${ANALYTICS_STALE_AFTER_HOURS} hours, even though there's a history of activity.`,
-      mostRecentEventAt,
-      eventsToday,
-      totalEventsEver,
-    };
-  }
-
-  return {
-    status: "HEALTHY",
-    summary: "Receiving events normally",
-    detail: "Analytics is recording activity as expected.",
-    mostRecentEventAt,
-    eventsToday,
-    totalEventsEver,
-  };
-}
-
-/**
  * Deployment: only what Vercel automatically injects into every
  * function's runtime environment for free (System Environment Variables
  * — commit SHA, environment, deployment URL/id, region, git branch). No
@@ -431,11 +307,12 @@ export function checkDeploymentHealth(): DeploymentHealth {
 export function checkObjectStorageHealth(): ObjectStorageHealth {
   return {
     status: "NOT_MEASURED",
-    summary: "No object storage in use",
+    summary: "No application storage in use",
     detail:
       "Developer Connect doesn't currently use any object/file storage provider (Vercel Blob, S3, Firebase Storage, or similar) — there's no file-upload feature in the product today, so there's nothing to measure here.",
     inUse: false,
     provider: null,
+    storage: null,
   };
 }
 
@@ -443,42 +320,29 @@ export function checkObjectStorageHealth(): ObjectStorageHealth {
  * The single entry point the Platform Health page (and its dashboard
  * summary) calls. Runs every independent check in parallel — a slow or
  * failing check never blocks the others — then applies the one
- * documented algorithm (algorithm.ts) to get an overall status and
- * warning list.
+ * documented algorithm (algorithm.ts) to get an overall status, message,
+ * and warning list. Every category here is a genuine infrastructure
+ * signal; there is no developer/product-data check in this module at
+ * all, so a data-quality condition is structurally incapable of
+ * affecting Platform Health's status or warnings.
  */
 export async function getPlatformHealth(): Promise<PlatformHealth> {
-  const [database, authentication, productData, analytics] = await Promise.all([
-    checkDatabaseHealth(),
-    checkAuthenticationHealth(),
-    checkProductDataHealth(),
-    checkAnalyticsHealth(),
-  ]);
-  const application = checkApplicationHealth();
+  const [database, authentication] = await Promise.all([checkDatabaseHealth(), checkAuthenticationHealth()]);
   const deployment = checkDeploymentHealth();
   const storage = checkObjectStorageHealth();
 
-  const overallStatus = computeOverallStatus([
-    database.status,
-    application.status,
-    authentication.status,
-    productData.status,
-    analytics.status,
-    deployment.status,
-    storage.status,
-  ]);
-
-  const warnings = buildWarnings({ database, authentication, analytics, productData, application, deployment });
+  const overallStatus = computeOverallStatus([database.status, authentication.status, deployment.status, storage.status]);
+  const warnings = buildWarnings({ database, authentication, deployment });
+  const overallMessage = computeOverallMessage(overallStatus, warnings);
 
   return {
     overallStatus,
+    overallMessage,
     checkedAt: new Date(),
     database,
-    application,
     authentication,
-    productData,
-    analytics,
-    storage,
     deployment,
+    storage,
     warnings,
   };
 }

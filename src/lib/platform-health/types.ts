@@ -1,8 +1,12 @@
 /**
- * Founder-facing platform health (standalone capability, not a product
- * phase). Every field here traces to a real measurement — a status of
- * "NOT_MEASURED" is a first-class, honest outcome, never silently shown
- * as healthy. See thresholds.ts for exactly how each status is decided.
+ * Founder-facing platform health — an INFRASTRUCTURE-ONLY dashboard.
+ * Every field here traces to a real measurement of the technical
+ * plumbing (database, sign-in provider, deployment, object storage) —
+ * never developer verification status, data-quality backlogs, or any
+ * other product/business data. Those live in Data Quality, Verification,
+ * and Developers instead. A status of "NOT_MEASURED" is a first-class,
+ * honest outcome, never silently shown as healthy. See thresholds.ts for
+ * exactly how each status is decided.
  */
 export type HealthStatus = "HEALTHY" | "NEEDS_ATTENTION" | "ACTION_REQUIRED" | "NOT_MEASURED";
 
@@ -14,13 +18,27 @@ export interface HealthCheckResult {
   detail: string;
 }
 
-export interface DatabaseStorageInfo {
+/**
+ * Real, measured database storage and — only when the provider actually
+ * exposes one — its capacity. `capacityBytes` is null today: this
+ * project has no Neon Management API credential configured (no
+ * NEON_API_KEY), and Neon's Postgres connection itself carries no quota
+ * concept, so a capacity genuinely cannot be read. `remainingBytes` and
+ * `usagePercent` are ALWAYS derived strictly from usedBytes/capacityBytes
+ * when both are known — never estimated, never assumed from a plan name.
+ */
+export interface CapacityInfo {
   measured: boolean;
   usedBytes: number | null;
-  /** Always null today — no Neon Management API key is configured, so a quota/limit is genuinely unknown and never assumed or estimated. */
-  limitBytes: null;
-  /** Present only when measured is false, explaining exactly why. */
+  capacityBytes: number | null;
+  /** Always capacityBytes - usedBytes; null whenever capacityBytes is null. */
+  remainingBytes: number | null;
+  /** Always (usedBytes / capacityBytes) * 100; null whenever capacityBytes is null. */
+  usagePercent: number | null;
+  /** Present only when usedBytes itself couldn't be measured (e.g. connection failure). */
   reason?: string;
+  /** Present only when usedBytes is known but capacityBytes genuinely isn't — explains exactly why, never invented. */
+  capacityUnavailableReason?: string;
 }
 
 /**
@@ -42,14 +60,9 @@ export interface DatabaseTableBreakdown {
 export interface DatabaseHealth extends HealthCheckResult {
   connectionOk: boolean;
   latencyMs: number | null;
-  storage: DatabaseStorageInfo;
+  storage: CapacityInfo;
   /** Real per-table size/row-count breakdown for every application table — empty only if storage itself couldn't be measured. */
   tableBreakdown: DatabaseTableBreakdown[];
-  dataQuality: {
-    developersWithoutVerifiedWebsite: number;
-    candidatesWithNoEvidence: number;
-    verifiedNeverReChecked: number;
-  };
 }
 
 /**
@@ -63,59 +76,13 @@ export interface DatabaseHealth extends HealthCheckResult {
 export interface ObjectStorageHealth extends HealthCheckResult {
   inUse: boolean;
   provider: string | null;
+  storage: CapacityInfo | null;
 }
-
-export type ApplicationHealth = HealthCheckResult;
 
 export interface AuthenticationHealth extends HealthCheckResult {
   /** null = not measured (Clerk check itself failed to run, distinct from Clerk being reachable but erroring). */
   clerkReachable: boolean | null;
   latencyMs: number | null;
-}
-
-/**
- * Every developer, bucketed by its single EFFECTIVE verification status —
- * the same derivation getDeveloperIntelligence() uses for the
- * /admin/developers status filter (see effectiveVerificationStatusSql()
- * in admin-analytics/queries.ts), so these counts always agree with what
- * a Founder sees when filtering that list by status. Counts developers,
- * not website candidates — a developer with several candidates is
- * counted exactly once, under whichever status currently matters most.
- */
-export interface DeveloperStatusBreakdown {
-  discovered: number;
-  pendingVerification: number;
-  verified: number;
-  needsReverification: number;
-  rejected: number;
-  inactive: number;
-}
-
-/** Real, exact row counts for every other application table — never derived from developer counts, never estimated. */
-export interface EntityCounts {
-  websiteCandidates: number;
-  evidence: number;
-  verificationEvents: number;
-  profiles: number;
-  notifications: number;
-  analyticsEvents: number;
-}
-
-export interface ProductDataHealth extends HealthCheckResult {
-  totalDevelopers: number;
-  verifiedDevelopers: number;
-  pendingVerification: number;
-  developersWithoutVerifiedWebsite: number;
-  candidatesWithNoEvidence: number;
-  verifiedNeverReChecked: number;
-  developerStatusBreakdown: DeveloperStatusBreakdown;
-  entityCounts: EntityCounts;
-}
-
-export interface AnalyticsHealth extends HealthCheckResult {
-  mostRecentEventAt: Date | null;
-  eventsToday: number;
-  totalEventsEver: number;
 }
 
 export interface DeploymentHealth extends HealthCheckResult {
@@ -131,14 +98,7 @@ export interface DeploymentHealth extends HealthCheckResult {
   deploymentId: string | null;
 }
 
-export type PlatformHealthCategory =
-  | "DATABASE"
-  | "APPLICATION"
-  | "AUTHENTICATION"
-  | "PRODUCT_DATA"
-  | "ANALYTICS"
-  | "DEPLOYMENT"
-  | "STORAGE";
+export type PlatformHealthCategory = "DATABASE" | "AUTHENTICATION" | "DEPLOYMENT" | "STORAGE";
 
 export interface PlatformHealthWarning {
   /** Stable, deterministic id (category + condition name) — not a database row, but stable enough for the UI to key on and for future dedup work to build on. */
@@ -152,12 +112,11 @@ export interface PlatformHealthWarning {
 
 export interface PlatformHealth {
   overallStatus: HealthStatus;
+  /** The single sentence shown at the top of the page — the most severe active warning's explanation, or a canonical "everything normal" message. Never derived from developer/data-quality signals. */
+  overallMessage: string;
   checkedAt: Date;
   database: DatabaseHealth;
-  application: ApplicationHealth;
   authentication: AuthenticationHealth;
-  productData: ProductDataHealth;
-  analytics: AnalyticsHealth;
   deployment: DeploymentHealth;
   storage: ObjectStorageHealth;
   warnings: PlatformHealthWarning[];

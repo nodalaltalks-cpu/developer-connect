@@ -7,11 +7,6 @@ import { hasTestDatabase } from "../../developer-connect/db/test-db-guard.ts";
  * actual I/O-performing health checks — algorithm.test.ts already covers
  * the pure decision logic without any of this. Skipped unless
  * TEST_DATABASE_URL is set.
- *
- * The analytics sub-test clears analytics_events for exact-count
- * assertions — safe only because the test suite is pinned to
- * --test-concurrency=1 (see package.json and the other tests that rely
- * on the same table-clearing pattern).
  */
 test(
   "checkDatabaseHealth: reports a real, timed connection and a real storage byte count",
@@ -24,8 +19,21 @@ test(
     assert.ok(typeof result.latencyMs === "number" && result.latencyMs! >= 0);
     assert.equal(result.storage.measured, true);
     assert.ok(typeof result.storage.usedBytes === "number" && result.storage.usedBytes! > 0);
-    assert.equal(result.storage.limitBytes, null); // never fabricated
-    assert.ok(["HEALTHY", "NEEDS_ATTENTION"].includes(result.status));
+    // Never fabricated: no Neon Management API credential is configured
+    // in this project, so a real capacity genuinely isn't available.
+    assert.equal(result.storage.capacityBytes, null);
+    assert.equal(result.storage.remainingBytes, null);
+    assert.equal(result.storage.usagePercent, null);
+    assert.ok(typeof result.storage.capacityUnavailableReason === "string");
+    // Status is deliberately NOT pinned to HEALTHY/NEEDS_ATTENTION here:
+    // this measures real, variable network latency to a real cloud
+    // database, which can legitimately cross into ACTION_REQUIRED under
+    // real conditions (a genuinely slow moment for this environment) —
+    // the exact latency-to-status mapping is already deterministically
+    // covered with controlled inputs in algorithm.test.ts. What this
+    // test actually verifies is that the connection and storage
+    // measurement themselves are real, which the assertions above cover.
+    assert.ok(["HEALTHY", "NEEDS_ATTENTION", "ACTION_REQUIRED"].includes(result.status));
   },
 );
 
@@ -45,6 +53,7 @@ test(
       "profiles",
       "notifications",
       "analytics_events",
+      "developer_edit_events",
     ];
     const seenTables = result.tableBreakdown.map((t) => t.tableName).sort();
     assert.deepEqual(seenTables, expectedTables.sort());
@@ -61,44 +70,21 @@ test(
     }
 
     // Never a fabricated capacity/remaining figure alongside the real breakdown.
-    assert.equal(result.storage.limitBytes, null);
+    assert.equal(result.storage.capacityBytes, null);
   },
 );
 
 test(
-  "checkProductDataHealth: developer status breakdown sums to totalDevelopers, and agrees with getDeveloperVerificationBreakdown directly",
+  "checkDatabaseHealth: result never contains any developer/product-data field — the type itself has none",
   { skip: !hasTestDatabase },
   async () => {
-    const { checkProductDataHealth } = await import("../health-checks.ts");
-    const { getDeveloperVerificationBreakdown, getInfrastructureEntityCounts } = await import(
-      "../../admin-analytics/queries.ts"
+    const { checkDatabaseHealth } = await import("../health-checks.ts");
+    const result = await checkDatabaseHealth();
+    const keys = Object.keys(result);
+    assert.deepEqual(
+      keys.sort(),
+      ["status", "summary", "detail", "connectionOk", "latencyMs", "storage", "tableBreakdown"].sort(),
     );
-
-    const [result, directBreakdown, directEntityCounts] = await Promise.all([
-      checkProductDataHealth(),
-      getDeveloperVerificationBreakdown(),
-      getInfrastructureEntityCounts(),
-    ]);
-
-    assert.deepEqual(result.developerStatusBreakdown, directBreakdown);
-
-    const sum = Object.values(result.developerStatusBreakdown).reduce((a, b) => a + b, 0);
-    // totalDevelopers counts ALL developers (any status column value);
-    // the breakdown counts only ACTIVE ones — so the sum can be less
-    // than or equal to totalDevelopers, never more.
-    assert.ok(sum <= result.totalDevelopers);
-
-    assert.deepEqual(result.entityCounts, {
-      websiteCandidates: directEntityCounts.websiteCandidates,
-      evidence: directEntityCounts.evidence,
-      verificationEvents: directEntityCounts.verificationEvents,
-      profiles: directEntityCounts.profiles,
-      notifications: directEntityCounts.notifications,
-      analyticsEvents: directEntityCounts.analyticsEvents,
-    });
-    for (const value of Object.values(result.entityCounts)) {
-      assert.ok(value >= 0);
-    }
   },
 );
 
@@ -108,6 +94,7 @@ test("checkObjectStorageHealth: always honestly NOT_MEASURED — no object stora
   assert.equal(result.status, "NOT_MEASURED");
   assert.equal(result.inUse, false);
   assert.equal(result.provider, null);
+  assert.equal(result.storage, null);
 });
 
 test("checkDeploymentHealth: off Vercel, every new field is null rather than fabricated", async () => {
@@ -132,168 +119,6 @@ test("checkDeploymentHealth: off Vercel, every new field is null rather than fab
     if (originalUrl !== undefined) process.env.VERCEL_URL = originalUrl;
   }
 });
-
-test(
-  "checkProductDataHealth: returns well-formed counts regardless of what's currently in the table",
-  { skip: !hasTestDatabase },
-  async () => {
-    const { checkProductDataHealth } = await import("../health-checks.ts");
-    const result = await checkProductDataHealth();
-
-    assert.ok(["HEALTHY", "NEEDS_ATTENTION", "NOT_MEASURED"].includes(result.status));
-    assert.ok(result.totalDevelopers >= 0);
-    assert.ok(result.verifiedDevelopers >= 0);
-    assert.ok(result.verifiedNeverReChecked >= 0);
-    if (result.totalDevelopers === 0) {
-      assert.equal(result.status, "NOT_MEASURED");
-    }
-    // The exact bug this guards: verifiedNeverReChecked feeds the
-    // NEEDS_ATTENTION decision (see checkProductDataHealth's `hasIssue`)
-    // but was previously dropped before reaching the returned object, so
-    // a status driven solely by this count showed "0" everywhere it was
-    // displayed. If it's the only nonzero count, the status must still
-    // reflect it.
-    if (
-      result.verifiedNeverReChecked > 0 &&
-      result.developersWithoutVerifiedWebsite === 0 &&
-      result.candidatesWithNoEvidence === 0
-    ) {
-      assert.equal(result.status, "NEEDS_ATTENTION");
-    }
-  },
-);
-
-test(
-  "checkDatabaseHealth + buildWarnings: a fast database with only data-quality counts is never reported as slow",
-  { skip: !hasTestDatabase },
-  async () => {
-    const { checkDatabaseHealth } = await import("../health-checks.ts");
-    const { buildWarnings } = await import("../algorithm.ts");
-    const { DATABASE_LATENCY_THRESHOLDS_MS } = await import("../thresholds.ts");
-    const database = await checkDatabaseHealth();
-
-    if (database.status === "NEEDS_ATTENTION" && database.latencyMs !== null) {
-      const isGenuinelySlow = database.latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.DEGRADED_ABOVE;
-      const warnings = buildWarnings({
-        database,
-        authentication: { status: "HEALTHY", summary: "", detail: "", clerkReachable: true, latencyMs: 10 },
-        analytics: {
-          status: "HEALTHY",
-          summary: "",
-          detail: "",
-          mostRecentEventAt: null,
-          eventsToday: 0,
-          totalEventsEver: 0,
-        },
-        productData: {
-          status: "HEALTHY",
-          summary: "",
-          detail: "",
-          totalDevelopers: 0,
-          verifiedDevelopers: 0,
-          pendingVerification: 0,
-          developersWithoutVerifiedWebsite: 0,
-          candidatesWithNoEvidence: 0,
-          verifiedNeverReChecked: 0,
-          developerStatusBreakdown: {
-            discovered: 0,
-            pendingVerification: 0,
-            verified: 0,
-            needsReverification: 0,
-            rejected: 0,
-            inactive: 0,
-          },
-          entityCounts: {
-            websiteCandidates: 0,
-            evidence: 0,
-            verificationEvents: 0,
-            profiles: 0,
-            notifications: 0,
-            analyticsEvents: 0,
-          },
-        },
-        application: { status: "NOT_MEASURED", summary: "", detail: "" },
-        deployment: {
-          status: "NOT_MEASURED",
-          summary: "",
-          detail: "",
-          commitSha: null,
-          environment: null,
-          deploymentUrl: null,
-          region: null,
-          gitBranch: null,
-          deploymentId: null,
-        },
-      });
-      const dbWarning = warnings.find((w) => w.category === "DATABASE");
-      assert.ok(dbWarning);
-      if (!isGenuinelySlow) {
-        assert.equal(dbWarning!.id, "database-data-quality");
-        assert.ok(!dbWarning!.title.toLowerCase().includes("slow"));
-      } else {
-        assert.equal(dbWarning!.id, "database-response-slow");
-      }
-    }
-  },
-);
-
-test(
-  "checkAnalyticsHealth: empty table is NOT_MEASURED (no usage yet), never a failure",
-  { skip: !hasTestDatabase },
-  async () => {
-    const { getDb } = await import("../../developer-connect/db/client.ts");
-    const { analyticsEvents } = await import("../../developer-connect/db/schema.ts");
-    await getDb().delete(analyticsEvents);
-
-    const { checkAnalyticsHealth } = await import("../health-checks.ts");
-    const result = await checkAnalyticsHealth();
-
-    assert.equal(result.status, "NOT_MEASURED");
-    assert.equal(result.totalEventsEver, 0);
-    assert.equal(result.mostRecentEventAt, null);
-  },
-);
-
-test(
-  "checkAnalyticsHealth: a recent event is HEALTHY; only an old event (with history) is NEEDS_ATTENTION",
-  { skip: !hasTestDatabase },
-  async () => {
-    const { getDb } = await import("../../developer-connect/db/client.ts");
-    const { analyticsEvents } = await import("../../developer-connect/db/schema.ts");
-    const { postgresAnalyticsSink } = await import("../../developer-connect/db/postgres-analytics-sink.ts");
-    const { randomUUID } = await import("node:crypto");
-    await getDb().delete(analyticsEvents);
-
-    await postgresAnalyticsSink.record({
-      eventName: "search_performed",
-      occurredAt: new Date(),
-      sessionId: randomUUID(),
-      deviceType: "desktop",
-      query: "recent",
-      resultCount: 1,
-    });
-
-    const { checkAnalyticsHealth } = await import("../health-checks.ts");
-    const recent = await checkAnalyticsHealth();
-    assert.equal(recent.status, "HEALTHY");
-    assert.equal(recent.totalEventsEver, 1);
-
-    await getDb().delete(analyticsEvents);
-    const thirtyHoursAgo = new Date(Date.now() - 30 * 60 * 60 * 1000);
-    await postgresAnalyticsSink.record({
-      eventName: "search_performed",
-      occurredAt: thirtyHoursAgo,
-      sessionId: randomUUID(),
-      deviceType: "desktop",
-      query: "stale",
-      resultCount: 1,
-    });
-
-    const stale = await checkAnalyticsHealth();
-    assert.equal(stale.status, "NEEDS_ATTENTION");
-    assert.equal(stale.totalEventsEver, 1);
-  },
-);
 
 test(
   "checkAuthenticationHealth: reaches the real Clerk Backend API and never exposes the secret key",
@@ -322,6 +147,40 @@ test(
     assert.ok(!serialized.includes(process.env.DATABASE_URL!));
 
     assert.ok(["HEALTHY", "NEEDS_ATTENTION", "ACTION_REQUIRED", "NOT_MEASURED"].includes(health.overallStatus));
+    assert.ok(typeof health.overallMessage === "string" && health.overallMessage.length > 0);
     assert.ok(Array.isArray(health.warnings));
+  },
+);
+
+test(
+  "getPlatformHealth: never mixes developer/data-quality signals into overall status — a fresh developer with no verified website never moves overallStatus off HEALTHY",
+  { skip: !hasTestDatabase },
+  async () => {
+    const { getPlatformHealth } = await import("../health-checks.ts");
+    const { createDeveloper } = await import("../../developer-connect/developer-service.ts");
+    const { createPostgresRepositories } = await import("../../developer-connect/db/postgres-repository.ts");
+    const { randomUUID } = await import("node:crypto");
+
+    const repos = createPostgresRepositories();
+    const token = randomUUID().slice(0, 8);
+    // A developer with no website candidate at all is exactly the kind of
+    // condition that used to drive Platform Health into NEEDS_ATTENTION
+    // ("developers without a verified website"). It must have zero effect now.
+    await createDeveloper(repos.developers, {
+      legalName: `PLATFORM HEALTH TEST ${token} Pvt Ltd`,
+      displayName: `Platform Health Test ${token}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+
+    const health = await getPlatformHealth();
+    // If infrastructure itself is genuinely healthy, overall status must
+    // be HEALTHY regardless of the unverified developer just created.
+    if (health.database.status === "HEALTHY" && health.authentication.status !== "ACTION_REQUIRED" && health.authentication.status !== "NEEDS_ATTENTION") {
+      assert.equal(health.overallStatus, "HEALTHY");
+      assert.equal(health.overallMessage, "Everything is running normally.");
+      assert.deepEqual(health.warnings, []);
+    }
   },
 );

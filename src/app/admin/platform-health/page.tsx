@@ -1,5 +1,6 @@
 import { getPlatformHealth } from "@/lib/platform-health/health-checks";
-import { formatBytes, formatRelativeTime } from "@/lib/platform-health/format";
+import { formatBytes, formatPercent } from "@/lib/platform-health/format";
+import { DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT } from "@/lib/platform-health/thresholds";
 import { PlatformHealthStatusBadge } from "@/components/admin/platform-health-status-badge";
 import { PlatformHealthRefresh } from "@/components/admin/platform-health-refresh";
 import { PlatformHealthCategoryCard } from "@/components/admin/platform-health-category-card";
@@ -16,6 +17,21 @@ const WARNING_STYLES = {
 
 export default async function PlatformHealthPage() {
   const health = await getPlatformHealth();
+  const { database, authentication, deployment, storage } = health;
+
+  const hasRealDeploymentInfo = deployment.commitSha !== null;
+
+  // "Limits to watch" — only real infrastructure limits, and only ever
+  // driven by database.storage (the one capacity this page can
+  // potentially measure). Never a developer/product-data condition.
+  const limitsToWatch: string[] = [];
+  if (database.storage.usagePercent !== null) {
+    if (database.storage.usagePercent >= DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT.NEEDS_ATTENTION_ABOVE) {
+      limitsToWatch.push(`Database storage is ${formatPercent(database.storage.usagePercent)} used.`);
+    }
+  } else if (database.storage.measured) {
+    limitsToWatch.push("Database capacity information is not exposed by your provider.");
+  }
 
   return (
     <div className="max-w-3xl">
@@ -29,9 +45,10 @@ export default async function PlatformHealthPage() {
         <PlatformHealthRefresh checkedAt={health.checkedAt.toISOString()} />
       </div>
 
-      <p className="mt-3 text-sm text-muted-foreground">
-        Here&apos;s a simple view of whether Developer Connect is working normally. Technical
-        detail is available under &ldquo;View technical details&rdquo; on each card below.
+      <p className="mt-3 text-sm text-muted-foreground">{health.overallMessage}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        This page shows infrastructure and capacity only. Developer verification, re-verification, and
+        data-quality issues are tracked in Data Quality and Verification instead.
       </p>
 
       {health.warnings.length > 0 && (
@@ -52,43 +69,46 @@ export default async function PlatformHealthPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <PlatformHealthCategoryCard
-          title="A. Database"
-          status={health.database.status}
-          summary={health.database.summary}
-          detail={health.database.detail}
+          title="Database"
+          status={database.status}
+          summary={database.summary}
+          detail={database.detail}
           facts={
             <>
+              <p>Connection: {database.connectionOk ? "Connected" : "Unavailable"}</p>
+              <p>Response time: {database.latencyMs !== null ? `${database.latencyMs}ms` : "unavailable"}</p>
               <p>
-                Response time:{" "}
-                {health.database.latencyMs !== null ? `${health.database.latencyMs}ms` : "unavailable"}
+                Used: {database.storage.measured && database.storage.usedBytes !== null
+                  ? formatBytes(database.storage.usedBytes)
+                  : "Not currently measured"}
               </p>
               <p>
-                Storage used:{" "}
-                {health.database.storage.measured && health.database.storage.usedBytes !== null
-                  ? formatBytes(health.database.storage.usedBytes)
-                  : "⚪ Not currently measured"}
+                Capacity:{" "}
+                {database.storage.capacityBytes !== null
+                  ? formatBytes(database.storage.capacityBytes)
+                  : "Not available from provider"}
               </p>
-              {health.database.storage.measured ? (
-                <p>Capacity: Not exposed by provider</p>
-              ) : (
-                <p className="text-xs">{health.database.storage.reason}</p>
-              )}
+              <p>
+                Space left:{" "}
+                {database.storage.remainingBytes !== null ? formatBytes(database.storage.remainingBytes) : "Not available"}
+              </p>
+              <p>
+                Usage:{" "}
+                {database.storage.usagePercent !== null ? formatPercent(database.storage.usagePercent) : "Not available"}
+              </p>
             </>
           }
         >
-          <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-            <li>Developers without a verified website: {health.database.dataQuality.developersWithoutVerifiedWebsite}</li>
-            <li>Candidates with no evidence: {health.database.dataQuality.candidatesWithNoEvidence}</li>
-            <li>Verified, never re-checked: {health.database.dataQuality.verifiedNeverReChecked}</li>
-          </ul>
-
-          {health.database.tableBreakdown.length > 0 && (
+          {database.storage.capacityUnavailableReason && (
+            <p className="mt-2 text-xs text-muted-foreground">{database.storage.capacityUnavailableReason}</p>
+          )}
+          {database.tableBreakdown.length > 0 && (
             <div className="mt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Storage by table
               </p>
               <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                {health.database.tableBreakdown.map((table) => (
+                {database.tableBreakdown.map((table) => (
                   <li key={table.tableName} className="flex justify-between gap-3">
                     <span>
                       {table.tableName} ({table.rowCount.toLocaleString()} rows)
@@ -105,125 +125,56 @@ export default async function PlatformHealthPage() {
         </PlatformHealthCategoryCard>
 
         <PlatformHealthCategoryCard
-          title="B. Application"
-          status={health.application.status}
-          summary={health.application.summary}
-          detail={health.application.detail}
+          title="Storage"
+          status={storage.status}
+          summary={storage.inUse ? storage.summary : "No application storage currently in use"}
+          detail={storage.detail}
         />
 
         <PlatformHealthCategoryCard
-          title="C. Authentication"
-          status={health.authentication.status}
-          summary={health.authentication.summary}
-          detail={health.authentication.detail}
+          title="Sign-in (Clerk)"
+          status={authentication.status}
+          summary={authentication.summary}
+          detail={authentication.detail}
           facts={
-            health.authentication.latencyMs !== null ? (
-              <p>Response time: {health.authentication.latencyMs}ms</p>
-            ) : undefined
-          }
-        />
-
-        <PlatformHealthCategoryCard
-          title="D. Product Data"
-          status={health.productData.status}
-          summary={health.productData.summary}
-          detail={health.productData.detail}
-          facts={
-            health.productData.totalDevelopers === 0 ? undefined : (
+            authentication.latencyMs !== null ? (
               <>
-                <p>Total developers: {health.productData.totalDevelopers}</p>
-                <p>Verified developers: {health.productData.verifiedDevelopers}</p>
-                <p>Candidates awaiting review: {health.productData.pendingVerification}</p>
-                <p>Developers without a verified website: {health.productData.developersWithoutVerifiedWebsite}</p>
-                <p>Candidates with no evidence: {health.productData.candidatesWithNoEvidence}</p>
-                <p>Verified, never re-checked: {health.productData.verifiedNeverReChecked}</p>
-              </>
-            )
-          }
-        >
-          {health.productData.totalDevelopers > 0 && (
-            <>
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Developers by verification status
-                </p>
-                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                  <li>Discovered: {health.productData.developerStatusBreakdown.discovered}</li>
-                  <li>Pending verification: {health.productData.developerStatusBreakdown.pendingVerification}</li>
-                  <li>Verified: {health.productData.developerStatusBreakdown.verified}</li>
-                  <li>Needs re-verification: {health.productData.developerStatusBreakdown.needsReverification}</li>
-                  <li>Rejected: {health.productData.developerStatusBreakdown.rejected}</li>
-                  <li>Inactive: {health.productData.developerStatusBreakdown.inactive}</li>
-                </ul>
-              </div>
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Other tables
-                </p>
-                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                  <li>Website candidates: {health.productData.entityCounts.websiteCandidates}</li>
-                  <li>Evidence: {health.productData.entityCounts.evidence}</li>
-                  <li>Verification events: {health.productData.entityCounts.verificationEvents}</li>
-                  <li>Profiles: {health.productData.entityCounts.profiles}</li>
-                  <li>Notifications: {health.productData.entityCounts.notifications}</li>
-                  <li>Analytics events: {health.productData.entityCounts.analyticsEvents}</li>
-                </ul>
-              </div>
-            </>
-          )}
-        </PlatformHealthCategoryCard>
-
-        <PlatformHealthCategoryCard
-          title="E. Analytics"
-          status={health.analytics.status}
-          summary={health.analytics.summary}
-          detail={health.analytics.detail}
-          facts={
-            health.analytics.totalEventsEver > 0 ? (
-              <>
-                <p>
-                  Last event:{" "}
-                  {health.analytics.mostRecentEventAt
-                    ? formatRelativeTime(health.analytics.mostRecentEventAt)
-                    : "—"}
-                </p>
-                <p>Events today: {health.analytics.eventsToday}</p>
+                <p>Connection: {authentication.clerkReachable ? "Connected" : "Unavailable"}</p>
+                <p>Response time: {authentication.latencyMs}ms</p>
               </>
             ) : undefined
           }
         />
 
-        <PlatformHealthCategoryCard
-          title="F. Deployment"
-          status={health.deployment.status}
-          summary={health.deployment.summary}
-          detail={health.deployment.detail}
-          facts={
-            health.deployment.commitSha ? (
+        {hasRealDeploymentInfo && (
+          <PlatformHealthCategoryCard
+            title="Deployment"
+            status={deployment.status}
+            summary={deployment.summary}
+            detail={deployment.detail}
+            facts={
               <>
-                <p>Commit: {health.deployment.commitSha.slice(0, 7)}</p>
-                <p>Branch: {health.deployment.gitBranch ?? "unknown"}</p>
-                <p>Environment: {health.deployment.environment ?? "unknown"}</p>
-                <p>Region: {health.deployment.region ?? "unknown"}</p>
+                <p>Current version: {deployment.commitSha!.slice(0, 7)}</p>
+                <p>Branch: {deployment.gitBranch ?? "unknown"}</p>
+                <p>Environment: {deployment.environment ?? "unknown"}</p>
+                <p>Region: {deployment.region ?? "unknown"}</p>
               </>
-            ) : undefined
-          }
-        >
-          {health.deployment.deploymentUrl && (
-            <p className="mt-2 text-xs text-muted-foreground">URL: {health.deployment.deploymentUrl}</p>
-          )}
-          {health.deployment.deploymentId && (
-            <p className="mt-1 text-xs text-muted-foreground">Deployment ID: {health.deployment.deploymentId}</p>
-          )}
-          <p className="mt-1 text-xs text-muted-foreground">Deployment timestamp: Not available</p>
-        </PlatformHealthCategoryCard>
+            }
+          />
+        )}
+      </div>
 
-        <PlatformHealthCategoryCard
-          title="G. Object Storage"
-          status={health.storage.status}
-          summary={health.storage.summary}
-          detail={health.storage.detail}
-        />
+      <div className="mt-6 rounded-lg border border-border p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Limits to watch</p>
+        {limitsToWatch.length > 0 ? (
+          <ul className="mt-2 space-y-1 text-sm text-foreground">
+            {limitsToWatch.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">No infrastructure limits need attention right now.</p>
+        )}
       </div>
     </div>
   );

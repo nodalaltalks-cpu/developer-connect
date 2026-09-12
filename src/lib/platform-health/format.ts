@@ -1,3 +1,8 @@
+/** Formats a real, already-computed percentage — never rounds a null into a fake 0%. */
+export function formatPercent(percent: number): string {
+  return `${Math.round(percent * 10) / 10}%`;
+}
+
 /** Formats a real byte count from pg_database_size() as human-readable MB/GB — never a guessed or rounded-up "quota". */
 export function formatBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024);

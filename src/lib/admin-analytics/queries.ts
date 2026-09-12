@@ -9,6 +9,7 @@ import {
   profiles,
   evidence,
   notifications,
+  developerEditEvents,
 } from "../developer-connect/db/schema.ts";
 import { PROFILE_FIELD_CONFIG, PROFILE_SECTIONS } from "../profile/field-config.ts";
 import { calculateProfileCompletion } from "../profile/completion.ts";
@@ -1204,6 +1205,7 @@ export async function getInfrastructureEntityCounts(): Promise<InfrastructureEnt
     [profilesRow],
     [notificationsRow],
     [analyticsEventsRow],
+    [developerEditEventsRow],
   ] = await Promise.all([
     db.select({ n: count() }).from(developers),
     db.select({ n: count() }).from(websiteCandidates),
@@ -1212,6 +1214,7 @@ export async function getInfrastructureEntityCounts(): Promise<InfrastructureEnt
     db.select({ n: count() }).from(profiles),
     db.select({ n: count() }).from(notifications),
     db.select({ n: count() }).from(analyticsEvents),
+    db.select({ n: count() }).from(developerEditEvents),
   ]);
 
   return {
@@ -1222,6 +1225,7 @@ export async function getInfrastructureEntityCounts(): Promise<InfrastructureEnt
     profiles: profilesRow?.n ?? 0,
     notifications: notificationsRow?.n ?? 0,
     analyticsEvents: analyticsEventsRow?.n ?? 0,
+    developerEditEvents: developerEditEventsRow?.n ?? 0,
   };
 }
 
@@ -1244,7 +1248,8 @@ export async function getDatabaseTableSizes(): Promise<TableSizeInfo[]> {
     where schemaname = 'public'
       and relname in (
         ${"developers"}, ${"website_candidates"}, ${"evidence"},
-        ${"verification_events"}, ${"profiles"}, ${"notifications"}, ${"analytics_events"}
+        ${"verification_events"}, ${"profiles"}, ${"notifications"}, ${"analytics_events"},
+        ${"developer_edit_events"}
       )
   `);
 

@@ -20,7 +20,7 @@ export async function SiteHeader() {
     <header className="border-b border-border">
       <Container className="flex h-16 items-center justify-between">
         <Link href="/" className="text-lg font-semibold tracking-tight text-foreground">
-          Developer Connect
+          Developer Connects
         </Link>
         <div className="flex items-center gap-4">
           {userId ? (

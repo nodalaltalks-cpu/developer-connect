@@ -66,7 +66,7 @@ export interface DatabaseHealth extends HealthCheckResult {
 }
 
 /**
- * Whether Developer Connect uses any object/file storage provider (Vercel
+ * Whether Developer Connects uses any object/file storage provider (Vercel
  * Blob, S3, Firebase Storage, etc.) at all. As of this check, it does
  * not — there is no file-upload feature in the product — so this is
  * always NOT_MEASURED with inUse: false, never a fabricated capacity.

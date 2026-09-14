@@ -20,7 +20,7 @@ export default async function AdminNewNotificationPage({
       </p>
       <SectionHeading
         title={preselectedUser ? `Send notification to ${preselectedUser.displayName}` : "Create notification"}
-        description="Send a targeted in-app message to help users complete their Developer Connect profile."
+        description="Send a targeted in-app message to help users complete their Developer Connects profile."
       />
       <NotificationComposer
         preselectedUser={

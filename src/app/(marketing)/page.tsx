@@ -3,12 +3,30 @@ import { SearchBox } from "@/components/search-box";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { DeveloperCard } from "@/components/developer-card";
+import { GeoFilters } from "@/components/geo-filters";
+import { StatCounter } from "@/components/stat-counter";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { listVerifiedDevelopers } from "@/lib/developer-connect/search-service";
+import { getPublicHomepageData } from "@/lib/developer-connect/search-service";
 
-export default async function Home() {
+function firstValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const resolvedSearchParams = await searchParams;
+  const query = firstValue(resolvedSearchParams.q);
+  const country = firstValue(resolvedSearchParams.country);
+  const state = firstValue(resolvedSearchParams.state);
+  const city = firstValue(resolvedSearchParams.city);
+  const hasActiveFilter = Boolean(query || country || state || city);
+
   const repos = createPostgresRepositories();
-  const developers = await listVerifiedDevelopers(repos);
+  const { directory, geographyOptions, stats } = await getPublicHomepageData(repos, {
+    query,
+    country,
+    state,
+    city,
+  });
 
   return (
     <div className="flex flex-1 flex-col">
@@ -29,26 +47,46 @@ export default async function Home() {
             </div>
           </div>
 
+          <div className="mx-auto mt-14 max-w-3xl sm:mt-20">
+            <div className="grid grid-cols-3 gap-4 text-center sm:gap-8">
+              <StatCounter value={stats.verifiedDevelopers} label="Verified developers" />
+              <StatCounter value={stats.officialWebsitesVerified} label="Official websites verified" />
+              <StatCounter value={stats.citiesCovered} label="Markets covered" />
+            </div>
+          </div>
+
           <div className="mx-auto mt-12 max-w-5xl sm:mt-16">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">
-              Verified developers
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Every developer listed here has an official website verified by Developer
-              Connect.
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">
+                  Verified developers
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Every developer listed here has an official website verified by Developer
+                  Connects.
+                </p>
+              </div>
+              <GeoFilters options={geographyOptions} selected={{ country, state, city }} />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Looking for developers in a specific location? Use the filters above for quick
+              navigation.
             </p>
 
-            {developers.length === 0 ? (
+            {directory.length === 0 ? (
               <div className="mt-6 rounded-lg border border-dashed border-border p-8 text-center">
-                <p className="font-medium text-foreground">No verified developers yet.</p>
+                <p className="font-medium text-foreground">
+                  {hasActiveFilter ? "No verified developers match these filters." : "No verified developers yet."}
+                </p>
                 <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                  Developer Connect is starting in Mumbai and adding verified developers over
-                  time.
+                  {hasActiveFilter
+                    ? "Try a different country, state, or city."
+                    : "Developer Connects is starting in Mumbai and adding verified developers over time."}
                 </p>
               </div>
             ) : (
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {developers.map((developer) => (
+              <div className="mt-6 grid items-stretch gap-4 sm:grid-cols-2">
+                {directory.map((developer) => (
                   <DeveloperCard key={developer.id} developer={developer} />
                 ))}
               </div>

@@ -6,6 +6,7 @@ import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analy
 import { safeRecordAnalyticsEvent } from "@/lib/developer-connect/events";
 import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
+import type { DeveloperGeoFilter } from "@/lib/developer-connect/repository";
 
 /**
  * The public journey's only entry points into the domain layer. Every
@@ -18,9 +19,12 @@ import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view
  * hiccup can never surface as a broken search or a broken page).
  */
 
-export async function searchDevelopers(rawQuery: string): Promise<PublicDeveloperProfile[]> {
+export async function searchDevelopers(
+  rawQuery: string,
+  geo?: DeveloperGeoFilter,
+): Promise<PublicDeveloperProfile[]> {
   const repos = createPostgresRepositories();
-  const results = await searchPublicDevelopers(repos, rawQuery);
+  const results = await searchPublicDevelopers(repos, rawQuery, geo);
 
   const query = rawQuery.trim();
   if (query) {

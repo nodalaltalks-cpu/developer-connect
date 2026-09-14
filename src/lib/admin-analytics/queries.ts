@@ -12,6 +12,7 @@ import {
   developerEditEvents,
 } from "../developer-connect/db/schema.ts";
 import { PROFILE_FIELD_CONFIG, PROFILE_SECTIONS } from "../profile/field-config.ts";
+import { PENDING_REVIEW_STATUSES } from "../developer-connect/verification-queue-state.ts";
 import { calculateProfileCompletion } from "../profile/completion.ts";
 import { computeRate } from "./rate.ts";
 import { comparePeriods, MIN_SAMPLE_FOR_COMPARISON } from "./period-comparison.ts";
@@ -114,10 +115,21 @@ export async function getExecutiveOverview(): Promise<ExecutiveOverview> {
     .select({ n: count() })
     .from(websiteCandidates)
     .where(eq(websiteCandidates.verificationStatus, "VERIFIED"));
+  // BUG FIX (see the "Pending verification" audit): this previously
+  // matched only the exact "PENDING_VERIFICATION" status, silently
+  // excluding every candidate still sitting at "DISCOVERED" — which is
+  // most of the /admin/verification queue in practice, since a fresh
+  // discovery only advances to PENDING_VERIFICATION via an explicit
+  // "mark ready for review" step most founder actions skip straight past
+  // (see markReadyForReview in verification-service.ts). That mismatch is
+  // exactly why this tile could read 0 while the queue was full. Now
+  // reads from PENDING_REVIEW_STATUSES, the same shared definition
+  // verification-queue-state.ts uses, so this tile and the queue can
+  // never drift apart again.
   const [pendingVerification] = await db
     .select({ n: count() })
     .from(websiteCandidates)
-    .where(eq(websiteCandidates.verificationStatus, "PENDING_VERIFICATION"));
+    .where(inArray(websiteCandidates.verificationStatus, [...PENDING_REVIEW_STATUSES]));
   const [needsReverification] = await db
     .select({ n: count() })
     .from(websiteCandidates)

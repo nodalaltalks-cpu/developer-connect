@@ -188,20 +188,22 @@ function buildDeveloperRepository(db: DbOrTx): DeveloperRepository {
       }
       return toDeveloper(row);
     },
-    async search(query, limit = 20) {
+    async search(query, limit = 20, geo) {
       const pattern = likePattern(query);
+      const conditions = [
+        eq(schema.developers.status, "ACTIVE"),
+        or(
+          ilike(schema.developers.displayName, pattern),
+          ilike(schema.developers.legalName, pattern),
+        ),
+      ];
+      if (geo?.country) conditions.push(ilike(schema.developers.country, geo.country));
+      if (geo?.state) conditions.push(ilike(schema.developers.state, geo.state));
+      if (geo?.city) conditions.push(ilike(schema.developers.city, geo.city));
       const rows = await db
         .select()
         .from(schema.developers)
-        .where(
-          and(
-            eq(schema.developers.status, "ACTIVE"),
-            or(
-              ilike(schema.developers.displayName, pattern),
-              ilike(schema.developers.legalName, pattern),
-            ),
-          ),
-        )
+        .where(and(...conditions))
         .limit(limit);
       return rows.map(toDeveloper);
     },

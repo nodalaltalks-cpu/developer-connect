@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { searchDevelopers, recordSearchResultClick } from "@/app/_actions/public-actions";
 import { VerifiedBadge } from "@/components/verified-badge";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
@@ -23,6 +24,62 @@ export function SearchBox() {
   const requestIdRef = useRef(0);
   const inputId = useId();
   const statusId = useId();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // The visitor's already-selected Country/State/City (set by GeoFilters,
+  // stored in the URL) — read here too so search results refine the same
+  // way the directory grid below does, instead of search silently
+  // ignoring whatever location is already selected.
+  const geo = {
+    country: searchParams.get("country") ?? undefined,
+    state: searchParams.get("state") ?? undefined,
+    city: searchParams.get("city") ?? undefined,
+  };
+  const hasActiveFilter = Boolean(geo.country || geo.state || geo.city);
+
+  function clearFilters() {
+    router.push(pathname);
+  }
+
+  function runSearch(trimmed: string) {
+    if (!trimmed) {
+      requestIdRef.current += 1;
+      setState({ status: "idle" });
+      return;
+    }
+
+    setState({ status: "loading" });
+    const requestId = ++requestIdRef.current;
+
+    startTransition(async () => {
+      try {
+        const results = await searchDevelopers(trimmed, geo);
+        if (requestId !== requestIdRef.current) return; // a newer keystroke already superseded this
+        setState(results.length > 0 ? { status: "results", results } : { status: "empty" });
+      } catch {
+        if (requestId !== requestIdRef.current) return;
+        setState({ status: "error" });
+      }
+    });
+  }
+
+  // Re-run the CURRENT query, unchanged, whenever the visitor changes
+  // Country/State/City (including via this component's own "Clear
+  // filters" link) — without this, a query typed while a filter was
+  // active would keep showing that stale result set even after the
+  // filter driving it no longer applies.
+  const isFirstGeoRun = useRef(true);
+  useEffect(() => {
+    if (isFirstGeoRun.current) {
+      isFirstGeoRun.current = false;
+      return;
+    }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    runSearch(query.trim());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally NOT keyed on `query`: this re-runs on geo change only, using whatever query is current at that moment.
+  }, [geo.country, geo.state, geo.city]);
 
   function handleChange(value: string) {
     setQuery(value);
@@ -36,20 +93,7 @@ export function SearchBox() {
     }
 
     setState({ status: "loading" });
-    const requestId = ++requestIdRef.current;
-
-    timeoutRef.current = setTimeout(() => {
-      startTransition(async () => {
-        try {
-          const results = await searchDevelopers(trimmed);
-          if (requestId !== requestIdRef.current) return; // a newer keystroke already superseded this
-          setState(results.length > 0 ? { status: "results", results } : { status: "empty" });
-        } catch {
-          if (requestId !== requestIdRef.current) return;
-          setState({ status: "error" });
-        }
-      });
-    }, DEBOUNCE_MS);
+    timeoutRef.current = setTimeout(() => runSearch(trimmed), DEBOUNCE_MS);
   }
 
   return (
@@ -78,7 +122,9 @@ export function SearchBox() {
           </p>
         )}
 
-        {state.status === "empty" && <ZeroResultState query={query.trim()} />}
+        {state.status === "empty" && (
+          <ZeroResultState query={query.trim()} hasActiveFilter={hasActiveFilter} onClearFilters={clearFilters} />
+        )}
 
         {state.status === "results" && (
           <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
@@ -130,15 +176,35 @@ function SearchSkeleton() {
   );
 }
 
-function ZeroResultState({ query }: { query: string }) {
+function ZeroResultState({
+  query,
+  hasActiveFilter,
+  onClearFilters,
+}: {
+  query: string;
+  hasActiveFilter: boolean;
+  onClearFilters: () => void;
+}) {
   return (
     <div className="rounded-lg border border-border bg-muted p-5 text-sm">
       <p className="font-medium text-foreground">
-        No verified developer found for &ldquo;{query}&rdquo;.
+        No verified developer found for &ldquo;{query}&rdquo;
+        {hasActiveFilter ? " in this location." : "."}
       </p>
       <p className="mt-1 text-muted-foreground">
-        Developer Connect is starting in Mumbai and adding verified developers over time.
+        {hasActiveFilter
+          ? "Try another search, or clear filters to search everywhere."
+          : "Developer Connects is starting in Mumbai and adding verified developers over time."}
       </p>
+      {hasActiveFilter && (
+        <button
+          type="button"
+          onClick={onClearFilters}
+          className="mt-2 text-sm font-medium text-accent-hover hover:underline"
+        >
+          Clear filters
+        </button>
+      )}
     </div>
   );
 }

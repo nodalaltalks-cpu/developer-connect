@@ -6,7 +6,7 @@ import { PlatformHealthRefresh } from "@/components/admin/platform-health-refres
 import { PlatformHealthCategoryCard } from "@/components/admin/platform-health-category-card";
 
 export const metadata = {
-  title: "Platform Health | Developer Connect",
+  title: "Platform Health | Developer Connects",
   robots: { index: false, follow: false },
 };
 

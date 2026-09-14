@@ -274,6 +274,32 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "FOUNDER_MESSAGE",
 ]);
 
+export const inaccuracyReportCategoryEnum = pgEnum("inaccuracy_report_category", [
+  "OFFICIAL_WEBSITE",
+  "DEVELOPER_NAME",
+  "HEADQUARTERS",
+  "OTHER",
+]);
+
+export const inaccuracyReportStatusEnum = pgEnum("inaccuracy_report_status", [
+  "NEW",
+  "IN_REVIEW",
+  "RESOLVED",
+  "DISMISSED",
+]);
+
+export const contactReasonEnum = pgEnum("contact_reason", [
+  "GENERAL_QUESTION",
+  "REPORT_INACCURATE_INFO",
+  "DEVELOPER_LISTING",
+  "PARTNERSHIP",
+  "OTHER",
+]);
+
+export const contactStatusEnum = pgEnum("contact_status", ["NEW", "READ", "RESPONDED", "CLOSED"]);
+
+export const newsletterStatusEnum = pgEnum("newsletter_status", ["SUBSCRIBED", "UNSUBSCRIBED"]);
+
 /**
  * In-house notifications (Phase 3B) — deliberately minimal: a title/body
  * the app itself generates (see notifications/profile-completion-notifier.ts),
@@ -298,4 +324,73 @@ export const notifications = pgTable(
     index("notifications_user_created_idx").on(table.userId, table.createdAt),
     index("notifications_user_unread_idx").on(table.userId, table.read),
   ],
+);
+
+/**
+ * A visitor flagging something wrong on a public developer page (Part 24
+ * of the brand/UX task) — deliberately minimal public surface: developer
+ * + category + free-text detail + optional email. `reporterEmail` is
+ * never required (the public form makes it optional), so it is nullable
+ * here too rather than defaulted to an empty string.
+ */
+export const inaccuracyReports = pgTable(
+  "inaccuracy_reports",
+  {
+    id: uuid("id").primaryKey(),
+    developerId: uuid("developer_id")
+      .notNull()
+      .references(() => developers.id, { onDelete: "restrict" }),
+    category: inaccuracyReportCategoryEnum("category").notNull(),
+    details: text("details").notNull(),
+    reporterEmail: text("reporter_email"),
+    status: inaccuracyReportStatusEnum("status").notNull().default("NEW"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("inaccuracy_reports_developer_idx").on(table.developerId),
+    index("inaccuracy_reports_status_created_idx").on(table.status, table.createdAt),
+  ],
+);
+
+/** The Contact Us page's own submissions — separate from inaccuracyReports, which are always tied to one developer; a contact message may not be. */
+export const contactSubmissions = pgTable(
+  "contact_submissions",
+  {
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    reason: contactReasonEnum("reason").notNull(),
+    message: text("message").notNull(),
+    // The signed-in Clerk user id at submission time, when the visitor
+    // happened to be signed in — same convention as profiles.userId /
+    // notifications.userId. Never required: most Contact Us visitors are
+    // anonymous.
+    userId: text("user_id"),
+    status: contactStatusEnum("status").notNull().default("NEW"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("contact_submissions_status_created_idx").on(table.status, table.createdAt)],
+);
+
+/**
+ * Newsletter subscribers (Part 28). `email` is the natural key — a
+ * second signup with the same address is an update (re-subscribe), never
+ * a duplicate row, so the founder's subscriber count is always a real
+ * distinct-person count.
+ */
+export const newsletterSubscribers = pgTable(
+  "newsletter_subscribers",
+  {
+    id: uuid("id").primaryKey(),
+    email: text("email").notNull(),
+    status: newsletterStatusEnum("status").notNull().default("SUBSCRIBED"),
+    /** Where the signup happened, e.g. "footer" or "homepage" — omitted (null) rather than guessed when genuinely unknown. */
+    source: text("source"),
+    userId: text("user_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("newsletter_subscribers_email_key").on(table.email)],
 );

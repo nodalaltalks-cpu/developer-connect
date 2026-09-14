@@ -4,7 +4,7 @@
  * without a browser/DOM. No marketing language, no phone-number capture.
  */
 export function buildShareMessage(developerName: string, url: string): string {
-  return `I found the official website for ${developerName} on Developer Connect:\n${url}`;
+  return `I found the official website for ${developerName} on Developer Connects:\n${url}`;
 }
 
 export function buildWhatsAppShareUrl(developerName: string, url: string): string {

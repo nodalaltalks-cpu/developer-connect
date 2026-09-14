@@ -66,8 +66,22 @@ export interface DeveloperRepository {
    * Case-insensitive partial match against legal/display name, restricted
    * to ACTIVE developers. Plain SQL ILIKE, not a search engine — this is
    * a simple developer-name lookup, not a general-purpose search feature.
+   *
+   * `geo`, when given, narrows the same query by exact (not partial)
+   * country/state/city match — pushed down into the query itself rather
+   * than filtered afterward, so a geography-narrowed search still returns
+   * up to `limit` real matches instead of first taking the top `limit`
+   * name matches and only then discarding the ones outside the selected
+   * geography.
    */
-  search(query: string, limit?: number): Promise<Developer[]>;
+  search(query: string, limit?: number, geo?: DeveloperGeoFilter): Promise<Developer[]>;
+}
+
+/** Exact-match geography narrowing shared by DeveloperRepository.search and the public directory filters. */
+export interface DeveloperGeoFilter {
+  country?: string;
+  state?: string;
+  city?: string;
 }
 
 export interface NewWebsiteCandidateInput {
@@ -86,6 +100,9 @@ export interface WebsiteCandidatePatch {
   reviewedAt?: Date;
   rejectionReason?: string;
   lastCheckedAt?: Date;
+  /** Founder correction of the discovered URL — see updateCandidateUrl in candidate-service.ts. Never set alongside verificationStatus: editing the URL must never itself advance or reset the review state. */
+  url?: string;
+  canonicalDomain?: string;
 }
 
 export interface WebsiteCandidateRepository {

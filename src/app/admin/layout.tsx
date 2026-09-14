@@ -4,7 +4,7 @@ import { UserButton } from "@clerk/nextjs";
 import { requireFounder } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "Founder Dashboard | Developer Connect",
+  title: "Founder Dashboard | Developer Connects",
   robots: { index: false, follow: false },
 };
 
@@ -16,6 +16,9 @@ const NAV_ITEMS = [
   { href: "/admin/search", label: "Search Intelligence" },
   { href: "/admin/users", label: "Users & Profiles" },
   { href: "/admin/notifications", label: "Notifications" },
+  { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/contact", label: "Contact" },
+  { href: "/admin/newsletter", label: "Newsletter" },
   { href: "/admin/data-quality", label: "Data Quality" },
   { href: "/admin/automation", label: "Automation" },
   { href: "/admin/audit-log", label: "Audit Log" },
@@ -36,7 +39,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <span className="text-lg font-semibold tracking-tight text-foreground">
-              Developer Connect
+              Developer Connects
             </span>
             <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-hover">
               Founder

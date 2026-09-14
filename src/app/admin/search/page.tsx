@@ -67,7 +67,7 @@ export default async function AdminSearchIntelligencePage() {
             <div className="mt-3">
               <EmptyState
                 title="No zero-result searches yet"
-                description="This list fills in the moment someone searches for a developer Developer Connect doesn't have verified yet."
+                description="This list fills in the moment someone searches for a developer Developer Connects doesn't have verified yet."
               />
             </div>
           ) : (

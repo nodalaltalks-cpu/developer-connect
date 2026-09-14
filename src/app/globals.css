@@ -22,6 +22,10 @@
 
   /* Focus ring */
   --ring: #2563eb;
+
+  /* Trust (official-website-verified language only — restrained, not neon) */
+  --trust: #15803d;
+  --trust-soft: #f0fdf4;
 }
 
 @theme inline {
@@ -35,6 +39,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
   --color-ring: var(--ring);
+  --color-trust: var(--trust);
+  --color-trust-soft: var(--trust-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

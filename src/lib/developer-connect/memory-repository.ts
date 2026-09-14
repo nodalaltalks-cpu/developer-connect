@@ -106,14 +106,17 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
       developers.set(id, updated);
       return updated;
     },
-    async search(query, limit = 20) {
+    async search(query, limit = 20, geo) {
       const needle = query.toLowerCase();
       return Array.from(developers.values())
         .filter(
           (developer) =>
             developer.status === "ACTIVE" &&
             (developer.displayName.toLowerCase().includes(needle) ||
-              developer.legalName.toLowerCase().includes(needle)),
+              developer.legalName.toLowerCase().includes(needle)) &&
+            (!geo?.country || developer.country.toLowerCase() === geo.country.toLowerCase()) &&
+            (!geo?.state || developer.state.toLowerCase() === geo.state.toLowerCase()) &&
+            (!geo?.city || developer.city.toLowerCase() === geo.city.toLowerCase()),
         )
         .slice(0, limit);
     },

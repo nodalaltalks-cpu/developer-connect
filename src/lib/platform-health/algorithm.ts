@@ -115,7 +115,7 @@ export function buildWarnings(input: {
       category: "AUTHENTICATION",
       level: "ACTION_REQUIRED",
       title: "Sign-in service unreachable",
-      explanation: "Developer Connect could not reach its sign-in provider — visitors may be unable to sign in.",
+      explanation: "Developer Connects could not reach its sign-in provider — visitors may be unable to sign in.",
       recommendedAction: "Check the authentication details below.",
     });
   } else if (input.authentication.status === "NEEDS_ATTENTION") {

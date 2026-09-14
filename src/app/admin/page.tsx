@@ -101,7 +101,7 @@ export default async function AdminOverviewPage() {
       {overview.totalSearches === 0 && (
         <p className="mt-6 text-sm text-muted-foreground">
           No search activity yet — every number above will fill in as real visitors use Developer
-          Connect.
+          Connects.
         </p>
       )}
     </div>

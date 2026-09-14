@@ -170,3 +170,63 @@ test("getPublicDeveloperBySlug: a verified developer includes its official websi
   const profile = await getPublicDeveloperBySlug(repos, developer.slug);
   assert.equal(profile?.officialWebsite?.canonicalDomain, "example.com");
 });
+
+// --- searchPublicDevelopers + geography: search and filters must refine
+// each other, not ignore one another (the "search + filter gap" fix) ---
+
+test("searchPublicDevelopers: a geo filter narrows a name match to only developers in that location", async () => {
+  const { repos, developer: mumbaiOne } = await setUpTestDeveloper({
+    legalName: "Test Lodha Mumbai Private Limited",
+    displayName: "Test Lodha Mumbai",
+  });
+  await verifyDeveloper(repos, mumbaiOne.id, "https://lodha-mumbai.example");
+
+  const puneOne = await createDeveloper(repos.developers, {
+    legalName: "Test Lodha Pune Private Limited",
+    displayName: "Test Lodha Pune",
+    city: "Pune",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, puneOne.id, "https://lodha-pune.example");
+
+  const unfiltered = await searchPublicDevelopers(repos, "Lodha");
+  assert.equal(unfiltered.length, 2, "without a geo filter, both matches are returned");
+
+  const mumbaiOnly = await searchPublicDevelopers(repos, "Lodha", { city: "Mumbai" });
+  assert.deepEqual(mumbaiOnly.map((d) => d.id), [mumbaiOne.id]);
+
+  const puneOnly = await searchPublicDevelopers(repos, "Lodha", { city: "Pune" });
+  assert.deepEqual(puneOnly.map((d) => d.id), [puneOne.id]);
+});
+
+test("searchPublicDevelopers: geo filter matching is case-insensitive, same as the geography select options", async () => {
+  const { repos, developer } = await setUpTestDeveloper({ displayName: "Test Developer One" });
+  await verifyDeveloper(repos, developer.id, "https://example.com");
+
+  const results = await searchPublicDevelopers(repos, "Developer", { city: "mumbai", state: "MAHARASHTRA" });
+  assert.equal(results.length, 1);
+});
+
+test("searchPublicDevelopers: a geo filter matching no developer returns nothing, even if the name matches", async () => {
+  const { repos, developer } = await setUpTestDeveloper({ displayName: "Test Developer One" });
+  await verifyDeveloper(repos, developer.id, "https://example.com");
+
+  const results = await searchPublicDevelopers(repos, "Developer", { city: "Thane" });
+  assert.deepEqual(results, []);
+});
+
+test("searchPublicDevelopers: country/state/city combine as an AND, matching the directory's own filter semantics", async () => {
+  const { repos, developer } = await setUpTestDeveloper({ displayName: "Test Developer One" });
+  await verifyDeveloper(repos, developer.id, "https://example.com");
+
+  assert.equal(
+    (await searchPublicDevelopers(repos, "Developer", { country: "India", state: "Maharashtra", city: "Mumbai" }))
+      .length,
+    1,
+  );
+  assert.deepEqual(
+    await searchPublicDevelopers(repos, "Developer", { country: "India", state: "Maharashtra", city: "Pune" }),
+    [],
+  );
+});

@@ -4,7 +4,7 @@ import type { ProfileFieldConfig, ProfileSection } from "./types.ts";
  * Phase 3B — the first real profile field list, defined after the founder
  * supplied a live UX reference (Mumbai Intel / NoDalalTalks' own profile
  * page) to study. This is a recreation of that reference's SECTION and
- * FIELD structure inside Developer Connect's own architecture — no code,
+ * FIELD structure inside Developer Connects' own architecture — no code,
  * data, or dependency from that other product was imported (see Phase 3B
  * instructions: they are two completely separate platforms).
  *
@@ -16,7 +16,7 @@ import type { ProfileFieldConfig, ProfileSection } from "./types.ts";
  *    be redundant, not a real profile answer.
  *  - "Date of birth" is one native date field here, not three separate
  *    day/month/year selects — same data, fewer taps on mobile.
- *  - "Notification Settings" toggles are scoped to what Developer Connect
+ *  - "Notification Settings" toggles are scoped to what Developer Connects
  *    actually has (the in-house notification system built alongside this
  *    profile — see notifications/), not the reference's saved-search/
  *    digest toggles, which describe features that don't exist here.
@@ -283,6 +283,6 @@ export const PROFILE_FIELD_CONFIG: ProfileFieldConfig[] = [
     weight: 1,
     section: "notification-settings",
     type: "boolean",
-    helperText: "Stored for future use — Developer Connect doesn't send product-update notifications yet.",
+    helperText: "Stored for future use — Developer Connects doesn't send product-update notifications yet.",
   },
 ];

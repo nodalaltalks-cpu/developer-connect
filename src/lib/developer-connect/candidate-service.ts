@@ -2,7 +2,7 @@ import type { Actor, Evidence, EvidenceType, DiscoverySource, WebsiteCandidate }
 import type { DeveloperConnectRepositories } from "./repository.ts";
 import { normalizeUrl } from "./url.ts";
 import { isDisqualifyingDomain, findDenylistEntry } from "./denylist.ts";
-import { NotFoundError, DuplicateCandidateError } from "./errors.ts";
+import { NotFoundError, DuplicateCandidateError, UnauthorizedVerificationActionError } from "./errors.ts";
 import { transitionCandidate } from "./verification-service.ts";
 
 /**
@@ -144,5 +144,79 @@ export async function addEvidence(
     await txRepos.candidates.update(candidateId, { confidenceScore });
 
     return added;
+  });
+}
+
+/**
+ * Founder correction of a discovered candidate's URL — e.g. the
+ * automated discovery picked up a slightly wrong link. Deliberately
+ * narrow: it only ever touches `url`/`canonicalDomain`, via the exact
+ * same normalizeUrl() every other intake path uses, and appends one
+ * VerificationEvent recording the change (previousStatus === newStatus,
+ * since nothing about the review state itself changes) so the edit shows
+ * up in the same "Verification history" list the founder already reads.
+ *
+ * Never touches verificationStatus. A DISCOVERED candidate stays
+ * DISCOVERED, a VERIFIED (published) candidate stays VERIFIED — editing
+ * the URL does not verify, publish, or reset anything. Approve & Publish
+ * remains the only way to change what's live.
+ */
+export async function updateCandidateUrl(
+  repos: DeveloperConnectRepositories,
+  candidateId: string,
+  newUrl: string,
+  actor: Actor,
+): Promise<WebsiteCandidate> {
+  if (actor.actorType !== "FOUNDER") {
+    throw new UnauthorizedVerificationActionError(
+      `Editing a website candidate's URL requires a FOUNDER actor; received ${actor.actorType}`,
+    );
+  }
+
+  return repos.runInTransaction(async (txRepos) => {
+    const candidate = await txRepos.candidates.getById(candidateId);
+    if (!candidate) {
+      throw new NotFoundError(`Website candidate ${candidateId} not found`);
+    }
+
+    const normalized = normalizeUrl(newUrl);
+    if (normalized.url === candidate.url) {
+      // Nothing actually changed — a no-op save, not a new history entry.
+      return candidate;
+    }
+
+    const conflict = await txRepos.candidates.findByDomainAndPath(
+      candidate.developerId,
+      normalized.canonicalDomain,
+      normalized.normalizedPath,
+    );
+    if (
+      conflict &&
+      conflict.id !== candidate.id &&
+      conflict.verificationStatus !== "REJECTED" &&
+      conflict.verificationStatus !== "INACTIVE"
+    ) {
+      throw new DuplicateCandidateError(
+        `A candidate for ${normalized.canonicalDomain}${normalized.normalizedPath} is already being tracked for this developer`,
+        conflict.id,
+      );
+    }
+
+    const previousUrl = candidate.url;
+    const updated = await txRepos.candidates.update(candidateId, {
+      url: normalized.url,
+      canonicalDomain: normalized.canonicalDomain,
+    });
+
+    await txRepos.events.append({
+      websiteCandidateId: candidateId,
+      previousStatus: candidate.verificationStatus,
+      newStatus: candidate.verificationStatus,
+      reason: `URL corrected by Founder: "${previousUrl}" → "${normalized.url}"`,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+    });
+
+    return updated;
   });
 }

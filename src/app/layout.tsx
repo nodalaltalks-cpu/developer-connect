@@ -14,9 +14,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Developer Connect",
+  title: "Developer Connects",
   description:
     "Find a real-estate developer's verified official website — no brokers, no forms. Starting in Mumbai.",
+  openGraph: {
+    title: "Developer Connects",
+    description:
+      "Find a real-estate developer's verified official website — no brokers, no forms. Starting in Mumbai.",
+    siteName: "Developer Connects",
+    type: "website",
+  },
 };
 
 export const viewport: Viewport = {

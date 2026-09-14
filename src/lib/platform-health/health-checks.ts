@@ -69,7 +69,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
         storageReason = "The database did not return a size value.";
       }
     } catch {
-      storageReason = "Developer Connect could not read database storage usage.";
+      storageReason = "Developer Connects could not read database storage usage.";
     }
 
     if (storageMeasured) {
@@ -122,7 +122,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
     usagePercent,
     reason: storageMeasured
       ? undefined
-      : (storageReason ?? "Developer Connect cannot currently read your Neon storage usage."),
+      : (storageReason ?? "Developer Connects cannot currently read your Neon storage usage."),
     capacityUnavailableReason: storageMeasured
       ? "Your database provider (Neon) doesn't expose a storage quota to this project — no Neon Management API credential is configured, and Postgres itself has no built-in quota concept."
       : undefined,
@@ -135,7 +135,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
   if (!connectionOk) {
     status = "ACTION_REQUIRED";
     summary = "Database connection problem";
-    detail = "Developer Connect is having trouble talking to its database.";
+    detail = "Developer Connects is having trouble talking to its database.";
   } else if (latencyMs !== null && latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.CRITICAL_ABOVE) {
     status = "ACTION_REQUIRED";
     summary = "Database is responding very slowly";
@@ -155,7 +155,7 @@ export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
   } else {
     status = "HEALTHY";
     summary = "Database is working normally";
-    detail = "Developer Connect can reach its database and responses are fast.";
+    detail = "Developer Connects can reach its database and responses are fast.";
   }
 
   return {
@@ -203,7 +203,7 @@ export async function checkAuthenticationHealth(): Promise<AuthenticationHealth>
       return {
         status: "ACTION_REQUIRED",
         summary: "Sign-in service unreachable",
-        detail: "Developer Connect could not reach its sign-in provider.",
+        detail: "Developer Connects could not reach its sign-in provider.",
         clerkReachable: false,
         latencyMs,
       };
@@ -231,7 +231,7 @@ export async function checkAuthenticationHealth(): Promise<AuthenticationHealth>
     return {
       status: "HEALTHY",
       summary: "Sign-in is working normally",
-      detail: "Developer Connect can reach its sign-in provider and responses are fast.",
+      detail: "Developer Connects can reach its sign-in provider and responses are fast.",
       clerkReachable: true,
       latencyMs,
     };
@@ -240,7 +240,7 @@ export async function checkAuthenticationHealth(): Promise<AuthenticationHealth>
     return {
       status: "ACTION_REQUIRED",
       summary: "Sign-in service unreachable",
-      detail: "Developer Connect could not reach its sign-in provider.",
+      detail: "Developer Connects could not reach its sign-in provider.",
       clerkReachable: false,
       latencyMs: null,
     };
@@ -271,7 +271,7 @@ export function checkDeploymentHealth(): DeploymentHealth {
       status: "NOT_MEASURED",
       summary: "Deployment monitoring isn't connected",
       detail:
-        "Live deployment monitoring is not currently connected — Developer Connect can only show this when running on Vercel.",
+        "Live deployment monitoring is not currently connected — Developer Connects can only show this when running on Vercel.",
       commitSha: null,
       environment,
       deploymentUrl,
@@ -284,7 +284,7 @@ export function checkDeploymentHealth(): DeploymentHealth {
   return {
     status: "HEALTHY",
     summary: "Running the expected deployment",
-    detail: "This is the commit, branch, and environment currently serving Developer Connect.",
+    detail: "This is the commit, branch, and environment currently serving Developer Connects.",
     commitSha,
     environment,
     deploymentUrl,
@@ -295,7 +295,7 @@ export function checkDeploymentHealth(): DeploymentHealth {
 }
 
 /**
- * Object/file storage: Developer Connect has no file-upload feature and
+ * Object/file storage: Developer Connects has no file-upload feature and
  * no object-storage SDK installed (no @vercel/blob, no S3, no Firebase
  * Storage) — confirmed by inspecting package.json and the codebase, not
  * assumed. There is genuinely nothing to measure, so this is always
@@ -309,7 +309,7 @@ export function checkObjectStorageHealth(): ObjectStorageHealth {
     status: "NOT_MEASURED",
     summary: "No application storage in use",
     detail:
-      "Developer Connect doesn't currently use any object/file storage provider (Vercel Blob, S3, Firebase Storage, or similar) — there's no file-upload feature in the product today, so there's nothing to measure here.",
+      "Developer Connects doesn't currently use any object/file storage provider (Vercel Blob, S3, Firebase Storage, or similar) — there's no file-upload feature in the product today, so there's nothing to measure here.",
     inUse: false,
     provider: null,
     storage: null,

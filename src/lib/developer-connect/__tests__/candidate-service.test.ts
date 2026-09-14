@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { submitWebsiteCandidate, addEvidence } from "../candidate-service.ts";
-import { rejectCandidate } from "../verification-service.ts";
-import { DuplicateCandidateError, NotFoundError } from "../errors.ts";
+import { submitWebsiteCandidate, addEvidence, updateCandidateUrl } from "../candidate-service.ts";
+import { rejectCandidate, approveAndPublishCandidate } from "../verification-service.ts";
+import { DuplicateCandidateError, NotFoundError, UnauthorizedVerificationActionError } from "../errors.ts";
 import { setUpTestDeveloper } from "./test-helpers.ts";
 
 const founder = { actorType: "FOUNDER" as const, actorId: "founder-1" };
@@ -145,4 +145,130 @@ test("candidate-service: evidence attaches to the correct candidate and recomput
 
   const updated = await repos.candidates.getById(candidate.id);
   assert.ok(updated && updated.confidenceScore > 0);
+});
+
+// --- updateCandidateUrl: Founder "Edit URL" regression coverage -----------
+// Reproduces the exact bug described in the review task: a save must
+// return (and a re-fetch must show) the ACTUAL persisted value, not a
+// stale one. These assert against the real repository read, not just the
+// function's return value, so a bug in a repository's `update()` that
+// returned a stale/mismatched row would still be caught.
+
+test("updateCandidateUrl: the saved URL persists — both in the immediate return value and on a fresh re-read", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://old-domain.example/",
+    discoverySource: "AGENT_CRAWL",
+    actor: { actorType: "AGENT", actorId: "agent-1" },
+  });
+
+  const saved = await updateCandidateUrl(repos, candidate.id, "https://correct-domain.example", founder);
+  assert.equal(saved.url, "https://correct-domain.example/");
+  assert.equal(saved.canonicalDomain, "correct-domain.example");
+
+  // Simulates "Founder refreshes the page and opens Review again."
+  const reloaded = await repos.candidates.getById(candidate.id);
+  assert.equal(reloaded?.url, "https://correct-domain.example/");
+  assert.equal(reloaded?.canonicalDomain, "correct-domain.example");
+});
+
+test("updateCandidateUrl: editing the URL never changes verificationStatus — no accidental verify/publish/reset", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://old-domain.example/",
+    discoverySource: "AGENT_CRAWL",
+    actor: { actorType: "AGENT", actorId: "agent-1" },
+  });
+  assert.equal(candidate.verificationStatus, "DISCOVERED");
+
+  const saved = await updateCandidateUrl(repos, candidate.id, "https://correct-domain.example", founder);
+  assert.equal(saved.verificationStatus, "DISCOVERED");
+});
+
+test("updateCandidateUrl: works the same way for an already-published (VERIFIED) candidate — status stays VERIFIED", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://old-domain.example/",
+    discoverySource: "MANUAL_SUBMISSION",
+    actor: founder,
+  });
+  await approveAndPublishCandidate(repos, candidate.id, founder, "Confirmed official site");
+
+  const saved = await updateCandidateUrl(repos, candidate.id, "https://corrected-domain.example", founder);
+  assert.equal(saved.verificationStatus, "VERIFIED");
+  assert.equal(saved.canonicalDomain, "corrected-domain.example");
+});
+
+test("updateCandidateUrl: records a history event so the correction is traceable", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://old-domain.example/",
+    discoverySource: "AGENT_CRAWL",
+    actor: { actorType: "AGENT", actorId: "agent-1" },
+  });
+
+  await updateCandidateUrl(repos, candidate.id, "https://correct-domain.example", founder);
+
+  const history = await repos.events.listByCandidate(candidate.id);
+  const urlEvent = history.find((e) => e.reason.includes("URL corrected"));
+  assert.ok(urlEvent, "expected a verification event recording the URL correction");
+  assert.equal(urlEvent?.previousStatus, "DISCOVERED");
+  assert.equal(urlEvent?.newStatus, "DISCOVERED");
+});
+
+test("updateCandidateUrl: saving the exact same URL again is a no-op (no duplicate history event)", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://example.com/",
+    discoverySource: "AGENT_CRAWL",
+    actor: { actorType: "AGENT", actorId: "agent-1" },
+  });
+
+  const before = await repos.events.listByCandidate(candidate.id);
+  const saved = await updateCandidateUrl(repos, candidate.id, "https://example.com/", founder);
+  const after = await repos.events.listByCandidate(candidate.id);
+
+  assert.equal(saved.url, "https://example.com/");
+  assert.equal(after.length, before.length);
+});
+
+test("updateCandidateUrl: a non-FOUNDER actor is rejected", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://old-domain.example/",
+    discoverySource: "AGENT_CRAWL",
+    actor: { actorType: "AGENT", actorId: "agent-1" },
+  });
+
+  await assert.rejects(
+    () => updateCandidateUrl(repos, candidate.id, "https://correct-domain.example", { actorType: "AGENT", actorId: "agent-1" }),
+    UnauthorizedVerificationActionError,
+  );
+});
+
+test("updateCandidateUrl: editing to a domain+path already tracked for this developer is rejected as a duplicate", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://taken-domain.example/",
+    discoverySource: "MANUAL_SUBMISSION",
+    actor: founder,
+  });
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://old-domain.example/",
+    discoverySource: "AGENT_CRAWL",
+    actor: { actorType: "AGENT", actorId: "agent-1" },
+  });
+
+  await assert.rejects(
+    () => updateCandidateUrl(repos, candidate.id, "https://taken-domain.example/", founder),
+    DuplicateCandidateError,
+  );
 });

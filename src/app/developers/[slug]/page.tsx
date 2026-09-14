@@ -3,9 +3,12 @@ import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { OfficialWebsiteVerifiedBadge } from "@/components/official-website-verified-badge";
 import { VisitOfficialWebsiteButton } from "@/components/visit-official-website-button";
+import { ExternalDomainLink } from "@/components/external-domain-link";
 import { DeveloperPageViewTracker } from "@/components/developer-page-view-tracker";
 import { ShareDeveloper } from "@/components/share-developer";
+import { ReportInaccurateInfo } from "@/components/report-inaccurate-info";
 import { SiteFooter } from "@/components/site-footer";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicDeveloperBySlug } from "@/lib/developer-connect/search-service";
@@ -30,17 +33,18 @@ export async function generateMetadata({
   const developer = await loadDeveloper(slug);
 
   if (!developer) {
-    return { title: "Developer not found | Developer Connect" };
+    return { title: "Developer not found | Developer Connects" };
   }
 
-  const title = `${developer.displayName} — Official Website | Developer Connect`;
+  const title = `${developer.displayName} — Official Website | Developer Connects`;
   const description = developer.officialWebsite
-    ? `Go directly to ${developer.displayName}'s verified official website — no brokers, no forms. Verified by Developer Connect.`
-    : `${developer.displayName} on Developer Connect. Official website verification is in progress.`;
+    ? `Go directly to ${developer.displayName}'s verified official website — no brokers, no forms. Verified by Developer Connects.`
+    : `${developer.displayName} on Developer Connects. Official website verification is in progress.`;
 
   return {
     title,
     description,
+    openGraph: { title, description, type: "website" },
     alternates: { canonical: `/developers/${developer.slug}` },
   };
 }
@@ -68,6 +72,11 @@ export default async function DeveloperPage({
       <main className="flex-1">
         <Container className="py-12 sm:py-20">
           <div className="mx-auto max-w-xl">
+            {developer.officialWebsite && (
+              <div className="mb-2">
+                <VerifiedBadge />
+              </div>
+            )}
             <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               {developer.displayName}
             </h1>
@@ -87,16 +96,18 @@ export default async function DeveloperPage({
 
             {developer.officialWebsite && (
               <div className="mt-4">
-                <VerifiedBadge full />
+                <OfficialWebsiteVerifiedBadge full />
               </div>
             )}
 
             {developer.officialWebsite ? (
               <div className="mt-6 rounded-lg border border-border bg-muted p-6">
                 <p className="text-sm text-muted-foreground">You&apos;ll go to</p>
-                <p className="mt-1 break-all font-mono text-lg text-foreground">
-                  {developer.officialWebsite.canonicalDomain}
-                </p>
+                <ExternalDomainLink
+                  url={developer.officialWebsite.url}
+                  domain={developer.officialWebsite.canonicalDomain}
+                  className="mt-1 font-mono text-lg"
+                />
                 <div className="mt-5">
                   <VisitOfficialWebsiteButton
                     developerId={developer.id}
@@ -112,14 +123,15 @@ export default async function DeveloperPage({
               <div className="mt-8 rounded-lg border border-border bg-muted p-6">
                 <p className="font-medium text-foreground">Official website not yet verified.</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Developer Connect hasn&apos;t confirmed {developer.displayName}&apos;s official
+                  Developer Connects hasn&apos;t confirmed {developer.displayName}&apos;s official
                   website yet. Check back soon.
                 </p>
               </div>
             )}
 
-            <div className="mt-6">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               <ShareDeveloper developerId={developer.id} developerName={developer.displayName} />
+              <ReportInaccurateInfo developerId={developer.id} developerName={developer.displayName} />
             </div>
 
             {developer.legalName !== developer.displayName && (

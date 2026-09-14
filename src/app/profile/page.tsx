@@ -12,7 +12,7 @@ import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analy
 import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
 
 export const metadata: Metadata = {
-  title: "Your profile | Developer Connect",
+  title: "Your profile | Developer Connects",
   robots: { index: false, follow: false },
 };
 
@@ -59,7 +59,7 @@ export default async function ProfilePage({
               )}
               <div>
                 <h1 className="text-2xl font-semibold text-foreground">
-                  Your Developer Connect profile
+                  Your Developer Connects profile
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   {firstName ? `Good to have you here, ${firstName}.` : user?.fullName}
@@ -70,14 +70,14 @@ export default async function ProfilePage({
             <p className="mb-6 mt-4 text-sm text-muted-foreground">
               Tell us a little about what you&apos;re looking for. The more you share, the more
               useful your experience can become — nothing here is ever required to keep using
-              Developer Connect, and it&apos;s never shown to anyone else.
+              Developer Connects, and it&apos;s never shown to anyone else.
             </p>
 
             {PROFILE_FIELD_CONFIG.length === 0 ? (
               <div className="rounded-lg border border-border bg-muted p-6">
                 <p className="font-medium text-foreground">Nothing to complete yet</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Developer Connect doesn&apos;t have any profile information to add yet.
+                  Developer Connects doesn&apos;t have any profile information to add yet.
                 </p>
               </div>
             ) : (

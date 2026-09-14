@@ -6,6 +6,7 @@ import { CandidateStatusBadge } from "@/components/admin/candidate-status-badge"
 import { VerificationActionForm } from "@/components/admin/verification-action-form";
 import { ApprovePublishForm } from "@/components/admin/approve-publish-form";
 import { DeveloperEditForm } from "@/components/admin/developer-edit-form";
+import { CandidateUrlEditor } from "@/components/admin/candidate-url-editor";
 import { EvidenceIntakeForm } from "@/components/admin/evidence-intake-form";
 import {
   rejectCandidateAction,
@@ -94,9 +95,11 @@ export function CandidateReviewPanel({
       <div className="rounded-lg border border-border p-4">
         <h2 className="text-sm font-semibold text-foreground">Official website</h2>
         <dl className="mt-2 space-y-1.5 text-sm">
-          <div className="flex justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <dt className="text-muted-foreground">URL</dt>
-            <dd className="break-all text-right text-foreground">{candidate.url}</dd>
+            <dd className="text-right text-foreground">
+              <CandidateUrlEditor candidate={candidate} onSaved={handleCandidateUpdate} />
+            </dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground">Discovery source</dt>

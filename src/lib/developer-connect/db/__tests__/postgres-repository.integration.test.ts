@@ -357,6 +357,42 @@ test(
 );
 
 test(
+  "postgres: developer search's optional geo filter is pushed into the real query, narrowing name matches by location",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-service.ts");
+
+    const repos = createPostgresRepositories();
+    const uniqueMarker = randomUUID().slice(0, 8);
+    await createDeveloper(repos.developers, {
+      legalName: `TEST — Geo Search Co ${uniqueMarker} Mumbai`,
+      displayName: `TEST — Geo Search Co ${uniqueMarker} Mumbai`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+    await createDeveloper(repos.developers, {
+      legalName: `TEST — Geo Search Co ${uniqueMarker} Pune`,
+      displayName: `TEST — Geo Search Co ${uniqueMarker} Pune`,
+      city: "Pune",
+      state: "Maharashtra",
+      country: "India",
+    });
+
+    const unfiltered = await repos.developers.search(`Geo Search Co ${uniqueMarker}`);
+    assert.equal(unfiltered.length, 2);
+
+    const mumbaiOnly = await repos.developers.search(`Geo Search Co ${uniqueMarker}`, 20, { city: "Mumbai" });
+    assert.equal(mumbaiOnly.length, 1);
+    assert.ok(mumbaiOnly[0].displayName.endsWith("Mumbai"));
+
+    const noMatch = await repos.developers.search(`Geo Search Co ${uniqueMarker}`, 20, { city: "Thane" });
+    assert.deepEqual(noMatch, []);
+  },
+);
+
+test(
   "postgres: search input containing LIKE wildcard characters is matched literally, not as a pattern",
   { skip: !hasDatabase },
   async () => {

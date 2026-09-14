@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { submitWebsiteCandidate, addEvidence } from "@/lib/developer-connect/candidate-service";
+import { submitWebsiteCandidate, addEvidence, updateCandidateUrl } from "@/lib/developer-connect/candidate-service";
 import type { WebsiteCandidate, Evidence, DiscoverySource, EvidenceType } from "@/lib/developer-connect/types";
 
 /**
@@ -88,5 +88,50 @@ export async function addEvidenceAction(
     return { ok: true, addedEvidence, candidate: candidate ?? undefined };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not add evidence." };
+  }
+}
+
+export interface UpdateCandidateUrlActionInput {
+  candidateId: string;
+  url: string;
+}
+
+export interface UpdateCandidateUrlActionResult {
+  ok: boolean;
+  /** The freshly-persisted candidate, straight from the UPDATE's own return value — the caller must render from THIS, never re-derive from stale props, so the corrected URL is guaranteed to be what's actually in the database. */
+  candidate?: WebsiteCandidate;
+  error?: string;
+}
+
+/**
+ * Founder correction of a discovered/pending candidate's URL — see
+ * updateCandidateUrl in candidate-service.ts. Deliberately returns the
+ * updated candidate rather than relying on the caller to re-fetch or on
+ * router.refresh(): the same stale-value bug this task's Save fix
+ * addresses for developer fields would otherwise be trivial to
+ * reintroduce here.
+ */
+export async function updateCandidateUrlAction(
+  input: UpdateCandidateUrlActionInput,
+): Promise<UpdateCandidateUrlActionResult> {
+  let founderId: string;
+  try {
+    founderId = await requireFounderForAction();
+  } catch {
+    return { ok: false, error: "You don't have permission to edit this URL. Founder access is required." };
+  }
+
+  const repos = createPostgresRepositories();
+  try {
+    const candidate = await updateCandidateUrl(repos, input.candidateId, input.url, {
+      actorType: "FOUNDER",
+      actorId: founderId,
+    });
+    revalidatePath("/admin/verification");
+    revalidatePath(`/admin/verification/${input.candidateId}`);
+    revalidatePath(`/admin/developers/${candidate.developerId}`);
+    return { ok: true, candidate };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not save the new URL." };
   }
 }

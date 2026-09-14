@@ -147,7 +147,7 @@ test("computeOverallMessage: ACTION_REQUIRED prefers an ACTION_REQUIRED warning 
   });
   assert.equal(
     computeOverallMessage("ACTION_REQUIRED", warnings),
-    "Developer Connect could not reach its sign-in provider — visitors may be unable to sign in.",
+    "Developer Connects could not reach its sign-in provider — visitors may be unable to sign in.",
   );
 });
 

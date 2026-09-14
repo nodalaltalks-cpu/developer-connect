@@ -11,6 +11,15 @@ export interface ConversionStep {
 export interface ExecutiveOverview {
   developersTracked: number;
   verifiedDevelopers: number;
+  /**
+   * Website candidates awaiting a first Founder decision — status
+   * DISCOVERED or PENDING_VERIFICATION. Deliberately excludes
+   * NEEDS_REVERIFICATION, which has its own tile right next to this one;
+   * together the two tiles' totals equal the full /admin/verification
+   * queue size (see PENDING_VERIFICATION_STATUSES in
+   * verification-queue-state.ts, the shared source of truth both this
+   * metric and that queue read from).
+   */
   pendingVerification: number;
   needsReverification: number;
   totalSearches: number;

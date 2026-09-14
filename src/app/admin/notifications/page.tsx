@@ -29,7 +29,7 @@ export default async function AdminNotificationsPage() {
     <div>
       <SectionHeading
         title="Notifications"
-        description="Send a targeted in-app message to help users complete their Developer Connect profile."
+        description="Send a targeted in-app message to help users complete their Developer Connects profile."
       />
 
       <Link href="/admin/notifications/new" className={buttonClassName("primary")}>

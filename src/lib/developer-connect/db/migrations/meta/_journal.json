@@ -71,6 +71,13 @@
       "when": 1789174868261,
       "tag": "0009_parallel_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789410634332,
+      "tag": "0010_redundant_polaris",
+      "breakpoints": true
     }
   ]
 }

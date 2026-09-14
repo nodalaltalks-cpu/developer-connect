@@ -168,7 +168,7 @@ export default async function AdminUserDetailPage({
         <div className="mt-3">
           <EmptyState
             title="No notifications sent"
-            description="Developer Connect hasn't generated any notifications for this user yet."
+            description="Developer Connects hasn't generated any notifications for this user yet."
           />
         </div>
       ) : (

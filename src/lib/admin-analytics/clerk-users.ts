@@ -3,7 +3,7 @@
  * pattern already used by platform-health's checkAuthenticationHealth
  * (raw fetch with a Bearer token, never the SDK's server client, never
  * exposes CLERK_SECRET_KEY to the caller). This is the only place
- * Developer Connect reads Clerk's user list; it never writes anything.
+ * Developer Connects reads Clerk's user list; it never writes anything.
  *
  * Used only from founder-only admin pages/actions — never from a public
  * or user-facing path.

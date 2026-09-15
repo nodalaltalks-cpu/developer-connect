@@ -189,12 +189,37 @@ function buildDeveloperRepository(db: DbOrTx): DeveloperRepository {
       return toDeveloper(row);
     },
     async search(query, limit = 20, geo) {
-      const pattern = likePattern(query);
+      // Name matching stays a single whole-query ILIKE, exactly as
+      // before — precise, and what every existing caller (including the
+      // shared test database's many "TEST —" fixtures) already relies
+      // on. A per-word OR here was tried and reverted: tokenizing "Search
+      // Co <marker>" into "search"/"co"/"marker" let the single word "co"
+      // — a substring of countless unrelated company names — swamp the
+      // result set on a database with real volume.
+      //
+      // Geography gets its OWN, separately tokenized OR: "developers in
+      // Mumbai" or "Dubai builders" should still find a real Mumbai/Dubai
+      // developer even though the full phrase never appears verbatim in
+      // the city/state/country column — only "Mumbai"/"Dubai" does. This
+      // is safe to tokenize because it's additive (an extra way to
+      // MATCH, never a way to exclude) and a random test marker is never
+      // going to coincidentally spell out a real place name.
+      const namePattern = likePattern(query);
+      const geoTokens = query.trim().split(/\s+/).filter(Boolean);
+      const geoTokenConditions = geoTokens.flatMap((token) => {
+        const pattern = likePattern(token);
+        return [
+          ilike(schema.developers.city, pattern),
+          ilike(schema.developers.state, pattern),
+          ilike(schema.developers.country, pattern),
+        ];
+      });
       const conditions = [
         eq(schema.developers.status, "ACTIVE"),
         or(
-          ilike(schema.developers.displayName, pattern),
-          ilike(schema.developers.legalName, pattern),
+          ilike(schema.developers.displayName, namePattern),
+          ilike(schema.developers.legalName, namePattern),
+          ...geoTokenConditions,
         ),
       ];
       if (geo?.country) conditions.push(ilike(schema.developers.country, geo.country));

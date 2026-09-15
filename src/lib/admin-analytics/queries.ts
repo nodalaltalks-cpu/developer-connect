@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { getDb } from "../developer-connect/db/client.ts";
 import { createPostgresRepositories } from "../developer-connect/db/postgres-repository.ts";
 import {
@@ -20,6 +20,9 @@ import type {
   ExecutiveOverview,
   SearchIntelligence,
   SearchBehaviorStats,
+  GeographySearchDemand,
+  DeveloperEngagementRow,
+  SearchAuthenticationSplit,
   DeveloperStat,
   VerificationOperations,
   DataQuality,
@@ -227,6 +230,11 @@ export async function getSearchIntelligence(): Promise<SearchIntelligence> {
     (await countRows(eq(analyticsEvents.eventName, "zero_result_search")));
 
   const searchBehavior = await getSearchBehaviorStats(db);
+  const [geographyDemand, topEngagedDevelopers, authenticationSplit] = await Promise.all([
+    getSearchGeographyDemand(db),
+    getTopEngagedDevelopers(db),
+    getSearchAuthenticationSplit(db),
+  ]);
 
   return {
     totalSearches,
@@ -234,6 +242,129 @@ export async function getSearchIntelligence(): Promise<SearchIntelligence> {
     topQueries,
     highDemandUnverified,
     searchBehavior,
+    geographyDemand,
+    topEngagedDevelopers,
+    authenticationSplit,
+  };
+}
+
+/**
+ * Definition: real search volume grouped by the visitor's active
+ * Country/State/City filter AT THE MOMENT they searched (see GeoFilters +
+ * searchDevelopers) — never the searcher's own inferred location, and
+ * never present for a filter-free search (so this only ever reports
+ * genuine, visitor-selected geography, not a guess).
+ * Source: analytics_events (search_performed, zero_result_search),
+ * payload->>'country' / 'state' / 'city'.
+ * Window: all-time.
+ */
+async function getSearchGeographyDemand(db: ReturnType<typeof getDb>): Promise<GeographySearchDemand> {
+  async function byField(field: "country" | "state" | "city") {
+    const column = sql<string>`${analyticsEvents.payload}->>${sql.raw(`'${field}'`)}`;
+    const rows = await db
+      .select({ value: column.as("value"), count: count() })
+      .from(analyticsEvents)
+      .where(
+        and(
+          sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`,
+          isNotNull(column),
+        ),
+      )
+      .groupBy(column)
+      .orderBy(desc(count()))
+      .limit(10);
+    return rows;
+  }
+
+  const [byCountry, byState, byCity] = await Promise.all([byField("country"), byField("state"), byField("city")]);
+  return { byCountry, byState, byCity };
+}
+
+/**
+ * Definition: which real, published developers visitors actually engage
+ * with — search-result clicks, developer-page views, and official-
+ * website clicks, each a real analytics_events count keyed by
+ * developerId. Ranked by official-website clicks (the North Star action),
+ * not a fabricated popularity score. Only developers with at least one
+ * real event appear; a developer with zero engagement is simply absent,
+ * never shown with a manufactured zero-entry.
+ * Source: analytics_events (search_result_clicked, developer_page_viewed,
+ * official_website_clicked), joined to developers for display names.
+ * Window: all-time.
+ */
+async function getTopEngagedDevelopers(db: ReturnType<typeof getDb>): Promise<DeveloperEngagementRow[]> {
+  const rows = await db
+    .select({
+      developerId: analyticsEvents.developerId,
+      eventName: analyticsEvents.eventName,
+      n: count(),
+    })
+    .from(analyticsEvents)
+    .where(
+      and(
+        isNotNull(analyticsEvents.developerId),
+        inArray(analyticsEvents.eventName, [
+          "search_result_clicked",
+          "developer_page_viewed",
+          "official_website_clicked",
+        ]),
+      ),
+    )
+    .groupBy(analyticsEvents.developerId, analyticsEvents.eventName);
+
+  const byDeveloper = new Map<string, { searchResultClicks: number; developerPageViews: number; officialWebsiteClicks: number }>();
+  for (const row of rows) {
+    if (!row.developerId) continue;
+    const entry = byDeveloper.get(row.developerId) ?? {
+      searchResultClicks: 0,
+      developerPageViews: 0,
+      officialWebsiteClicks: 0,
+    };
+    if (row.eventName === "search_result_clicked") entry.searchResultClicks = row.n;
+    else if (row.eventName === "developer_page_viewed") entry.developerPageViews = row.n;
+    else if (row.eventName === "official_website_clicked") entry.officialWebsiteClicks = row.n;
+    byDeveloper.set(row.developerId, entry);
+  }
+
+  const developerIds = [...byDeveloper.keys()];
+  if (developerIds.length === 0) return [];
+
+  const developerRows = await db
+    .select({ id: developers.id, displayName: developers.displayName })
+    .from(developers)
+    .where(inArray(developers.id, developerIds));
+  const nameById = new Map(developerRows.map((d) => [d.id, d.displayName]));
+
+  return [...byDeveloper.entries()]
+    .map(([developerId, counts]) => ({
+      developerId,
+      displayName: nameById.get(developerId) ?? "Unknown developer",
+      ...counts,
+    }))
+    .sort((a, b) => b.officialWebsiteClicks - a.officialWebsiteClicks || b.developerPageViews - a.developerPageViews)
+    .slice(0, 10);
+}
+
+/**
+ * Definition: real search volume split by whether the request was
+ * authenticated at the moment it fired (analytics_events.user_id set by
+ * the Clerk session, never inferred/backfilled). Source:
+ * analytics_events (search_performed, zero_result_search). Window: all-time.
+ */
+async function getSearchAuthenticationSplit(db: ReturnType<typeof getDb>): Promise<SearchAuthenticationSplit> {
+  const searchEventNames = sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`;
+  const [anonymousRow] = await db
+    .select({ n: count() })
+    .from(analyticsEvents)
+    .where(and(searchEventNames, isNull(analyticsEvents.userId)));
+  const [authenticatedRow] = await db
+    .select({ n: count() })
+    .from(analyticsEvents)
+    .where(and(searchEventNames, isNotNull(analyticsEvents.userId)));
+
+  return {
+    anonymousSearches: anonymousRow?.n ?? 0,
+    authenticatedSearches: authenticatedRow?.n ?? 0,
   };
 }
 

@@ -2,6 +2,7 @@
 
 import { recordOfficialWebsiteClick } from "@/app/_actions/public-actions";
 import { buttonClassName } from "@/components/ui/button";
+import { notifyOfficialWebsiteClicked } from "@/lib/login-conversion";
 
 interface VisitOfficialWebsiteButtonProps {
   developerId: string;
@@ -26,6 +27,7 @@ export function VisitOfficialWebsiteButton({
       rel="noopener noreferrer"
       onClick={() => {
         void recordOfficialWebsiteClick(developerId, domain);
+        notifyOfficialWebsiteClicked();
       }}
       className={buttonClassName("primary", "w-full sm:w-auto text-base px-6 py-3.5")}
     >

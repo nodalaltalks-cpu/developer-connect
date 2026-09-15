@@ -1,11 +1,74 @@
 import type { DeveloperConnectRepositories, DeveloperGeoFilter } from "./repository.ts";
 import { toPublicDeveloperProfile, type PublicDeveloperProfile } from "./public-view.ts";
 
-const MAX_RESULTS = 20;
+/** Final, compact result count shown to a visitor — see the "keep the dropdown compact" requirement. */
+const RESULT_COUNT = 10;
+/**
+ * How many ACTIVE-developer rows the repository query fetches before
+ * ranking narrows them down to RESULT_COUNT. Wider than RESULT_COUNT so a
+ * real top match that the broad, recall-first repository query didn't
+ * happen to return first (see DeveloperRepository.search's token
+ * matching) still gets a chance to out-rank weaker matches, without
+ * pulling in a number of rows large enough to make every keystroke's
+ * verified-status check (one query per candidate) expensive.
+ */
+const FETCH_POOL_SIZE = 30;
 
 /** Trims and collapses internal whitespace so "  Lodha   Group " behaves like "Lodha Group". */
 export function normalizeSearchQuery(raw: string): string {
   return raw.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Explainable relevance score for one candidate against a search query —
+ * see the "Search ranking / relevance engine" requirement's hierarchy.
+ * Higher is more relevant. Deterministic (same inputs, same score) —
+ * no fabricated popularity/authority signal, only what's actually in the
+ * profile being searched. Checked roughly in the requested precedence
+ * order: exact name > legal name > prefix > whole-word token > substring
+ * name/legal > domain > city > state > country > headquarters, with a
+ * token-overlap fallback for a multi-word query ("Mumbai builders") where
+ * no single field contains the whole phrase but real fields still match
+ * individual words of it.
+ */
+function scoreDeveloperMatch(profile: PublicDeveloperProfile, query: string, tokens: string[]): number {
+  const q = query.toLowerCase();
+  const displayName = profile.displayName.toLowerCase();
+  const legalName = profile.legalName.toLowerCase();
+  const domain = profile.officialWebsite?.canonicalDomain.toLowerCase() ?? "";
+  const city = profile.city.toLowerCase();
+  const state = profile.state.toLowerCase();
+  const country = profile.country.toLowerCase();
+  const headquarters = profile.headquartersLocation?.toLowerCase() ?? "";
+
+  if (displayName === q) return 100;
+  if (legalName === q) return 95;
+  if (displayName.startsWith(q)) return 90;
+  if (legalName.startsWith(q)) return 85;
+
+  const nameWords = new Set(displayName.split(/\s+/));
+  if (tokens.length > 0 && tokens.every((token) => nameWords.has(token))) return 75;
+
+  if (displayName.includes(q)) return 70;
+  if (legalName.includes(q)) return 65;
+  if (domain.includes(q)) return 55;
+  if (city === q) return 48;
+  if (city.includes(q)) return 45;
+  if (state === q) return 38;
+  if (state.includes(q)) return 35;
+  if (country === q) return 28;
+  if (country.includes(q)) return 25;
+  if (headquarters.includes(q)) return 15;
+
+  let tokenScore = 0;
+  for (const token of tokens) {
+    if (displayName.includes(token)) tokenScore += 10;
+    else if (legalName.includes(token)) tokenScore += 8;
+    else if (city.includes(token)) tokenScore += 6;
+    else if (state.includes(token)) tokenScore += 4;
+    else if (country.includes(token)) tokenScore += 3;
+  }
+  return tokenScore;
 }
 
 /**
@@ -19,6 +82,12 @@ export function normalizeSearchQuery(raw: string): string {
  * narrows the same underlying query — see DeveloperRepository.search —
  * so search and the geography filters refine each other instead of
  * search silently ignoring whatever location is already selected.
+ *
+ * Ranking: the repository query is recall-first (broad token matching
+ * across name/city/state/country); this function is where precision
+ * happens — every candidate it returns is re-scored by scoreDeveloperMatch
+ * and sorted so the most relevant real match leads, not just whatever
+ * order the database happened to return rows in.
  */
 export async function searchPublicDevelopers(
   repos: DeveloperConnectRepositories,
@@ -27,8 +96,9 @@ export async function searchPublicDevelopers(
 ): Promise<PublicDeveloperProfile[]> {
   const query = normalizeSearchQuery(rawQuery);
   if (!query) return [];
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
 
-  const matches = await repos.developers.search(query, MAX_RESULTS, geo);
+  const matches = await repos.developers.search(query, FETCH_POOL_SIZE, geo);
 
   const results: PublicDeveloperProfile[] = [];
   for (const developer of matches) {
@@ -37,7 +107,12 @@ export async function searchPublicDevelopers(
       results.push(toPublicDeveloperProfile(developer, verified));
     }
   }
-  return results;
+
+  return results
+    .map((profile) => ({ profile, score: scoreDeveloperMatch(profile, query, tokens) }))
+    .sort((a, b) => b.score - a.score || a.profile.displayName.localeCompare(b.profile.displayName))
+    .slice(0, RESULT_COUNT)
+    .map((entry) => entry.profile);
 }
 
 /**
@@ -310,4 +385,85 @@ export async function getPublicDeveloperBySlug(
 
   const verified = await repos.candidates.getVerifiedForDeveloper(developer.id);
   return toPublicDeveloperProfile(developer, verified);
+}
+
+/**
+ * Deterministic 32-bit PRNG (mulberry32) seeded from a string — gives a
+ * per-visitor shuffle that's stable for the lifetime of one seed (e.g. a
+ * session id), reproducible for debugging, and requires no dependency.
+ * Never used for anything security-sensitive.
+ */
+function seededRandom(seed: string): () => number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(31, h) + seed.charCodeAt(i);
+    h |= 0;
+  }
+  let state = h >>> 0 || 1;
+  return () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Picks ~`count` real published developers for anonymous first-time
+ * homepage discovery (see Part 12/13 of the "initial 10" requirement) —
+ * never fake, never hardcoded, and never restricting what search/filters
+ * can still reach (this only ever narrows the DEFAULT no-filter view).
+ *
+ * `seed` (the visitor's existing anonymous session id, when one already
+ * exists) makes the selection stable for that visitor's whole session —
+ * reopening the homepage doesn't reshuffle it — while still varying
+ * across different sessions/logins, satisfying "changes across
+ * login/session experiences" without literally re-rolling on every
+ * request. A brand-new visitor with no session id yet gets a fresh
+ * random seed per request (no fallback to a fixed default), so the very
+ * first impression is never the same fixed set for everyone either.
+ *
+ * Diversification: round-robins across distinct cities (in the seeded
+ * shuffle's order) before taking a second developer from any city
+ * already represented — real geographic spread when the data supports
+ * it, never a fabricated "balanced" set when it doesn't.
+ */
+export function selectInitialHomepageDevelopers(
+  all: PublicDeveloperProfile[],
+  seed: string,
+  count = 10,
+): PublicDeveloperProfile[] {
+  if (all.length <= count) return all;
+
+  const random = seededRandom(seed);
+  const shuffled = [...all];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const byCity = new Map<string, PublicDeveloperProfile[]>();
+  for (const developer of shuffled) {
+    const key = developer.city.toLowerCase();
+    const bucket = byCity.get(key);
+    if (bucket) bucket.push(developer);
+    else byCity.set(key, [developer]);
+  }
+  const cityBuckets = [...byCity.values()];
+
+  const selected: PublicDeveloperProfile[] = [];
+  for (let round = 0; selected.length < count; round++) {
+    let addedThisRound = false;
+    for (const bucket of cityBuckets) {
+      if (selected.length >= count) break;
+      if (round < bucket.length) {
+        selected.push(bucket[round]);
+        addedThisRound = true;
+      }
+    }
+    if (!addedThisRound) break; // every bucket exhausted before reaching `count`
+  }
+
+  return selected;
 }

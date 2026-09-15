@@ -392,6 +392,45 @@ test(
   },
 );
 
+/**
+ * Regression test for a real bug this task introduced and fixed: an
+ * earlier version of search() tokenized the WHOLE query (name included)
+ * and OR'd every token against every field. A query like "Search Co
+ * <marker>" then matched via the single common word "Co" against
+ * hundreds of unrelated real developers' names ("... Co", "... Co Pvt
+ * Ltd", etc.) on this shared, populous test database — silently pushing
+ * the actually-intended match out of the result window. Name matching
+ * must stay a single whole-query ILIKE; only geography (city/state/
+ * country) is safe to tokenize, since a random test marker will never
+ * coincidentally spell out a real place name.
+ */
+test(
+  "postgres: a multi-word query containing a common short word ('Co') still finds the exact intended developer, not a flood of unrelated matches",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-service.ts");
+
+    const repos = createPostgresRepositories();
+    const uniqueMarker = randomUUID().slice(0, 8);
+    await createDeveloper(repos.developers, {
+      legalName: `TEST — Search Co ${uniqueMarker} Private Limited`,
+      displayName: `TEST — Search Co ${uniqueMarker}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+
+    const results = await repos.developers.search(`Search Co ${uniqueMarker}`);
+    assert.equal(
+      results.length,
+      1,
+      "a common word like 'Co' inside a multi-word query must not cause unrelated real developers to flood the result set",
+    );
+    assert.ok(results[0].displayName.includes(uniqueMarker));
+  },
+);
+
 test(
   "postgres: search input containing LIKE wildcard characters is matched literally, not as a pattern",
   { skip: !hasDatabase },

@@ -107,13 +107,25 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
       return updated;
     },
     async search(query, limit = 20, geo) {
-      const needle = query.toLowerCase();
+      // Mirrors postgres-repository.ts's search exactly: name matching is
+      // the whole (lowercased) query, never tokenized — see that
+      // function's comment for why a per-word OR is unsafe. Geography
+      // alone gets tokenized, since "Mumbai" alone should find a real
+      // Mumbai developer even inside a longer natural-language query.
+      const needle = query.trim().toLowerCase();
+      const geoTokens = needle.split(/\s+/).filter(Boolean);
       return Array.from(developers.values())
         .filter(
           (developer) =>
             developer.status === "ACTIVE" &&
             (developer.displayName.toLowerCase().includes(needle) ||
-              developer.legalName.toLowerCase().includes(needle)) &&
+              developer.legalName.toLowerCase().includes(needle) ||
+              geoTokens.some(
+                (token) =>
+                  developer.city.toLowerCase().includes(token) ||
+                  developer.state.toLowerCase().includes(token) ||
+                  developer.country.toLowerCase().includes(token),
+              )) &&
             (!geo?.country || developer.country.toLowerCase() === geo.country.toLowerCase()) &&
             (!geo?.state || developer.state.toLowerCase() === geo.state.toLowerCase()) &&
             (!geo?.city || developer.city.toLowerCase() === geo.city.toLowerCase()),

@@ -33,15 +33,22 @@ interface AnalyticsEventBase {
   deviceType?: DeviceType;
 }
 
+/** `country`/`state`/`city`, when present, are the visitor's active geography filter at search time (see GeoFilters) — never a guess about the searcher's own location. */
 export interface SearchPerformedEvent extends AnalyticsEventBase {
   eventName: "search_performed";
   query: string;
   resultCount: number;
+  country?: string;
+  state?: string;
+  city?: string;
 }
 
 export interface ZeroResultSearchEvent extends AnalyticsEventBase {
   eventName: "zero_result_search";
   query: string;
+  country?: string;
+  state?: string;
+  city?: string;
 }
 
 export interface SearchResultClickedEvent extends AnalyticsEventBase {

@@ -59,6 +59,35 @@ export interface SearchIntelligence {
   /** Zero-result queries — literally "high demand, no verified website yet." */
   highDemandUnverified: TopQuery[];
   searchBehavior: SearchBehaviorStats;
+  /** Real search volume grouped by the visitor's active geography filter at search time — never present for a filter-free search. */
+  geographyDemand: GeographySearchDemand;
+  /** Developers real visitors actually engage with, by real click-through events — never a fabricated popularity score. */
+  topEngagedDevelopers: DeveloperEngagementRow[];
+  authenticationSplit: SearchAuthenticationSplit;
+}
+
+export interface GeographyDemandRow {
+  value: string;
+  count: number;
+}
+
+export interface GeographySearchDemand {
+  byCountry: GeographyDemandRow[];
+  byState: GeographyDemandRow[];
+  byCity: GeographyDemandRow[];
+}
+
+export interface DeveloperEngagementRow {
+  developerId: string;
+  displayName: string;
+  searchResultClicks: number;
+  developerPageViews: number;
+  officialWebsiteClicks: number;
+}
+
+export interface SearchAuthenticationSplit {
+  anonymousSearches: number;
+  authenticatedSearches: number;
 }
 
 /**

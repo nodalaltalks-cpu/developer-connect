@@ -60,10 +60,21 @@ export function VerificationQueueList({ initialRows }: { initialRows: QueueRow[]
     setExpandedId((current) => (current === candidateId ? null : current));
   }
 
-  /** Keeps the collapsed row's own display name in sync after an inline edit — cosmetic only, the save itself already persisted. */
+  /**
+   * Keeps the collapsed row's own display name in sync after an inline
+   * edit, AND — critically — updates the cached reviewData entry that
+   * seeds CandidateReviewPanel's initial state. Without the second part,
+   * collapsing and re-expanding this same row remounts the panel with
+   * the ORIGINAL fetch (from before the edit), so a just-saved field
+   * (e.g. Headquarters) would appear to revert even though the database
+   * already has the new value — this is the fix for that exact bug.
+   */
   function handleDeveloperUpdated(candidateId: string, developer: Developer) {
     setRows((prev) =>
       prev.map((row) => (row.candidate.id === candidateId ? { ...row, developerName: developer.displayName } : row)),
+    );
+    setReviewData((prev) =>
+      prev[candidateId] ? { ...prev, [candidateId]: { ...prev[candidateId], developer } } : prev,
     );
   }
 
@@ -82,6 +93,13 @@ export function VerificationQueueList({ initialRows }: { initialRows: QueueRow[]
    * under it — an instant removal would hide that confirmation entirely.
    */
   function handleCandidateUpdated(candidateId: string, updated: WebsiteCandidate) {
+    // Same stale-cache fix as handleDeveloperUpdated, for candidate-level
+    // saves (e.g. the "Edit URL" control) — keeps the cached reviewData
+    // entry current so a collapse/re-expand of this row never shows an
+    // older candidate.url than what's actually persisted.
+    setReviewData((prev) =>
+      prev[candidateId] ? { ...prev, [candidateId]: { ...prev[candidateId], candidate: updated } } : prev,
+    );
     if (updated.verificationStatus === "VERIFIED") {
       setRows((prev) => prev.map((row) => (row.candidate.id === candidateId ? { ...row, candidate: updated } : row)));
       window.setTimeout(() => removeRow(candidateId), 1600);

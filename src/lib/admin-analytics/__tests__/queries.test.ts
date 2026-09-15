@@ -38,6 +38,12 @@ test(
     const search = await getSearchIntelligence();
     assert.ok(Array.isArray(search.topQueries));
     assert.ok(Array.isArray(search.highDemandUnverified));
+    assert.ok(Array.isArray(search.geographyDemand.byCountry));
+    assert.ok(Array.isArray(search.geographyDemand.byState));
+    assert.ok(Array.isArray(search.geographyDemand.byCity));
+    assert.ok(Array.isArray(search.topEngagedDevelopers));
+    assert.ok(search.authenticationSplit.anonymousSearches >= 0);
+    assert.ok(search.authenticationSplit.authenticatedSearches >= 0);
 
     const opportunities = await getHighPriorityVerificationOpportunities();
     assert.ok(Array.isArray(opportunities));
@@ -180,5 +186,103 @@ test(
     const { getExecutiveOverview } = await import("../queries.ts");
     const overview = await getExecutiveOverview();
     assert.ok(overview.pendingVerification >= 1, "the Overview's pendingVerification must be non-zero once a DISCOVERED candidate exists");
+  },
+);
+
+/**
+ * Regression coverage for the Search Intelligence strengthening (geo
+ * demand, developer engagement, anonymous/authenticated split). Writes
+ * directly through postgresAnalyticsSink (the same sink public-actions.ts
+ * uses) rather than through the "use server" actions themselves, which
+ * require a live Next.js request context (cookies/auth) this plain
+ * node:test environment doesn't provide.
+ *
+ * Asserts against the real underlying table with a uniquely-tagged value
+ * (not the ranked/limited top-10 aggregate, which — like the
+ * Pending-verification test above — is inherently racy on this shared
+ * database across concurrent test runs) so this test is deterministic
+ * regardless of what else has ever been recorded.
+ */
+test(
+  "admin-analytics: search geography, developer engagement, and auth-split are real, queryable data — not fabricated",
+  { skip: !hasTestDatabase },
+  async () => {
+    const { randomUUID } = await import("node:crypto");
+    const { getDb } = await import("../../developer-connect/db/client.ts");
+    const { analyticsEvents } = await import("../../developer-connect/db/schema.ts");
+    const { and, eq, sql: sqlTag } = await import("drizzle-orm");
+    const { postgresAnalyticsSink } = await import("../../developer-connect/db/postgres-analytics-sink.ts");
+    const { createPostgresRepositories } = await import("../../developer-connect/db/postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-connect/developer-service.ts");
+    const { submitWebsiteCandidate } = await import("../../developer-connect/candidate-service.ts");
+    const { approveAndPublishCandidate } = await import("../../developer-connect/verification-service.ts");
+
+    const db = getDb();
+    const repos = createPostgresRepositories();
+    const founder = { actorType: "FOUNDER" as const, actorId: "test-founder" };
+    const marker = randomUUID();
+    const uniqueCountry = `TEST-COUNTRY-${marker}`;
+    const uniqueUserId = `test-user-${marker}`;
+
+    // 1. A geo-tagged search — proves country/state/city land in the
+    // real JSONB payload and are extractable via ->>'country'.
+    await postgresAnalyticsSink.record({
+      eventName: "search_performed",
+      occurredAt: new Date(),
+      sessionId: `test-session-${marker}`,
+      query: "geo demand test",
+      resultCount: 1,
+      country: uniqueCountry,
+    });
+    const [geoRow] = await db
+      .select({ n: sqlTag<number>`count(*)` })
+      .from(analyticsEvents)
+      .where(
+        sqlTag`${analyticsEvents.eventName} = 'search_performed' and ${analyticsEvents.payload}->>'country' = ${uniqueCountry}`,
+      );
+    assert.equal(Number(geoRow?.n ?? 0), 1, "the geo-tagged search event must be stored with its real country value");
+
+    // 2. A real developer engagement event — proves developerId + eventName grouping is real.
+    const developer = await createDeveloper(repos.developers, {
+      legalName: `TEST — Engagement Co ${marker}`,
+      displayName: `TEST — Engagement Co ${marker}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+    const candidate = await submitWebsiteCandidate(repos, {
+      developerId: developer.id,
+      url: `https://engagement-${marker}.example`,
+      discoverySource: "MANUAL_SUBMISSION",
+      actor: founder,
+    });
+    await approveAndPublishCandidate(repos, candidate.id, founder, "Confirmed official site");
+    await postgresAnalyticsSink.record({
+      eventName: "official_website_clicked",
+      occurredAt: new Date(),
+      sessionId: `test-session-${marker}`,
+      developerId: developer.id,
+      targetDomain: `engagement-${marker}.example`,
+    });
+    const [clickRow] = await db
+      .select({ n: sqlTag<number>`count(*)` })
+      .from(analyticsEvents)
+      .where(and(eq(analyticsEvents.eventName, "official_website_clicked"), eq(analyticsEvents.developerId, developer.id)));
+    assert.equal(Number(clickRow?.n ?? 0), 1, "the real developer's official-website click must be recorded against its real id");
+
+    // 3. An authenticated search — proves userId is captured (not always null).
+    await postgresAnalyticsSink.record({
+      eventName: "search_performed",
+      occurredAt: new Date(),
+      sessionId: `test-session-${marker}`,
+      userId: uniqueUserId,
+      query: "auth split test",
+      resultCount: 1,
+    });
+    const [authRow] = await db
+      .select({ n: sqlTag<number>`count(*)` })
+      .from(analyticsEvents)
+      .where(and(eq(analyticsEvents.eventName, "search_performed"), eq(analyticsEvents.userId, uniqueUserId)));
+    assert.equal(Number(authRow?.n ?? 0), 1, "an authenticated search must be recorded with its real userId, not silently dropped");
   },
 );

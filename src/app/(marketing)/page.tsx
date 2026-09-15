@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SearchBox } from "@/components/search-box";
 import { SiteHeader } from "@/components/site-header";
@@ -5,8 +7,10 @@ import { SiteFooter } from "@/components/site-footer";
 import { DeveloperCard } from "@/components/developer-card";
 import { GeoFilters } from "@/components/geo-filters";
 import { StatCounter } from "@/components/stat-counter";
+import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { getPublicHomepageData } from "@/lib/developer-connect/search-service";
+import { getPublicHomepageData, selectInitialHomepageDevelopers } from "@/lib/developer-connect/search-service";
+import { readSessionId } from "@/lib/session";
 
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -27,6 +31,19 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     state,
     city,
   });
+
+  // Anonymous, no-filter "initial discovery" only ever narrows THIS
+  // default view — search, filters, and signed-in visitors always reach
+  // the full published directory (see selectInitialHomepageDevelopers).
+  // Does not touch `stats`, which always reflects the real, complete
+  // dataset regardless of what's shown below it.
+  const { userId } = await auth();
+  const isInitialDiscovery = !userId && !hasActiveFilter;
+  const sessionId = await readSessionId();
+  const visibleDirectory = isInitialDiscovery
+    ? selectInitialHomepageDevelopers(directory, sessionId ?? randomUUID())
+    : directory;
+  const isLimitedView = isInitialDiscovery && visibleDirectory.length < directory.length;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -73,7 +90,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               navigation.
             </p>
 
-            {directory.length === 0 ? (
+            {visibleDirectory.length === 0 ? (
               <div className="mt-6 rounded-lg border border-dashed border-border p-8 text-center">
                 <p className="font-medium text-foreground">
                   {hasActiveFilter ? "No verified developers match these filters." : "No verified developers yet."}
@@ -85,17 +102,26 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 </p>
               </div>
             ) : (
-              <div className="mt-6 grid items-stretch gap-4 sm:grid-cols-2">
-                {directory.map((developer) => (
-                  <DeveloperCard key={developer.id} developer={developer} />
-                ))}
-              </div>
+              <>
+                <div className="mt-6 grid items-stretch gap-4 sm:grid-cols-2">
+                  {visibleDirectory.map((developer) => (
+                    <DeveloperCard key={developer.id} developer={developer} />
+                  ))}
+                </div>
+                {isLimitedView && (
+                  <p className="mt-4 text-center text-sm text-muted-foreground">
+                    Showing {visibleDirectory.length} of {directory.length} verified developers.{" "}
+                    Search, use filters, or sign in to see the full directory.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </Container>
       </main>
 
       <SiteFooter />
+      {!userId && <LoginConversionPrompt />}
     </div>
   );
 }

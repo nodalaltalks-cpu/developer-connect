@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { VerifiedBadge } from "@/components/verified-badge";
@@ -10,6 +11,7 @@ import { DeveloperPageViewTracker } from "@/components/developer-page-view-track
 import { ShareDeveloper } from "@/components/share-developer";
 import { ReportInaccurateInfo } from "@/components/report-inaccurate-info";
 import { SiteFooter } from "@/components/site-footer";
+import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicDeveloperBySlug } from "@/lib/developer-connect/search-service";
 
@@ -62,6 +64,8 @@ export default async function DeveloperPage({
   if (!developer) {
     notFound();
   }
+
+  const { userId } = await auth();
 
   return (
     <div className="flex flex-1 flex-col">
@@ -144,6 +148,7 @@ export default async function DeveloperPage({
       </main>
 
       <SiteFooter />
+      {!userId && <LoginConversionPrompt />}
     </div>
   );
 }

@@ -6,7 +6,9 @@ import {
   listVerifiedDevelopers,
   listPublicGeographyOptions,
   getPublicHomepageData,
+  selectInitialHomepageDevelopers,
 } from "../search-service.ts";
+import type { PublicDeveloperProfile } from "../public-view.ts";
 import { submitWebsiteCandidate } from "../candidate-service.ts";
 import { approveCandidate, markReadyForReview } from "../verification-service.ts";
 import { createDeveloper } from "../developer-service.ts";
@@ -80,6 +82,85 @@ test("search-service: search results never expose internal verification fields",
   assert.ok(!serialized.includes("confidenceScore"));
   assert.ok(!serialized.includes("reviewedBy"));
   assert.ok(!serialized.includes(founder.actorId));
+});
+
+// --- Search ranking: exact/prefix name matches must outrank weaker
+// matches (city/state/country/token), and a multi-word natural-language
+// query must find a developer even when no single field contains the
+// whole phrase. ---
+
+test("search-service: an exact display-name match ranks above a mere substring match elsewhere", async () => {
+  const { repos, developer: exact } = await setUpTestDeveloper({
+    displayName: "Lodha",
+    legalName: "Test Lodha Group Private Limited",
+  });
+  await verifyDeveloper(repos, exact.id, "https://lodha.example");
+
+  const substringMatch = await createDeveloper(repos.developers, {
+    legalName: "Test Something Lodha Mentions Private Limited",
+    displayName: "Test Something Lodha Mentions",
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, substringMatch.id, "https://other.example");
+
+  const results = await searchPublicDevelopers(repos, "Lodha");
+  assert.equal(results[0]?.id, exact.id, "the exact display-name match must rank first");
+});
+
+test("search-service: a prefix match ranks above a match that only appears mid-name", async () => {
+  const { repos, developer: prefix } = await setUpTestDeveloper({
+    displayName: "Test Runwal Realty",
+    legalName: "Test Runwal Realty Private Limited",
+  });
+  await verifyDeveloper(repos, prefix.id, "https://runwal.example");
+
+  const midName = await createDeveloper(repos.developers, {
+    legalName: "Test Something Test Runwal Mentions Private Limited",
+    displayName: "Test Something Test Runwal Mentions",
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, midName.id, "https://other2.example");
+
+  const results = await searchPublicDevelopers(repos, "Test Runwal");
+  assert.equal(results[0]?.id, prefix.id, "the name that STARTS WITH the query must rank first");
+});
+
+test("search-service: 'developers in Mumbai' style natural-language queries still find a Mumbai developer via city-token matching", async () => {
+  const { repos, developer } = await setUpTestDeveloper({ displayName: "Test Mumbai Match Co" });
+  await verifyDeveloper(repos, developer.id, "https://mumbai-match.example");
+
+  const results = await searchPublicDevelopers(repos, "developers in Mumbai");
+  assert.ok(
+    results.some((d) => d.id === developer.id),
+    "a real Mumbai developer must be found even though no single field contains the full phrase " +
+      "'developers in Mumbai' — 'Mumbai' alone should match the city",
+  );
+});
+
+test("search-service: a developer whose NAME contains the query ranks above one that only matches via its city, per the stated hierarchy", async () => {
+  const { repos, developer: nameMatch } = await setUpTestDeveloper({ displayName: "Test Mumbai Word In Name" });
+  await verifyDeveloper(repos, nameMatch.id, "https://name-match.example");
+
+  const cityOnlyMatch = await createDeveloper(repos.developers, {
+    legalName: "Test Prime Developers Private Limited",
+    displayName: "Test Prime Developers", // does not contain "Mumbai" — only the city field does
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, cityOnlyMatch.id, "https://city-only.example");
+
+  const results = await searchPublicDevelopers(repos, "Mumbai");
+  const ranks = new Map(results.map((d, i) => [d.id, i]));
+  assert.ok(
+    (ranks.get(nameMatch.id) ?? Infinity) < (ranks.get(cityOnlyMatch.id) ?? Infinity),
+    "a developer whose NAME literally contains the query text should rank above one matching only via its city — " +
+      "name relevance outranks location relevance in the stated hierarchy",
+  );
 });
 
 test("listVerifiedDevelopers: returns nothing when no developer has a verified website", async () => {
@@ -404,6 +485,64 @@ test("getPublicHomepageData: search and geographic filters narrow the SAME datas
 
   const geoOnly = await getPublicHomepageData(repos, { city: "Pune" });
   assert.deepEqual(geoOnly.directory.map((d) => d.id), [puneLodha.id]);
+});
+
+// --- selectInitialHomepageDevelopers: the anonymous-visitor "initial ~10"
+// selection — pure function over already-fetched real profiles, never a
+// hardcoded list, never fake data. ---
+
+function fakeProfile(overrides: Partial<PublicDeveloperProfile> & { id: string; city: string }): PublicDeveloperProfile {
+  return {
+    legalName: `Test ${overrides.id} Private Limited`,
+    displayName: `Test ${overrides.id}`,
+    slug: `test-${overrides.id}`,
+    state: "Maharashtra",
+    country: "India",
+    officialWebsite: null,
+    ...overrides,
+  };
+}
+
+test("selectInitialHomepageDevelopers: returns everything unchanged when the pool is already at or below the target count", () => {
+  const pool = [fakeProfile({ id: "1", city: "Mumbai" }), fakeProfile({ id: "2", city: "Pune" })];
+  assert.deepEqual(selectInitialHomepageDevelopers(pool, "seed-a", 10), pool);
+});
+
+test("selectInitialHomepageDevelopers: never fabricates a developer — every selected profile is one of the real inputs", () => {
+  const pool = Array.from({ length: 30 }, (_, i) => fakeProfile({ id: String(i), city: `City${i % 5}` }));
+  const selected = selectInitialHomepageDevelopers(pool, "seed-b", 10);
+  assert.equal(selected.length, 10);
+  const poolIds = new Set(pool.map((d) => d.id));
+  assert.ok(selected.every((d) => poolIds.has(d.id)));
+  assert.equal(new Set(selected.map((d) => d.id)).size, 10, "no duplicate developer in the selection");
+});
+
+test("selectInitialHomepageDevelopers: the same seed always produces the same selection (stable within one visitor's session)", () => {
+  const pool = Array.from({ length: 40 }, (_, i) => fakeProfile({ id: String(i), city: `City${i % 7}` }));
+  const first = selectInitialHomepageDevelopers(pool, "same-session-id", 10);
+  const second = selectInitialHomepageDevelopers(pool, "same-session-id", 10);
+  assert.deepEqual(first.map((d) => d.id), second.map((d) => d.id));
+});
+
+test("selectInitialHomepageDevelopers: different seeds can produce different selections (varies across sessions)", () => {
+  const pool = Array.from({ length: 50 }, (_, i) => fakeProfile({ id: String(i), city: `City${i % 10}` }));
+  const a = selectInitialHomepageDevelopers(pool, "session-a", 10).map((d) => d.id);
+  const b = selectInitialHomepageDevelopers(pool, "session-b", 10).map((d) => d.id);
+  assert.notDeepEqual(a, b);
+});
+
+test("selectInitialHomepageDevelopers: spreads across distinct cities before repeating a city, when enough cities exist", () => {
+  // 10 cities, 3 developers each — plenty of spread available.
+  const pool = Array.from({ length: 30 }, (_, i) => fakeProfile({ id: String(i), city: `City${i % 10}` }));
+  const selected = selectInitialHomepageDevelopers(pool, "diversity-seed", 10);
+  const distinctCities = new Set(selected.map((d) => d.city));
+  assert.equal(distinctCities.size, 10, "with 10 available cities, the first 10 picks should cover all of them");
+});
+
+test("selectInitialHomepageDevelopers: never crashes or under-fills when there isn't enough geographic spread — real data is the ceiling, never fabricated to reach the count", () => {
+  const pool = Array.from({ length: 3 }, (_, i) => fakeProfile({ id: String(i), city: "Mumbai" }));
+  const selected = selectInitialHomepageDevelopers(pool, "seed-c", 10);
+  assert.equal(selected.length, 3, "only 3 real developers exist, so only 3 are returned — never padded with fakes");
 });
 
 test("getPublicHomepageData: 'citiesCovered' counts distinct real markets, never inflated by casing duplicates", async () => {

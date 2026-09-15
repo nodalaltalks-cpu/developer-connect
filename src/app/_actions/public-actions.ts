@@ -1,5 +1,6 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { searchPublicDevelopers } from "@/lib/developer-connect/search-service";
 import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analytics-sink";
@@ -7,6 +8,12 @@ import { safeRecordAnalyticsEvent } from "@/lib/developer-connect/events";
 import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 import type { DeveloperGeoFilter } from "@/lib/developer-connect/repository";
+
+/** The signed-in Clerk user id, when the request happens to be authenticated — never required, never inferred. */
+async function currentUserId(): Promise<string | undefined> {
+  const { userId } = await auth();
+  return userId ?? undefined;
+}
 
 /**
  * The public journey's only entry points into the domain layer. Every
@@ -30,13 +37,18 @@ export async function searchDevelopers(
   if (query) {
     const sessionId = await getOrCreateSessionId();
     const deviceType = await getDeviceType();
+    const userId = await currentUserId();
     if (results.length === 0) {
       await safeRecordAnalyticsEvent(postgresAnalyticsSink, {
         eventName: "zero_result_search",
         occurredAt: new Date(),
         sessionId,
         deviceType,
+        userId,
         query,
+        country: geo?.country,
+        state: geo?.state,
+        city: geo?.city,
       });
     } else {
       await safeRecordAnalyticsEvent(postgresAnalyticsSink, {
@@ -44,8 +56,12 @@ export async function searchDevelopers(
         occurredAt: new Date(),
         sessionId,
         deviceType,
+        userId,
         query,
         resultCount: results.length,
+        country: geo?.country,
+        state: geo?.state,
+        city: geo?.city,
       });
     }
   }
@@ -60,11 +76,13 @@ export async function recordSearchResultClick(
 ): Promise<void> {
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
+  const userId = await currentUserId();
   await safeRecordAnalyticsEvent(postgresAnalyticsSink, {
     eventName: "search_result_clicked",
     occurredAt: new Date(),
     sessionId,
     deviceType,
+    userId,
     developerId,
     query,
     position,
@@ -77,11 +95,13 @@ export async function recordDeveloperPageView(
 ): Promise<void> {
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
+  const userId = await currentUserId();
   await safeRecordAnalyticsEvent(postgresAnalyticsSink, {
     eventName: "developer_page_viewed",
     occurredAt: new Date(),
     sessionId,
     deviceType,
+    userId,
     developerId,
     referrerQuery,
   });
@@ -93,11 +113,13 @@ export async function recordOfficialWebsiteClick(
 ): Promise<void> {
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
+  const userId = await currentUserId();
   await safeRecordAnalyticsEvent(postgresAnalyticsSink, {
     eventName: "official_website_clicked",
     occurredAt: new Date(),
     sessionId,
     deviceType,
+    userId,
     developerId,
     targetDomain,
   });
@@ -109,11 +131,13 @@ export async function recordDeveloperShare(
 ): Promise<void> {
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
+  const userId = await currentUserId();
   await safeRecordAnalyticsEvent(postgresAnalyticsSink, {
     eventName: "developer_shared",
     occurredAt: new Date(),
     sessionId,
     deviceType,
+    userId,
     developerId,
     method,
   });

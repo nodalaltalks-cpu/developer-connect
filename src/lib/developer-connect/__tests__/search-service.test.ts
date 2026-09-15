@@ -89,6 +89,64 @@ test("search-service: search results never expose internal verification fields",
 // query must find a developer even when no single field contains the
 // whole phrase. ---
 
+test("search-service: a preferredCity (from a signed-in visitor's own profile) nudges an otherwise-tied result up, without hiding the other one", async () => {
+  const { repos, developer: mumbaiOne } = await setUpTestDeveloper({
+    displayName: "Test Realty Group Mumbai",
+    legalName: "Test Realty Group Mumbai Private Limited",
+  });
+  await verifyDeveloper(repos, mumbaiOne.id, "https://mumbai.example");
+
+  const puneOne = await createDeveloper(repos.developers, {
+    legalName: "Test Realty Group Pune Private Limited",
+    displayName: "Test Realty Group Pune",
+    city: "Pune",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, puneOne.id, "https://pune.example");
+
+  const withoutPreference = await searchPublicDevelopers(repos, "Test Realty Group");
+  assert.deepEqual(
+    new Set(withoutPreference.map((d) => d.id)),
+    new Set([mumbaiOne.id, puneOne.id]),
+    "both must still be reachable with no preference set",
+  );
+
+  const withMumbaiPreference = await searchPublicDevelopers(repos, "Test Realty Group", undefined, "Mumbai");
+  assert.equal(withMumbaiPreference[0]?.id, mumbaiOne.id, "the visitor's own preferred city should rank first on a tie");
+  assert.ok(
+    withMumbaiPreference.some((d) => d.id === puneOne.id),
+    "the non-preferred-city developer must still be reachable, never hidden by the preference",
+  );
+});
+
+test("search-service: a preferredCity never out-ranks a genuinely stronger match", async () => {
+  const { repos, developer: exactMatch } = await setUpTestDeveloper({
+    displayName: "Test Exact Match Co",
+    legalName: "Test Exact Match Co Private Limited",
+    // default city from setUpTestDeveloper is Mumbai; give this one a
+    // DIFFERENT city so the preference alone could never explain the win
+  });
+  await repos.developers.update(exactMatch.id, { city: "Pune" });
+  await verifyDeveloper(repos, exactMatch.id, "https://exact.example");
+
+  const cityOnlyMatch = await createDeveloper(repos.developers, {
+    legalName: "Test Prime Developers Private Limited",
+    displayName: "Test Prime Developers", // does not contain the query text
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, cityOnlyMatch.id, "https://prime.example");
+
+  const results = await searchPublicDevelopers(repos, "Test Exact Match Co", undefined, "Mumbai");
+  assert.equal(
+    results[0]?.id,
+    exactMatch.id,
+    "a real exact name match must still win even when the OTHER candidate is in the visitor's preferred city",
+  );
+});
+
 test("search-service: an exact display-name match ranks above a mere substring match elsewhere", async () => {
   const { repos, developer: exact } = await setUpTestDeveloper({
     displayName: "Lodha",

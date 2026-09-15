@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "./client.ts";
 import * as schema from "./schema.ts";
@@ -225,10 +225,20 @@ function buildDeveloperRepository(db: DbOrTx): DeveloperRepository {
       if (geo?.country) conditions.push(ilike(schema.developers.country, geo.country));
       if (geo?.state) conditions.push(ilike(schema.developers.state, geo.state));
       if (geo?.city) conditions.push(ilike(schema.developers.city, geo.city));
+      // A cheap SQL-level pre-sort — NOT the final ranking (search-service.ts's
+      // scoreDeveloperMatch owns that) — that only exists so a common short
+      // query on a large table doesn't truncate at `limit` before the real
+      // best (prefix) matches ever reach the app. Without this, a query
+      // like "L" could fill the whole limit with arbitrary substring
+      // matches ("XYZ Land Co", "ABC Ltd", ...) and never even fetch
+      // "Lodha", since a plain ILIKE with no ORDER BY makes no promises
+      // about which matching rows Postgres returns first.
+      const prefixPriority = sql`case when ${schema.developers.displayName} ilike ${query + "%"} then 0 when ${schema.developers.legalName} ilike ${query + "%"} then 1 else 2 end`;
       const rows = await db
         .select()
         .from(schema.developers)
         .where(and(...conditions))
+        .orderBy(prefixPriority, asc(schema.developers.displayName))
         .limit(limit);
       return rows.map(toDeveloper);
     },

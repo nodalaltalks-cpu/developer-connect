@@ -31,7 +31,12 @@ export function normalizeSearchQuery(raw: string): string {
  * no single field contains the whole phrase but real fields still match
  * individual words of it.
  */
-function scoreDeveloperMatch(profile: PublicDeveloperProfile, query: string, tokens: string[]): number {
+function scoreDeveloperMatch(
+  profile: PublicDeveloperProfile,
+  query: string,
+  tokens: string[],
+  preferredCity?: string,
+): number {
   const q = query.toLowerCase();
   const displayName = profile.displayName.toLowerCase();
   const legalName = profile.legalName.toLowerCase();
@@ -41,24 +46,31 @@ function scoreDeveloperMatch(profile: PublicDeveloperProfile, query: string, tok
   const country = profile.country.toLowerCase();
   const headquarters = profile.headquartersLocation?.toLowerCase() ?? "";
 
-  if (displayName === q) return 100;
-  if (legalName === q) return 95;
-  if (displayName.startsWith(q)) return 90;
-  if (legalName.startsWith(q)) return 85;
+  // A small tie-breaking nudge from the signed-in visitor's own profile
+  // city (Part 11/15) — never large enough to out-rank a genuinely
+  // stronger name/location match on the query itself, and never a filter
+  // (a developer elsewhere is still fully reachable; see
+  // searchPublicDevelopers's doc comment).
+  const preferenceBonus = preferredCity && city === preferredCity.toLowerCase() ? 3 : 0;
+
+  if (displayName === q) return 100 + preferenceBonus;
+  if (legalName === q) return 95 + preferenceBonus;
+  if (displayName.startsWith(q)) return 90 + preferenceBonus;
+  if (legalName.startsWith(q)) return 85 + preferenceBonus;
 
   const nameWords = new Set(displayName.split(/\s+/));
-  if (tokens.length > 0 && tokens.every((token) => nameWords.has(token))) return 75;
+  if (tokens.length > 0 && tokens.every((token) => nameWords.has(token))) return 75 + preferenceBonus;
 
-  if (displayName.includes(q)) return 70;
-  if (legalName.includes(q)) return 65;
-  if (domain.includes(q)) return 55;
-  if (city === q) return 48;
-  if (city.includes(q)) return 45;
-  if (state === q) return 38;
-  if (state.includes(q)) return 35;
-  if (country === q) return 28;
-  if (country.includes(q)) return 25;
-  if (headquarters.includes(q)) return 15;
+  if (displayName.includes(q)) return 70 + preferenceBonus;
+  if (legalName.includes(q)) return 65 + preferenceBonus;
+  if (domain.includes(q)) return 55 + preferenceBonus;
+  if (city === q) return 48 + preferenceBonus;
+  if (city.includes(q)) return 45 + preferenceBonus;
+  if (state === q) return 38 + preferenceBonus;
+  if (state.includes(q)) return 35 + preferenceBonus;
+  if (country === q) return 28 + preferenceBonus;
+  if (country.includes(q)) return 25 + preferenceBonus;
+  if (headquarters.includes(q)) return 15 + preferenceBonus;
 
   let tokenScore = 0;
   for (const token of tokens) {
@@ -68,7 +80,7 @@ function scoreDeveloperMatch(profile: PublicDeveloperProfile, query: string, tok
     else if (state.includes(token)) tokenScore += 4;
     else if (country.includes(token)) tokenScore += 3;
   }
-  return tokenScore;
+  return tokenScore > 0 ? tokenScore + preferenceBonus : 0;
 }
 
 /**
@@ -88,11 +100,17 @@ function scoreDeveloperMatch(profile: PublicDeveloperProfile, query: string, tok
  * happens — every candidate it returns is re-scored by scoreDeveloperMatch
  * and sorted so the most relevant real match leads, not just whatever
  * order the database happened to return rows in.
+ *
+ * `preferredCity`, when given (a signed-in visitor's own profile city —
+ * see public-actions.ts), only ever nudges ties; it can never make a
+ * weaker match outrank a stronger one, and never restricts which
+ * developers are reachable — the user can always search anywhere.
  */
 export async function searchPublicDevelopers(
   repos: DeveloperConnectRepositories,
   rawQuery: string,
   geo?: DeveloperGeoFilter,
+  preferredCity?: string,
 ): Promise<PublicDeveloperProfile[]> {
   const query = normalizeSearchQuery(rawQuery);
   if (!query) return [];
@@ -109,7 +127,7 @@ export async function searchPublicDevelopers(
   }
 
   return results
-    .map((profile) => ({ profile, score: scoreDeveloperMatch(profile, query, tokens) }))
+    .map((profile) => ({ profile, score: scoreDeveloperMatch(profile, query, tokens, preferredCity) }))
     .sort((a, b) => b.score - a.score || a.profile.displayName.localeCompare(b.profile.displayName))
     .slice(0, RESULT_COUNT)
     .map((entry) => entry.profile);

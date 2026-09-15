@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ProfileCompletion } from "@/lib/profile/types";
 
 const BAND_LABEL: Record<NonNullable<ProfileCompletion["band"]>, string> = {
@@ -23,6 +24,52 @@ const MILESTONES = [
   { threshold: 75, label: "Almost there" },
   { threshold: 100, label: "Profile complete" },
 ];
+
+/**
+ * Compact "what's left" (Part 4): completed sections get a quiet
+ * checkmark, incomplete ones become direct links to `/profile?section=…`
+ * — ProfileEditor already scrolls/focuses that section on load (see
+ * requestedSectionId), so this is a real one-click jump, never "go hunt
+ * for it yourself."
+ */
+function WhatsLeft({ completion }: { completion: ProfileCompletion }) {
+  const done = completion.sections.filter((s) => s.complete);
+  const remaining = completion.sections.filter((s) => !s.complete && s.totalFields > 0);
+  if (remaining.length === 0) return null;
+
+  return (
+    <div className="mt-3 text-sm">
+      {done.length > 0 && (
+        <ul className="space-y-1">
+          {done.map((section) => (
+            <li key={section.sectionId} className="flex items-center gap-1.5 text-muted-foreground">
+              <span aria-hidden="true" className="text-accent-hover">
+                ✓
+              </span>
+              {section.title}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className={`text-xs font-medium uppercase tracking-wide text-muted-foreground ${done.length > 0 ? "mt-3" : ""}`}>
+        Still useful
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {remaining.map((section) => (
+          <li key={section.sectionId}>
+            <Link
+              href={`/profile?section=${section.sectionId}`}
+              className="inline-flex items-center gap-1.5 text-accent-hover hover:underline"
+            >
+              <span aria-hidden="true">→</span>
+              {section.title}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 /** Renders profile strength, milestones, and the completion moment. Only reachable once PROFILE_FIELD_CONFIG has real fields. */
 export function ProfileCompletionSummary({ completion }: { completion: ProfileCompletion }) {
@@ -59,12 +106,7 @@ export function ProfileCompletionSummary({ completion }: { completion: ProfileCo
           Thanks — we now have a better understanding of what matters to you.
         </p>
       ) : (
-        completion.missingFieldKeys.length > 0 && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            You have {completion.missingFieldKeys.length} detail
-            {completion.missingFieldKeys.length === 1 ? "" : "s"} left to add.
-          </p>
-        )
+        completion.missingFieldKeys.length > 0 && <WhatsLeft completion={completion} />
       )}
 
       <ol className="mt-4 flex items-center gap-2" aria-label="Profile milestones">

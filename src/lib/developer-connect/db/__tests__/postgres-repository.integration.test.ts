@@ -1015,6 +1015,71 @@ test(
   },
 );
 
+test(
+  "postgres: getRecentlyViewedDevelopers reads real developer_page_viewed events, most-recent-per-developer, and drops anything no longer publicly verified",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-service.ts");
+    const { submitWebsiteCandidate } = await import("../../candidate-service.ts");
+    const { approveAndPublishCandidate } = await import("../../verification-service.ts");
+    const { getRecentlyViewedDevelopers } = await import("../../recently-viewed.ts");
+    const { postgresAnalyticsSink } = await import("../postgres-analytics-sink.ts");
+
+    const repos = createPostgresRepositories();
+    const founder = { actorType: "FOUNDER" as const, actorId: "test-founder" };
+    const marker = randomUUID();
+    const sessionId = `test-session-${marker}`;
+
+    const viewed = await createDeveloper(repos.developers, {
+      legalName: `TEST — Recently Viewed Co ${marker}`,
+      displayName: `TEST — Recently Viewed Co ${marker}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+    const viewedCandidate = await submitWebsiteCandidate(repos, {
+      developerId: viewed.id,
+      url: `https://recently-viewed-${marker}.example`,
+      discoverySource: "MANUAL_SUBMISSION",
+      actor: founder,
+    });
+    await approveAndPublishCandidate(repos, viewedCandidate.id, founder, "Confirmed official site");
+
+    const neverPublished = await createDeveloper(repos.developers, {
+      legalName: `TEST — Never Published Co ${marker}`,
+      displayName: `TEST — Never Published Co ${marker}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+
+    await postgresAnalyticsSink.record({
+      eventName: "developer_page_viewed",
+      occurredAt: new Date(),
+      sessionId,
+      developerId: viewed.id,
+    });
+    // A second, later view of the SAME developer — must still only appear once.
+    await postgresAnalyticsSink.record({
+      eventName: "developer_page_viewed",
+      occurredAt: new Date(),
+      sessionId,
+      developerId: viewed.id,
+    });
+    // A view of a developer that was never published — must never surface publicly.
+    await postgresAnalyticsSink.record({
+      eventName: "developer_page_viewed",
+      occurredAt: new Date(),
+      sessionId,
+      developerId: neverPublished.id,
+    });
+
+    const recent = await getRecentlyViewedDevelopers(repos, { sessionId });
+    assert.deepEqual(recent.map((d) => d.id), [viewed.id]);
+  },
+);
+
 test.after(async () => {
   if (!hasDatabase) return;
   const { closeDb } = await import("../client.ts");

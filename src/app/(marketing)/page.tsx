@@ -8,8 +8,10 @@ import { DeveloperCard } from "@/components/developer-card";
 import { GeoFilters } from "@/components/geo-filters";
 import { StatCounter } from "@/components/stat-counter";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
+import { ContinueResearch } from "@/components/continue-research";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicHomepageData, selectInitialHomepageDevelopers } from "@/lib/developer-connect/search-service";
+import { getRecentlyViewedDevelopers } from "@/lib/developer-connect/recently-viewed";
 import { readSessionId } from "@/lib/session";
 
 function firstValue(value: string | string[] | undefined): string | undefined {
@@ -45,6 +47,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     : directory;
   const isLimitedView = isInitialDiscovery && visibleDirectory.length < directory.length;
 
+  // "Continue your research" (Part 8/9) — only on the plain, unfiltered
+  // landing view; a visitor actively searching/filtering is already mid-
+  // research, not returning to resume it. Real data only — no entry for
+  // a visitor with no view history yet (see ContinueResearch).
+  const recentlyViewed = hasActiveFilter
+    ? []
+    : await getRecentlyViewedDevelopers(repos, { userId: userId ?? undefined, sessionId: sessionId ?? undefined });
+
   return (
     <div className="flex flex-1 flex-col">
       <SiteHeader />
@@ -71,6 +81,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               <StatCounter value={stats.citiesCovered} label="Markets covered" />
             </div>
           </div>
+
+          <ContinueResearch developers={recentlyViewed} />
 
           <div className="mx-auto mt-12 max-w-5xl sm:mt-16">
             <div className="flex flex-wrap items-end justify-between gap-4">

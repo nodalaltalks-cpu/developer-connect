@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { SignInButton, UserButton } from "@clerk/nextjs";
+import { SignInButton } from "@clerk/nextjs";
 import { Container } from "@/components/ui/container";
 import { NotificationBell } from "@/components/notification-bell";
+import { ProfileHeaderLink } from "@/components/profile-header-link";
+import { AccountMenu } from "@/components/account-menu";
+import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
+import { calculateProfileCompletion } from "@/lib/profile/completion";
 
 /**
  * Shared public header. Deliberately carries no admin/founder navigation
@@ -16,6 +20,16 @@ import { NotificationBell } from "@/components/notification-bell";
 export async function SiteHeader() {
   const { userId } = await auth();
 
+  // Read-only — never getOrCreateProfile, which would create a profile
+  // row and fire a profile_started analytics event just from loading a
+  // page that happens to render the header. A profile is only actually
+  // created the moment someone visits /profile itself.
+  const completion = userId
+    ? calculateProfileCompletion(
+        (await createPostgresProfileRepository().getByUserId(userId))?.data ?? {},
+      )
+    : null;
+
   return (
     <header className="border-b border-border">
       <Container className="flex h-16 items-center justify-between">
@@ -25,14 +39,9 @@ export async function SiteHeader() {
         <div className="flex items-center gap-4">
           {userId ? (
             <>
-              <Link
-                href="/profile"
-                className="text-sm font-medium text-foreground hover:text-accent-hover"
-              >
-                Profile
-              </Link>
+              {completion && <ProfileHeaderLink completion={completion} />}
               <NotificationBell />
-              <UserButton />
+              <AccountMenu profilePercentage={completion?.percentage ?? null} />
             </>
           ) : (
             // forceRedirectUrl always lands on /post-sign-in after a

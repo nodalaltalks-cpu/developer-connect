@@ -6,6 +6,7 @@ import { searchPublicDevelopers } from "@/lib/developer-connect/search-service";
 import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analytics-sink";
 import { safeRecordAnalyticsEvent } from "@/lib/developer-connect/events";
 import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
+import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 import type { DeveloperGeoFilter } from "@/lib/developer-connect/repository";
 
@@ -13,6 +14,19 @@ import type { DeveloperGeoFilter } from "@/lib/developer-connect/repository";
 async function currentUserId(): Promise<string | undefined> {
   const { userId } = await auth();
   return userId ?? undefined;
+}
+
+/**
+ * A signed-in visitor's own profile city, if they've filled it in — the
+ * one profile-driven search ranking signal (Part 11/15). Read-only
+ * (never getOrCreateProfile, same reasoning as site-header.tsx): a
+ * search must never have the side effect of creating a profile row.
+ */
+async function preferredCityFor(userId: string | undefined): Promise<string | undefined> {
+  if (!userId) return undefined;
+  const profile = await createPostgresProfileRepository().getByUserId(userId);
+  const city = profile?.data.city;
+  return typeof city === "string" && city.trim() ? city.trim() : undefined;
 }
 
 /**
@@ -31,13 +45,14 @@ export async function searchDevelopers(
   geo?: DeveloperGeoFilter,
 ): Promise<PublicDeveloperProfile[]> {
   const repos = createPostgresRepositories();
-  const results = await searchPublicDevelopers(repos, rawQuery, geo);
+  const userId = await currentUserId();
+  const preferredCity = await preferredCityFor(userId);
+  const results = await searchPublicDevelopers(repos, rawQuery, geo, preferredCity);
 
   const query = rawQuery.trim();
   if (query) {
     const sessionId = await getOrCreateSessionId();
     const deviceType = await getDeviceType();
-    const userId = await currentUserId();
     if (results.length === 0) {
       await safeRecordAnalyticsEvent(postgresAnalyticsSink, {
         eventName: "zero_result_search",

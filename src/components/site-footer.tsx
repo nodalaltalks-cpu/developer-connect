@@ -67,10 +67,10 @@ function buildColumns(isDubaiActive: boolean): FooterColumn[] {
     {
       heading: "Legal",
       links: [
-        { label: "Privacy Policy", comingSoon: true },
-        { label: "Terms of Service", comingSoon: true },
-        { label: "Cookie Policy", comingSoon: true },
-        { label: "Disclaimer", comingSoon: true },
+        { label: "Privacy Policy", href: "/privacy" },
+        { label: "Terms of Service", href: "/terms" },
+        { label: "Cookie Policy", href: "/cookies" },
+        { label: "Disclaimer", href: "/disclaimer" },
       ],
     },
   ];

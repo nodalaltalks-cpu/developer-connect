@@ -26,10 +26,9 @@ export default function AboutPage() {
               <section>
                 <h2 className="text-lg font-semibold">The problem</h2>
                 <p className="mt-2 text-muted-foreground">
-                  Search for a real-estate developer online and you&apos;ll mostly find brokers —
-                  pages built to capture your phone number, not to show you the developer&apos;s
-                  own website. It&apos;s hard to tell which result is actually the developer, and
-                  which is someone else using their name to generate leads.
+                  Real-estate research is scattered across many different websites and listings,
+                  and it&apos;s not always obvious which result actually belongs to the developer
+                  themselves. Developer Connects is built to make that first step simpler.
                 </p>
               </section>
 
@@ -37,8 +36,8 @@ export default function AboutPage() {
                 <h2 className="text-lg font-semibold">What we do</h2>
                 <p className="mt-2 text-muted-foreground">
                   Developer Connects is a directory of real-estate developers with one job: help
-                  you find a developer&apos;s genuine official website and go straight to it. No
-                  broker forms, no lead capture, no detour.
+                  you find a developer&apos;s genuine official website and go straight to it, so you
+                  can continue your research directly with the source.
                 </p>
               </section>
 
@@ -59,7 +58,6 @@ export default function AboutPage() {
                   <li>We are not a broker, and we don&apos;t act as one.</li>
                   <li>We don&apos;t sell properties or take a commission on anything.</li>
                   <li>We don&apos;t collect your phone number to pass on to anyone.</li>
-                  <li>We don&apos;t rank developers by who pays us — verification is the only gate.</li>
                 </ul>
               </section>
 

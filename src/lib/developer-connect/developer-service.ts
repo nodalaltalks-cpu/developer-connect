@@ -157,13 +157,26 @@ export async function updateDeveloper(
     if (!verified) {
       // Not published yet — no public boundary to protect. Behaves
       // exactly as it did before pendingChanges existed.
+      //
+      // Uses proposed.headquartersLocation (already null-coalesced), NOT
+      // the raw `headquartersLocation` local (string | undefined), which
+      // is `undefined` whenever the founder clears the field. Passing
+      // `undefined` here used to reach the repository's patch and, for
+      // the real Postgres/Drizzle backend, silently DROPPED the column
+      // from the generated UPDATE statement instead of clearing it —
+      // Drizzle's `.set()` omits any key whose value is `undefined`
+      // rather than setting it to NULL. The founder would see "Changes
+      // saved" and the field would immediately show the old, never-
+      // actually-cleared value once re-populated from the (unchanged)
+      // returned row. `null` is the only value that reliably clears an
+      // optional column through `.set()`.
       return txRepos.developers.update(id, {
         legalName,
         displayName,
         city,
         state,
         country,
-        headquartersLocation,
+        headquartersLocation: proposed.headquartersLocation,
       });
     }
 

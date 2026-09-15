@@ -81,7 +81,21 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
     async update(id, patch) {
       const existing = developers.get(id);
       if (!existing) throw new NotFoundError(`Developer ${id} not found`);
-      const updated: Developer = { ...existing, ...patch, updatedAt: new Date() };
+      // Mirrors the real Postgres/Drizzle repository's `.set()` semantics:
+      // a key whose value is `undefined` means "don't touch" (a plain
+      // object spread would instead overwrite the field with `undefined`,
+      // which the real backend never does) — this is what makes the fast
+      // in-memory suite able to catch a clear-field regression instead of
+      // silently passing while only the real database behaves
+      // differently. `null` explicitly clears the field; `Developer`
+      // itself represents "no value" as `undefined`, never `null`, so a
+      // cleared field is normalized to `undefined` once applied.
+      const applied: Partial<Developer> = {};
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === undefined) continue;
+        (applied as Record<string, unknown>)[key] = value === null ? undefined : value;
+      }
+      const updated: Developer = { ...existing, ...applied, updatedAt: new Date() };
       developers.set(id, updated);
       return updated;
     },

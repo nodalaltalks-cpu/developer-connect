@@ -467,6 +467,99 @@ test("discardPendingChanges: throws rather than silently succeeding when there i
   await assert.rejects(() => discardPendingChanges(repos, developer.id, founder));
 });
 
+/**
+ * Regression test for a real production bug: a Founder clearing the
+ * optional Headquarters field on an unpublished developer would see
+ * "Changes saved", but the field immediately showed the OLD value again
+ * — and stayed that way on refresh/reopen. Root cause: the "not
+ * published" straight-through branch passed the raw, possibly-`undefined`
+ * headquartersLocation value to the repository's `update()` instead of
+ * the already null-coalesced `proposed.headquartersLocation`. On the real
+ * Postgres/Drizzle backend, an explicit `undefined` value in `.set()` is
+ * silently DROPPED from the generated UPDATE statement (the column is
+ * never touched) rather than being set to NULL — so the database kept
+ * the old value, and the Server Action's own returned "fresh" developer
+ * (read from that same unchanged row) was, in fact, still stale. This
+ * exact regression was invisible to the in-memory suite before
+ * memory-repository.ts's `update()` was also fixed to skip `undefined`
+ * keys the same way Drizzle's `.set()` does (a plain object spread does
+ * NOT skip them — it overwrites with `undefined`, which happened to look
+ * like "cleared" in-memory even though the real backend left it
+ * untouched). See also the DB-gated version of this test in
+ * postgres-repository.integration.test.ts, which proves it against the
+ * real database.
+ */
+test("updateDeveloper: clearing the optional Headquarters field on an unpublished developer actually clears it, not just in the return value but on a fresh re-read", async () => {
+  const repos = createInMemoryRepositories();
+  const developer = await createDeveloper(repos.developers, {
+    legalName: "Test Clear HQ Co Private Limited",
+    displayName: "Test Clear HQ Co",
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+    headquartersLocation: "Bandra Kurla Complex, Mumbai",
+  });
+
+  // Mirrors exactly what DeveloperEditForm sends when the field is
+  // cleared: `fields.headquartersLocation || undefined` collapses an
+  // empty string to `undefined` at the API boundary.
+  const after = await updateDeveloper(
+    repos,
+    developer.id,
+    {
+      legalName: developer.legalName,
+      displayName: developer.displayName,
+      city: developer.city,
+      state: developer.state,
+      country: developer.country,
+      headquartersLocation: undefined,
+    },
+    founder,
+  );
+
+  assert.equal(after.headquartersLocation, undefined, "the Server Action's own returned developer must reflect the clear");
+
+  const reread = await repos.developers.getById(developer.id);
+  assert.equal(reread?.headquartersLocation, undefined, "a fresh read (what reopening the review panel or refreshing would fetch) must also show it cleared");
+
+  const history = await repos.developerEditEvents.listByDeveloper(developer.id);
+  const hqEvent = history.find((h) => h.fieldName === "Headquarters location");
+  assert.equal(hqEvent?.previousValue, "Bandra Kurla Complex, Mumbai");
+  assert.equal(hqEvent?.newValue, null, "the clear must be recorded as an explicit null, not silently skipped");
+});
+
+test("updateDeveloper: a second edit after clearing Headquarters builds on the actually-cleared state, not a stale remembered value", async () => {
+  const repos = createInMemoryRepositories();
+  const developer = await createDeveloper(repos.developers, {
+    legalName: "Test Re-edit After Clear Co Private Limited",
+    displayName: "Test Re-edit After Clear Co",
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+    headquartersLocation: "Worli",
+  });
+
+  await updateDeveloper(
+    repos,
+    developer.id,
+    { legalName: developer.legalName, displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: undefined },
+    founder,
+  );
+
+  const finalValue = await updateDeveloper(
+    repos,
+    developer.id,
+    { legalName: developer.legalName, displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Final Realistic Address, Mumbai" },
+    founder,
+  );
+
+  assert.equal(finalValue.headquartersLocation, "Final Realistic Address, Mumbai");
+  const history = await repos.developerEditEvents.listByDeveloper(developer.id);
+  const hqEvents = history.filter((h) => h.fieldName === "Headquarters location");
+  assert.equal(hqEvents.length, 2, "both the clear and the re-add are their own real history events");
+  assert.equal(hqEvents[1].previousValue, null, "the second edit's previous value must be the actually-cleared null, not the stale pre-clear address");
+});
+
 test("updateDeveloper: an UNPUBLISHED developer's edits still write straight through — the pending-changes workflow only applies once published", async () => {
   const repos = createInMemoryRepositories();
   const developer = await createDeveloper(repos.developers, {

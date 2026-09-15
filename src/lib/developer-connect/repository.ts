@@ -38,7 +38,14 @@ export interface DeveloperPatch {
   city?: string;
   state?: string;
   country?: string;
-  headquartersLocation?: string;
+  /**
+   * `null` explicitly clears the column; `undefined` (including an
+   * omitted key) leaves it untouched. These are NOT interchangeable —
+   * Drizzle's `.set()` silently drops an `undefined`-valued key from the
+   * generated UPDATE statement rather than setting the column to NULL, so
+   * a caller that means "clear this" must pass `null`, never `undefined`.
+   */
+  headquartersLocation?: string | null;
   status?: DeveloperStatus;
 }
 

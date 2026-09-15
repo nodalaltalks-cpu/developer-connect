@@ -878,6 +878,68 @@ test(
 );
 
 test(
+  "postgres: clearing the optional Headquarters field on an unpublished developer actually persists NULL in the database, not just in the returned object",
+  { skip: !hasDatabase },
+  async () => {
+    // Regression test for a real production bug found via the live
+    // Founder review workspace on /admin/verification: clearing
+    // Headquarters and saving showed "Changes saved" but the field
+    // immediately (and permanently, across refresh/reopen) reverted to
+    // the old value. Root cause was specific to the real Postgres/Drizzle
+    // backend: DeveloperEditForm sends `undefined` (not an empty string)
+    // for a cleared optional field, and Drizzle's `.set()` silently DROPS
+    // any key whose value is `undefined` from the generated UPDATE
+    // statement rather than setting the column to NULL — so the database
+    // row, and therefore every subsequent read (including the Server
+    // Action's own "fresh" return value), kept the stale old value. This
+    // test queries the raw row directly — bypassing the app's own
+    // getById/toDeveloper mapping — so a regression here cannot hide
+    // behind a coincidentally-matching application-level read.
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper, updateDeveloper } = await import("../../developer-service.ts");
+    const { getDb } = await import("../client.ts");
+    const schema = await import("../schema.ts");
+    const { eq } = await import("drizzle-orm");
+
+    const repos = createPostgresRepositories();
+    const founder = { actorType: "FOUNDER" as const, actorId: "clear-hq-postgres-test-founder" };
+    const token = randomUUID().slice(0, 8);
+
+    const developer = await createDeveloper(repos.developers, {
+      legalName: `TEST Clear HQ ${token} Private Limited`,
+      displayName: `TEST Clear HQ ${token}`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+      headquartersLocation: "Bandra Kurla Complex, Mumbai",
+    });
+
+    // Exactly what DeveloperEditForm sends for a cleared optional field.
+    const returned = await updateDeveloper(
+      repos,
+      developer.id,
+      {
+        legalName: developer.legalName,
+        displayName: developer.displayName,
+        city: developer.city,
+        state: developer.state,
+        country: developer.country,
+        headquartersLocation: undefined,
+      },
+      founder,
+    );
+    assert.equal(returned.headquartersLocation, undefined, "the Server Action's own returned developer must show it cleared");
+
+    const db = getDb();
+    const [raw] = await db.select().from(schema.developers).where(eq(schema.developers.id, developer.id));
+    assert.equal(raw.headquartersLocation, null, "the raw database column itself must be NULL, not the old value");
+
+    const reread = await repos.developers.getById(developer.id);
+    assert.equal(reread?.headquartersLocation, undefined, "a fresh read — what reopening the review panel or refreshing would fetch — must also show it cleared");
+  },
+);
+
+test(
   "postgres: a PUBLISHED developer's metadata edit never changes what the public directory shows, until an explicit republish — and republish is a single atomic statement",
   { skip: !hasDatabase },
   async () => {

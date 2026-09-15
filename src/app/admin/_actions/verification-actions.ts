@@ -87,6 +87,21 @@ function revalidateCandidate(candidateId: string, developerId?: string) {
   if (developerId) revalidatePath(`/admin/developers/${developerId}`);
 }
 
+/**
+ * Approving (or deactivating) a candidate is the only thing in this file
+ * that changes what's PUBLIC — a newly-VERIFIED candidate can introduce a
+ * country/state/city the public geography filters have never shown
+ * before, and a deactivated one can remove the last public developer in
+ * a location. The homepage has no static caching to invalidate (it's
+ * fully dynamic — see the marketing page), so this is defense-in-depth
+ * for the client-side Router Cache rather than a fix for a reproduced
+ * staleness bug; it also matches the existing pattern already used by
+ * republishDeveloperAction for the same reason.
+ */
+function revalidatePublicDirectory() {
+  revalidatePath("/");
+}
+
 /** Founder-friendly message for the (UI-unreachable, defense-in-depth-only) case of a direct call bypassing the founder-only page. */
 const AUTH_ERROR = "You don't have permission to do that. Founder access is required.";
 
@@ -160,6 +175,7 @@ export async function approveCandidateAction(
       reason,
     );
     revalidateCandidate(candidateId, candidate.developerId);
+    revalidatePublicDirectory();
     return { ok: true, candidate };
   } catch (err) {
     return { ok: false, error: describeVerificationError(err) };
@@ -264,6 +280,7 @@ export async function deactivateCandidateAction(
       reason,
     );
     revalidateCandidate(candidateId, candidate.developerId);
+    revalidatePublicDirectory();
     return { ok: true, candidate };
   } catch (err) {
     return { ok: false, error: describeVerificationError(err) };

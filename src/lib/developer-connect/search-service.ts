@@ -87,6 +87,60 @@ function matchesExactly(value: string, filter: string | undefined): boolean {
 }
 
 /**
+ * Adds `value` to a case-insensitively deduplicated collection, keyed by
+ * its lowercased form so "Mumbai" and "mumbai" (a Founder-entry
+ * inconsistency, not something this reads from more than one place)
+ * never appear as two separate filter options. The FIRST spelling seen
+ * wins as the displayed/selectable form — deterministic given a stable
+ * input order, and never rewrites what's actually stored on any
+ * developer record.
+ */
+function addNormalized(target: Map<string, string>, value: string): void {
+  const key = value.toLowerCase();
+  if (!target.has(key)) target.set(key, value);
+}
+
+function sortedValues(target: Map<string, string>): string[] {
+  return [...target.values()].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Country -> State -> City options, and the "distinct markets" count for
+ * the homepage stat, from one pass over the VERIFIED profile list —
+ * shared by listPublicGeographyOptions and getPublicHomepageData so the
+ * two can never compute this differently. Case-insensitively deduplicated
+ * (see addNormalized) at this display/aggregation layer only; the
+ * underlying developer rows are never rewritten.
+ */
+function aggregateGeography(
+  all: PublicDeveloperProfile[],
+  selected: { country?: string; state?: string; city?: string } = {},
+): { options: PublicGeographyOptions; distinctMarkets: number } {
+  const countries = new Map<string, string>();
+  const states = new Map<string, string>();
+  const cities = new Map<string, string>();
+  const markets = new Set<string>();
+
+  for (const developer of all) {
+    addNormalized(countries, developer.country);
+    markets.add(
+      `${developer.country.toLowerCase()}|||${developer.state.toLowerCase()}|||${developer.city.toLowerCase()}`,
+    );
+    if (matchesExactly(developer.country, selected.country)) {
+      addNormalized(states, developer.state);
+      if (matchesExactly(developer.state, selected.state)) {
+        addNormalized(cities, developer.city);
+      }
+    }
+  }
+
+  return {
+    options: { countries: sortedValues(countries), states: sortedValues(states), cities: sortedValues(cities) },
+    distinctMarkets: markets.size,
+  };
+}
+
+/**
  * The public directory's default listing AND its geography-filtered/
  * search view — one function, because "no filters" is just the case
  * where every filter is absent, per the product requirement that the
@@ -151,23 +205,7 @@ export async function listPublicGeographyOptions(
   selected: { country?: string; state?: string } = {},
 ): Promise<PublicGeographyOptions> {
   const all = await fetchAllVerifiedProfiles(repos);
-
-  const countries = new Set<string>();
-  const states = new Set<string>();
-  const cities = new Set<string>();
-
-  for (const developer of all) {
-    countries.add(developer.country);
-    if (matchesExactly(developer.country, selected.country)) {
-      states.add(developer.state);
-      if (matchesExactly(developer.state, selected.state)) {
-        cities.add(developer.city);
-      }
-    }
-  }
-
-  const sort = (values: Set<string>) => [...values].sort((a, b) => a.localeCompare(b));
-  return { countries: sort(countries), states: sort(states), cities: sort(cities) };
+  return aggregateGeography(all, selected).options;
 }
 
 export interface PublicHomepageData {
@@ -211,29 +249,15 @@ export async function getPublicHomepageData(
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-  const countries = new Set<string>();
-  const states = new Set<string>();
-  const cities = new Set<string>();
-  const allCitiesCovered = new Set<string>();
-  for (const developer of all) {
-    countries.add(developer.country);
-    allCitiesCovered.add(`${developer.country}|||${developer.state}|||${developer.city}`);
-    if (matchesExactly(developer.country, filter.country)) {
-      states.add(developer.state);
-      if (matchesExactly(developer.state, filter.state)) {
-        cities.add(developer.city);
-      }
-    }
-  }
-  const sort = (values: Set<string>) => [...values].sort((a, b) => a.localeCompare(b));
+  const { options: geographyOptions, distinctMarkets } = aggregateGeography(all, filter);
 
   return {
     directory,
-    geographyOptions: { countries: sort(countries), states: sort(states), cities: sort(cities) },
+    geographyOptions,
     stats: {
       verifiedDevelopers: all.length,
       officialWebsitesVerified: all.filter((d) => d.officialWebsite).length,
-      citiesCovered: allCitiesCovered.size,
+      citiesCovered: distinctMarkets,
     },
   };
 }

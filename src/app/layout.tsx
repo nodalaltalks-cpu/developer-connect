@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://developerconnects.com"),
   title: "Developer Connects",
   description:
     "Find a real-estate developer's verified official website — no brokers, no forms. Starting in Mumbai.",

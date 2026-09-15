@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SearchBox } from "@/components/search-box";
@@ -17,6 +18,10 @@ import { readSessionId } from "@/lib/session";
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const resolvedSearchParams = await searchParams;

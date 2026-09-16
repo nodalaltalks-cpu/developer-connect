@@ -272,6 +272,7 @@ export const profiles = pgTable("profiles", {
 export const notificationTypeEnum = pgEnum("notification_type", [
   "PROFILE_COMPLETION",
   "FOUNDER_MESSAGE",
+  "CONTACT_STATUS_UPDATE",
 ]);
 
 export const inaccuracyReportCategoryEnum = pgEnum("inaccuracy_report_category", [
@@ -296,7 +297,30 @@ export const contactReasonEnum = pgEnum("contact_reason", [
   "OTHER",
 ]);
 
-export const contactStatusEnum = pgEnum("contact_status", ["NEW", "READ", "RESPONDED", "CLOSED"]);
+/**
+ * Replaces the original ["NEW","READ","RESPONDED","CLOSED"] set with a
+ * proper Founder case-management lifecycle. This is a genuine vocabulary
+ * change, not a duplicate status system: the old set couldn't represent
+ * "actively being looked at but not yet acted on" separately from "paused,
+ * waiting on something", nor "resolved" separately from "rejected" — both
+ * of which the Founder workflow needs. See migration 0011 for how
+ * existing rows are carried forward (NEW->OPEN, READ->IN_REVIEW,
+ * RESPONDED/CLOSED->RESOLVED) rather than silently reinterpreted.
+ */
+export const contactStatusEnum = pgEnum("contact_status", [
+  "OPEN",
+  "IN_REVIEW",
+  "ON_HOLD",
+  "RESOLVED",
+  "REJECTED",
+]);
+
+export const contactHistoryEventTypeEnum = pgEnum("contact_history_event_type", [
+  "STATUS_CHANGE",
+  "TRASHED",
+  "RESTORED",
+  "PERMANENT_DELETE",
+]);
 
 export const newsletterStatusEnum = pgEnum("newsletter_status", ["SUBSCRIBED", "UNSUBSCRIBED"]);
 
@@ -367,11 +391,55 @@ export const contactSubmissions = pgTable(
     // notifications.userId. Never required: most Contact Us visitors are
     // anonymous.
     userId: text("user_id"),
-    status: contactStatusEnum("status").notNull().default("NEW"),
+    status: contactStatusEnum("status").notNull().default("OPEN"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Soft-delete (Trash): a non-null deletedAt is the ONLY thing that
+    // removes a submission from the active /admin/contact list — the row
+    // itself is never gone until an explicit, separately-confirmed
+    // permanent delete. deletedBy is the Founder's Clerk user id, same
+    // convention as actorId elsewhere.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: text("deleted_by"),
   },
-  (table) => [index("contact_submissions_status_created_idx").on(table.status, table.createdAt)],
+  (table) => [
+    index("contact_submissions_status_created_idx").on(table.status, table.createdAt),
+    index("contact_submissions_deleted_idx").on(table.deletedAt),
+  ],
+);
+
+/**
+ * Append-only Founder case-management history for one contact submission:
+ * every status change, plus the trash/restore/permanent-delete lifecycle
+ * events (Parts 7/11/18 of the task this implements) — one unified table
+ * rather than several, mirroring developer_edit_events' own "one table for
+ * every kind of change to this record" precedent instead of duplicating
+ * the audit pattern per event kind.
+ *
+ * `contactSubmissionId` is deliberately NOT a foreign key: a
+ * PERMANENT_DELETE event must be recorded and survive AFTER the
+ * submission row itself is destroyed, so a `references()` with either
+ * `restrict` (blocks the delete) or `cascade` (destroys the very audit
+ * trail meant to survive it) would both be wrong here — same reasoning
+ * as analyticsEvents.developerId being unconstrained.
+ */
+export const contactStatusHistory = pgTable(
+  "contact_status_history",
+  {
+    id: uuid("id").primaryKey(),
+    contactSubmissionId: uuid("contact_submission_id").notNull(),
+    eventType: contactHistoryEventTypeEnum("event_type").notNull().default("STATUS_CHANGE"),
+    // Null for TRASHED/RESTORED/PERMANENT_DELETE, which aren't status
+    // transitions themselves.
+    previousStatus: contactStatusEnum("previous_status"),
+    newStatus: contactStatusEnum("new_status"),
+    /** Optional Founder-entered internal note (e.g. a rejection/on-hold reason) — never sent to the requester verbatim. */
+    note: text("note"),
+    actorType: actorTypeEnum("actor_type").notNull(),
+    actorId: text("actor_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("contact_status_history_submission_idx").on(table.contactSubmissionId)],
 );
 
 /**

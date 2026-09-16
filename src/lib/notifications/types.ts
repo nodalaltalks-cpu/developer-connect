@@ -1,13 +1,16 @@
 /**
- * In-house notification model (Phase 3B, extended in Phase 4B). Two types:
+ * In-house notification model (Phase 3B, extended in Phase 4B). Three types:
  *  - PROFILE_COMPLETION: system-generated, from profile-completion-notifier.ts.
  *  - FOUNDER_MESSAGE: explicitly composed and sent by the founder via
  *    /admin/notifications (see founder-notification-service.ts) — kept
  *    distinct from PROFILE_COMPLETION so a founder-sent nudge is never
  *    silently blocked by (or silently dismisses) an unrelated
  *    system-generated one in the same-type anti-spam check.
+ *  - CONTACT_STATUS_UPDATE: system-generated the moment a Founder changes
+ *    the status of a signed-in visitor's Contact Us submission (see
+ *    contact-service.ts) — its own type for the same reason as above.
  */
-export type NotificationType = "PROFILE_COMPLETION" | "FOUNDER_MESSAGE";
+export type NotificationType = "PROFILE_COMPLETION" | "FOUNDER_MESSAGE" | "CONTACT_STATUS_UPDATE";
 
 export interface Notification {
   id: string;

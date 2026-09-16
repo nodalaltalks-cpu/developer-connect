@@ -36,7 +36,15 @@ export type ContactReason =
   | "DEVELOPER_LISTING"
   | "PARTNERSHIP"
   | "OTHER";
-export type ContactStatus = "NEW" | "READ" | "RESPONDED" | "CLOSED";
+
+/**
+ * Founder case-management lifecycle (replaces the original
+ * NEW/READ/RESPONDED/CLOSED set — see schema.ts's contactStatusEnum
+ * comment for why this was a genuine vocabulary change, not a duplicate
+ * status system, and migration 0011 for how existing rows were carried
+ * forward).
+ */
+export type ContactStatus = "OPEN" | "IN_REVIEW" | "ON_HOLD" | "RESOLVED" | "REJECTED";
 
 export interface ContactSubmission {
   id: string;
@@ -48,6 +56,10 @@ export interface ContactSubmission {
   status: ContactStatus;
   createdAt: Date;
   updatedAt: Date;
+  /** Soft-delete (Trash) — non-null means this submission no longer appears in the active /admin/contact list. */
+  deletedAt: Date | null;
+  /** Founder's Clerk user id at the moment of soft-delete. Null when deletedAt is null. */
+  deletedBy: string | null;
 }
 
 export interface NewContactSubmissionInput {
@@ -56,6 +68,31 @@ export interface NewContactSubmissionInput {
   reason: ContactReason;
   message: string;
   userId?: string | null;
+}
+
+/** Mirrors developer_edit_events' shape for the same reason: one append-only event stream covering every kind of change to this record's lifecycle. */
+export type ContactHistoryEventType = "STATUS_CHANGE" | "TRASHED" | "RESTORED" | "PERMANENT_DELETE";
+
+export interface ContactStatusHistoryEntry {
+  id: string;
+  contactSubmissionId: string;
+  eventType: ContactHistoryEventType;
+  previousStatus: ContactStatus | null;
+  newStatus: ContactStatus | null;
+  note: string | null;
+  actorType: "FOUNDER" | "SYSTEM" | "AGENT";
+  actorId: string;
+  createdAt: Date;
+}
+
+export interface NewContactStatusHistoryInput {
+  contactSubmissionId: string;
+  eventType: ContactHistoryEventType;
+  previousStatus?: ContactStatus | null;
+  newStatus?: ContactStatus | null;
+  note?: string | null;
+  actorType: "FOUNDER" | "SYSTEM" | "AGENT";
+  actorId: string;
 }
 
 export type NewsletterStatus = "SUBSCRIBED" | "UNSUBSCRIBED";

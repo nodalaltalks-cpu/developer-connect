@@ -1,23 +1,28 @@
 import { randomUUID } from "node:crypto";
-import { count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, isNull, isNotNull } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "../../developer-connect/db/client.ts";
-import { inaccuracyReports, contactSubmissions, newsletterSubscribers } from "../../developer-connect/db/schema.ts";
+import * as schema from "../../developer-connect/db/schema.ts";
+import { inaccuracyReports, contactSubmissions, contactStatusHistory, newsletterSubscribers } from "../../developer-connect/db/schema.ts";
 import type {
   EngagementRepositories,
   InaccuracyReportRepository,
   ContactSubmissionRepository,
+  ContactStatusHistoryRepository,
   NewsletterSubscriberRepository,
 } from "../repository.ts";
-import type { InaccuracyReport, ContactSubmission, NewsletterSubscriber } from "../types.ts";
+import type { InaccuracyReport, ContactSubmission, ContactStatusHistoryEntry, NewsletterSubscriber } from "../types.ts";
 
 /**
  * Lives in the SAME database as developer-connect's own tables (same
  * schema.ts, same getDb()) — no second database, no second connection
  * pool. Separated into its own repository module only because these
- * three concerns (reports/contact/newsletter) are a different bounded
- * context from the developer/verification domain, same reasoning as
- * notifications/ and profile/ each getting their own repository layer.
+ * concerns (reports/contact/contact history/newsletter) are a different
+ * bounded context from the developer/verification domain, same reasoning
+ * as notifications/ and profile/ each getting their own repository layer.
  */
+
+type DbOrTx = NodePgDatabase<typeof schema>;
 
 function toReport(row: {
   id: string;
@@ -42,7 +47,23 @@ function toContact(row: {
   status: ContactSubmission["status"];
   createdAt: Date;
   updatedAt: Date;
+  deletedAt: Date | null;
+  deletedBy: string | null;
 }): ContactSubmission {
+  return { ...row };
+}
+
+function toHistory(row: {
+  id: string;
+  contactSubmissionId: string;
+  eventType: ContactStatusHistoryEntry["eventType"];
+  previousStatus: ContactStatusHistoryEntry["previousStatus"];
+  newStatus: ContactStatusHistoryEntry["newStatus"];
+  note: string | null;
+  actorType: ContactStatusHistoryEntry["actorType"];
+  actorId: string;
+  createdAt: Date;
+}): ContactStatusHistoryEntry {
   return { ...row };
 }
 
@@ -58,8 +79,7 @@ function toSubscriber(row: {
   return { ...row };
 }
 
-function buildReportRepository(): InaccuracyReportRepository {
-  const db = getDb();
+function buildReportRepository(db: DbOrTx): InaccuracyReportRepository {
   return {
     async create(input) {
       const [row] = await db
@@ -89,8 +109,7 @@ function buildReportRepository(): InaccuracyReportRepository {
   };
 }
 
-function buildContactRepository(): ContactSubmissionRepository {
-  const db = getDb();
+function buildContactRepository(db: DbOrTx): ContactSubmissionRepository {
   return {
     async create(input) {
       const [row] = await db
@@ -107,8 +126,26 @@ function buildContactRepository(): ContactSubmissionRepository {
       return toContact(row);
     },
     async list(limit = 200) {
-      const rows = await db.select().from(contactSubmissions).orderBy(desc(contactSubmissions.createdAt)).limit(limit);
+      const rows = await db
+        .select()
+        .from(contactSubmissions)
+        .where(isNull(contactSubmissions.deletedAt))
+        .orderBy(desc(contactSubmissions.createdAt))
+        .limit(limit);
       return rows.map(toContact);
+    },
+    async listTrash(limit = 200) {
+      const rows = await db
+        .select()
+        .from(contactSubmissions)
+        .where(isNotNull(contactSubmissions.deletedAt))
+        .orderBy(desc(contactSubmissions.deletedAt))
+        .limit(limit);
+      return rows.map(toContact);
+    },
+    async getById(id) {
+      const [row] = await db.select().from(contactSubmissions).where(eq(contactSubmissions.id, id));
+      return row ? toContact(row) : null;
     },
     async updateStatus(id, status) {
       const [row] = await db
@@ -118,11 +155,62 @@ function buildContactRepository(): ContactSubmissionRepository {
         .returning();
       return row ? toContact(row) : null;
     },
+    async softDelete(id, deletedBy) {
+      const [row] = await db
+        .update(contactSubmissions)
+        .set({ deletedAt: new Date(), deletedBy, updatedAt: new Date() })
+        .where(and(eq(contactSubmissions.id, id), isNull(contactSubmissions.deletedAt)))
+        .returning();
+      return row ? toContact(row) : null;
+    },
+    async restore(id) {
+      const [row] = await db
+        .update(contactSubmissions)
+        .set({ deletedAt: null, deletedBy: null, updatedAt: new Date() })
+        .where(and(eq(contactSubmissions.id, id), isNotNull(contactSubmissions.deletedAt)))
+        .returning();
+      return row ? toContact(row) : null;
+    },
+    async permanentDelete(id) {
+      const rows = await db
+        .delete(contactSubmissions)
+        .where(and(eq(contactSubmissions.id, id), isNotNull(contactSubmissions.deletedAt)))
+        .returning({ id: contactSubmissions.id });
+      return rows.length > 0;
+    },
   };
 }
 
-function buildNewsletterRepository(): NewsletterSubscriberRepository {
-  const db = getDb();
+function buildContactHistoryRepository(db: DbOrTx): ContactStatusHistoryRepository {
+  return {
+    async append(input) {
+      const [row] = await db
+        .insert(contactStatusHistory)
+        .values({
+          id: randomUUID(),
+          contactSubmissionId: input.contactSubmissionId,
+          eventType: input.eventType,
+          previousStatus: input.previousStatus ?? null,
+          newStatus: input.newStatus ?? null,
+          note: input.note ?? null,
+          actorType: input.actorType,
+          actorId: input.actorId,
+        })
+        .returning();
+      return toHistory(row);
+    },
+    async listBySubmission(contactSubmissionId) {
+      const rows = await db
+        .select()
+        .from(contactStatusHistory)
+        .where(eq(contactStatusHistory.contactSubmissionId, contactSubmissionId))
+        .orderBy(desc(contactStatusHistory.createdAt));
+      return rows.map(toHistory);
+    },
+  };
+}
+
+function buildNewsletterRepository(db: DbOrTx): NewsletterSubscriberRepository {
   return {
     async subscribe(input) {
       const existing = await db
@@ -167,10 +255,29 @@ function buildNewsletterRepository(): NewsletterSubscriberRepository {
   };
 }
 
-export function createEngagementRepositories(): EngagementRepositories {
+/**
+ * Exported (unlike developer-connect's own private `buildRepositories`)
+ * because contact-service.ts's status-change transaction needs to bind
+ * BOTH this module's repositories AND the notifications repository to the
+ * exact same `tx` handle — something `runInTransaction` alone can't do
+ * without engagement importing from notifications. See contact-service.ts
+ * for where this is actually used.
+ */
+export function buildEngagementRepositories(db: DbOrTx): EngagementRepositories {
   return {
-    reports: buildReportRepository(),
-    contact: buildContactRepository(),
-    newsletter: buildNewsletterRepository(),
+    reports: buildReportRepository(db),
+    contact: buildContactRepository(db),
+    contactHistory: buildContactHistoryRepository(db),
+    newsletter: buildNewsletterRepository(db),
+    async runInTransaction(fn) {
+      // node-postgres transactions nest via SAVEPOINT automatically when
+      // `db.transaction` is called while already inside one — same
+      // reasoning as DeveloperConnectRepositories.runInTransaction.
+      return db.transaction((tx) => fn(buildEngagementRepositories(tx)));
+    },
   };
+}
+
+export function createEngagementRepositories(): EngagementRepositories {
+  return buildEngagementRepositories(getDb());
 }

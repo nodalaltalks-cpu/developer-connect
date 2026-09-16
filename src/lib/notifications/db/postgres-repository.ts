@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, count } from "drizzle-orm";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "../../developer-connect/db/client.ts";
+import * as schema from "../../developer-connect/db/schema.ts";
 import { notifications } from "../../developer-connect/db/schema.ts";
 import type { Notification } from "../types.ts";
 import type { NotificationRepository } from "../repository.ts";
+
+type DbOrTx = NodePgDatabase<typeof schema>;
 
 function toNotification(row: typeof notifications.$inferSelect): Notification {
   return {
@@ -19,10 +23,16 @@ function toNotification(row: typeof notifications.$inferSelect): Notification {
   };
 }
 
-/** Shares the same Postgres pool and `notifications` table as the rest of the app — one database, no second store. */
-export function createPostgresNotificationRepository(): NotificationRepository {
-  const db = getDb();
-
+/**
+ * Shares the same Postgres pool and `notifications` table as the rest of
+ * the app — one database, no second store. Accepts an optional Drizzle
+ * handle so a caller composing a larger transaction (e.g. Contact's
+ * status-change service, which must write the new status, its history
+ * event, and this notification all-or-nothing) can pass its own `tx`
+ * instead of always going through the module-level pool. Every existing
+ * call site keeps working unchanged, since this defaults to `getDb()`.
+ */
+export function createPostgresNotificationRepository(db: DbOrTx = getDb()): NotificationRepository {
   return {
     async create(input) {
       const [row] = await db

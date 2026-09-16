@@ -76,7 +76,7 @@ test("submitInaccuracyReport: rejects a malformed optional email", async () => {
   );
 });
 
-test("submitContactMessage: creates a NEW submission", async () => {
+test("submitContactMessage: creates an OPEN submission", async () => {
   const engagement = createInMemoryEngagementRepositories();
 
   const submission = await submitContactMessage(engagement, {
@@ -86,7 +86,7 @@ test("submitContactMessage: creates a NEW submission", async () => {
     message: "How do I find a developer in Thane?",
   });
 
-  assert.equal(submission.status, "NEW");
+  assert.equal(submission.status, "OPEN");
   assert.equal(submission.userId, null);
 });
 

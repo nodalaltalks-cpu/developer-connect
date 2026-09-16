@@ -88,7 +88,7 @@ export function CandidateReviewPanel({
 
       {developer && (
         <div className="mb-4">
-          <DeveloperEditForm developer={developer} onSaved={handleDeveloperUpdate} />
+          <DeveloperEditForm developer={developer} onSaved={handleDeveloperUpdate} hideHeadquarters />
         </div>
       )}
 

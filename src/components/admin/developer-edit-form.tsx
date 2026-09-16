@@ -47,6 +47,7 @@ export function DeveloperEditForm({
   developer,
   onCancel,
   onSaved,
+  hideHeadquarters,
 }: {
   developer: Developer;
   /** When provided, renders a "Cancel" button next to "Save changes" — used by the collapsible edit toggle on the developer detail page. */
@@ -60,6 +61,15 @@ export function DeveloperEditForm({
    * position and collapses whatever section the founder had open.
    */
   onSaved?: (developer: Developer) => void;
+  /**
+   * Hides the Headquarters field from this render only — used by the
+   * verification queue review panel, which doesn't need it as part of the
+   * website-verification decision. The field's state, save payload, and
+   * underlying database column are untouched: this is presentation-only,
+   * so the developer detail page's edit form (DeveloperEditToggle) keeps
+   * showing and saving it exactly as before.
+   */
+  hideHeadquarters?: boolean;
 }) {
   const [fields, setFields] = useState<FieldsState>(() => toFields(developer));
   const [error, setError] = useState<string | null>(null);
@@ -170,17 +180,19 @@ export function DeveloperEditForm({
             className={inputClassName}
           />
         </div>
-        <div>
-          <label className={labelClassName} htmlFor="edit-hq">
-            Headquarters <span className="text-muted-foreground">(optional)</span>
-          </label>
-          <input
-            id="edit-hq"
-            value={fields.headquartersLocation}
-            onChange={(e) => update("headquartersLocation", e.target.value)}
-            className={inputClassName}
-          />
-        </div>
+        {!hideHeadquarters && (
+          <div>
+            <label className={labelClassName} htmlFor="edit-hq">
+              Headquarters <span className="text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              id="edit-hq"
+              value={fields.headquartersLocation}
+              onChange={(e) => update("headquartersLocation", e.target.value)}
+              className={inputClassName}
+            />
+          </div>
+        )}
       </div>
 
       {error && (

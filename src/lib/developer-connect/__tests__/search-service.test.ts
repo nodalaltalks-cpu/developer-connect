@@ -9,6 +9,7 @@ import {
   selectInitialHomepageDevelopers,
 } from "../search-service.ts";
 import type { PublicDeveloperProfile } from "../public-view.ts";
+import { OPERATING_COUNTRIES } from "../operating-countries.ts";
 import { submitWebsiteCandidate } from "../candidate-service.ts";
 import { approveCandidate, markReadyForReview } from "../verification-service.ts";
 import { createDeveloper } from "../developer-service.ts";
@@ -603,9 +604,17 @@ test("selectInitialHomepageDevelopers: never crashes or under-fills when there i
   assert.equal(selected.length, 3, "only 3 real developers exist, so only 3 are returned — never padded with fakes");
 });
 
-test("getPublicHomepageData: 'citiesCovered' counts distinct real markets, never inflated by casing duplicates", async () => {
-  const { repos, developer: a } = await setUpTestDeveloper({ displayName: "Test Market Co A" });
-  await verifyDeveloper(repos, a.id, "https://a.example");
+test("getPublicHomepageData: 'countriesCovered' is the configured operating-countries count, never derived from verified developers", async () => {
+  const { repos } = await setUpTestDeveloper({ displayName: "Test Market Co A" });
+  // Deliberately do NOT verify this developer — countriesCovered must not
+  // require, or be inflated/deflated by, any VERIFIED developer existing.
+  const zeroVerified = await getPublicHomepageData(repos);
+  assert.equal(
+    zeroVerified.stats.countriesCovered,
+    OPERATING_COUNTRIES.length,
+    "countriesCovered reflects the operating-countries config even with zero verified developers",
+  );
+
   const b = await createDeveloper(repos.developers, {
     legalName: "Test Market Co B Private Limited",
     displayName: "Test Market Co B",
@@ -615,6 +624,10 @@ test("getPublicHomepageData: 'citiesCovered' counts distinct real markets, never
   });
   await verifyDeveloper(repos, b.id, "https://b.example");
 
-  const homepage = await getPublicHomepageData(repos);
-  assert.equal(homepage.stats.citiesCovered, 1, "the same real market must not be counted twice due to casing");
+  const withVerified = await getPublicHomepageData(repos);
+  assert.equal(
+    withVerified.stats.countriesCovered,
+    OPERATING_COUNTRIES.length,
+    "countriesCovered stays the same real config value regardless of verified-developer count",
+  );
 });

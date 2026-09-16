@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { DeveloperCard } from "@/components/developer-card";
 import { GeoFilters } from "@/components/geo-filters";
 import { StatCounter } from "@/components/stat-counter";
+import { CountriesCoveredCard } from "@/components/countries-covered-card";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { ContinueResearch } from "@/components/continue-research";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
@@ -83,7 +84,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <div className="grid grid-cols-3 gap-4 text-center sm:gap-8">
               <StatCounter value={stats.verifiedDevelopers} label="Verified developers" />
               <StatCounter value={stats.officialWebsitesVerified} label="Official websites verified" />
-              <StatCounter value={stats.citiesCovered} label="Markets covered" />
+              <CountriesCoveredCard value={stats.countriesCovered} />
             </div>
           </div>
 

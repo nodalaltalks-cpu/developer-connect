@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SectionHeading } from "@/components/admin/empty-state";
-import { ContactTrashList } from "@/components/admin/contact-trash-list";
-import { createEngagementRepositories } from "@/lib/engagement/db/postgres-repository";
+import { TrashGate } from "@/components/admin/trash-gate";
 import { requireFounder } from "@/lib/auth";
 
 export const metadata = {
@@ -16,26 +15,30 @@ export const metadata = {
  * mandatory") — belt-and-braces, exactly like requireFounderForAction
  * being called first in every mutating Server Action regardless of
  * which page happens to render the button that triggers it.
+ *
+ * Trash's actual contents are NOT fetched here — TrashGate defers that
+ * fetch behind a fresh Founder reverification (see unlockTrashAction),
+ * so being a Founder is necessary to reach this page but not sufficient
+ * to see what's in Trash.
  */
 export default async function AdminContactTrashPage() {
   await requireFounder();
-
-  const engagement = createEngagementRepositories();
-  const trashed = await engagement.contact.listTrash(200);
 
   return (
     <div>
       <div className="flex items-start justify-between gap-4">
         <SectionHeading
-          title="Contact · Trash"
-          description="Requests moved to Trash from Contact Submissions. Nothing here is public — Founder-only."
+          title="Trash"
+          description="Requests moved to Trash from Contact Submissions. Nothing here is public — Founder-only, and protected behind a fresh identity check."
         />
         <Link href="/admin/contact" className="mt-1 shrink-0 text-sm text-accent-hover hover:underline">
           Back to Contact
         </Link>
       </div>
 
-      <ContactTrashList initialSubmissions={trashed} />
+      <div className="mt-6">
+        <TrashGate />
+      </div>
     </div>
   );
 }

@@ -73,6 +73,14 @@ export default function AboutPage() {
                   markets over time.
                 </p>
               </section>
+
+              <section>
+                <h2 className="text-lg font-semibold">Part of NoDalalTalks</h2>
+                <p className="mt-2 text-muted-foreground">
+                  Developer Connects is part of the NoDalalTalks ecosystem, which focuses on
+                  building simple, trustworthy tools for people to research real estate directly.
+                </p>
+              </section>
             </div>
           </div>
         </Container>

@@ -1,5 +1,6 @@
 import type { DeveloperConnectRepositories, DeveloperGeoFilter } from "./repository.ts";
 import { toPublicDeveloperProfile, type PublicDeveloperProfile } from "./public-view.ts";
+import { OPERATING_COUNTRIES } from "./operating-countries.ts";
 
 /** Final, compact result count shown to a visitor — see the "keep the dropdown compact" requirement. */
 const RESULT_COUNT = 10;
@@ -198,27 +199,23 @@ function sortedValues(target: Map<string, string>): string[] {
 }
 
 /**
- * Country -> State -> City options, and the "distinct markets" count for
- * the homepage stat, from one pass over the VERIFIED profile list —
- * shared by listPublicGeographyOptions and getPublicHomepageData so the
- * two can never compute this differently. Case-insensitively deduplicated
- * (see addNormalized) at this display/aggregation layer only; the
- * underlying developer rows are never rewritten.
+ * Country -> State -> City options from one pass over the VERIFIED
+ * profile list — shared by listPublicGeographyOptions and
+ * getPublicHomepageData so the two can never compute this differently.
+ * Case-insensitively deduplicated (see addNormalized) at this
+ * display/aggregation layer only; the underlying developer rows are
+ * never rewritten.
  */
 function aggregateGeography(
   all: PublicDeveloperProfile[],
   selected: { country?: string; state?: string; city?: string } = {},
-): { options: PublicGeographyOptions; distinctMarkets: number } {
+): { options: PublicGeographyOptions } {
   const countries = new Map<string, string>();
   const states = new Map<string, string>();
   const cities = new Map<string, string>();
-  const markets = new Set<string>();
 
   for (const developer of all) {
     addNormalized(countries, developer.country);
-    markets.add(
-      `${developer.country.toLowerCase()}|||${developer.state.toLowerCase()}|||${developer.city.toLowerCase()}`,
-    );
     if (matchesExactly(developer.country, selected.country)) {
       addNormalized(states, developer.state);
       if (matchesExactly(developer.state, selected.state)) {
@@ -229,7 +226,6 @@ function aggregateGeography(
 
   return {
     options: { countries: sortedValues(countries), states: sortedValues(states), cities: sortedValues(cities) },
-    distinctMarkets: markets.size,
   };
 }
 
@@ -304,16 +300,22 @@ export async function listPublicGeographyOptions(
 export interface PublicHomepageData {
   directory: PublicDeveloperProfile[];
   geographyOptions: PublicGeographyOptions;
-  stats: { verifiedDevelopers: number; officialWebsitesVerified: number; citiesCovered: number };
+  stats: { verifiedDevelopers: number; officialWebsitesVerified: number; countriesCovered: number };
 }
 
 /**
  * Everything the homepage needs — the (possibly filtered) directory
  * listing, the geography select options, and the live platform-statistics
  * numbers — from exactly one fetch of the verified-developer list, not
- * three. Every number here is real, current database state: `stats` is
- * derived from the same array the directory itself renders, never a
- * separately-cached or hardcoded count.
+ * three. `verifiedDevelopers`/`officialWebsitesVerified` are derived from
+ * that same array, never a separately-cached or hardcoded count.
+ * `countriesCovered`, deliberately, is NOT: it counts OPERATING_COUNTRIES
+ * (the countries Developer Connects is building its directory in), not
+ * countries that happen to already have a VERIFIED developer — those are
+ * two different, genuinely different facts (a country can be an active
+ * market before its first developer is verified), and conflating them
+ * would either hide a real operating country or claim a verified
+ * directory that doesn't exist yet.
  */
 export async function getPublicHomepageData(
   repos: DeveloperConnectRepositories,
@@ -342,7 +344,7 @@ export async function getPublicHomepageData(
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-  const { options: geographyOptions, distinctMarkets } = aggregateGeography(all, filter);
+  const { options: geographyOptions } = aggregateGeography(all, filter);
 
   return {
     directory,
@@ -350,7 +352,7 @@ export async function getPublicHomepageData(
     stats: {
       verifiedDevelopers: all.length,
       officialWebsitesVerified: all.filter((d) => d.officialWebsite).length,
-      citiesCovered: distinctMarkets,
+      countriesCovered: OPERATING_COUNTRIES.length,
     },
   };
 }

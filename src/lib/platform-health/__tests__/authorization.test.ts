@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -14,6 +14,18 @@ import path from "node:path";
  * static source check: the admin layout that wraps every /admin/* page,
  * including /admin/platform-health, must call requireFounder()
  * unconditionally — not inside an `if` that could skip it.
+ *
+ * This no longer greps layout.tsx's source for a literal
+ * "/admin/platform-health" string — the admin nav's route list moved out
+ * to admin-nav.tsx (Part 12 of the admin UX polish task) so the active
+ * section can be highlighted, and duplicating that list back into
+ * layout.tsx just to keep this string check passing would be exactly the
+ * "don't create a duplicate system" mistake that task warned against.
+ * The real guarantee this test cares about — that
+ * /admin/platform-health is actually wrapped by this layout — comes from
+ * Next.js App Router's own routing rule (any route folder under
+ * src/app/admin/ is wrapped by src/app/admin/layout.tsx), which this
+ * checks directly by confirming the route folder exists on disk.
  */
 test("authorization: admin/layout.tsx (which wraps /admin/platform-health) calls requireFounder() unconditionally", () => {
   const here = path.dirname(fileURLToPath(import.meta.url));
@@ -21,9 +33,12 @@ test("authorization: admin/layout.tsx (which wraps /admin/platform-health) calls
   const source = readFileSync(layoutPath, "utf8");
 
   assert.ok(source.includes("requireFounder()"), "admin/layout.tsx must call requireFounder()");
+
+  const platformHealthRouteDir = path.resolve(here, "../../../app/admin/platform-health");
   assert.ok(
-    source.includes("/admin/platform-health"),
-    "admin/layout.tsx must still list /admin/platform-health as one of the routes it wraps",
+    existsSync(platformHealthRouteDir) && statSync(platformHealthRouteDir).isDirectory(),
+    "src/app/admin/platform-health must exist as a route folder under src/app/admin/ — Next.js's App Router " +
+      "wraps every such folder with app/admin/layout.tsx automatically, which is what actually protects it",
   );
 
   // The call must not be nested inside a conditional guard that could

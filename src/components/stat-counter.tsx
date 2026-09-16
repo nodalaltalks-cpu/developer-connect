@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 const DURATION_MS = 900;
 
 /**
- * A count-up effect that plays once when the number scrolls into view,
- * landing on exactly `value` — never a rounding artifact, never a number
- * the server didn't actually send. Skips the animation entirely under
- * `prefers-reduced-motion`, showing the final value immediately.
+ * A count-up effect that plays once when its attached element scrolls
+ * into view, landing on exactly `value` — never a rounding artifact,
+ * never a number the server didn't actually send. Skips the animation
+ * entirely under `prefers-reduced-motion`, showing the final value
+ * immediately. Shared by StatCounter and any other element that needs
+ * this exact same rolling-number style (e.g. a clickable stat) so there
+ * is one place that defines "what this animation looks like".
  */
-export function StatCounter({ value, label }: { value: number; label: string }) {
-  const ref = useRef<HTMLDivElement>(null);
+export function useCountUp(value: number): { ref: RefObject<HTMLElement | null>; display: number } {
+  const ref = useRef<HTMLElement>(null);
   const [display, setDisplay] = useState(0);
   const hasPlayedRef = useRef(false);
 
@@ -48,8 +51,14 @@ export function StatCounter({ value, label }: { value: number; label: string }) 
     return () => observer.disconnect();
   }, [value]);
 
+  return { ref, display };
+}
+
+export function StatCounter({ value, label }: { value: number; label: string }) {
+  const { ref, display } = useCountUp(value);
+
   return (
-    <div ref={ref}>
+    <div ref={ref as RefObject<HTMLDivElement>}>
       <p className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
         {display.toLocaleString("en-IN")}
       </p>

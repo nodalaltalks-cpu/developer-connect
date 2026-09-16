@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import { NewsletterSignup } from "@/components/newsletter-signup";
-import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { listPublicGeographyOptions } from "@/lib/developer-connect/search-service";
+import { OPERATING_COUNTRIES } from "@/lib/developer-connect/operating-countries";
 
 interface FooterLink {
   label: string;
@@ -19,21 +18,25 @@ interface FooterColumn {
 }
 
 /**
- * `isDubaiActive` comes from the real published-developer dataset (see
- * SiteFooter below) — the same "UAE" country convention the existing
- * "India" link already assumes (`/?country=India`). No hardcoded list of
- * cities/countries: this only ever flips once a real VERIFIED developer
- * with country "UAE" exists, and reverts to "Coming Soon" text — never a
- * dead link — if that's ever no longer true.
+ * Every OPERATING_COUNTRIES entry is a real, active Developer Connects
+ * market — not gated behind "does a VERIFIED developer already exist
+ * there" (that's a different, genuinely different fact; see
+ * operating-countries.ts and getPublicHomepageData's countriesCovered).
+ * Each still links into the real, existing `/?country=` filter, which
+ * already shows an honest "no verified developers yet" state rather than
+ * fake results when a country has none — so this never implies a
+ * populated directory that doesn't exist.
  */
-function buildColumns(isDubaiActive: boolean): FooterColumn[] {
+function buildColumns(): FooterColumn[] {
   return [
     {
       heading: "Explore",
       links: [
         { label: "Developers", href: "/" },
-        { label: "India", href: "/?country=India" },
-        isDubaiActive ? { label: "Dubai", href: "/?country=UAE" } : { label: "Dubai", comingSoon: true },
+        ...OPERATING_COUNTRIES.map((country) => ({
+          label: country.name,
+          href: `/?country=${encodeURIComponent(country.name)}`,
+        })),
       ],
     },
     {
@@ -76,24 +79,16 @@ function buildColumns(isDubaiActive: boolean): FooterColumn[] {
   ];
 }
 
+const columns = buildColumns();
+
 /**
  * The full site footer (Part 32) — five short columns, only ever linking
  * to pages/accounts that are actually real (`comingSoon` renders as plain
- * text, never a fabricated URL/#). Positioning statement makes explicit
- * what Developer Connects is NOT: not a broker, doesn't sell property,
- * doesn't capture phone numbers for brokers.
- *
- * Async: checks the real published-developer dataset (the same
- * VERIFIED-only geography query the homepage filters already use) so
- * "Dubai — Coming Soon" flips to a real, active link the moment a
- * published UAE developer exists — no manual footer edit required.
+ * text, never a fabricated URL/#). Positioning statement is deliberately
+ * user-first, not broker-negative — what Developer Connects helps you do,
+ * not an attack on an alternative.
  */
-export async function SiteFooter() {
-  const repos = createPostgresRepositories();
-  const { countries } = await listPublicGeographyOptions(repos);
-  const isDubaiActive = countries.some((c) => c.toLowerCase() === "uae");
-  const columns = buildColumns(isDubaiActive);
-
+export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-muted/30">
       <Container className="py-12">
@@ -101,9 +96,8 @@ export async function SiteFooter() {
           <div className="max-w-sm">
             <p className="font-semibold text-foreground">Developer Connects</p>
             <p className="mt-2 text-sm text-muted-foreground">
-              We help people find genuine real-estate developers and reach their official websites
-              directly. We are not a broker, we do not sell properties, and we do not capture phone
-              numbers for brokers.
+              Find genuine developer websites. Research directly. We are not a broker, and we
+              don&apos;t sell properties or collect your phone number for anyone.
             </p>
           </div>
           <NewsletterSignup source="footer" />
@@ -146,7 +140,8 @@ export async function SiteFooter() {
         </div>
 
         <p className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Developer Connects. All rights reserved.
+          © {new Date().getFullYear()} Developer Connects. All rights reserved. Part of the
+          NoDalalTalks ecosystem.
         </p>
       </Container>
     </footer>

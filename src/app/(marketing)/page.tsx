@@ -20,8 +20,16 @@ function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+const TITLE = "Developer Connects | Find Verified Developer Websites";
+const DESCRIPTION =
+  "Search real-estate developers and go straight to their verified official website — no brokers, no forms.";
+
 export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: "/" },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: "https://developerconnects.com", type: "website" },
+  twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
 };
 
 export default async function Home({ searchParams }: PageProps<"/">) {

@@ -13,19 +13,51 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_NAME = "Developer Connects";
+const SITE_DESCRIPTION =
+  "Developer Connects verifies real-estate developers' official websites, so you can go straight to the source instead of a broker or listing site.";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://developerconnects.com"),
-  title: "Developer Connects",
-  description:
-    "Find a real-estate developer's verified official website — no brokers, no forms. Starting in Mumbai.",
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
   openGraph: {
-    title: "Developer Connects",
-    description:
-      "Find a real-estate developer's verified official website — no brokers, no forms. Starting in Mumbai.",
-    siteName: "Developer Connects",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    siteName: SITE_NAME,
+    url: "https://developerconnects.com",
     type: "website",
   },
+  twitter: {
+    card: "summary",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
 };
+
+/**
+ * Organization + WebSite JSON-LD (Part: SEO entity signal). Deliberately
+ * omits sameAs — the footer's social links belong to the parent
+ * NoDalalTalks brand, not to Developer Connects itself, and asserting
+ * them as this entity's own profiles would misrepresent the relationship
+ * rather than clarify it. logo points at the one real image asset the
+ * site actually serves.
+ */
+const structuredData = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: "https://developerconnects.com",
+    logo: "https://developerconnects.com/favicon.ico",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    url: "https://developerconnects.com",
+  },
+];
 
 export const viewport: Viewport = {
   colorScheme: "light",
@@ -38,6 +70,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <ClerkProvider
           afterSignOutUrl="/"
           appearance={{

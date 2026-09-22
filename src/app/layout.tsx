@@ -25,7 +25,9 @@ export const metadata: Metadata = {
     title: SITE_NAME,
     description: SITE_DESCRIPTION,
     siteName: SITE_NAME,
-    url: "https://developerconnects.com",
+    // No `url` here: pages that don't define their own openGraph inherit
+    // this object wholesale (metadata merges shallowly), so a url here
+    // would label every such page's og:url as the homepage.
     type: "website",
   },
   twitter: {
@@ -55,7 +57,10 @@ const structuredData = [
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: SITE_NAME,
-    url: "https://developerconnects.com",
+    // The same brand written as one word, as it appears in the domain —
+    // helps search engines associate the site name with developerconnects.com.
+    alternateName: "DeveloperConnects",
+    url: "https://developerconnects.com/",
   },
 ];
 

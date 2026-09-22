@@ -4,7 +4,8 @@ import type { Actor, Developer, DeveloperEditableField, DeveloperMetadataPatch }
 import { NotFoundError } from "./errors.ts";
 
 export interface CreateDeveloperInput {
-  legalName: string;
+  /** Optional — blank/omitted is stored as NULL, never a made-up name. */
+  legalName?: string | null;
   displayName: string;
   city: string;
   state: string;
@@ -16,14 +17,14 @@ export async function createDeveloper(
   developers: DeveloperRepository,
   input: CreateDeveloperInput,
 ): Promise<Developer> {
-  const legalName = input.legalName.trim();
+  const legalName = input.legalName?.trim() || null;
   const displayName = input.displayName.trim();
   const city = input.city.trim();
   const state = input.state.trim();
   const country = input.country.trim();
 
-  if (!legalName || !displayName || !city || !state || !country) {
-    throw new Error("legalName, displayName, city, state, and country are required");
+  if (!displayName || !city || !state || !country) {
+    throw new Error("displayName, city, state, and country are required");
   }
 
   const slug = await makeUniqueSlug(displayName, (candidate) => developers.slugExists(candidate));
@@ -281,10 +282,10 @@ export async function discardPendingChanges(
  */
 export async function findLikelyDuplicateDeveloper(
   developers: DeveloperRepository,
-  input: { legalName: string; displayName: string },
+  input: { legalName?: string | null; displayName: string },
 ): Promise<Developer | null> {
   const displaySlug = slugify(input.displayName.trim());
-  const legalSlug = slugify(input.legalName.trim());
+  const legalSlug = slugify(input.legalName?.trim() ?? "");
 
   // displayName duplicates: a developer's slug is always derived from its
   // displayName (see makeUniqueSlug above), so this reuses the existing
@@ -300,7 +301,7 @@ export async function findLikelyDuplicateDeveloper(
   // still a small, transparent, deterministic check, not a search index.
   if (legalSlug) {
     const all = await developers.list();
-    const byLegalName = all.find((d) => slugify(d.legalName) === legalSlug);
+    const byLegalName = all.find((d) => d.legalName !== null && slugify(d.legalName) === legalSlug);
     if (byLegalName) return byLegalName;
   }
 

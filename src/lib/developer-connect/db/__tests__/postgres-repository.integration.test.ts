@@ -834,7 +834,7 @@ test(
       repos,
       developer.id,
       {
-        legalName: developer.legalName,
+        legalName: developer.legalName ?? "",
         displayName: developer.displayName,
         city: developer.city,
         state: developer.state,
@@ -848,7 +848,7 @@ test(
       repos,
       developer.id,
       {
-        legalName: developer.legalName,
+        legalName: developer.legalName ?? "",
         displayName: developer.displayName,
         city: "Thane",
         state: developer.state,
@@ -919,7 +919,7 @@ test(
       repos,
       developer.id,
       {
-        legalName: developer.legalName,
+        legalName: developer.legalName ?? "",
         displayName: developer.displayName,
         city: developer.city,
         state: developer.state,
@@ -1147,3 +1147,32 @@ test.after(async () => {
   const { closeDb } = await import("../client.ts");
   await closeDb();
 });
+
+test(
+  "postgres: a developer created without a legal name is persisted with legal_name NULL (no invented value)",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { createDeveloper } = await import("../../developer-service.ts");
+    const repos = createPostgresRepositories();
+    const marker = randomUUID();
+
+    const fromNull = await createDeveloper(repos.developers, {
+      legalName: null,
+      displayName: `TEST — No Legal Name Null ${marker}`,
+      city: "Dubai",
+      state: "Dubai",
+      country: "United Arab Emirates",
+    });
+    const fromEmpty = await createDeveloper(repos.developers, {
+      legalName: "",
+      displayName: `TEST — No Legal Name Empty ${marker}`,
+      city: "Dubai",
+      state: "Dubai",
+      country: "United Arab Emirates",
+    });
+
+    assert.equal((await repos.developers.getById(fromNull.id))?.legalName, null);
+    assert.equal((await repos.developers.getById(fromEmpty.id))?.legalName, null);
+  },
+);

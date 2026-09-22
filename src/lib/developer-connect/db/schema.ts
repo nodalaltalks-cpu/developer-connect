@@ -78,7 +78,9 @@ export const developers = pgTable(
   "developers",
   {
     id: uuid("id").primaryKey(),
-    legalName: text("legal_name").notNull(),
+    // Nullable: a newly discovered developer's registered legal entity is
+    // often unknown — store NULL rather than inventing one.
+    legalName: text("legal_name"),
     displayName: text("display_name").notNull(),
     slug: text("slug").notNull(),
     // Geography is data, not schema: Mumbai is a row value, never a column assumption.

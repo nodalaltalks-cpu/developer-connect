@@ -304,7 +304,7 @@ test("updateDeveloper: editing a PUBLISHED developer never touches the published
     repos,
     developer.id,
     {
-      legalName: developer.legalName,
+      legalName: developer.legalName ?? "",
       displayName: developer.displayName,
       city: developer.city,
       state: developer.state,
@@ -331,7 +331,7 @@ test("updateDeveloper: multiple edits before republish merge into one pending pa
     repos,
     developer.id,
     {
-      legalName: developer.legalName,
+      legalName: developer.legalName ?? "",
       displayName: developer.displayName,
       city: developer.city,
       state: developer.state,
@@ -350,7 +350,7 @@ test("updateDeveloper: multiple edits before republish merge into one pending pa
     repos,
     developer.id,
     {
-      legalName: developer.legalName,
+      legalName: developer.legalName ?? "",
       displayName: developer.displayName,
       city: "Thane",
       state: developer.state,
@@ -379,13 +379,13 @@ test("updateDeveloper: editing a field back to exactly its published value remov
   await updateDeveloper(
     repos,
     developer.id,
-    { legalName: developer.legalName, displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Lower Parel" },
+    { legalName: developer.legalName ?? "", displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Lower Parel" },
     founder,
   );
   const revertedBack = await updateDeveloper(
     repos,
     developer.id,
-    { legalName: developer.legalName, displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Worli" },
+    { legalName: developer.legalName ?? "", displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Worli" },
     founder,
   );
 
@@ -403,7 +403,7 @@ test("republishDeveloper: atomically applies the pending patch to the published 
   await updateDeveloper(
     repos,
     developer.id,
-    { legalName: developer.legalName, displayName: developer.displayName, city: "Thane", state: developer.state, country: developer.country, headquartersLocation: "Lower Parel" },
+    { legalName: developer.legalName ?? "", displayName: developer.displayName, city: "Thane", state: developer.state, country: developer.country, headquartersLocation: "Lower Parel" },
     founder,
   );
 
@@ -443,7 +443,7 @@ test("discardPendingChanges: throws away the pending patch without ever touching
   await updateDeveloper(
     repos,
     developer.id,
-    { legalName: developer.legalName, displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Lower Parel" },
+    { legalName: developer.legalName ?? "", displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Lower Parel" },
     founder,
   );
 
@@ -507,7 +507,7 @@ test("updateDeveloper: clearing the optional Headquarters field on an unpublishe
     repos,
     developer.id,
     {
-      legalName: developer.legalName,
+      legalName: developer.legalName ?? "",
       displayName: developer.displayName,
       city: developer.city,
       state: developer.state,
@@ -542,14 +542,14 @@ test("updateDeveloper: a second edit after clearing Headquarters builds on the a
   await updateDeveloper(
     repos,
     developer.id,
-    { legalName: developer.legalName, displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: undefined },
+    { legalName: developer.legalName ?? "", displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: undefined },
     founder,
   );
 
   const finalValue = await updateDeveloper(
     repos,
     developer.id,
-    { legalName: developer.legalName, displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Final Realistic Address, Mumbai" },
+    { legalName: developer.legalName ?? "", displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Final Realistic Address, Mumbai" },
     founder,
   );
 
@@ -575,10 +575,95 @@ test("updateDeveloper: an UNPUBLISHED developer's edits still write straight thr
   const after = await updateDeveloper(
     repos,
     developer.id,
-    { legalName: developer.legalName, displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Lower Parel" },
+    { legalName: developer.legalName ?? "", displayName: developer.displayName, city: developer.city, state: developer.state, country: developer.country, headquartersLocation: "Lower Parel" },
     founder,
   );
 
   assert.equal(after.headquartersLocation, "Lower Parel", "an unpublished developer's edits take effect immediately");
   assert.equal(after.pendingChanges, null);
+});
+
+// --- Legal name is optional at creation (stored as NULL, never invented) ---
+
+const optionalLegalNameBase = {
+  displayName: "Test Developer",
+  city: "Dubai",
+  state: "Dubai",
+  country: "United Arab Emirates",
+};
+
+test("createDeveloper: legalName = null creates the developer with legalName NULL", async () => {
+  const repos = createInMemoryRepositories();
+  const developer = await createDeveloper(repos.developers, { ...optionalLegalNameBase, legalName: null });
+
+  assert.equal(developer.legalName, null);
+  assert.equal(developer.displayName, "Test Developer");
+  assert.equal(developer.slug, "test-developer");
+  assert.equal((await repos.developers.getById(developer.id))?.legalName, null);
+});
+
+test("createDeveloper: legalName = \"\" (or whitespace) is normalized to NULL, not rejected", async () => {
+  const repos = createInMemoryRepositories();
+  const empty = await createDeveloper(repos.developers, { ...optionalLegalNameBase, legalName: "" });
+  const blank = await createDeveloper(repos.developers, { ...optionalLegalNameBase, legalName: "   " });
+
+  assert.equal(empty.legalName, null);
+  assert.equal(blank.legalName, null);
+});
+
+test("createDeveloper: omitted legalName creates the developer with legalName NULL", async () => {
+  const repos = createInMemoryRepositories();
+  const developer = await createDeveloper(repos.developers, optionalLegalNameBase);
+  assert.equal(developer.legalName, null);
+});
+
+test("createDeveloper: a provided legalName is still trimmed and stored as-is", async () => {
+  const repos = createInMemoryRepositories();
+  const developer = await createDeveloper(repos.developers, {
+    ...optionalLegalNameBase,
+    legalName: "  Test Developer LLC  ",
+  });
+  assert.equal(developer.legalName, "Test Developer LLC");
+});
+
+for (const field of ["displayName", "city", "state", "country"] as const) {
+  test(`createDeveloper: missing ${field} still fails even though legalName is optional`, async () => {
+    const repos = createInMemoryRepositories();
+    for (const value of ["", "   "]) {
+      await assert.rejects(
+        createDeveloper(repos.developers, { ...optionalLegalNameBase, legalName: "Test Developer LLC", [field]: value }),
+        /displayName, city, state, and country are required/,
+      );
+    }
+    assert.equal((await repos.developers.list()).length, 0, "nothing may be created on a validation failure");
+  });
+}
+
+test("verification: a developer with a NULL legalName goes through the unchanged approve-and-publish flow", async () => {
+  const repos = createInMemoryRepositories();
+  const developer = await createDeveloper(repos.developers, { ...optionalLegalNameBase, legalName: null });
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://www.test-developer.example",
+    discoverySource: "MANUAL_SUBMISSION",
+    actor: founder,
+  });
+
+  const result = await approveAndPublishCandidate(repos, candidate.id, founder, "Reviewed and approved by founder");
+
+  assert.equal(result.verificationStatus, "VERIFIED");
+  const verified = await repos.candidates.getVerifiedForDeveloper(developer.id);
+  assert.equal(verified?.id, candidate.id);
+  const after = await repos.developers.getById(developer.id);
+  assert.equal(after?.legalName, null, "verification must not fill in or alter legalName");
+});
+
+test("verification: an existing developer WITH a legalName is published with its legalName untouched", async () => {
+  const repos = createInMemoryRepositories();
+  const published = await createPublishedDeveloper(repos, {
+    legalName: "Test Existing Verified Co Private Limited",
+    displayName: "Test Existing Verified Co",
+  });
+  assert.equal(published.legalName, "Test Existing Verified Co Private Limited");
+  assert.ok(await repos.candidates.getVerifiedForDeveloper(published.id));
 });

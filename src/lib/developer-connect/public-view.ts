@@ -14,7 +14,7 @@ export interface PublicOfficialWebsite {
  */
 export interface PublicDeveloperProfile {
   id: string;
-  legalName: string;
+  legalName: string | null;
   displayName: string;
   slug: string;
   city: string;

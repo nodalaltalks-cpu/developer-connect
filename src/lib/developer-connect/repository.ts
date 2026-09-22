@@ -23,7 +23,7 @@ import type {
  */
 
 export interface NewDeveloperInput {
-  legalName: string;
+  legalName: string | null;
   displayName: string;
   slug: string;
   city: string;

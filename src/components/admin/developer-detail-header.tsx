@@ -61,7 +61,7 @@ export function DeveloperDetailHeader({
     <div>
       <h1 className="text-xl font-semibold tracking-tight text-foreground">{developer.displayName}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {developer.legalName} · {developer.city}, {developer.state} · {developer.status}
+        {developer.legalName ?? "Legal name not set"} · {developer.city}, {developer.state} · {developer.status}
       </p>
 
       <ol className="mb-3 mt-4 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm">

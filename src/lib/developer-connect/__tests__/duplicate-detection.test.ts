@@ -97,3 +97,22 @@ test("duplicate-detection: does not block creation itself — createDeveloper's 
   assert.notEqual(first.id, second.id);
   assert.equal(second.slug, "test-developer-2");
 });
+
+test("duplicate-detection: NULL/blank legal names never match each other or crash the check", async () => {
+  const repos = createInMemoryRepositories();
+  await createDeveloper(repos.developers, {
+    legalName: null,
+    displayName: "Test No Legal Name A",
+    city: "Dubai",
+    state: "Dubai",
+    country: "United Arab Emirates",
+  });
+
+  for (const legalName of [null, undefined, "", "   "]) {
+    const match = await findLikelyDuplicateDeveloper(repos.developers, {
+      legalName,
+      displayName: "Test No Legal Name B",
+    });
+    assert.equal(match, null);
+  }
+});

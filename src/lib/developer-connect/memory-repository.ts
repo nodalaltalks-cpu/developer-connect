@@ -133,7 +133,7 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
           (developer) =>
             developer.status === "ACTIVE" &&
             (developer.displayName.toLowerCase().includes(needle) ||
-              developer.legalName.toLowerCase().includes(needle) ||
+              (developer.legalName ?? "").toLowerCase().includes(needle) ||
               geoTokens.some(
                 (token) =>
                   developer.city.toLowerCase().includes(token) ||

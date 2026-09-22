@@ -20,7 +20,8 @@ export type DeveloperMetadataPatch = Partial<Record<DeveloperEditableField, stri
 
 export interface Developer {
   id: string;
-  legalName: string;
+  /** Null when the registered legal entity is not known. */
+  legalName: string | null;
   displayName: string;
   slug: string;
   /** Geography is data, not architecture — Mumbai is the first seeded value, not a schema assumption. */

@@ -138,7 +138,7 @@ export default async function DeveloperPage({
               <ReportInaccurateInfo developerId={developer.id} developerName={developer.displayName} />
             </div>
 
-            {developer.legalName !== developer.displayName && (
+            {developer.legalName && developer.legalName !== developer.displayName && (
               <p className="mt-6 text-xs text-muted-foreground">
                 Registered as {developer.legalName}
               </p>

@@ -85,6 +85,13 @@
       "when": 1789522600108,
       "tag": "0011_contact_case_management",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790118866597,
+      "tag": "0012_developers_legal_name_nullable",
+      "breakpoints": true
     }
   ]
 }

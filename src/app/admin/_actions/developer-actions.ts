@@ -21,7 +21,8 @@ import type { Developer, WebsiteCandidate } from "@/lib/developer-connect/types"
  */
 
 export interface CreateDeveloperActionInput {
-  legalName: string;
+  /** Optional — blank/omitted is stored as NULL. */
+  legalName?: string | null;
   displayName: string;
   city: string;
   state: string;

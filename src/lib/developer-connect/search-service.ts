@@ -40,7 +40,7 @@ function scoreDeveloperMatch(
 ): number {
   const q = query.toLowerCase();
   const displayName = profile.displayName.toLowerCase();
-  const legalName = profile.legalName.toLowerCase();
+  const legalName = (profile.legalName ?? "").toLowerCase();
   const domain = profile.officialWebsite?.canonicalDomain.toLowerCase() ?? "";
   const city = profile.city.toLowerCase();
   const state = profile.state.toLowerCase();

@@ -156,7 +156,6 @@ export function DeveloperIntakeForm() {
         <p className="text-xs text-muted-foreground">The registered corporate name.</p>
         <input
           id="legalName"
-          required
           value={fields.legalName}
           onChange={(e) => update("legalName", e.target.value)}
           className={inputClassName}

@@ -63,10 +63,10 @@ export interface CreateDeveloperActionResult {
 export async function createDeveloperAction(
   input: CreateDeveloperActionInput,
 ): Promise<CreateDeveloperActionResult> {
-  const founderId = await requireFounderForAction();
-  const repos = createPostgresRepositories();
-
   try {
+    const founderId = await requireFounderForAction();
+    const repos = createPostgresRepositories();
+
     const duplicate = await findLikelyDuplicateDeveloper(repos.developers, {
       legalName: input.legalName,
       displayName: input.displayName,

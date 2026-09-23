@@ -1,24 +1,33 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { SignInButton } from "@clerk/nextjs";
 import { Container } from "@/components/ui/container";
 import { NotificationBell } from "@/components/notification-bell";
 import { ProfileHeaderLink } from "@/components/profile-header-link";
 import { AccountMenu } from "@/components/account-menu";
+import { isFounder } from "@/lib/auth";
 import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
 import { calculateProfileCompletion } from "@/lib/profile/completion";
 
 /**
- * Shared public header. Deliberately carries no admin/founder navigation
- * — that surface must never appear here, for anyone, per Phase 2D's
- * explicit rule. Signed-in users see a link to their own Profile; nothing
- * else changes based on who they are.
+ * Shared public header. Signed-in users see a link to their own Profile;
+ * the founder additionally sees a Dashboard link to /admin.
+ *
+ * The Dashboard link is decided on every render by the same server-side
+ * isFounder() check /admin itself uses (privateMetadata, never sent to
+ * the browser) — not only at sign-in via /post-sign-in, which runs once.
+ * Without it, a founder returning via a bookmark had a live session but
+ * no route back to /admin short of signing out and in again. The link is
+ * navigation only: /admin stays gated by proxy.ts + requireFounder().
  *
  * `<SignedIn>`/`<SignedOut>` were removed in @clerk/nextjs Core 3 — the
  * signed-in/out branch is decided server-side via `auth()` instead.
  */
 export async function SiteHeader() {
   const { userId } = await auth();
+  // currentUser() is only fetched for signed-in visitors; anonymous
+  // traffic pays nothing extra.
+  const showDashboard = userId ? isFounder(await currentUser()) : false;
 
   // Read-only — never getOrCreateProfile, which would create a profile
   // row and fire a profile_started analytics event just from loading a
@@ -39,6 +48,14 @@ export async function SiteHeader() {
         <div className="flex items-center gap-4">
           {userId ? (
             <>
+              {showDashboard && (
+                <Link
+                  href="/admin"
+                  className="text-sm font-medium text-foreground hover:text-accent-hover"
+                >
+                  Dashboard
+                </Link>
+              )}
               {completion && <ProfileHeaderLink completion={completion} />}
               <NotificationBell />
               <AccountMenu profilePercentage={completion?.percentage ?? null} />

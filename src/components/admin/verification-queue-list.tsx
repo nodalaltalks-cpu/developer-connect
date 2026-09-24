@@ -6,7 +6,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { CandidateStatusBadge } from "@/components/admin/candidate-status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { CandidateReviewPanel } from "@/components/admin/candidate-review-panel";
-import { getCandidateReviewDataAction } from "@/app/admin/_actions/verification-actions";
+import { getCandidateReviewDataAction, loadMoreVerificationQueueAction } from "@/app/admin/_actions/verification-actions";
 import type { CandidateReviewData } from "@/app/admin/_actions/verification-actions";
 import { isPendingVerificationStatus } from "@/lib/developer-connect/verification-queue-state";
 import type { WebsiteCandidate, Developer } from "@/lib/developer-connect/types";
@@ -29,12 +29,51 @@ interface QueueRow {
  * evidence/history/sibling-candidates up front (see Performance in the
  * task instructions this component implements).
  */
-export function VerificationQueueList({ initialRows }: { initialRows: QueueRow[] }) {
+export function VerificationQueueList({
+  initialRows,
+  initialTotal,
+}: {
+  initialRows: QueueRow[];
+  /** How many candidates the whole queue held when the page rendered — the server sends only the first page. */
+  initialTotal: number;
+}) {
   const [rows, setRows] = useState(initialRows);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [reviewData, setReviewData] = useState<Record<string, CandidateReviewData>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [queueTotal, setQueueTotal] = useState(initialTotal);
+  const [moreError, setMoreError] = useState<string | null>(null);
+  const [isLoadingMore, startLoadingMore] = useTransition();
+
+  // Loaded rows still in a pending status are exactly the prefix of the
+  // (newest-first) queue already on screen, so their count is the offset
+  // of the next page — rows that just left the queue (approved, rejected,
+  // deactivated) no longer occupy a slot server-side, and a just-approved
+  // row still showing its confirmation must not be counted either.
+  const pendingLoaded = rows.filter((row) => isPendingVerificationStatus(row.candidate.verificationStatus)).length;
+  const leavingOnScreen = rows.length - pendingLoaded;
+  const remainingInQueue = queueTotal - leavingOnScreen;
+  const hasMore = pendingLoaded < remainingInQueue;
+
+  function loadMore() {
+    setMoreError(null);
+    startLoadingMore(async () => {
+      const result = await loadMoreVerificationQueueAction(pendingLoaded);
+      if (!result.ok || !result.rows) {
+        setMoreError(result.error ?? "Could not load more candidates.");
+        return;
+      }
+      const page = result.rows;
+      setRows((prev) => {
+        const seen = new Set(prev.map((row) => row.candidate.id));
+        return [...prev, ...page.filter((row) => !seen.has(row.candidate.id))];
+      });
+      // Whatever the server now reports, plus any rows still on screen that
+      // have already left the queue (the server no longer counts those).
+      setQueueTotal((result.total ?? 0) + leavingOnScreen);
+    });
+  }
 
   function toggle(candidateId: string) {
     if (expandedId === candidateId) {
@@ -56,6 +95,8 @@ export function VerificationQueueList({ initialRows }: { initialRows: QueueRow[]
   }
 
   function removeRow(candidateId: string) {
+    // Only ever called for a row whose candidate has left the queue, so the queue itself is one smaller.
+    setQueueTotal((total) => Math.max(0, total - 1));
     setRows((prev) => prev.filter((row) => row.candidate.id !== candidateId));
     setExpandedId((current) => (current === candidateId ? null : current));
   }
@@ -112,6 +153,35 @@ export function VerificationQueueList({ initialRows }: { initialRows: QueueRow[]
     }
   }
 
+  const loadMoreControls = (
+    <div className="mt-4 flex flex-col items-center gap-2">
+      <p className="text-sm text-muted-foreground">
+        Showing {pendingLoaded} of {Math.max(remainingInQueue, pendingLoaded)} candidates waiting for review.
+      </p>
+      {hasMore && (
+        <button
+          type="button"
+          onClick={loadMore}
+          disabled={isLoadingMore}
+          className={buttonClassName("secondary", "min-h-9 px-4 py-1.5 text-sm")}
+        >
+          {isLoadingMore ? "Loading…" : "Load more"}
+        </button>
+      )}
+      {moreError && (
+        <p className="text-sm text-red-700" role="alert">
+          {moreError}
+        </p>
+      )}
+    </div>
+  );
+
+  if (rows.length === 0 && hasMore) {
+    // The founder cleared every loaded row, but the queue still has more
+    // on the server — offer the next page rather than claiming it's empty.
+    return loadMoreControls;
+  }
+
   if (rows.length === 0) {
     // Reachable client-side even when the server sent a non-empty
     // initial list — e.g. the founder just approved/rejected the last
@@ -127,6 +197,7 @@ export function VerificationQueueList({ initialRows }: { initialRows: QueueRow[]
   }
 
   return (
+    <>
     <ul className="divide-y divide-border rounded-lg border border-border">
       {rows.map((row) => {
         const { candidate } = row;
@@ -191,5 +262,7 @@ export function VerificationQueueList({ initialRows }: { initialRows: QueueRow[]
         );
       })}
     </ul>
+    {loadMoreControls}
+    </>
   );
 }

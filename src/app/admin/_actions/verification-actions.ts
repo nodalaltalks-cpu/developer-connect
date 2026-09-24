@@ -17,6 +17,7 @@ import {
   CrossDeveloperDomainConflictError,
 } from "@/lib/developer-connect/errors";
 import type { WebsiteCandidate, VerificationStatus, Developer, Evidence, VerificationEvent } from "@/lib/developer-connect/types";
+import { getVerificationQueuePage, type VerificationQueueRow } from "@/lib/developer-connect/verification-queue";
 
 /**
  * Every function here calls `requireFounderForAction` FIRST and passes
@@ -81,8 +82,16 @@ function describeVerificationError(err: unknown): string {
   return err instanceof Error ? err.message : "Could not complete this action.";
 }
 
+/**
+ * Deliberately NOT "/admin/verification" (the queue itself): from a
+ * Server Action, revalidating the path the founder is viewing re-renders
+ * and resends that whole page with the action's result. The queue
+ * already updates its own rows locally (verification-queue-list.tsx),
+ * and it's force-dynamic, so a fresh visit always shows current data —
+ * re-rendering it after every approve/reject only added a full-page
+ * payload and re-render to each click.
+ */
 function revalidateCandidate(candidateId: string, developerId?: string) {
-  revalidatePath("/admin/verification");
   revalidatePath(`/admin/verification/${candidateId}`);
   if (developerId) revalidatePath(`/admin/developers/${developerId}`);
 }
@@ -153,6 +162,31 @@ export async function getCandidateReviewDataAction(candidateId: string): Promise
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return { ok: true, data: { candidate, developer, evidenceList, history, otherCandidates } };
+}
+
+export interface VerificationQueuePageResult {
+  ok: boolean;
+  rows?: VerificationQueueRow[];
+  total?: number;
+  error?: string;
+}
+
+/**
+ * The next page of the /admin/verification queue — what its "Load more"
+ * fetches. Read-only; founder-gated like every other action here.
+ */
+export async function loadMoreVerificationQueueAction(offset: number): Promise<VerificationQueuePageResult> {
+  try {
+    await requireFounderForAction();
+  } catch {
+    return { ok: false, error: AUTH_ERROR };
+  }
+  if (!Number.isFinite(offset) || offset < 0) {
+    return { ok: false, error: "Could not load more candidates." };
+  }
+
+  const { rows, total } = await getVerificationQueuePage(createPostgresRepositories(), offset);
+  return { ok: true, rows, total };
 }
 
 export async function approveCandidateAction(

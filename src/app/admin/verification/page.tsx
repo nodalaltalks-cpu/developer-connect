@@ -1,5 +1,5 @@
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { PENDING_VERIFICATION_STATUSES } from "@/lib/developer-connect/verification-queue-state";
+import { getVerificationQueuePage } from "@/lib/developer-connect/verification-queue";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 import { VerificationQueueList } from "@/components/admin/verification-queue-list";
 
@@ -15,22 +15,12 @@ import { VerificationQueueList } from "@/components/admin/verification-queue-lis
 export const dynamic = "force-dynamic";
 
 export default async function AdminVerificationQueuePage() {
-  const repos = createPostgresRepositories();
-  const candidates = await repos.candidates.listByStatuses([...PENDING_VERIFICATION_STATUSES]);
-
-  // One batched query for every developer name the collapsed rows need —
-  // not one round trip per candidate. Expanding a row fetches its own
-  // full review data separately (see verification-queue-list.tsx), so
-  // this initial load never pays for evidence/history/sibling-candidate
-  // data nobody has asked to see yet.
-  const developerIds = [...new Set(candidates.map((c) => c.developerId))];
-  const developers = await repos.developers.getManyByIds(developerIds);
-  const developerNames = new Map(developers.map((d) => [d.id, d.displayName]));
-
-  const rows = candidates.map((candidate) => ({
-    candidate,
-    developerName: developerNames.get(candidate.developerId) ?? "Unknown developer",
-  }));
+  // Only the first page of the queue is rendered — one LIMITed candidate
+  // query plus one batched developer-name lookup for just those rows.
+  // Further pages load on demand via "Load more" (verification-queue-list.tsx),
+  // and expanding a row still fetches its own full review data separately,
+  // so this initial load never pays for rows or evidence nobody has asked to see yet.
+  const { rows, total } = await getVerificationQueuePage(createPostgresRepositories(), 0);
 
   return (
     <div>
@@ -45,7 +35,7 @@ export default async function AdminVerificationQueuePage() {
           description="No website candidates are pending, flagged for re-verification, or newly discovered right now."
         />
       ) : (
-        <VerificationQueueList initialRows={rows} />
+        <VerificationQueueList initialRows={rows} initialTotal={total} />
       )}
     </div>
   );

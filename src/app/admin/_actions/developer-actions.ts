@@ -146,7 +146,8 @@ export async function updateDeveloperAction(
     const developer = await updateDeveloper(repos, input.id, input, { actorType: "FOUNDER", actorId: founderId });
     revalidatePath(`/admin/developers/${input.id}`);
     revalidatePath("/admin/developers");
-    revalidatePath(`/admin/verification`);
+    // Not the verification queue: its inline editor already syncs the saved
+    // developer locally, and revalidating it would re-render the whole queue.
     return { ok: true, developer };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save changes." };

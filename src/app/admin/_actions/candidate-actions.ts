@@ -127,7 +127,8 @@ export async function updateCandidateUrlAction(
       actorType: "FOUNDER",
       actorId: founderId,
     });
-    revalidatePath("/admin/verification");
+    // Not the queue itself: its inline URL editor already syncs the new URL
+    // locally, and revalidating it would re-render the whole queue on every save.
     revalidatePath(`/admin/verification/${input.candidateId}`);
     revalidatePath(`/admin/developers/${candidate.developerId}`);
     return { ok: true, candidate };

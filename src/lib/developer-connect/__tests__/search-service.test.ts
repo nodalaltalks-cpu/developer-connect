@@ -6,6 +6,7 @@ import {
   listVerifiedDevelopers,
   listPublicGeographyOptions,
   getPublicHomepageData,
+  getPublicDirectoryPage,
   selectInitialHomepageDevelopers,
 } from "../search-service.ts";
 import type { PublicDeveloperProfile } from "../public-view.ts";
@@ -630,4 +631,87 @@ test("getPublicHomepageData: 'countriesCovered' is the configured operating-coun
     OPERATING_COUNTRIES.length,
     "countriesCovered stays the same real config value regardless of verified-developer count",
   );
+});
+
+// --- Paginated directory: the homepage renders one page, and "Load more"
+// (getPublicDirectoryPage) walks the rest — pagination happens in the
+// repository, never by loading every published developer. ---
+
+async function publishDevelopers(count: number, cityFor: (i: number) => string = () => "Mumbai") {
+  const { repos } = await setUpTestDeveloper({ displayName: "Test Unpublished Seed Co" }); // never verified
+  const ids: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const developer = await createDeveloper(repos.developers, {
+      legalName: `Test Paged ${String(i).padStart(3, "0")} Private Limited`,
+      displayName: `Test Paged ${String(i).padStart(3, "0")}`,
+      city: cityFor(i),
+      state: "Maharashtra",
+      country: "India",
+    });
+    await verifyDeveloper(repos, developer.id, `https://paged-${i}.example`);
+    ids.push(developer.id);
+  }
+  return { repos, ids };
+}
+
+test("getPublicHomepageData: returns only the first page, with the real total and live stats", async () => {
+  const { repos } = await publishDevelopers(45);
+  const homepage = await getPublicHomepageData(repos, {}, { pageSize: 20 });
+  assert.equal(homepage.directory.length, 20, "only one page of cards is returned");
+  assert.equal(homepage.totalMatching, 45);
+  assert.equal(homepage.stats.verifiedDevelopers, 45, "stats count every published developer, not just the page");
+  assert.equal(homepage.stats.officialWebsitesVerified, 45);
+  assert.deepEqual(
+    homepage.directory.map((d) => d.displayName),
+    Array.from({ length: 20 }, (_, i) => `Test Paged ${String(i).padStart(3, "0")}`),
+    "first page is the alphabetical start of the directory",
+  );
+});
+
+test("getPublicDirectoryPage: walking every page reaches each published developer exactly once — no duplicates, none missing", async () => {
+  const { repos, ids } = await publishDevelopers(47);
+  const first = await getPublicHomepageData(repos, {}, { pageSize: 20 });
+  const seen = first.directory.map((d) => d.id);
+  while (seen.length < first.totalMatching) {
+    const page = await getPublicDirectoryPage(repos, {}, seen.length, 20);
+    assert.ok(page.developers.length > 0, "a page before the end is never empty");
+    seen.push(...page.developers.map((d) => d.id));
+  }
+  assert.equal(seen.length, 47);
+  assert.equal(new Set(seen).size, 47, "no developer appears twice across pages");
+  assert.deepEqual(new Set(seen), new Set(ids), "every published developer is reachable; the unpublished one never is");
+  const past = await getPublicDirectoryPage(repos, {}, 47, 20);
+  assert.equal(past.developers.length, 0);
+});
+
+test("getPublicHomepageData / getPublicDirectoryPage: search and geography filters are paginated too, with a filtered total", async () => {
+  const { repos } = await publishDevelopers(30, (i) => (i % 2 === 0 ? "Mumbai" : "Pune"));
+  const pune = await getPublicHomepageData(repos, { city: "pune" }, { pageSize: 10 });
+  assert.equal(pune.directory.length, 10);
+  assert.equal(pune.totalMatching, 15);
+  assert.ok(pune.directory.every((d) => d.city === "Pune"));
+  const rest = await getPublicDirectoryPage(repos, { city: "Pune" }, 10, 10);
+  assert.equal(rest.developers.length, 5);
+  assert.equal(new Set([...pune.directory, ...rest.developers].map((d) => d.id)).size, 15);
+
+  const query = await getPublicHomepageData(repos, { query: "  paged 01 " }, { pageSize: 5 });
+  assert.equal(query.totalMatching, 10, "normalized query matches Test Paged 010–019");
+  assert.equal(query.directory.length, 5);
+
+  const byDomain = await getPublicHomepageData(repos, { query: "paged-7.example" });
+  assert.deepEqual(byDomain.directory.map((d) => d.displayName), ["Test Paged 007"], "the verified domain is searchable");
+});
+
+test("getPublicHomepageData: initial discovery returns a seeded, city-spread sample of the requested size — never the whole directory", async () => {
+  const { repos } = await publishDevelopers(40, (i) => `City${i % 8}`);
+  const a = await getPublicHomepageData(repos, {}, { initialDiscoverySeed: "session-a", pageSize: 10 });
+  const again = await getPublicHomepageData(repos, {}, { initialDiscoverySeed: "session-a", pageSize: 10 });
+  assert.equal(a.directory.length, 10);
+  assert.equal(a.totalMatching, 40, "the limited view still knows the real directory size");
+  assert.deepEqual(a.directory.map((d) => d.id), again.directory.map((d) => d.id), "stable for one seed");
+  assert.equal(new Set(a.directory.map((d) => d.city)).size, 8, "all 8 cities appear before any repeats");
+
+  const filtered = await getPublicHomepageData(repos, { city: "City3" }, { initialDiscoverySeed: "session-a", pageSize: 10 });
+  assert.equal(filtered.totalMatching, 5, "an active filter always gets the real filtered listing, never the sample");
+  assert.ok(filtered.directory.every((d) => d.city === "City3"));
 });

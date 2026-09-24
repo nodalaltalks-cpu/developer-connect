@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "./client.ts";
 import * as schema from "./schema.ts";
@@ -16,6 +16,8 @@ import type {
   NewVerificationEventInput,
   NewDeveloperEditEventInput,
   DeveloperConnectRepositories,
+  PublishedDeveloperEntry,
+  PublishedDirectoryFilter,
 } from "../repository.ts";
 import { NotFoundError } from "../errors.ts";
 import { normalizeUrl } from "../url.ts";
@@ -242,7 +244,100 @@ function buildDeveloperRepository(db: DbOrTx): DeveloperRepository {
         .limit(limit);
       return rows.map(toDeveloper);
     },
+    async listPublishedPage(filter, page) {
+      const where = publishedWhere(filter);
+      const [rows, [{ total }]] = await Promise.all([
+        publishedJoin(db)
+          .where(where)
+          .orderBy(
+            sql`lower(${schema.developers.displayName})`,
+            asc(schema.developers.displayName),
+            asc(schema.developers.id),
+          )
+          .limit(page.limit)
+          .offset(page.offset),
+        db
+          .select({ total: count() })
+          .from(schema.developers)
+          .innerJoin(schema.websiteCandidates, eq(schema.websiteCandidates.developerId, schema.developers.id))
+          .where(where),
+      ]);
+      return { entries: rows.map(toPublishedEntry), total };
+    },
+    async samplePublished(seed, sampleSize) {
+      // Round-robin across cities in the database itself: every city's
+      // developers are shuffled by a seeded hash (row_number = that
+      // developer's "round"), cities are ordered by a seeded hash too, and
+      // round 1 of every city comes before round 2 of any — so the first
+      // picks cover distinct cities before any city repeats, stably for
+      // one seed. Only `sampleSize` rows ever leave the database.
+      const rows = await publishedJoin(db)
+        .where(publishedWhere({}))
+        .orderBy(
+          sql`row_number() over (partition by lower(${schema.developers.city}) order by md5(${schema.developers.id}::text || ${seed}::text))`,
+          sql`md5(lower(${schema.developers.city}) || ${seed}::text)`,
+          asc(schema.developers.id),
+        )
+        .limit(sampleSize);
+      return rows.map(toPublishedEntry);
+    },
+    async countPublished() {
+      const [{ total }] = await db
+        .select({ total: count() })
+        .from(schema.developers)
+        .innerJoin(schema.websiteCandidates, eq(schema.websiteCandidates.developerId, schema.developers.id))
+        .where(publishedWhere({}));
+      return total;
+    },
+    async listPublishedLocations() {
+      return db
+        .selectDistinct({
+          country: schema.developers.country,
+          state: schema.developers.state,
+          city: schema.developers.city,
+        })
+        .from(schema.developers)
+        .innerJoin(schema.websiteCandidates, eq(schema.websiteCandidates.developerId, schema.developers.id))
+        .where(publishedWhere({}))
+        .orderBy(asc(schema.developers.country), asc(schema.developers.state), asc(schema.developers.city));
+    },
   };
+}
+
+/** ACTIVE developer joined to its VERIFIED candidate (at most one per developer — enforced by a unique index). */
+function publishedJoin(db: DbOrTx) {
+  return db
+    .select({ developer: schema.developers, candidate: schema.websiteCandidates })
+    .from(schema.developers)
+    .innerJoin(schema.websiteCandidates, eq(schema.websiteCandidates.developerId, schema.developers.id));
+}
+
+function toPublishedEntry(row: {
+  developer: typeof schema.developers.$inferSelect;
+  candidate: typeof schema.websiteCandidates.$inferSelect;
+}): PublishedDeveloperEntry {
+  return { developer: toDeveloper(row.developer), verifiedCandidate: toWebsiteCandidate(row.candidate) };
+}
+
+/**
+ * The published-directory boundary plus `filter`, in SQL. Geography is an
+ * exact case-insensitive match; `query` is a case-insensitive literal
+ * substring match over the same space-joined fields the directory has
+ * always searched (legal name coalesced to '' so a missing one still
+ * leaves its separator, exactly like the previous in-app join).
+ */
+function publishedWhere(filter: PublishedDirectoryFilter) {
+  const d = schema.developers;
+  const c = schema.websiteCandidates;
+  const conditions = [eq(d.status, "ACTIVE"), eq(c.verificationStatus, "VERIFIED")];
+  if (filter.country) conditions.push(sql`lower(${d.country}) = lower(${filter.country})`);
+  if (filter.state) conditions.push(sql`lower(${d.state}) = lower(${filter.state})`);
+  if (filter.city) conditions.push(sql`lower(${d.city}) = lower(${filter.city})`);
+  if (filter.query) {
+    const haystack = sql`lower(concat_ws(' ', ${d.displayName}, coalesce(${d.legalName}, ''), ${d.city}, ${d.state}, ${d.country}, ${c.canonicalDomain}))`;
+    conditions.push(sql`${haystack} like ${likePattern(filter.query.toLowerCase())}`);
+  }
+  return and(...conditions);
 }
 
 function buildWebsiteCandidateRepository(db: DbOrTx): WebsiteCandidateRepository {
@@ -276,6 +371,20 @@ function buildWebsiteCandidateRepository(db: DbOrTx): WebsiteCandidateRepository
         .where(inArray(schema.websiteCandidates.verificationStatus, statuses))
         .orderBy(desc(schema.websiteCandidates.createdAt));
       return rows.map(toWebsiteCandidate);
+    },
+    async listByStatusesPage(statuses, page) {
+      const where = inArray(schema.websiteCandidates.verificationStatus, statuses);
+      const [rows, [{ total }]] = await Promise.all([
+        db
+          .select()
+          .from(schema.websiteCandidates)
+          .where(where)
+          .orderBy(desc(schema.websiteCandidates.createdAt), desc(schema.websiteCandidates.id))
+          .limit(page.limit)
+          .offset(page.offset),
+        db.select({ total: count() }).from(schema.websiteCandidates).where(where),
+      ]);
+      return { candidates: rows.map(toWebsiteCandidate), total };
     },
     async findByDomainAndPath(developerId, canonicalDomain, normalizedPath) {
       // The path isn't its own column (only the full `url` is stored), so

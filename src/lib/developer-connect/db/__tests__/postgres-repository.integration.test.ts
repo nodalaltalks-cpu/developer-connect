@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { hasTestDatabase } from "../test-db-guard.ts";
@@ -1174,5 +1174,275 @@ test(
 
     assert.equal((await repos.developers.getById(fromNull.id))?.legalName, null);
     assert.equal((await repos.developers.getById(fromEmpty.id))?.legalName, null);
+  },
+);
+
+// --- Published-directory reads (homepage pagination). The shared test
+// database is never clean, so every assertion here is scoped to rows in a
+// city name unique to this run. ---
+
+/**
+ * Developers the pagination tests below create. Unlike the rest of this
+ * file's fixtures they are PUBLISHED, and in bulk — left behind, they
+ * would crowd other tests' public-search assertions on the shared test
+ * database — so they are deleted (with their candidates) once this
+ * file's tests have run.
+ */
+const paginationFixtureDeveloperIds: string[] = [];
+
+after(async () => {
+  if (!hasDatabase || paginationFixtureDeveloperIds.length === 0) return;
+  const { getDb } = await import("../client.ts");
+  const { developers, websiteCandidates } = await import("../schema.ts");
+  const { inArray } = await import("drizzle-orm");
+  const db = getDb();
+  await db.delete(websiteCandidates).where(inArray(websiteCandidates.developerId, paginationFixtureDeveloperIds));
+  await db.delete(developers).where(inArray(developers.id, paginationFixtureDeveloperIds));
+});
+
+async function seedPublishedDirectory(city: string) {
+  const { getDb } = await import("../client.ts");
+  const { developers, websiteCandidates } = await import("../schema.ts");
+  const db = getDb();
+  const published: { id: string; displayName: string }[] = [];
+  for (let i = 0; i < 23; i++) {
+    const displayName = `TEST — Paged ${String(i).padStart(2, "0")}${i === 5 ? " 100%_off" : ""}`;
+    const [developer] = await db
+      .insert(developers)
+      .values({
+        id: randomUUID(),
+        legalName: i % 3 === 0 ? null : `${displayName} Private Limited`,
+        displayName,
+        slug: `test-paged-${randomUUID()}`,
+        city,
+        state: "Maharashtra",
+        country: "India",
+      })
+      .returning();
+    await db.insert(websiteCandidates).values({
+      id: randomUUID(),
+      developerId: developer.id,
+      url: `https://paged-${i}.example.com`,
+      canonicalDomain: `paged-${i}-${city.toLowerCase()}.example.com`,
+      discoverySource: "MANUAL_SUBMISSION",
+      verificationStatus: "VERIFIED",
+    });
+    published.push({ id: developer.id, displayName });
+    paginationFixtureDeveloperIds.push(developer.id);
+  }
+
+  // Never published: an INACTIVE developer with a VERIFIED candidate, and
+  // an ACTIVE developer whose only candidate is still DISCOVERED.
+  const [inactive] = await db
+    .insert(developers)
+    .values({
+      id: randomUUID(),
+      legalName: null,
+      displayName: "TEST — Paged Inactive",
+      slug: `test-paged-${randomUUID()}`,
+      city,
+      state: "Maharashtra",
+      country: "India",
+      status: "INACTIVE",
+    })
+    .returning();
+  paginationFixtureDeveloperIds.push(inactive.id);
+  await db.insert(websiteCandidates).values({
+    id: randomUUID(),
+    developerId: inactive.id,
+    url: "https://inactive.example.com",
+    canonicalDomain: "inactive.example.com",
+    discoverySource: "MANUAL_SUBMISSION",
+    verificationStatus: "VERIFIED",
+  });
+  const [unverified] = await db
+    .insert(developers)
+    .values({
+      id: randomUUID(),
+      legalName: null,
+      displayName: "TEST — Paged Unverified",
+      slug: `test-paged-${randomUUID()}`,
+      city,
+      state: "Maharashtra",
+      country: "India",
+    })
+    .returning();
+  paginationFixtureDeveloperIds.push(unverified.id);
+  await db.insert(websiteCandidates).values({
+    id: randomUUID(),
+    developerId: unverified.id,
+    url: "https://unverified.example.com",
+    canonicalDomain: "unverified.example.com",
+    discoverySource: "MANUAL_SUBMISSION",
+    verificationStatus: "DISCOVERED",
+  });
+  return published;
+}
+
+test(
+  "postgres: listPublishedPage paginates in SQL — ordered, counted, no duplicates or gaps, published developers only",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const repos = createPostgresRepositories();
+    // Hex-only suffix: must never contain a word another test searches for (e.g. "Test", "Co"), since search also matches query words against city.
+    const city = `Zq${randomUUID().slice(0, 8)}`;
+    const published = await seedPublishedDirectory(city);
+
+    const seen: string[] = [];
+    let total = -1;
+    for (let offset = 0; offset < 40; offset += 10) {
+      // Upper-cased on purpose: geography matching is case-insensitive.
+      const page = await repos.developers.listPublishedPage({ city: city.toUpperCase() }, { limit: 10, offset });
+      total = page.total;
+      assert.ok(page.entries.length <= 10, "never more than one page of rows");
+      for (const entry of page.entries) {
+        assert.equal(entry.verifiedCandidate.verificationStatus, "VERIFIED");
+        assert.equal(entry.verifiedCandidate.developerId, entry.developer.id);
+        assert.equal(entry.developer.status, "ACTIVE");
+      }
+      seen.push(...page.entries.map((e) => e.developer.id));
+      if (page.entries.length < 10) break;
+    }
+
+    assert.equal(total, 23, "total counts every published match, excluding INACTIVE and unverified developers");
+    assert.equal(seen.length, 23);
+    assert.equal(new Set(seen).size, 23, "no duplicates across pages");
+    assert.deepEqual(new Set(seen), new Set(published.map((p) => p.id)), "no published developer is missing");
+    const byId = new Map(published.map((p) => [p.id, p.displayName]));
+    const names = seen.map((id) => byId.get(id)!);
+    assert.deepEqual(names, [...names].sort(), "alphabetical by display name");
+  },
+);
+
+test(
+  "postgres: listPublishedPage's query is a literal, case-insensitive substring over name, legal name, location and domain",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const repos = createPostgresRepositories();
+    // Hex-only suffix: must never contain a word another test searches for (e.g. "Test", "Co"), since search also matches query words against city.
+    const city = `Zq${randomUUID().slice(0, 8)}`;
+    await seedPublishedDirectory(city);
+
+    const literal = await repos.developers.listPublishedPage({ city, query: "100%_OFF" }, { limit: 20, offset: 0 });
+    assert.deepEqual(
+      literal.entries.map((e) => e.developer.displayName),
+      ["TEST — Paged 05 100%_off"],
+      "% and _ are matched literally, case-insensitively",
+    );
+    assert.equal(literal.total, 1);
+
+    const bareWildcard = await repos.developers.listPublishedPage({ city, query: "%" }, { limit: 20, offset: 0 });
+    assert.equal(bareWildcard.total, 1, "a bare % only matches a literal percent sign");
+
+    const nameThenCity = await repos.developers.listPublishedPage(
+      { query: `paged 13 private limited ${city}` },
+      { limit: 20, offset: 0 },
+    );
+    assert.equal(nameThenCity.total, 1, "the searched text is name, legal name, city… joined by single spaces");
+
+    const nullLegalName = await repos.developers.listPublishedPage({ query: `paged 03  ${city}` }, { limit: 20, offset: 0 });
+    assert.equal(nullLegalName.total, 1, "a missing legal name still leaves its separator, like the previous in-app join");
+
+    const byDomain = await repos.developers.listPublishedPage(
+      { query: `paged-7-${city.toLowerCase()}.example.com` },
+      { limit: 20, offset: 0 },
+    );
+    assert.equal(byDomain.total, 1, "the verified domain is searchable");
+  },
+);
+
+test(
+  "postgres: samplePublished, countPublished and listPublishedLocations stay within the published boundary",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const repos = createPostgresRepositories();
+    // Hex-only suffix: must never contain a word another test searches for (e.g. "Test", "Co"), since search also matches query words against city.
+    const city = `Zq${randomUUID().slice(0, 8)}`;
+    await seedPublishedDirectory(city);
+
+    const sample = await repos.developers.samplePublished("seed-one", 10);
+    const again = await repos.developers.samplePublished("seed-one", 10);
+    assert.ok(sample.length > 0 && sample.length <= 10);
+    assert.deepEqual(sample.map((e) => e.developer.id), again.map((e) => e.developer.id), "stable for one seed");
+    assert.equal(new Set(sample.map((e) => e.developer.id)).size, sample.length, "no duplicates");
+    assert.ok(sample.every((e) => e.developer.status === "ACTIVE" && e.verifiedCandidate.verificationStatus === "VERIFIED"));
+    const total = await repos.developers.countPublished();
+    const page = await repos.developers.listPublishedPage({}, { limit: 1, offset: 0 });
+    assert.equal(total, page.total, "the count matches the unfiltered page total");
+    assert.ok(total >= 23);
+
+    const locations = await repos.developers.listPublishedLocations();
+    const publishedCities = new Set(locations.map((l) => l.city.toLowerCase())).size;
+    const sampleCities = new Set(sample.map((e) => e.developer.city.toLowerCase())).size;
+    assert.equal(sampleCities, Math.min(sample.length, publishedCities), "distinct cities are covered before any city repeats");
+
+    assert.equal(locations.filter((l) => l.city === city).length, 1, "each published location appears exactly once");
+  },
+);
+
+test(
+  "postgres: listByStatusesPage pages the queue in SQL — newest first, counted, no duplicates or gaps",
+  { skip: !hasDatabase },
+  async () => {
+    const { createPostgresRepositories } = await import("../postgres-repository.ts");
+    const { getDb } = await import("../client.ts");
+    const { developers, websiteCandidates } = await import("../schema.ts");
+    const db = getDb();
+    const repos = createPostgresRepositories();
+
+    // NEEDS_REVERIFICATION rows created in the past with identical
+    // timestamps (to exercise the id tie-break), isolated from the rest of
+    // the shared test database by filtering on just this run's rows below.
+    const createdAt = new Date("2001-01-01T00:00:00Z");
+    const ours = new Set<string>();
+    for (let i = 0; i < 12; i++) {
+      const [developer] = await db
+        .insert(developers)
+        .values({
+          id: randomUUID(),
+          legalName: null,
+          displayName: `TEST — Queue Page ${i}`,
+          slug: `test-queue-page-${randomUUID()}`,
+          city: "Mumbai",
+          state: "Maharashtra",
+          country: "India",
+        })
+        .returning();
+      const [candidate] = await db
+        .insert(websiteCandidates)
+        .values({
+          id: randomUUID(),
+          developerId: developer.id,
+          url: `https://queue-page-${i}.example.com`,
+          canonicalDomain: `queue-page-${i}-${randomUUID().slice(0, 8)}.example.com`,
+          discoverySource: "MANUAL_SUBMISSION",
+          verificationStatus: "NEEDS_REVERIFICATION",
+          createdAt,
+          updatedAt: createdAt,
+        })
+        .returning();
+      ours.add(candidate.id);
+      paginationFixtureDeveloperIds.push(developer.id);
+    }
+
+    const all: string[] = [];
+    let total = -1;
+    for (let offset = 0; ; offset += 25) {
+      const page = await repos.candidates.listByStatusesPage(["NEEDS_REVERIFICATION"], { limit: 25, offset });
+      total = page.total;
+      assert.ok(page.candidates.length <= 25);
+      assert.ok(page.candidates.every((c) => c.verificationStatus === "NEEDS_REVERIFICATION"));
+      all.push(...page.candidates.map((c) => c.id));
+      if (page.candidates.length < 25) break;
+    }
+
+    assert.equal(all.length, total, "walking every page reaches exactly `total` rows");
+    assert.equal(new Set(all).size, all.length, "no duplicates across pages");
+    assert.ok([...ours].every((id) => all.includes(id)), "none of this run's rows are missing");
+    const unpaged = await repos.candidates.listByStatuses(["NEEDS_REVERIFICATION"]);
+    assert.equal(unpaged.length, total, "the paged total matches the unpaged list");
   },
 );

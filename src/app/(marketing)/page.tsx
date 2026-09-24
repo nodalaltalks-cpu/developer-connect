@@ -12,9 +12,13 @@ import { CountriesCoveredCard } from "@/components/countries-covered-card";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { ContinueResearch } from "@/components/continue-research";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { getPublicHomepageData, selectInitialHomepageDevelopers } from "@/lib/developer-connect/search-service";
+import { DIRECTORY_PAGE_SIZE, getPublicHomepageData } from "@/lib/developer-connect/search-service";
 import { getRecentlyViewedDevelopers } from "@/lib/developer-connect/recently-viewed";
 import { readSessionId } from "@/lib/session";
+import { LoadMoreDevelopers } from "@/components/load-more-developers";
+
+/** How many developers the anonymous, unfiltered "initial discovery" view shows (unchanged). */
+const INITIAL_DISCOVERY_COUNT = 10;
 
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -46,26 +50,25 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const city = firstValue(resolvedSearchParams.city);
   const hasActiveFilter = Boolean(query || country || state || city);
 
-  const repos = createPostgresRepositories();
-  const { directory, geographyOptions, stats } = await getPublicHomepageData(repos, {
-    query,
-    country,
-    state,
-    city,
-  });
-
   // Anonymous, no-filter "initial discovery" only ever narrows THIS
-  // default view — search, filters, and signed-in visitors always reach
-  // the full published directory (see selectInitialHomepageDevelopers).
+  // default view to a seeded sample — search, filters, and signed-in
+  // visitors can page through the full published directory ("Load more").
   // Does not touch `stats`, which always reflects the real, complete
   // dataset regardless of what's shown below it.
   const { userId } = await auth();
   const isInitialDiscovery = !userId && !hasActiveFilter;
   const sessionId = await readSessionId();
-  const visibleDirectory = isInitialDiscovery
-    ? selectInitialHomepageDevelopers(directory, sessionId ?? randomUUID())
-    : directory;
-  const isLimitedView = isInitialDiscovery && visibleDirectory.length < directory.length;
+
+  const repos = createPostgresRepositories();
+  const { directory: visibleDirectory, totalMatching, geographyOptions, stats } = await getPublicHomepageData(
+    repos,
+    { query, country, state, city },
+    isInitialDiscovery
+      ? { initialDiscoverySeed: sessionId ?? randomUUID(), pageSize: INITIAL_DISCOVERY_COUNT }
+      : { pageSize: DIRECTORY_PAGE_SIZE },
+  );
+  const isLimitedView = isInitialDiscovery && visibleDirectory.length < totalMatching;
+  const hasMorePages = !isInitialDiscovery && visibleDirectory.length < totalMatching;
 
   // "Continue your research" (Part 8/9) — only on the plain, unfiltered
   // landing view; a visitor actively searching/filtering is already mid-
@@ -142,9 +145,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 </div>
                 {isLimitedView && (
                   <p className="mt-4 text-center text-sm text-muted-foreground">
-                    Showing {visibleDirectory.length} of {directory.length} verified developers.{" "}
+                    Showing {visibleDirectory.length} of {totalMatching} verified developers.{" "}
                     Search, use filters, or sign in to see the full directory.
                   </p>
+                )}
+                {hasMorePages && (
+                  <LoadMoreDevelopers
+                    // Remount (resetting anything already appended) whenever the filters change.
+                    key={`${query ?? ""}|${country ?? ""}|${state ?? ""}|${city ?? ""}`}
+                    filter={{ query, country, state, city }}
+                    renderedIds={visibleDirectory.map((developer) => developer.id)}
+                    total={totalMatching}
+                  />
                 )}
               </>
             )}

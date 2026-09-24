@@ -12,9 +12,47 @@ import type {
   NewVerificationEventInput,
   NewDeveloperEditEventInput,
   DeveloperConnectRepositories,
+  PublishedDeveloperEntry,
+  PublishedDirectoryFilter,
+  PublishedLocation,
 } from "./repository.ts";
 import { NotFoundError } from "./errors.ts";
 import { normalizeUrl } from "./url.ts";
+import { selectInitialHomepageDevelopers } from "./search-service.ts";
+
+function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** Same order as the Postgres query: lowercased display name, then display name, then id. */
+function comparePublishedByName(a: PublishedDeveloperEntry, b: PublishedDeveloperEntry): number {
+  return (
+    compareText(a.developer.displayName.toLowerCase(), b.developer.displayName.toLowerCase()) ||
+    compareText(a.developer.displayName, b.developer.displayName) ||
+    compareText(a.developer.id, b.developer.id)
+  );
+}
+
+function matchesPublishedFilter(
+  { developer, verifiedCandidate }: PublishedDeveloperEntry,
+  filter: PublishedDirectoryFilter,
+): boolean {
+  if (filter.country && developer.country.toLowerCase() !== filter.country.toLowerCase()) return false;
+  if (filter.state && developer.state.toLowerCase() !== filter.state.toLowerCase()) return false;
+  if (filter.city && developer.city.toLowerCase() !== filter.city.toLowerCase()) return false;
+  if (!filter.query) return true;
+  const haystack = [
+    developer.displayName,
+    developer.legalName ?? "",
+    developer.city,
+    developer.state,
+    developer.country,
+    verifiedCandidate.canonicalDomain,
+  ]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(filter.query.toLowerCase());
+}
 
 /**
  * In-memory reference implementation of the repository interfaces.
@@ -146,7 +184,51 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
         )
         .slice(0, limit);
     },
+    // The four published-directory reads mirror postgres-repository.ts:
+    // same boundary, same filter semantics, same ordering and tie-break.
+    async listPublishedPage(filter, page) {
+      const matching = publishedEntries()
+        .filter((entry) => matchesPublishedFilter(entry, filter))
+        .sort(comparePublishedByName);
+      return {
+        entries: matching.slice(page.offset, page.offset + page.limit),
+        total: matching.length,
+      };
+    },
+    async samplePublished(seed, sampleSize) {
+      return selectInitialHomepageDevelopers(
+        publishedEntries().map((entry) => ({ ...entry, city: entry.developer.city })),
+        seed,
+        sampleSize,
+      ).map(({ developer, verifiedCandidate }) => ({ developer, verifiedCandidate }));
+    },
+    async countPublished() {
+      return publishedEntries().length;
+    },
+    async listPublishedLocations() {
+      const seen = new Map<string, PublishedLocation>();
+      for (const { developer } of publishedEntries()) {
+        const location = { country: developer.country, state: developer.state, city: developer.city };
+        seen.set(`${location.country}\u0000${location.state}\u0000${location.city}`, location);
+      }
+      return [...seen.values()].sort(
+        (a, b) => compareText(a.country, b.country) || compareText(a.state, b.state) || compareText(a.city, b.city),
+      );
+    },
   };
+
+  function publishedEntries(): PublishedDeveloperEntry[] {
+    const verifiedByDeveloper = new Map<string, WebsiteCandidate>();
+    for (const candidate of candidates.values()) {
+      if (candidate.verificationStatus === "VERIFIED") verifiedByDeveloper.set(candidate.developerId, candidate);
+    }
+    const entries: PublishedDeveloperEntry[] = [];
+    for (const developer of developers.values()) {
+      const verifiedCandidate = verifiedByDeveloper.get(developer.id);
+      if (developer.status === "ACTIVE" && verifiedCandidate) entries.push({ developer, verifiedCandidate });
+    }
+    return entries;
+  }
 
   const candidateRepository: WebsiteCandidateRepository = {
     async create(input: NewWebsiteCandidateInput) {
@@ -175,6 +257,13 @@ export function createInMemoryRepositories(): DeveloperConnectRepositories {
       return Array.from(candidates.values())
         .filter((c) => statuses.includes(c.verificationStatus))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    },
+    async listByStatusesPage(statuses, page) {
+      // Same order as the Postgres query: newest first, id descending as the tie-break.
+      const matching = Array.from(candidates.values())
+        .filter((c) => statuses.includes(c.verificationStatus))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || compareText(b.id, a.id));
+      return { candidates: matching.slice(page.offset, page.offset + page.limit), total: matching.length };
     },
     async findByDomainAndPath(developerId, canonicalDomain, normalizedPath) {
       for (const candidate of candidates.values()) {

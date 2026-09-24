@@ -82,6 +82,54 @@ export interface DeveloperRepository {
    * geography.
    */
   search(query: string, limit?: number, geo?: DeveloperGeoFilter): Promise<Developer[]>;
+  /**
+   * Public-directory reads. Every method below sees only PUBLISHED
+   * developers — ACTIVE, with their one VERIFIED website candidate — and
+   * does its narrowing/limiting in the data layer, so a directory page
+   * never has to load every verified row just to show a handful of them.
+   */
+  /**
+   * One page of the published directory, ordered alphabetically by
+   * display name (id as a tie-break, so consecutive pages never skip or
+   * repeat a developer), plus `total` — how many published developers
+   * match `filter` across all pages.
+   */
+  listPublishedPage(
+    filter: PublishedDirectoryFilter,
+    page: { limit: number; offset: number },
+  ): Promise<{ entries: PublishedDeveloperEntry[]; total: number }>;
+  /**
+   * Up to `count` published developers chosen by a `seed`-stable shuffle
+   * that spreads across distinct cities before repeating one — the
+   * anonymous no-filter homepage's "initial discovery" view.
+   */
+  samplePublished(seed: string, count: number): Promise<PublishedDeveloperEntry[]>;
+  /** How many published developers exist in total. */
+  countPublished(): Promise<number>;
+  /** The distinct country/state/city combinations that have at least one published developer. */
+  listPublishedLocations(): Promise<PublishedLocation[]>;
+}
+
+/** A developer as the public directory may show it: ACTIVE, paired with its VERIFIED website candidate. */
+export interface PublishedDeveloperEntry {
+  developer: Developer;
+  verifiedCandidate: WebsiteCandidate;
+}
+
+export interface PublishedLocation {
+  country: string;
+  state: string;
+  city: string;
+}
+
+/**
+ * The public directory's filter: exact (case-insensitive) geography plus
+ * an optional free-text `query`, matched case-insensitively as a substring
+ * of "display name, legal name, city, state, country, verified domain"
+ * joined by single spaces.
+ */
+export interface PublishedDirectoryFilter extends DeveloperGeoFilter {
+  query?: string;
 }
 
 /** Exact-match geography narrowing shared by DeveloperRepository.search and the public directory filters. */
@@ -118,6 +166,15 @@ export interface WebsiteCandidateRepository {
   listByDeveloper(developerId: string): Promise<WebsiteCandidate[]>;
   /** For the founder's review queue — candidates in any of the given statuses, newest first. */
   listByStatuses(statuses: VerificationStatus[]): Promise<WebsiteCandidate[]>;
+  /**
+   * One page of listByStatuses — same statuses, same newest-first order
+   * (id as a tie-break, so consecutive pages never skip or repeat a row) —
+   * plus `total`, how many candidates match across all pages.
+   */
+  listByStatusesPage(
+    statuses: VerificationStatus[],
+    page: { limit: number; offset: number },
+  ): Promise<{ candidates: WebsiteCandidate[]; total: number }>;
   /** Used for duplicate detection when a new candidate is submitted. */
   findByDomainAndPath(
     developerId: string,

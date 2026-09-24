@@ -207,7 +207,7 @@ function sortedValues(target: Map<string, string>): string[] {
  * never rewritten.
  */
 function aggregateGeography(
-  all: PublicDeveloperProfile[],
+  all: ReadonlyArray<{ country: string; state: string; city: string }>,
   selected: { country?: string; state?: string; city?: string } = {},
 ): { options: PublicGeographyOptions } {
   const countries = new Map<string, string>();
@@ -297,18 +297,66 @@ export async function listPublicGeographyOptions(
   return aggregateGeography(all, selected).options;
 }
 
+/** How many directory cards the homepage renders at once, and how many each "Load more" adds. */
+export const DIRECTORY_PAGE_SIZE = 20;
+
 export interface PublicHomepageData {
+  /** The first page of the (possibly filtered) directory — or, for initial discovery, the seeded sample. */
   directory: PublicDeveloperProfile[];
+  /** How many published developers match the current filter in total, across every page. */
+  totalMatching: number;
   geographyOptions: PublicGeographyOptions;
   stats: { verifiedDevelopers: number; officialWebsitesVerified: number; countriesCovered: number };
 }
 
+export interface PublicHomepageOptions {
+  /**
+   * When set AND no filter/query is active, the directory is the anonymous
+   * "initial discovery" sample (see selectInitialHomepageDevelopers) chosen
+   * with this seed, instead of the first alphabetical page.
+   */
+  initialDiscoverySeed?: string;
+  /** Size of the first page (or of the initial-discovery sample). */
+  pageSize?: number;
+}
+
+/** One further page of the published directory — what the homepage's "Load more" fetches. */
+export async function getPublicDirectoryPage(
+  repos: DeveloperConnectRepositories,
+  filter: PublicDirectoryFilter,
+  offset: number,
+  pageSize = DIRECTORY_PAGE_SIZE,
+): Promise<{ developers: PublicDeveloperProfile[]; total: number }> {
+  const { entries, total } = await repos.developers.listPublishedPage(normalizeDirectoryFilter(filter), {
+    limit: pageSize,
+    offset: Math.max(0, Math.floor(offset)),
+  });
+  return {
+    developers: entries.map(({ developer, verifiedCandidate }) => toPublicDeveloperProfile(developer, verifiedCandidate)),
+    total,
+  };
+}
+
+function normalizeDirectoryFilter(filter: PublicDirectoryFilter): PublicDirectoryFilter {
+  const query = filter.query ? normalizeSearchQuery(filter.query) : "";
+  return {
+    query: query || undefined,
+    country: filter.country || undefined,
+    state: filter.state || undefined,
+    city: filter.city || undefined,
+  };
+}
+
 /**
- * Everything the homepage needs — the (possibly filtered) directory
- * listing, the geography select options, and the live platform-statistics
- * numbers — from exactly one fetch of the verified-developer list, not
- * three. `verifiedDevelopers`/`officialWebsitesVerified` are derived from
- * that same array, never a separately-cached or hardcoded count.
+ * Everything the homepage needs — the first page of the (possibly
+ * filtered) directory, the geography select options, and the live
+ * platform-statistics numbers. Each comes from its own narrow query
+ * (a LIMITed page, a count, the distinct locations) run in parallel, so
+ * the cost of rendering the homepage no longer grows with the size of
+ * the whole directory. `verifiedDevelopers`/`officialWebsitesVerified`
+ * are a live count of published developers (every published developer
+ * has, by definition, exactly one verified official website), never a
+ * separately-cached or hardcoded number.
  * `countriesCovered`, deliberately, is NOT: it counts OPERATING_COUNTRIES
  * (the countries Developer Connects is building its directory in), not
  * countries that happen to already have a VERIFIED developer — those are
@@ -320,38 +368,34 @@ export interface PublicHomepageData {
 export async function getPublicHomepageData(
   repos: DeveloperConnectRepositories,
   filter: PublicDirectoryFilter = {},
+  options: PublicHomepageOptions = {},
 ): Promise<PublicHomepageData> {
-  const all = await fetchAllVerifiedProfiles(repos);
-  const query = filter.query ? normalizeSearchQuery(filter.query).toLowerCase() : "";
+  const pageSize = options.pageSize ?? DIRECTORY_PAGE_SIZE;
+  const normalized = normalizeDirectoryFilter(filter);
+  const hasActiveFilter = Boolean(normalized.query || normalized.country || normalized.state || normalized.city);
+  const seed = hasActiveFilter ? undefined : options.initialDiscoverySeed;
 
-  const directory = all
-    .filter((developer) => {
-      if (!matchesExactly(developer.country, filter.country)) return false;
-      if (!matchesExactly(developer.state, filter.state)) return false;
-      if (!matchesExactly(developer.city, filter.city)) return false;
-      if (!query) return true;
-      const haystack = [
-        developer.displayName,
-        developer.legalName,
-        developer.city,
-        developer.state,
-        developer.country,
-        developer.officialWebsite?.canonicalDomain ?? "",
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(query);
-    })
-    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  const [publishedCount, locations, directoryResult] = await Promise.all([
+    repos.developers.countPublished(),
+    repos.developers.listPublishedLocations(),
+    seed
+      ? repos.developers.samplePublished(seed, pageSize).then((entries) => ({ entries, total: null }))
+      : repos.developers.listPublishedPage(normalized, { limit: pageSize, offset: 0 }),
+  ]);
 
-  const { options: geographyOptions } = aggregateGeography(all, filter);
+  const directory = directoryResult.entries.map(({ developer, verifiedCandidate }) =>
+    toPublicDeveloperProfile(developer, verifiedCandidate),
+  );
+  const { options: geographyOptions } = aggregateGeography(locations, filter);
 
   return {
     directory,
+    // Initial discovery shows a sample of the whole (unfiltered) directory.
+    totalMatching: directoryResult.total ?? publishedCount,
     geographyOptions,
     stats: {
-      verifiedDevelopers: all.length,
-      officialWebsitesVerified: all.filter((d) => d.officialWebsite).length,
+      verifiedDevelopers: publishedCount,
+      officialWebsitesVerified: publishedCount,
       countriesCovered: OPERATING_COUNTRIES.length,
     },
   };
@@ -449,11 +493,11 @@ function seededRandom(seed: string): () => number {
  * already represented — real geographic spread when the data supports
  * it, never a fabricated "balanced" set when it doesn't.
  */
-export function selectInitialHomepageDevelopers(
-  all: PublicDeveloperProfile[],
+export function selectInitialHomepageDevelopers<T extends { city: string }>(
+  all: T[],
   seed: string,
   count = 10,
-): PublicDeveloperProfile[] {
+): T[] {
   if (all.length <= count) return all;
 
   const random = seededRandom(seed);
@@ -463,7 +507,7 @@ export function selectInitialHomepageDevelopers(
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  const byCity = new Map<string, PublicDeveloperProfile[]>();
+  const byCity = new Map<string, T[]>();
   for (const developer of shuffled) {
     const key = developer.city.toLowerCase();
     const bucket = byCity.get(key);
@@ -472,7 +516,7 @@ export function selectInitialHomepageDevelopers(
   }
   const cityBuckets = [...byCity.values()];
 
-  const selected: PublicDeveloperProfile[] = [];
+  const selected: T[] = [];
   for (let round = 0; selected.length < count; round++) {
     let addedThisRound = false;
     for (const bucket of cityBuckets) {

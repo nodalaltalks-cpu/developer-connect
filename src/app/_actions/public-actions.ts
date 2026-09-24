@@ -2,7 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { searchPublicDevelopers } from "@/lib/developer-connect/search-service";
+import { getPublicDirectoryPage, searchPublicDevelopers } from "@/lib/developer-connect/search-service";
 import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analytics-sink";
 import { safeRecordAnalyticsEvent } from "@/lib/developer-connect/events";
 import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
@@ -82,6 +82,26 @@ export async function searchDevelopers(
   }
 
   return results;
+}
+
+/**
+ * The homepage directory's "Load more": the next page of published
+ * developers for the same query/Country/State/City the page was rendered
+ * with. Read-only — sets no cookie and records no analytics event.
+ *
+ * The anonymous, unfiltered view stays the limited initial-discovery
+ * sample (see the homepage); this returns nothing for that case, exactly
+ * as the page itself never offers "Load more" there.
+ */
+export async function loadMoreDirectoryDevelopers(
+  filter: { query?: string; country?: string; state?: string; city?: string },
+  offset: number,
+): Promise<{ developers: PublicDeveloperProfile[]; total: number }> {
+  const hasActiveFilter = Boolean(filter.query?.trim() || filter.country || filter.state || filter.city);
+  if (!hasActiveFilter && !(await currentUserId())) return { developers: [], total: 0 };
+  if (!Number.isFinite(offset) || offset < 0) return { developers: [], total: 0 };
+
+  return getPublicDirectoryPage(createPostgresRepositories(), filter, offset);
 }
 
 export async function recordSearchResultClick(

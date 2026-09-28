@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ProfileCompletion } from "@/lib/profile/types";
+import { ProfileVerifiedBadge } from "@/components/profile/profile-verified-badge";
 
 const BAND_LABEL: Record<NonNullable<ProfileCompletion["band"]>, string> = {
   VERY_EARLY: "Getting started",
@@ -71,8 +72,30 @@ function WhatsLeft({ completion }: { completion: ProfileCompletion }) {
   );
 }
 
-/** Renders profile strength, milestones, and the completion moment. Only reachable once PROFILE_FIELD_CONFIG has real fields. */
-export function ProfileCompletionSummary({ completion }: { completion: ProfileCompletion }) {
+/**
+ * Renders profile strength, milestones, and the completion moment. Only
+ * reachable once PROFILE_FIELD_CONFIG has real fields.
+ *
+ * `verified` is passed in already computed (via isProfileVerified — see
+ * lib/profile/verification.ts) rather than derived from `completion`
+ * here, so this component can never show the blue tick from percentage
+ * alone — it has no way to know the account's email-verification status,
+ * which is the whole point.
+ */
+export function ProfileCompletionSummary({
+  completion,
+  // Optional, defaulting to false: the founder's admin user-detail page
+  // (admin/users/[userId]/page.tsx) also renders this component but
+  // doesn't fetch that user's Clerk email-verification status — extending
+  // its Clerk API query is out of scope for this task ("do not change
+  // Admin/Founder functionality"). Defaulting to false there only ever
+  // UNDER-shows the tick for an admin viewing someone else's profile
+  // (never a false positive), which is the safe direction to be wrong in.
+  verified = false,
+}: {
+  completion: ProfileCompletion;
+  verified?: boolean;
+}) {
   if (completion.percentage === null || completion.band === null) {
     return null;
   }
@@ -82,8 +105,9 @@ export function ProfileCompletionSummary({ completion }: { completion: ProfileCo
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <p className="font-medium text-foreground">
+        <p className="flex items-center gap-1.5 font-medium text-foreground">
           {isComplete ? "You're all set" : BAND_LABEL[completion.band]}
+          {verified && <ProfileVerifiedBadge />}
         </p>
         <p className="text-sm text-muted-foreground">{completion.percentage}% complete</p>
       </div>
@@ -102,9 +126,16 @@ export function ProfileCompletionSummary({ completion }: { completion: ProfileCo
       </div>
 
       {isComplete ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Thanks — we now have a better understanding of what matters to you.
-        </p>
+        <div className="mt-3">
+          <p className="text-sm text-muted-foreground">
+            Thanks — we now have a better understanding of what matters to you.
+          </p>
+          {verified && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-accent-hover">
+              <ProfileVerifiedBadge /> Verified
+            </p>
+          )}
+        </div>
       ) : (
         completion.missingFieldKeys.length > 0 && <WhatsLeft completion={completion} />
       )}

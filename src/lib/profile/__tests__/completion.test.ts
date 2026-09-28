@@ -90,6 +90,63 @@ test("calculateCompletionFromConfig: a section is 'complete' only once every one
   assert.equal(s1?.complete, true);
 });
 
+// --- Regression: an empty object (e.g. the Budget section's
+// `budgetRange: {}`, left behind after typing into a field and then
+// clearing it) must never count as "filled". Before this fix, the
+// algorithm's fallback treated ANY non-null/non-string/non-array value —
+// including a plain object with every property empty — as filled, which
+// is exactly how "Budget: Complete" could show with genuinely empty
+// fields (see completion.ts's isFieldFilled doc comment). ---
+
+const RANGE_CONFIG: ProfileFieldConfig[] = [
+  { key: "budgetRange", label: "Budget range", weight: 1, section: "budget", type: "range" },
+];
+
+test("calculateCompletionFromConfig: an empty range object ({}) is NOT filled — reproduces the real 'false COMPLETE' bug", () => {
+  const completion = calculateCompletionFromConfig({ budgetRange: {} }, RANGE_CONFIG);
+  assert.equal(completion.percentage, 0);
+  assert.deepEqual(completion.missingFieldKeys, ["budgetRange"]);
+});
+
+test("calculateCompletionFromConfig: a range object with every value undefined is NOT filled", () => {
+  const completion = calculateCompletionFromConfig({ budgetRange: { min: undefined, max: undefined } }, RANGE_CONFIG);
+  assert.equal(completion.percentage, 0);
+});
+
+test("calculateCompletionFromConfig: a range object with a real min or max IS filled", () => {
+  const minOnly = calculateCompletionFromConfig({ budgetRange: { min: 5000000 } }, RANGE_CONFIG);
+  assert.equal(minOnly.percentage, 100);
+
+  const maxOnly = calculateCompletionFromConfig({ budgetRange: { max: 12000000 } }, RANGE_CONFIG);
+  assert.equal(maxOnly.percentage, 100);
+});
+
+test("calculateCompletionFromConfig: removing a previously-filled range value makes the field incomplete again", () => {
+  const filled = calculateCompletionFromConfig({ budgetRange: { min: 5000000 } }, RANGE_CONFIG);
+  assert.equal(filled.percentage, 100);
+
+  const cleared = calculateCompletionFromConfig({ budgetRange: {} }, RANGE_CONFIG);
+  assert.equal(cleared.percentage, 0);
+});
+
+test("calculateCompletionFromConfig: a boolean field's explicit false still counts as filled (a real, deliberate choice, unlike an empty object)", () => {
+  const boolConfig: ProfileFieldConfig[] = [
+    { key: "notifyMe", label: "Notify me", weight: 1, section: "s1", type: "boolean" },
+  ];
+  const completion = calculateCompletionFromConfig({ notifyMe: false }, boolConfig);
+  assert.equal(completion.percentage, 100);
+});
+
+test("calculateProfileCompletion: the REAL product field config marks Budget incomplete for an empty range and complete once a real amount is saved", () => {
+  const empty = calculateProfileCompletion({ budgetRange: {} });
+  const budgetSection = empty.sections.find((s) => s.sectionId === "budget");
+  assert.equal(budgetSection?.complete, false);
+
+  const filled = calculateProfileCompletion({ budgetRange: { min: 5000000, max: 12000000 } });
+  const filledBudgetSection = filled.sections.find((s) => s.sectionId === "budget");
+  assert.equal(filledBudgetSection?.complete, true);
+});
+
 test("calculateCompletionFromConfig: bands match the specified thresholds", () => {
   const wide: ProfileFieldConfig[] = Array.from({ length: 100 }, (_, i) => ({
     key: `f${i}`,

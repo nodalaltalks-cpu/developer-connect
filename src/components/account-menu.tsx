@@ -25,17 +25,24 @@ function ProfileMenuIcon() {
  * not a thrown error, so it's easy to miss). Keeping UserButton + its
  * MenuItems/Link entirely inside this client component avoids that.
  */
-export function AccountMenu({ profilePercentage }: { profilePercentage: number | null }) {
+export function AccountMenu({
+  profilePercentage,
+  verified,
+}: {
+  profilePercentage: number | null;
+  /** From isProfileVerified() — see verification.ts. Never derived here from percentage alone. */
+  verified: boolean;
+}) {
+  const label = verified
+    ? "View Profile · Verified ✓"
+    : profilePercentage !== null
+      ? `View Profile · ${profilePercentage}% complete`
+      : "View Profile";
+
   return (
     <UserButton>
       <UserButton.MenuItems>
-        <UserButton.Link
-          href="/profile"
-          label={
-            profilePercentage !== null ? `View Profile · ${profilePercentage}% complete` : "View Profile"
-          }
-          labelIcon={<ProfileMenuIcon />}
-        />
+        <UserButton.Link href="/profile" label={label} labelIcon={<ProfileMenuIcon />} />
       </UserButton.MenuItems>
     </UserButton>
   );

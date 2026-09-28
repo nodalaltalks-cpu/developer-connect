@@ -5,6 +5,7 @@ import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { ProfileEditor } from "@/components/profile/profile-editor";
 import { requireUserId } from "@/lib/auth";
+import { isPrimaryEmailVerified } from "@/lib/profile/account-signals";
 import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
 import { getOrCreateProfile } from "@/lib/profile/profile-service";
 import { PROFILE_FIELD_CONFIG } from "@/lib/profile/field-config";
@@ -85,6 +86,7 @@ export default async function ProfilePage({
                 initialData={profile.data}
                 initialCompletion={completion}
                 requestedSectionId={requestedSection}
+                emailVerified={isPrimaryEmailVerified(user)}
               />
             )}
           </div>

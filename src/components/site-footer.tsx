@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
+import { Logo } from "@/components/logo";
 import { NewsletterSignup } from "@/components/newsletter-signup";
 import { OPERATING_COUNTRIES } from "@/lib/developer-connect/operating-countries";
 
@@ -95,7 +96,7 @@ export function SiteFooter() {
       <Container className="py-12">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="max-w-sm">
-            <p className="font-semibold text-foreground">Developer Connects</p>
+            <Logo size="sm" />
             <p className="mt-2 text-sm text-muted-foreground">
               Find genuine developer websites. Research directly. We are not a broker, and we
               don&apos;t sell properties or collect your phone number for anyone.

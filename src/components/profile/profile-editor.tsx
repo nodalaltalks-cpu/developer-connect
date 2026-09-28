@@ -3,10 +3,13 @@
 import { useState, useTransition, useRef, useCallback, useEffect } from "react";
 import { PROFILE_SECTIONS, PROFILE_FIELD_CONFIG } from "@/lib/profile/field-config";
 import type { ProfileCompletion } from "@/lib/profile/types";
+import { shouldCelebrate } from "@/lib/profile/celebration";
+import { isProfileVerified } from "@/lib/profile/verification";
 import { saveProfileFieldsAction } from "@/app/_actions/profile-actions";
 import { ProfileCompletionSummary } from "@/components/profile-completion-summary";
 import { ProfileSectionAccordion } from "./profile-section-accordion";
 import { StickySaveBar } from "./sticky-save-bar";
+import { CompletionCelebration } from "./completion-celebration";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
@@ -28,15 +31,19 @@ export function ProfileEditor({
   initialData,
   initialCompletion,
   requestedSectionId,
+  emailVerified,
 }: {
   initialData: Record<string, unknown>;
   initialCompletion: ProfileCompletion;
   /** From a notification's deep link (?section=...) — opens and scrolls to that section on load. */
   requestedSectionId?: string;
+  /** The account's own Clerk email-verification status — see lib/profile/account-signals.ts. Never re-derived here. */
+  emailVerified: boolean;
 }) {
   const [draftData, setDraftData] = useState(initialData);
   const [savedData, setSavedData] = useState(initialData);
   const [completion, setCompletion] = useState(initialCompletion);
+  const [celebration, setCelebration] = useState<{ sectionTitle: string; percentage: number } | null>(null);
   const requestedSectionValid =
     requestedSectionId && PROFILE_SECTIONS.some((s) => s.id === requestedSectionId)
       ? requestedSectionId
@@ -79,20 +86,25 @@ export function ProfileEditor({
     startTransition(async () => {
       try {
         const result = await saveProfileFieldsAction(draftData);
-        const sectionsJustCompleted = result.completion.sections.filter((after) => {
-          if (!after.complete) return false;
-          const before = completion.sections.find((s) => s.sectionId === after.sectionId);
-          return before && !before.complete;
-        });
+        // The ONE decision behind both the inline banner and the full
+        // celebration overlay — see celebration.ts for exactly what
+        // "genuinely completed" means (a real incomplete->complete
+        // transition AND a real percentage increase, never re-saving an
+        // already-complete section or a same-render wash).
+        const celebrationResult = shouldCelebrate(completion, result.completion);
 
         setCompletion(result.completion);
         setSavedData(draftData);
         setSaveState("saved");
 
-        if (sectionsJustCompleted.length > 0 && result.completion.percentage !== null) {
+        if (celebrationResult.show) {
           setJustCompletedMessage(
-            `${sectionsJustCompleted[0].title} added — your profile is now ${result.completion.percentage}% complete.`,
+            `${celebrationResult.sectionTitle} added — your profile is now ${celebrationResult.percentage}% complete.`,
           );
+          setCelebration({
+            sectionTitle: celebrationResult.sectionTitle!,
+            percentage: celebrationResult.percentage!,
+          });
         } else {
           setJustCompletedMessage(null);
         }
@@ -112,11 +124,12 @@ export function ProfileEditor({
     return status && !status.complete;
   });
   const nextSection = incompleteSections[0] ?? null;
+  const verified = isProfileVerified(completion, emailVerified);
 
   return (
     <div className="pb-24">
       <div className="rounded-lg border border-border bg-muted p-6">
-        <ProfileCompletionSummary completion={completion} />
+        <ProfileCompletionSummary completion={completion} verified={verified} />
       </div>
 
       <div aria-live="polite" role="status">
@@ -193,6 +206,14 @@ export function ProfileEditor({
       </p>
 
       <StickySaveBar state={saveState} onSave={handleSave} />
+
+      {celebration && (
+        <CompletionCelebration
+          sectionTitle={celebration.sectionTitle}
+          percentage={celebration.percentage}
+          onDismiss={() => setCelebration(null)}
+        />
+      )}
     </div>
   );
 }

@@ -64,3 +64,40 @@ body {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/*
+ * Section-completion celebration (profile-UX task, Part 7/8) — a small,
+ * original confetti-fall keyframe, not copied from any other product.
+ * Each piece runs ONE finite fall (never a loop), so nothing here counts
+ * as a continuously-running animation. Fully disabled under
+ * prefers-reduced-motion: the piece is simply hidden rather than
+ * animated, and completion-celebration.tsx also skips the whole confetti
+ * layer in that case — this rule is the belt to that component's braces.
+ */
+@keyframes dc-confetti-fall {
+  0% {
+    transform: translateY(-10%) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(115%) rotate(var(--dc-confetti-spin, 240deg));
+    opacity: 0;
+  }
+}
+
+.dc-confetti-piece {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  animation: dc-confetti-fall 1.6s ease-in forwards;
+  animation-delay: var(--dc-confetti-delay, 0s);
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dc-confetti-piece {
+    display: none;
+  }
+}

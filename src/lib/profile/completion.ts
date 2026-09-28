@@ -14,10 +14,35 @@ function bandFor(percentage: number): CompletionBand {
   return "VERY_EARLY";
 }
 
+/**
+ * Whether a stored field value represents a real, deliberate answer.
+ *
+ * BUG THIS FIXES: the previous version's final fallback (`return true`)
+ * treated ANY non-null, non-string, non-array value as "filled" —
+ * including a plain object with every property empty. `budgetRange`
+ * (type "range") is stored as `{ min?: number; max?: number }`; a user
+ * who opened the Budget section, typed into a field, then cleared it
+ * again ends up with `budgetRange: {}` (JSON serialization drops
+ * `undefined`-valued keys) — an object, not null/undefined, so the old
+ * code counted it as filled and the section showed "Complete" while
+ * genuinely empty. Recursing into a plain object's own values (applying
+ * these exact same rules to each) fixes this generically for `range` and
+ * any future object-shaped field, without hardcoding a rule for
+ * "budgetRange" specifically: `{}` -> no values -> not filled; `{min: 5000000}`
+ * -> one real value -> filled.
+ *
+ * A `boolean` (e.g. a notification-preference toggle) still counts as
+ * filled even when `false` — that is a real, deliberately saved choice,
+ * not an empty field, unlike an empty range object. `NaN` never counts as
+ * filled (defensive: nothing in this app's inputs should produce it, but
+ * a numeric field must never appear "complete" from a parsing failure).
+ */
 function isFieldFilled(value: unknown): boolean {
   if (value === undefined || value === null) return false;
   if (typeof value === "string") return value.trim().length > 0;
   if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "object") return Object.values(value).some(isFieldFilled);
   return true;
 }
 

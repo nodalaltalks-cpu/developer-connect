@@ -2,10 +2,13 @@ import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { SignInButton } from "@clerk/nextjs";
 import { Container } from "@/components/ui/container";
+import { Logo } from "@/components/logo";
 import { NotificationBell } from "@/components/notification-bell";
 import { ProfileHeaderLink } from "@/components/profile-header-link";
 import { AccountMenu } from "@/components/account-menu";
 import { isFounder } from "@/lib/auth";
+import { isPrimaryEmailVerified } from "@/lib/profile/account-signals";
+import { isProfileVerified } from "@/lib/profile/verification";
 import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
 import { calculateProfileCompletion } from "@/lib/profile/completion";
 
@@ -25,9 +28,11 @@ import { calculateProfileCompletion } from "@/lib/profile/completion";
  */
 export async function SiteHeader() {
   const { userId } = await auth();
-  // currentUser() is only fetched for signed-in visitors; anonymous
-  // traffic pays nothing extra.
-  const showDashboard = userId ? isFounder(await currentUser()) : false;
+  // currentUser() is only fetched for signed-in visitors, and only once —
+  // isFounder() and isPrimaryEmailVerified() both read from this same
+  // object rather than each fetching their own copy.
+  const user = userId ? await currentUser() : null;
+  const showDashboard = isFounder(user);
 
   // Read-only — never getOrCreateProfile, which would create a profile
   // row and fire a profile_started analytics event just from loading a
@@ -38,12 +43,13 @@ export async function SiteHeader() {
         (await createPostgresProfileRepository().getByUserId(userId))?.data ?? {},
       )
     : null;
+  const verified = completion ? isProfileVerified(completion, isPrimaryEmailVerified(user)) : false;
 
   return (
     <header className="border-b border-border">
       <Container className="flex h-16 items-center justify-between">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-foreground">
-          Developer Connects
+        <Link href="/">
+          <Logo />
         </Link>
         <div className="flex items-center gap-4">
           {userId ? (
@@ -56,9 +62,9 @@ export async function SiteHeader() {
                   Dashboard
                 </Link>
               )}
-              {completion && <ProfileHeaderLink completion={completion} />}
+              {completion && <ProfileHeaderLink completion={completion} verified={verified} />}
               <NotificationBell />
-              <AccountMenu profilePercentage={completion?.percentage ?? null} />
+              <AccountMenu profilePercentage={completion?.percentage ?? null} verified={verified} />
             </>
           ) : (
             // forceRedirectUrl always lands on /post-sign-in after a

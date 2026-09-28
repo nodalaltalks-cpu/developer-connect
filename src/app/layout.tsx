@@ -38,31 +38,32 @@ export const metadata: Metadata = {
 };
 
 /**
- * Organization + WebSite JSON-LD (Part: SEO entity signal). Deliberately
- * omits sameAs — the footer's social links belong to the parent
- * NoDalalTalks brand, not to Developer Connects itself, and asserting
- * them as this entity's own profiles would misrepresent the relationship
- * rather than clarify it. logo points at the one real image asset the
- * site actually serves.
+ * Organization JSON-LD for Developer Connects itself (Part: SEO entity
+ * signal) — present on every page, matching Google's own guidance to
+ * place Organization markup describing "your organization" site-wide, not
+ * just on one page. Deliberately omits sameAs — the footer's social links
+ * belong to the parent NoDalalTalks brand, not to Developer Connects
+ * itself, and asserting them as this entity's own profiles would
+ * misrepresent the relationship rather than clarify it. `logo` points at
+ * the one real image asset the site actually serves today; note that
+ * favicon.ico is far smaller than the size Google's Organization logo
+ * guidance calls for, so it won't be eligible for the logo rich result
+ * until a real logo asset exists.
+ *
+ * WebSite JSON-LD is deliberately NOT here: it describes the site as a
+ * whole (its search entry point), which only makes sense attached to the
+ * homepage — see (marketing)/page.tsx. Developer entity markup (a
+ * different Organization, describing the third-party company a developer
+ * page is about) similarly lives on developers/[slug]/page.tsx, never
+ * here.
  */
-const structuredData = [
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: SITE_NAME,
-    url: "https://developerconnects.com",
-    logo: "https://developerconnects.com/favicon.ico",
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: SITE_NAME,
-    // The same brand written as one word, as it appears in the domain —
-    // helps search engines associate the site name with developerconnects.com.
-    alternateName: "DeveloperConnects",
-    url: "https://developerconnects.com/",
-  },
-];
+const organizationStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: SITE_NAME,
+  url: "https://developerconnects.com",
+  logo: "https://developerconnects.com/favicon.ico",
+};
 
 export const viewport: Viewport = {
   colorScheme: "light",
@@ -77,7 +78,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationStructuredData) }}
         />
         <ClerkProvider
           afterSignOutUrl="/"

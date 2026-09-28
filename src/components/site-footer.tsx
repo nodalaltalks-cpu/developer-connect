@@ -33,6 +33,7 @@ function buildColumns(): FooterColumn[] {
       heading: "Explore",
       links: [
         { label: "Developers", href: "/" },
+        { label: "All developers", href: "/developers" },
         ...OPERATING_COUNTRIES.map((country) => ({
           label: country.name,
           href: `/?country=${encodeURIComponent(country.name)}`,

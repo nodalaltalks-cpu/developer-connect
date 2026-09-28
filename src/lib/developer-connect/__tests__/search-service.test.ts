@@ -7,6 +7,7 @@ import {
   listPublicGeographyOptions,
   getPublicHomepageData,
   getPublicDirectoryPage,
+  listOtherVerifiedDevelopersInCity,
   selectInitialHomepageDevelopers,
 } from "../search-service.ts";
 import type { PublicDeveloperProfile } from "../public-view.ts";
@@ -221,6 +222,75 @@ test("search-service: a developer whose NAME contains the query ranks above one 
     "a developer whose NAME literally contains the query text should rank above one matching only via its city — " +
       "name relevance outranks location relevance in the stated hierarchy",
   );
+});
+
+// --- listOtherVerifiedDevelopersInCity: the developer page's internal
+// link to neighboring verified developers ---
+
+test("listOtherVerifiedDevelopersInCity: returns other verified developers in the same city, never the developer itself", async () => {
+  const { repos, developer: self } = await setUpTestDeveloper({ displayName: "Test Self Developers" });
+  await verifyDeveloper(repos, self.id, "https://self.example");
+
+  const neighbor = await createDeveloper(repos.developers, {
+    legalName: "Test Neighbor Developers Private Limited",
+    displayName: "Test Neighbor Developers",
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, neighbor.id, "https://neighbor.example");
+
+  const elsewhere = await createDeveloper(repos.developers, {
+    legalName: "Test Elsewhere Developers Private Limited",
+    displayName: "Test Elsewhere Developers",
+    city: "Pune",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await verifyDeveloper(repos, elsewhere.id, "https://elsewhere.example");
+
+  const results = await listOtherVerifiedDevelopersInCity(repos, "Mumbai", self.id);
+  assert.deepEqual(results.map((d) => d.id), [neighbor.id]);
+});
+
+test("listOtherVerifiedDevelopersInCity: an unverified developer in the same city never appears", async () => {
+  const { repos, developer: self } = await setUpTestDeveloper({ displayName: "Test Self Developers" });
+  await verifyDeveloper(repos, self.id, "https://self.example");
+
+  const unverified = await createDeveloper(repos.developers, {
+    legalName: "Test Unverified Neighbor Private Limited",
+    displayName: "Test Unverified Neighbor",
+    city: "Mumbai",
+    state: "Maharashtra",
+    country: "India",
+  });
+  await submitWebsiteCandidate(repos, {
+    developerId: unverified.id,
+    url: "https://unverified.example",
+    discoverySource: "MANUAL_SUBMISSION",
+    actor: founder,
+  }); // left at DISCOVERED — never approved
+
+  assert.deepEqual(await listOtherVerifiedDevelopersInCity(repos, "Mumbai", self.id), []);
+});
+
+test("listOtherVerifiedDevelopersInCity: respects the limit", async () => {
+  const { repos, developer: self } = await setUpTestDeveloper({ displayName: "Test Self Developers" });
+  await verifyDeveloper(repos, self.id, "https://self.example");
+
+  for (let i = 0; i < 5; i++) {
+    const neighbor = await createDeveloper(repos.developers, {
+      legalName: `Test Neighbor ${i} Developers Private Limited`,
+      displayName: `Test Neighbor ${i} Developers`,
+      city: "Mumbai",
+      state: "Maharashtra",
+      country: "India",
+    });
+    await verifyDeveloper(repos, neighbor.id, `https://neighbor${i}.example`);
+  }
+
+  const results = await listOtherVerifiedDevelopersInCity(repos, "Mumbai", self.id, 3);
+  assert.equal(results.length, 3);
 });
 
 test("listVerifiedDevelopers: returns nothing when no developer has a verified website", async () => {

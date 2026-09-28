@@ -452,6 +452,30 @@ export async function getPublicDeveloperBySlug(
 }
 
 /**
+ * A handful of OTHER verified developers in the same city as `developer`
+ * — the internal-link graph a developer page needs so a crawler (and a
+ * curious visitor) can reach neighboring developers without going back
+ * through the homepage's JS-only "Load more". Reuses listPublishedPage's
+ * SQL-level city filter (developer+verified-candidate join, exact
+ * case-insensitive match), so this costs one small paginated query, never
+ * a fetch of the whole directory. `excludeId` is filtered out client-side
+ * because the SQL page is fetched one row larger than `limit` specifically
+ * to absorb it without a second round trip.
+ */
+export async function listOtherVerifiedDevelopersInCity(
+  repos: DeveloperConnectRepositories,
+  city: string,
+  excludeId: string,
+  limit = 8,
+): Promise<PublicDeveloperProfile[]> {
+  const { entries } = await repos.developers.listPublishedPage({ city }, { limit: limit + 1, offset: 0 });
+  return entries
+    .filter(({ developer }) => developer.id !== excludeId)
+    .slice(0, limit)
+    .map(({ developer, verifiedCandidate }) => toPublicDeveloperProfile(developer, verifiedCandidate));
+}
+
+/**
  * Deterministic 32-bit PRNG (mulberry32) seeded from a string — gives a
  * per-visitor shuffle that's stable for the lifetime of one seed (e.g. a
  * session id), reproducible for debugging, and requires no dependency.

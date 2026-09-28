@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SearchBox } from "@/components/search-box";
@@ -42,6 +43,24 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
 };
 
+/**
+ * WebSite JSON-LD — lives here, not in the root layout, because it
+ * describes the SITE'S search entry point, which is only meaningful
+ * attached to the page that entry point actually is (the homepage's
+ * search box). See layout.tsx's own comment for why Organization markup
+ * (a different, site-wide concern) stays there instead. Deliberately no
+ * SearchAction: that sitelinks-search-box feature has been retired.
+ */
+const websiteStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Developer Connects",
+  // The same brand written as one word, as it appears in the domain —
+  // helps search engines associate the site name with developerconnects.com.
+  alternateName: "DeveloperConnects",
+  url: "https://developerconnects.com/",
+};
+
 export default async function Home({ searchParams }: PageProps<"/">) {
   const resolvedSearchParams = await searchParams;
   const query = firstValue(resolvedSearchParams.q);
@@ -80,6 +99,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   return (
     <div className="flex flex-1 flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }}
+      />
       <SiteHeader />
 
       <main className="flex-1">
@@ -122,7 +145,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Looking for developers in a specific location? Use the filters above for quick
-              navigation.
+              navigation, or{" "}
+              <Link href="/developers" className="text-accent-hover hover:underline">
+                browse every verified developer
+              </Link>
+              .
             </p>
 
             {visibleDirectory.length === 0 ? (

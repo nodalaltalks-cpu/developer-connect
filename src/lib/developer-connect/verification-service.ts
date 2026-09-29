@@ -1,4 +1,4 @@
-import type { Actor, VerificationStatus, WebsiteCandidate } from "./types.ts";
+import type { Actor, Evidence, VerificationStatus, WebsiteCandidate } from "./types.ts";
 import type { DeveloperConnectRepositories } from "./repository.ts";
 import { assertValidTransition } from "./lifecycle.ts";
 import {
@@ -70,11 +70,56 @@ export async function markReadyForReview(
   return transitionCandidate(repos, candidateId, "PENDING_VERIFICATION", actor, reason);
 }
 
+/** Matches the approve form's default, so a blank note at the service boundary reads the same as a blank note in the UI. */
+const DEFAULT_APPROVAL_NOTE = "Reviewed and approved by founder";
+
+/**
+ * The internal audit text for one approval: the Founder's note, then a
+ * snapshot of the evidence that existed when the decision was made.
+ *
+ * Evidence is never mandatory — with none, the snapshot says so plainly
+ * rather than blocking. Only evidence row IDs and types go in (no detail
+ * text, no source URLs): this is an internal trail, and those fields stay
+ * where they already live.
+ *
+ * The Founder's note is untrusted free text (the Server Action accepts any
+ * string), so it is collapsed to a single line. That keeps a note from
+ * forging its own "Supporting evidence:" lines: every snapshot line below
+ * is produced here, from rows this function was handed, never from input.
+ * Ordering is by capturedAt then id so the snapshot is deterministic.
+ */
+function buildApprovalReason(note: string, evidenceItems: ReadonlyArray<Evidence>): string {
+  const cleanNote = note.replace(/\s+/g, " ").trim() || DEFAULT_APPROVAL_NOTE;
+  const header = `Founder approval: ${cleanNote}`;
+
+  if (evidenceItems.length === 0) {
+    return `${header}\nSupporting evidence: None recorded.`;
+  }
+
+  const ordered = [...evidenceItems].sort(
+    (a, b) => a.capturedAt.getTime() - b.capturedAt.getTime() || a.id.localeCompare(b.id),
+  );
+  return [
+    header,
+    `Supporting evidence: ${ordered.length} item${ordered.length === 1 ? "" : "s"}`,
+    `Types: ${ordered.map((item) => item.evidenceType).join(", ")}`,
+    `Evidence IDs: ${ordered.map((item) => item.id).join(", ")}`,
+  ].join("\n");
+}
+
 /**
  * The only path to VERIFIED. Requires an explicit FOUNDER actor — a high
  * confidence score is never sufficient on its own. Also enforces that at
  * most one candidate per developer is VERIFIED at a time, by retiring any
  * previously verified candidate to INACTIVE as part of the same action.
+ *
+ * Every transition to VERIFIED — first approval or re-verification, via
+ * this function or approveAndPublishCandidate (which calls it) — records
+ * a fresh evidence snapshot in that transition's own VerificationEvent
+ * (see buildApprovalReason). The evidence is read from the database
+ * inside this same transaction, never taken from the caller. Earlier
+ * events are append-only and untouched, so each verification keeps the
+ * snapshot from its own moment.
  */
 export async function approveCandidate(
   repos: DeveloperConnectRepositories,
@@ -120,10 +165,21 @@ export async function approveCandidate(
       );
     }
 
-    return transitionCandidate(txRepos, candidateId, "VERIFIED", actor, reason, {
-      reviewedBy: actor.actorId,
-      reviewedAt: new Date(),
-    });
+    // Read as late as possible, in the same transaction as the write below,
+    // so the snapshot is the evidence that existed at the actual approval.
+    const evidenceAtApproval = await txRepos.evidence.listByCandidate(candidateId);
+
+    return transitionCandidate(
+      txRepos,
+      candidateId,
+      "VERIFIED",
+      actor,
+      buildApprovalReason(reason, evidenceAtApproval),
+      {
+        reviewedBy: actor.actorId,
+        reviewedAt: new Date(),
+      },
+    );
   });
 }
 

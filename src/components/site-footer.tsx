@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/logo";
 import { NewsletterSignup } from "@/components/newsletter-signup";
+import { CookieSettingsButton } from "@/components/analytics-consent";
 import { OPERATING_COUNTRIES } from "@/lib/developer-connect/operating-countries";
 
 interface FooterLink {
@@ -136,6 +137,7 @@ export function SiteFooter() {
                     )}
                   </li>
                 ))}
+                {column.heading === "Legal" && <CookieSettingsButton />}
               </ul>
             </div>
           ))}

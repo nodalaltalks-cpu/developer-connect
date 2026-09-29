@@ -31,7 +31,7 @@ export const LEGAL_CONFIG = {
    * substance changes — every page reads it, so there is no risk of one
    * page quietly going stale while the others are updated.
    */
-  lastUpdated: "2026-09-15",
+  lastUpdated: "2026-09-29",
 } as const;
 
 /** Shown verbatim wherever a legal entity name/registered office/registration number would normally appear — never replaced with an invented value. */

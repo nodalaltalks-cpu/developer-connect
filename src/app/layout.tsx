@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { AnalyticsConsentProvider } from "@/components/analytics-consent";
+import { getGaMeasurementId } from "@/lib/analytics-config";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -70,6 +72,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  // Google Analytics is OFF unless NEXT_PUBLIC_GA_MEASUREMENT_ID is set to a
+  // valid ID (see lib/analytics-config.ts), and even then it only loads after
+  // the visitor presses "Accept" in the cookie banner (analytics-consent.tsx).
+  const gaMeasurementId = getGaMeasurementId(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID);
+
   return (
     <html
       lang="en"
@@ -95,7 +102,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             },
           }}
         >
-          {children}
+          <AnalyticsConsentProvider measurementId={gaMeasurementId}>{children}</AnalyticsConsentProvider>
         </ClerkProvider>
       </body>
     </html>

@@ -156,11 +156,17 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Local browser storage</strong> for a small amount of non-essential state, such as whether
-            you&apos;ve already dismissed the sign-in prompt this browsing session — never sent to our servers.
+            you&apos;ve already dismissed the sign-in prompt this browsing session, and your cookie choice —
+            never sent to our servers.
+          </li>
+          <li>
+            <strong>Optional analytics cookies from Google Analytics</strong>, only if you choose
+            &ldquo;Accept&rdquo; on our cookie banner. If you choose &ldquo;Accept only essentials&rdquo;,
+            Google Analytics is not loaded and sets no cookies.
           </li>
         </ul>
         <p>
-          We do not use third-party advertising or cross-site tracking cookies. See our{" "}
+          We do not use advertising or cross-site tracking cookies. See our{" "}
           <a href="/cookies" className="text-accent-hover hover:underline">
             Cookie Policy
           </a>{" "}
@@ -191,6 +197,11 @@ export default function PrivacyPolicyPage() {
           which searches return nothing useful, and which locations or developers are in demand. This helps us
           decide where to add developer coverage next. We do not publish or expose any individual
           user&apos;s search history.
+        </p>
+        <p>
+          If you choose &ldquo;Accept&rdquo; on our cookie banner, we also use Google Analytics to measure how
+          the public site is used (for example pages viewed, approximate location and device type). We do not
+          use it on our admin or account pages, and we do not enable Google&apos;s advertising features.
         </p>
       </LegalSection>
 
@@ -226,11 +237,16 @@ export default function PrivacyPolicyPage() {
           <li>
             <strong>Vercel</strong> — application hosting and deployment.
           </li>
+          <li>
+            <strong>Google Analytics</strong> — optional website analytics, used only if you choose
+            &ldquo;Accept&rdquo; on our cookie banner. Google receives the usage data it collects, and may
+            process it in countries outside your own.
+          </li>
         </ul>
         <p>
-          We do not currently use a third-party analytics platform, advertising network, or email-sending
-          service — analytics events described above are recorded in our own database, not sent to an outside
-          analytics company.
+          Other than Google Analytics (optional, as described above), we do not currently use a third-party
+          analytics platform, advertising network, or email-sending service — the analytics events described
+          above are recorded in our own database, not sent to an outside analytics company.
         </p>
       </LegalSection>
 

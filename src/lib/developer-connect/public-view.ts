@@ -3,7 +3,13 @@ import type { Developer, WebsiteCandidate } from "./types.ts";
 export interface PublicOfficialWebsite {
   url: string;
   canonicalDomain: string;
-  verifiedAt: Date;
+  /**
+   * The Founder's approval time (`reviewedAt`) — the only authoritative
+   * public verification date. Null when it isn't recorded; never
+   * substituted with updatedAt/lastCheckedAt/createdAt, so nothing public
+   * (page text, sitemap lastmod) can show a date that isn't real.
+   */
+  verifiedAt: Date | null;
 }
 
 /**
@@ -57,7 +63,7 @@ export function toPublicDeveloperProfile(
       ? {
           url: verifiedCandidate.url,
           canonicalDomain: verifiedCandidate.canonicalDomain,
-          verifiedAt: verifiedCandidate.reviewedAt ?? verifiedCandidate.updatedAt,
+          verifiedAt: verifiedCandidate.reviewedAt ?? null,
         }
       : null,
   };

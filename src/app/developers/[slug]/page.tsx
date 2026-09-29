@@ -1,10 +1,10 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
-import { VerifiedBadge } from "@/components/verified-badge";
 import { OfficialWebsiteVerifiedBadge } from "@/components/official-website-verified-badge";
 import { VisitOfficialWebsiteButton } from "@/components/visit-official-website-button";
 import { ExternalDomainLink } from "@/components/external-domain-link";
@@ -16,11 +16,19 @@ import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicDeveloperBySlug, listOtherVerifiedDevelopersInCity } from "@/lib/developer-connect/search-service";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
+import {
+  alsoKnownAs,
+  buildDeveloperMetadataText,
+  serializeJsonLd,
+} from "@/lib/developer-connect/developer-page-content";
 
-async function loadDeveloper(slug: string) {
+// React cache(): generateMetadata and the page both need this developer in
+// the same request, so the second call reuses the first's result instead of
+// querying again. Scoped to one render — nothing persists between requests.
+const loadDeveloper = cache(async (slug: string) => {
   const repos = createPostgresRepositories();
   return getPublicDeveloperBySlug(repos, slug);
-}
+});
 
 /**
  * Organization + BreadcrumbList JSON-LD for a VERIFIED developer's page —
@@ -90,19 +98,11 @@ export async function generateMetadata({
     return { title: "Developer not found | Developer Connects" };
   }
 
-  // A developer with no verified website yet is NOT the "official
-  // website" page the title/description below would otherwise claim it
-  // is — search engines were indexing these 4 pages with an "— Official
-  // Website" title while the page itself says "not yet verified" (see the
-  // SEO audit). The page keeps existing for a visitor who already has the
-  // direct link (see getPublicDeveloperBySlug's own contract), but it is
-  // withheld from indexing and titled honestly until verification exists.
-  const title = developer.officialWebsite
-    ? `${developer.displayName} — Official Website | Developer Connects`
-    : `${developer.displayName} | Developer Connects`;
-  const description = developer.officialWebsite
-    ? `Go directly to ${developer.displayName}'s verified official website — no brokers, no forms. Verified by Developer Connects.`
-    : `${developer.displayName} on Developer Connects. Official website verification is in progress.`;
+  // A developer with no verified website yet is NOT an "official website"
+  // page, so it is titled honestly and withheld from indexing below. The
+  // page still exists for a visitor with the direct link (see
+  // getPublicDeveloperBySlug's contract).
+  const { title, description } = buildDeveloperMetadataText(developer);
 
   return {
     title,
@@ -153,7 +153,7 @@ export default async function DeveloperPage({
       {developer.officialWebsite && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildDeveloperStructuredData(developer)) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildDeveloperStructuredData(developer)) }}
         />
       )}
 
@@ -182,28 +182,14 @@ export default async function DeveloperPage({
               </ol>
             </nav>
 
-            {developer.officialWebsite && (
-              <div className="mt-4 mb-2">
-                <VerifiedBadge />
-              </div>
-            )}
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               {developer.displayName}
             </h1>
 
-            {developer.officialWebsite ? (
-              <p className="mt-2 text-foreground">
-                {developer.displayName} is a real estate developer in {developer.city},{" "}
-                {developer.state}, {developer.country}. Its official website is{" "}
-                <span className="font-mono">{developer.officialWebsite.canonicalDomain}</span>,
-                verified by Developer Connects.
-              </p>
-            ) : (
-              <p className="mt-2 text-foreground">
-                {developer.displayName} is a real estate developer in {developer.city},{" "}
-                {developer.state}, {developer.country}.
-              </p>
-            )}
+            <p className="mt-2 text-foreground">
+              {developer.displayName} is a real estate developer in {developer.city},{" "}
+              {developer.state}, {developer.country}.
+            </p>
 
             {developer.headquartersLocation && (
               <div className="mt-3">
@@ -214,15 +200,10 @@ export default async function DeveloperPage({
               </div>
             )}
 
-            {developer.officialWebsite && (
-              <div className="mt-4">
-                <OfficialWebsiteVerifiedBadge full />
-              </div>
-            )}
-
             {developer.officialWebsite ? (
               <div className="mt-6 rounded-lg border border-border bg-muted p-6">
-                <p className="text-sm text-muted-foreground">You&apos;ll go to</p>
+                <OfficialWebsiteVerifiedBadge full />
+                <p className="mt-4 text-sm text-muted-foreground">Official website</p>
                 <ExternalDomainLink
                   url={developer.officialWebsite.url}
                   domain={developer.officialWebsite.canonicalDomain}
@@ -235,9 +216,11 @@ export default async function DeveloperPage({
                     domain={developer.officialWebsite.canonicalDomain}
                   />
                 </div>
-                <p className="mt-4 text-xs text-muted-foreground">
-                  Verified {formatDate(developer.officialWebsite.verifiedAt)}
-                </p>
+                {developer.officialWebsite.verifiedAt && (
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Last verified {formatDate(developer.officialWebsite.verifiedAt)}
+                  </p>
+                )}
               </div>
             ) : (
               <div className="mt-8 rounded-lg border border-border bg-muted p-6">
@@ -254,10 +237,8 @@ export default async function DeveloperPage({
               <ReportInaccurateInfo developerId={developer.id} developerName={developer.displayName} />
             </div>
 
-            {developer.legalName && developer.legalName !== developer.displayName && (
-              <p className="mt-6 text-xs text-muted-foreground">
-                Registered as {developer.legalName}
-              </p>
+            {alsoKnownAs(developer) && (
+              <p className="mt-6 text-xs text-muted-foreground">Also known as {alsoKnownAs(developer)}</p>
             )}
           </div>
 

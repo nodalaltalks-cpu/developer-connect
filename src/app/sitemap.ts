@@ -58,7 +58,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const developerEntries: MetadataRoute.Sitemap = verifiedDevelopers.map((developer) => ({
     url: `${BASE_URL}/developers/${developer.slug}`,
-    lastModified: developer.officialWebsite?.verifiedAt,
+    // Omitted (never substituted) when the verification date isn't recorded.
+    ...(developer.officialWebsite?.verifiedAt ? { lastModified: developer.officialWebsite.verifiedAt } : {}),
   }));
 
   return [...staticEntries, ...developerEntries];

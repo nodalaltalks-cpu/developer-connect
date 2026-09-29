@@ -18,7 +18,7 @@ export const metadata = {
  * which page happens to render the button that triggers it.
  *
  * Trash's actual contents are NOT fetched here — TrashGate defers that
- * fetch behind a fresh Founder reverification (see unlockTrashAction),
+ * fetch behind a Founder password (see unlockTrashAction),
  * so being a Founder is necessary to reach this page but not sufficient
  * to see what's in Trash.
  */
@@ -36,7 +36,7 @@ export default async function AdminContactTrashPage({
       <div className="flex items-start justify-between gap-4">
         <SectionHeading
           title="Trash"
-          description={`Requests that entered Trash during ${range.label} (by deletion date, not submission date). Nothing here is public — Founder-only, and protected behind a fresh identity check.`}
+          description={`Requests that entered Trash during ${range.label} (by deletion date, not submission date). Nothing here is public — Founder-only, and protected by a password.`}
         />
         <Link href="/admin/contact" className="mt-1 shrink-0 text-sm text-accent-hover hover:underline">
           Back to Contact

@@ -4,6 +4,7 @@ import { Logo } from "@/components/logo";
 import { NewsletterSignup } from "@/components/newsletter-signup";
 import { CookieSettingsButton } from "@/components/analytics-consent";
 import { OPERATING_COUNTRIES } from "@/lib/developer-connect/operating-countries";
+import { locationPath, resolveLocationPage } from "@/lib/developer-connect/location-pages";
 
 interface FooterLink {
   label: string;
@@ -24,10 +25,11 @@ interface FooterColumn {
  * market — not gated behind "does a VERIFIED developer already exist
  * there" (that's a different, genuinely different fact; see
  * operating-countries.ts and getPublicHomepageData's countriesCovered).
- * Each still links into the real, existing `/?country=` filter, which
- * already shows an honest "no verified developers yet" state rather than
- * fake results when a country has none — so this never implies a
- * populated directory that doesn't exist.
+ * A country with an approved directory page links straight to it
+ * (/developers?country=…). Any other operating country falls back to the
+ * homepage's `/?country=` filter, which shows an honest "no verified
+ * developers yet" state rather than fake results — so this never implies
+ * a populated directory that doesn't exist.
  */
 function buildColumns(): FooterColumn[] {
   return [
@@ -36,10 +38,13 @@ function buildColumns(): FooterColumn[] {
       links: [
         { label: "Developers", href: "/" },
         { label: "All developers", href: "/developers" },
-        ...OPERATING_COUNTRIES.map((country) => ({
-          label: country.name,
-          href: `/?country=${encodeURIComponent(country.name)}`,
-        })),
+        ...OPERATING_COUNTRIES.map((country) => {
+          const approved = resolveLocationPage(country.name, undefined);
+          return {
+            label: country.name,
+            href: approved ? locationPath(approved) : `/?country=${encodeURIComponent(country.name)}`,
+          };
+        }),
       ],
     },
     {

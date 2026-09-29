@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { listVerifiedDevelopers } from "@/lib/developer-connect/search-service";
+import { approvedLocationPages, locationPath } from "@/lib/developer-connect/location-pages";
 
 const BASE_URL = "https://developerconnects.com";
 
@@ -56,11 +57,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${BASE_URL}${path}`,
   }));
 
+  // The approved location views of /developers (page 1 only — like the
+  // unfiltered index, their ?page=N pages are reached by following links,
+  // not listed). Only locations from the single approved list appear here.
+  const locationEntries: MetadataRoute.Sitemap = approvedLocationPages().map((location) => ({
+    url: `${BASE_URL}${locationPath(location)}`,
+  }));
+
   const developerEntries: MetadataRoute.Sitemap = verifiedDevelopers.map((developer) => ({
     url: `${BASE_URL}/developers/${developer.slug}`,
     // Omitted (never substituted) when the verification date isn't recorded.
     ...(developer.officialWebsite?.verifiedAt ? { lastModified: developer.officialWebsite.verifiedAt } : {}),
   }));
 
-  return [...staticEntries, ...developerEntries];
+  return [...staticEntries, ...locationEntries, ...developerEntries];
 }

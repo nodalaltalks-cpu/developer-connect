@@ -1,3 +1,4 @@
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -7,6 +8,13 @@ import { SiteFooter } from "@/components/site-footer";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicDirectoryPage } from "@/lib/developer-connect/search-service";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
+import {
+  developersPath,
+  locationBreadcrumbs,
+  locationIntro,
+  locationMetadataText,
+  resolveLocationPage,
+} from "@/lib/developer-connect/location-pages";
 
 /**
  * How many developers one page of this index shows. Deliberately plain
@@ -29,19 +37,49 @@ function parsePage(raw: string | string[] | undefined): number {
   return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
 }
 
+/**
+ * One directory page, shared by generateMetadata and the page itself so a
+ * request queries once (cache() reuses the result within a render; the
+ * arguments are primitives on purpose so calls with the same values match).
+ * With no location the filter is empty — exactly the original behaviour.
+ */
+const loadDirectoryPage = cache(async (country: string | undefined, city: string | undefined, page: number) => {
+  const repos = createPostgresRepositories();
+  return getPublicDirectoryPage(repos, { country, city }, (page - 1) * PAGE_SIZE, PAGE_SIZE);
+});
+
 export async function generateMetadata({
   searchParams,
 }: PageProps<"/developers">): Promise<Metadata> {
   const resolvedSearchParams = await searchParams;
   const page = parsePage(resolvedSearchParams.page);
-  const canonical = page > 1 ? `/developers?page=${page}` : "/developers";
+  // Only the approved country/city values become a location page; anything
+  // else (other cities, other parameters) is ignored, as it always was.
+  const location = resolveLocationPage(resolvedSearchParams.country, resolvedSearchParams.city);
+
+  if (!location) {
+    const canonical = developersPath(null, page);
+    return {
+      title: TITLE,
+      description: DESCRIPTION,
+      alternates: { canonical },
+      openGraph: { title: TITLE, description: DESCRIPTION, url: canonical, siteName: "Developer Connects", type: "website" },
+      twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
+    };
+  }
+
+  const text = locationMetadataText(location, page);
+  const canonical = developersPath(location, page);
+  // An approved location that has no results is not a real listing, so it is kept out of the index.
+  const { total } = await loadDirectoryPage(location.country, location.city, page);
 
   return {
-    title: TITLE,
-    description: DESCRIPTION,
+    title: text.title,
+    description: text.description,
     alternates: { canonical },
-    openGraph: { title: TITLE, description: DESCRIPTION, url: canonical, siteName: "Developer Connects", type: "website" },
-    twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
+    openGraph: { title: text.title, description: text.description, url: canonical, siteName: "Developer Connects", type: "website" },
+    twitter: { card: "summary", title: text.title, description: text.description },
+    ...(total === 0 ? { robots: { index: false, follow: true } } : {}),
   };
 }
 
@@ -67,10 +105,9 @@ export default async function DevelopersIndexPage({
 }: PageProps<"/developers">) {
   const resolvedSearchParams = await searchParams;
   const page = parsePage(resolvedSearchParams.page);
-  const offset = (page - 1) * PAGE_SIZE;
+  const location = resolveLocationPage(resolvedSearchParams.country, resolvedSearchParams.city);
 
-  const repos = createPostgresRepositories();
-  const { developers, total } = await getPublicDirectoryPage(repos, {}, offset, PAGE_SIZE);
+  const { developers, total } = await loadDirectoryPage(location?.country, location?.city, page);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // A page number beyond the real range is never a genuine listing —
@@ -81,6 +118,9 @@ export default async function DevelopersIndexPage({
   }
 
   const groups = groupByFirstLetter(developers);
+  const breadcrumbs = location
+    ? locationBreadcrumbs(location)
+    : [{ label: "Home", href: "/" }, { label: "Developers" }];
 
   return (
     <div className="flex flex-1 flex-col">
@@ -89,25 +129,31 @@ export default async function DevelopersIndexPage({
       <main className="flex-1">
         <Container className="py-12 sm:py-16">
           <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-            <ol className="flex items-center gap-1">
-              <li>
-                <Link href="/" className="hover:text-accent-hover hover:underline">
-                  Home
-                </Link>
-              </li>
-              <li aria-hidden="true">/</li>
-              <li aria-current="page" className="text-foreground">
-                Developers
-              </li>
+            <ol className="flex flex-wrap items-center gap-1">
+              {breadcrumbs.map((item, index) => (
+                <li key={`${item.label}-${index}`} className="flex items-center gap-1">
+                  {index > 0 && <span aria-hidden="true">/</span>}
+                  {item.href ? (
+                    <Link href={item.href} className="hover:text-accent-hover hover:underline">
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <span aria-current="page" className="text-foreground">
+                      {item.label}
+                    </span>
+                  )}
+                </li>
+              ))}
             </ol>
           </nav>
 
           <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            All verified developers
+            {location ? locationMetadataText(location).h1 : "All verified developers"}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            {total} real estate developer{total === 1 ? "" : "s"} with an official website
-            verified by Developer Connects.
+            {location
+              ? locationIntro(location, total)
+              : `${total} real estate developer${total === 1 ? "" : "s"} with an official website verified by Developer Connects.`}
           </p>
 
           {groups.length === 0 ? (
@@ -148,7 +194,7 @@ export default async function DevelopersIndexPage({
             >
               {page > 1 ? (
                 <Link
-                  href={page - 1 === 1 ? "/developers" : `/developers?page=${page - 1}`}
+                  href={developersPath(location, page - 1)}
                   className="text-sm font-medium text-accent-hover hover:underline"
                 >
                   ← Previous
@@ -161,7 +207,7 @@ export default async function DevelopersIndexPage({
               </span>
               {page < totalPages ? (
                 <Link
-                  href={`/developers?page=${page + 1}`}
+                  href={developersPath(location, page + 1)}
                   className="text-sm font-medium text-accent-hover hover:underline"
                 >
                   Next →

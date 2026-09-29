@@ -14,7 +14,7 @@ import { ReportInaccurateInfo } from "@/components/report-inaccurate-info";
 import { SiteFooter } from "@/components/site-footer";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { getPublicDeveloperBySlug, listOtherVerifiedDevelopersInCity } from "@/lib/developer-connect/search-service";
+import { getPublicDeveloperBySlug, listRelatedVerifiedDevelopers } from "@/lib/developer-connect/search-service";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 import {
   alsoKnownAs,
@@ -141,13 +141,15 @@ export default async function DeveloperPage({
   // Only fetched for a verified developer — an unverified page is
   // noindexed and low-traffic; there is no benefit to spending an extra
   // query surfacing "neighbors" around a page Google won't index anyway.
-  const otherDevelopersInCity = developer.officialWebsite
-    ? await listOtherVerifiedDevelopersInCity(
-        createPostgresRepositories(),
-        developer.city,
-        developer.id,
-      )
+  // Same city first, then the same country, spread across the directory
+  // by a per-developer starting point (see listRelatedVerifiedDevelopers).
+  const relatedDevelopers = developer.officialWebsite
+    ? await listRelatedVerifiedDevelopers(createPostgresRepositories(), developer)
     : [];
+  // The heading only says "in {city}" when that is true of every link.
+  const relatedAllInCity = relatedDevelopers.every(
+    (other) => other.city.toLowerCase() === developer.city.toLowerCase(),
+  );
 
   return (
     <div className="flex flex-1 flex-col">
@@ -241,13 +243,17 @@ export default async function DeveloperPage({
             )}
           </div>
 
-          {otherDevelopersInCity.length > 0 && (
+          {relatedDevelopers.length > 0 && (
             <div className="mx-auto mt-16 max-w-2xl border-t border-border pt-10">
               <h2 className="text-lg font-semibold text-foreground">
-                Other verified developers in {developer.city}
+                {relatedAllInCity ? (
+                  <>Other verified developers in {developer.city}</>
+                ) : (
+                  <>Other verified developers in {developer.country}</>
+                )}
               </h2>
               <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                {otherDevelopersInCity.map((other) => (
+                {relatedDevelopers.map((other) => (
                   <li key={other.id} className="min-w-0">
                     <Link
                       href={`/developers/${other.slug}`}

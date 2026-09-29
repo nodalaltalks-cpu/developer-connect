@@ -1,4 +1,9 @@
-import type { DeveloperConnectRepositories, DeveloperGeoFilter } from "./repository.ts";
+import type {
+  DeveloperConnectRepositories,
+  DeveloperGeoFilter,
+  PublishedDeveloperEntry,
+  PublishedDirectoryFilter,
+} from "./repository.ts";
 import { toPublicDeveloperProfile, type PublicDeveloperProfile } from "./public-view.ts";
 import { OPERATING_COUNTRIES } from "./operating-countries.ts";
 
@@ -451,28 +456,107 @@ export async function getPublicDeveloperBySlug(
   return toPublicDeveloperProfile(developer, verified);
 }
 
+/** How many related developers a developer page links to. */
+export const RELATED_DEVELOPERS_LIMIT = 8;
+
 /**
- * A handful of OTHER verified developers in the same city as `developer`
- * — the internal-link graph a developer page needs so a crawler (and a
- * curious visitor) can reach neighboring developers without going back
- * through the homepage's JS-only "Load more". Reuses listPublishedPage's
- * SQL-level city filter (developer+verified-candidate join, exact
- * case-insensitive match), so this costs one small paginated query, never
- * a fetch of the whole directory. `excludeId` is filtered out client-side
- * because the SQL page is fetched one row larger than `limit` specifically
- * to absorb it without a second round trip.
+ * FNV-1a, 32-bit: a stable, well-spread number from a string. Not for
+ * security — it only needs to turn a developer's id into a repeatable
+ * position, so that different developers start from different places.
  */
-export async function listOtherVerifiedDevelopersInCity(
+function hashString(value: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * `count` consecutive published developers (alphabetical, the directory's
+ * own order) starting at a position derived from `seed`, wrapping past the
+ * end back to the start. The same seed always gives the same window, and
+ * different seeds start at different places, so across a whole city every
+ * developer ends up linked from a similar number of others — instead of
+ * every page linking to the same alphabetical head.
+ *
+ * Only ever reads small pages of the SQL-limited directory query: one read
+ * of `count` rows (which also returns the total), plus at most one more
+ * read when the window starts partway through — the wrap-around reuses the
+ * first read. A short list (`total <= count`) needs just the first read.
+ */
+async function fetchCyclicWindow(
   repos: DeveloperConnectRepositories,
-  city: string,
-  excludeId: string,
-  limit = 8,
+  filter: PublishedDirectoryFilter,
+  seed: string,
+  count: number,
+): Promise<PublishedDeveloperEntry[]> {
+  const head = await repos.developers.listPublishedPage(filter, { limit: count, offset: 0 });
+  if (head.total <= count) return head.entries;
+
+  const start = hashString(seed) % head.total;
+  if (start === 0) return head.entries;
+
+  const tail = await repos.developers.listPublishedPage(filter, {
+    limit: Math.min(count, head.total - start),
+    offset: start,
+  });
+  if (tail.entries.length >= count) return tail.entries;
+  return [...tail.entries, ...head.entries.slice(0, count - tail.entries.length)];
+}
+
+/**
+ * The developers a developer page links to, so a crawler (and a curious
+ * visitor) can reach other developers without the homepage's JS-only
+ * "Load more". Deterministic and spread out:
+ *
+ *  1. Same city first (same country + city), excluding the developer itself.
+ *  2. Then, only if the city has fewer than `limit` others, the same
+ *     country, filling up to `limit`.
+ *
+ * Only ACTIVE developers with a VERIFIED website can appear — that is the
+ * directory query's own boundary. At most `limit` (8) are returned; fewer
+ * only when that many genuinely don't exist. The starting position comes
+ * from the developer's id (see fetchCyclicWindow), never from the whole
+ * directory: it costs one small read for a short list, two for a large
+ * city, and up to two more only when a small city must be topped up from
+ * its country.
+ */
+export async function listRelatedVerifiedDevelopers(
+  repos: DeveloperConnectRepositories,
+  developer: Pick<PublicDeveloperProfile, "id" | "city" | "country">,
+  limit = RELATED_DEVELOPERS_LIMIT,
 ): Promise<PublicDeveloperProfile[]> {
-  const { entries } = await repos.developers.listPublishedPage({ city }, { limit: limit + 1, offset: 0 });
-  return entries
-    .filter(({ developer }) => developer.id !== excludeId)
-    .slice(0, limit)
-    .map(({ developer, verifiedCandidate }) => toPublicDeveloperProfile(developer, verifiedCandidate));
+  // The window is one entry larger than needed so that, if it happens to
+  // contain the developer itself, dropping it still leaves `limit` others.
+  const cityWindow = await fetchCyclicWindow(
+    repos,
+    { country: developer.country, city: developer.city },
+    developer.id,
+    limit + 1,
+  );
+  const chosen = cityWindow.filter((entry) => entry.developer.id !== developer.id).slice(0, limit);
+
+  if (chosen.length < limit) {
+    // Fewer than `limit` others in the city means the window above already
+    // holds ALL of them, so `taken` is every same-city developer plus itself.
+    const taken = new Set([developer.id, ...chosen.map((entry) => entry.developer.id)]);
+    const countryWindow = await fetchCyclicWindow(
+      repos,
+      { country: developer.country },
+      developer.id,
+      limit - chosen.length + taken.size,
+    );
+    for (const entry of countryWindow) {
+      if (chosen.length >= limit) break;
+      if (taken.has(entry.developer.id)) continue;
+      taken.add(entry.developer.id);
+      chosen.push(entry);
+    }
+  }
+
+  return chosen.map(({ developer: row, verifiedCandidate }) => toPublicDeveloperProfile(row, verifiedCandidate));
 }
 
 /**

@@ -7,7 +7,7 @@ import {
   listPublicGeographyOptions,
   getPublicHomepageData,
   getPublicDirectoryPage,
-  listOtherVerifiedDevelopersInCity,
+  listRelatedVerifiedDevelopers,
   selectInitialHomepageDevelopers,
 } from "../search-service.ts";
 import type { PublicDeveloperProfile } from "../public-view.ts";
@@ -224,10 +224,12 @@ test("search-service: a developer whose NAME contains the query ranks above one 
   );
 });
 
-// --- listOtherVerifiedDevelopersInCity: the developer page's internal
-// link to neighboring verified developers ---
+// --- listRelatedVerifiedDevelopers: the developer page's internal links to
+// other verified developers (same city first, then same country). The
+// spreading/determinism/query-cost behaviour has its own file,
+// related-developers.test.ts. ---
 
-test("listOtherVerifiedDevelopersInCity: returns other verified developers in the same city, never the developer itself", async () => {
+test("listRelatedVerifiedDevelopers: same-city developers come first, then same-country ones, never the developer itself", async () => {
   const { repos, developer: self } = await setUpTestDeveloper({ displayName: "Test Self Developers" });
   await verifyDeveloper(repos, self.id, "https://self.example");
 
@@ -249,11 +251,22 @@ test("listOtherVerifiedDevelopersInCity: returns other verified developers in th
   });
   await verifyDeveloper(repos, elsewhere.id, "https://elsewhere.example");
 
-  const results = await listOtherVerifiedDevelopersInCity(repos, "Mumbai", self.id);
-  assert.deepEqual(results.map((d) => d.id), [neighbor.id]);
+  // A developer in another country must never appear.
+  const abroad = await createDeveloper(repos.developers, {
+    legalName: "Test Abroad Developers LLC",
+    displayName: "Test Abroad Developers",
+    city: "Dubai",
+    state: "Dubai",
+    country: "United Arab Emirates",
+  });
+  await verifyDeveloper(repos, abroad.id, "https://abroad.example");
+
+  const results = await listRelatedVerifiedDevelopers(repos, self);
+  // Same city (Mumbai) first, then the same country (Pune, India); the UAE developer is excluded.
+  assert.deepEqual(results.map((d) => d.id), [neighbor.id, elsewhere.id]);
 });
 
-test("listOtherVerifiedDevelopersInCity: an unverified developer in the same city never appears", async () => {
+test("listRelatedVerifiedDevelopers: an unverified developer in the same city never appears", async () => {
   const { repos, developer: self } = await setUpTestDeveloper({ displayName: "Test Self Developers" });
   await verifyDeveloper(repos, self.id, "https://self.example");
 
@@ -271,10 +284,10 @@ test("listOtherVerifiedDevelopersInCity: an unverified developer in the same cit
     actor: founder,
   }); // left at DISCOVERED — never approved
 
-  assert.deepEqual(await listOtherVerifiedDevelopersInCity(repos, "Mumbai", self.id), []);
+  assert.deepEqual(await listRelatedVerifiedDevelopers(repos, self), []);
 });
 
-test("listOtherVerifiedDevelopersInCity: respects the limit", async () => {
+test("listRelatedVerifiedDevelopers: respects the limit", async () => {
   const { repos, developer: self } = await setUpTestDeveloper({ displayName: "Test Self Developers" });
   await verifyDeveloper(repos, self.id, "https://self.example");
 
@@ -289,7 +302,7 @@ test("listOtherVerifiedDevelopersInCity: respects the limit", async () => {
     await verifyDeveloper(repos, neighbor.id, `https://neighbor${i}.example`);
   }
 
-  const results = await listOtherVerifiedDevelopersInCity(repos, "Mumbai", self.id, 3);
+  const results = await listRelatedVerifiedDevelopers(repos, self, 3);
   assert.equal(results.length, 3);
 });
 

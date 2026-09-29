@@ -156,10 +156,18 @@ export async function addEvidence(
  * since nothing about the review state itself changes) so the edit shows
  * up in the same "Verification history" list the founder already reads.
  *
- * Never touches verificationStatus. A DISCOVERED candidate stays
- * DISCOVERED, a VERIFIED (published) candidate stays VERIFIED — editing
- * the URL does not verify, publish, or reset anything. Approve & Publish
- * remains the only way to change what's live.
+ * Editing the URL never verifies or publishes anything. For every status
+ * except VERIFIED it also leaves verificationStatus alone (a DISCOVERED
+ * candidate stays DISCOVERED). A VERIFIED candidate is the trust boundary:
+ * its badge, domain and "Visit official website" link all come from this
+ * URL, so a materially changed URL is no longer the URL that was reviewed.
+ * It is therefore moved to NEEDS_REVERIFICATION in the SAME transaction as
+ * the URL write — the two can never be observed apart — which drops it
+ * from every public VERIFIED surface until a Founder explicitly approves
+ * it again. "Materially changed" is whatever normalizeUrl says is not the
+ * same URL (the no-op check below), so formatting-only differences such as
+ * a trailing slash don't count. This is enforced here, at the service, so
+ * no caller (form, action, future route) can skip it.
  */
 export async function updateCandidateUrl(
   repos: DeveloperConnectRepositories,
@@ -207,6 +215,19 @@ export async function updateCandidateUrl(
       url: normalized.url,
       canonicalDomain: normalized.canonicalDomain,
     });
+
+    if (candidate.verificationStatus === "VERIFIED") {
+      // One VerificationEvent (VERIFIED -> NEEDS_REVERIFICATION) records
+      // both the change and the demotion, via the same transition path
+      // every other status change uses.
+      return transitionCandidate(
+        txRepos,
+        candidateId,
+        "NEEDS_REVERIFICATION",
+        actor,
+        `The verified website URL was changed and requires re-verification: "${previousUrl}" → "${normalized.url}"`,
+      );
+    }
 
     await txRepos.events.append({
       websiteCandidateId: candidateId,

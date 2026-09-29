@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { submitWebsiteCandidate, addEvidence, updateCandidateUrl } from "../candidate-service.ts";
-import { rejectCandidate, approveAndPublishCandidate } from "../verification-service.ts";
+import {
+  rejectCandidate,
+  approveAndPublishCandidate,
+  approveCandidate,
+  markReadyForReview,
+  markNeedsReverification,
+} from "../verification-service.ts";
+import { getPublicDeveloperBySlug, listVerifiedDevelopers } from "../search-service.ts";
 import { DuplicateCandidateError, NotFoundError, UnauthorizedVerificationActionError } from "../errors.ts";
 import { setUpTestDeveloper } from "./test-helpers.ts";
 
@@ -187,7 +194,64 @@ test("updateCandidateUrl: editing the URL never changes verificationStatus — n
   assert.equal(saved.verificationStatus, "DISCOVERED");
 });
 
-test("updateCandidateUrl: works the same way for an already-published (VERIFIED) candidate — status stays VERIFIED", async () => {
+// --- VERIFIED + materially changed URL => NEEDS_REVERIFICATION ------------
+// The public badge, domain and CTA all derive from the verified
+// candidate's URL, so a changed URL is no longer the URL that was reviewed.
+
+async function verifiedCandidate(url = "https://old-domain.example/") {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url,
+    discoverySource: "MANUAL_SUBMISSION",
+    actor: founder,
+  });
+  await approveAndPublishCandidate(repos, candidate.id, founder, "Confirmed official site");
+  return { repos, developer, candidate };
+}
+
+test("updateCandidateUrl: a VERIFIED candidate whose URL materially changes moves to NEEDS_REVERIFICATION, with a VERIFIED -> NEEDS_REVERIFICATION event", async () => {
+  const { repos, candidate } = await verifiedCandidate("https://example.com");
+
+  const saved = await updateCandidateUrl(repos, candidate.id, "https://newexample.com", founder);
+  assert.equal(saved.verificationStatus, "NEEDS_REVERIFICATION");
+  // The candidate is preserved and carries the new URL — it is not verified as-is.
+  assert.equal(saved.id, candidate.id);
+  assert.equal(saved.url, "https://newexample.com/");
+  assert.equal(saved.canonicalDomain, "newexample.com");
+
+  const reloaded = await repos.candidates.getById(candidate.id);
+  assert.equal(reloaded?.verificationStatus, "NEEDS_REVERIFICATION");
+  assert.equal(reloaded?.url, "https://newexample.com/");
+
+  const history = await repos.events.listByCandidate(candidate.id);
+  const event = history.at(-1);
+  assert.equal(event?.previousStatus, "VERIFIED");
+  assert.equal(event?.newStatus, "NEEDS_REVERIFICATION");
+  assert.match(event?.reason ?? "", /verified website URL was changed and requires re-verification/);
+  assert.equal(event?.actorType, "FOUNDER");
+  assert.equal(event?.actorId, "founder-1");
+  // Exactly one event for the whole change — no second "URL corrected" entry.
+  assert.equal(history.filter((e) => e.newStatus === "NEEDS_REVERIFICATION").length, 1);
+  assert.ok(!history.some((e) => e.reason.includes("URL corrected")));
+});
+
+test("updateCandidateUrl: a formatting-only change to a VERIFIED URL keeps it VERIFIED and writes no event", async () => {
+  const { repos, candidate } = await verifiedCandidate("https://old-domain.example/");
+  const before = await repos.events.listByCandidate(candidate.id);
+
+  // Same URL after the project's own normalizeUrl: no trailing slash, upper-case scheme/host.
+  for (const equivalent of ["https://old-domain.example", "HTTPS://OLD-DOMAIN.EXAMPLE/"]) {
+    const saved = await updateCandidateUrl(repos, candidate.id, equivalent, founder);
+    assert.equal(saved.verificationStatus, "VERIFIED");
+    assert.equal(saved.url, "https://old-domain.example/");
+  }
+
+  const after = await repos.events.listByCandidate(candidate.id);
+  assert.equal(after.length, before.length);
+});
+
+test("updateCandidateUrl: a DISCOVERED candidate's URL change does not become NEEDS_REVERIFICATION", async () => {
   const { repos, developer } = await setUpTestDeveloper();
   const candidate = await submitWebsiteCandidate(repos, {
     developerId: developer.id,
@@ -195,11 +259,77 @@ test("updateCandidateUrl: works the same way for an already-published (VERIFIED)
     discoverySource: "MANUAL_SUBMISSION",
     actor: founder,
   });
-  await approveAndPublishCandidate(repos, candidate.id, founder, "Confirmed official site");
 
   const saved = await updateCandidateUrl(repos, candidate.id, "https://corrected-domain.example", founder);
-  assert.equal(saved.verificationStatus, "VERIFIED");
-  assert.equal(saved.canonicalDomain, "corrected-domain.example");
+  assert.equal(saved.verificationStatus, "DISCOVERED");
+  assert.notEqual(saved.verificationStatus, "NEEDS_REVERIFICATION");
+});
+
+test("updateCandidateUrl: a PENDING_VERIFICATION candidate's URL change leaves its status alone", async () => {
+  const { repos, developer } = await setUpTestDeveloper();
+  const candidate = await submitWebsiteCandidate(repos, {
+    developerId: developer.id,
+    url: "https://old-domain.example/",
+    discoverySource: "MANUAL_SUBMISSION",
+    actor: founder,
+  });
+  await markReadyForReview(repos, candidate.id, founder);
+
+  const saved = await updateCandidateUrl(repos, candidate.id, "https://corrected-domain.example", founder);
+  assert.equal(saved.verificationStatus, "PENDING_VERIFICATION");
+});
+
+test("updateCandidateUrl: a NEEDS_REVERIFICATION candidate's URL change never becomes VERIFIED by itself", async () => {
+  const { repos, candidate } = await verifiedCandidate();
+  await markNeedsReverification(repos, candidate.id, founder, "Founder flagged for re-check");
+
+  const saved = await updateCandidateUrl(repos, candidate.id, "https://corrected-domain.example", founder);
+  assert.equal(saved.verificationStatus, "NEEDS_REVERIFICATION");
+  assert.notEqual(saved.verificationStatus, "VERIFIED");
+});
+
+test("updateCandidateUrl: after a VERIFIED URL changes, the public verified lookups no longer return it", async () => {
+  const { repos, developer, candidate } = await verifiedCandidate();
+
+  // Sanity: it IS public before the change.
+  assert.ok((await getPublicDeveloperBySlug(repos, developer.slug))?.officialWebsite);
+  assert.equal((await listVerifiedDevelopers(repos)).length, 1);
+  assert.ok(await repos.candidates.getVerifiedForDeveloper(developer.id));
+
+  await updateCandidateUrl(repos, candidate.id, "https://different-domain.example", founder);
+
+  assert.equal(await repos.candidates.getVerifiedForDeveloper(developer.id), null);
+  assert.equal((await getPublicDeveloperBySlug(repos, developer.slug))?.officialWebsite, null);
+  assert.equal((await listVerifiedDevelopers(repos)).length, 0);
+});
+
+test("updateCandidateUrl: re-verification is an explicit Founder approval — the changed URL is public again only after it", async () => {
+  const { repos, developer, candidate } = await verifiedCandidate();
+  await updateCandidateUrl(repos, candidate.id, "https://different-domain.example", founder);
+  assert.equal(await repos.candidates.getVerifiedForDeveloper(developer.id), null);
+
+  // approveCandidate still works from NEEDS_REVERIFICATION, and still requires a FOUNDER.
+  await assert.rejects(
+    () => approveCandidate(repos, candidate.id, { actorType: "SYSTEM", actorId: "auto" }, "auto"),
+    UnauthorizedVerificationActionError,
+  );
+  assert.equal(await repos.candidates.getVerifiedForDeveloper(developer.id), null);
+
+  await approveCandidate(repos, candidate.id, founder, "Re-checked the new website");
+  const publicProfile = await getPublicDeveloperBySlug(repos, developer.slug);
+  assert.equal(publicProfile?.officialWebsite?.canonicalDomain, "different-domain.example");
+});
+
+test("updateCandidateUrl: the invariant lives in the service — a non-FOUNDER cannot change a VERIFIED URL at all", async () => {
+  const { repos, candidate } = await verifiedCandidate();
+
+  await assert.rejects(
+    () => updateCandidateUrl(repos, candidate.id, "https://different-domain.example", { actorType: "AGENT", actorId: "agent-1" }),
+    UnauthorizedVerificationActionError,
+  );
+  const unchanged = await repos.candidates.getById(candidate.id);
+  assert.equal(unchanged?.verificationStatus, "VERIFIED");
+  assert.equal(unchanged?.url, "https://old-domain.example/");
 });
 
 test("updateCandidateUrl: records a history event so the correction is traceable", async () => {

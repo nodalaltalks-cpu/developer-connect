@@ -25,9 +25,9 @@ function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const TITLE = "Developer Connects | Find Verified Developer Websites";
+const TITLE = "Developer Connects | Official Websites of Real Estate Developers";
 const DESCRIPTION =
-  "Search real-estate developers and go straight to their verified official website — no brokers, no forms.";
+  "Find verified official websites of real estate developers across India and the UAE. Research developer websites directly, without broker or property-portal noise.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -167,7 +167,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
                   {hasActiveFilter
                     ? "Try a different country, state, or city."
-                    : "Developer Connects is starting in Mumbai and adding verified developers over time."}
+                    : "Covering verified developers across India and the UAE, including Mumbai and Dubai."}
                 </p>
               </div>
             ) : (

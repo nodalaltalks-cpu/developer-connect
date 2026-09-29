@@ -44,11 +44,9 @@ export default function AboutPage() {
               <section>
                 <h2 className="text-lg font-semibold">How verification works</h2>
                 <p className="mt-2 text-muted-foreground">
-                  Before a developer appears in our directory, we check that the website we&apos;re
-                  pointing you to is genuinely theirs — matching branding, corporate identity, and
-                  other public signals against the company. A developer is only marked
-                  &ldquo;verified&rdquo; once this review is complete, and every verified listing
-                  shows when it was verified.
+                  We review developer websites and approve the website we identify as the
+                  developer&rsquo;s official website. Every verified listing shows the date it was
+                  verified by Developer Connects.
                 </p>
               </section>
 
@@ -68,9 +66,8 @@ export default function AboutPage() {
                   <a href="/contact" className="text-accent-hover hover:underline">
                     report it
                   </a>{" "}
-                  directly from that developer&apos;s page, and we&apos;ll review it. We&apos;re
-                  starting in Mumbai and the wider MMR region, and expect to add more cities and
-                  markets over time.
+                  directly from that developer&apos;s page, and we&apos;ll review it. Covering
+                  verified developers across India and the UAE, including Mumbai and Dubai.
                 </p>
               </section>
 

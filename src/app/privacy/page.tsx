@@ -28,8 +28,8 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection title="2. What Developer Connects does">
         <p>
-          We maintain a directory of real-estate developers and verify that the official websites we link to
-          genuinely belong to them. Visitors can search and filter the directory, and click through to a
+          We maintain a directory of real-estate developers and review the official websites we link to,
+          approving each one as the developer&apos;s official website. Visitors can search and filter the directory, and click through to a
           developer&apos;s own website. We are not a broker, a property seller, or a party to any property
           transaction.
         </p>

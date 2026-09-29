@@ -33,7 +33,7 @@ export default function DisclaimerPage() {
 
       <LegalSection title="3. &ldquo;Verified&rdquo; means website identity, not endorsement">
         <p>
-          Our verification process confirms that a listed website genuinely belongs to the named developer. It
+          Our verification process approves a listed website as the named developer&apos;s official website. It
           is not an endorsement, not a quality rating, and not a guarantee of the developer&apos;s legitimacy,
           financial health, project quality, or business practices. See &ldquo;Verification and
           &lsquo;verified&rsquo; meaning&rdquo; in our{" "}

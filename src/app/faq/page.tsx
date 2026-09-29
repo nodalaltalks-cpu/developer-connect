@@ -23,12 +23,12 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "How do you verify developers?",
     answer:
-      "We check public signals — branding, corporate identity, and other evidence — to confirm a website genuinely belongs to the developer before marking it verified. See About Us for more detail.",
+      "Developer Connects reviews a developer and its website and approves the website when it is identified as the developer’s official website. Only websites approved through this process are shown as verified. Verification does not confirm the developer’s legal status, licences, regulatory approvals, domain ownership, or the quality of the developer or its projects.",
   },
   {
     question: "What does “official website verified” mean?",
     answer:
-      "It means we've checked that the linked website is genuinely operated by that developer, not a broker or lookalike page. Every verified listing shows when it was verified.",
+      "It means Developer Connects approved the linked website as the developer’s official website. Every verified listing shows the date it was verified. It does not confirm the developer’s legal status, licences, regulatory approvals, domain ownership, or the quality of the developer or its projects.",
   },
   {
     question: "Does Developer Connects sell properties?",
@@ -52,12 +52,11 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "How can a developer be listed?",
     answer:
-      "We're onboarding developers directly, starting with Mumbai and the wider MMR region. Reach out via Contact Us if you represent a developer and want to be listed.",
+      "We're onboarding developers directly. Reach out via Contact Us if you represent a developer and want to be listed.",
   },
   {
     question: "Which locations does Developer Connects cover?",
-    answer:
-      "We're starting in Mumbai and the MMR region in India, with more Indian cities and Dubai planned as we grow.",
+    answer: "Covering verified developers across India and the UAE, including Mumbai and Dubai.",
   },
 ];
 

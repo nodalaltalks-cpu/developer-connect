@@ -108,7 +108,7 @@ export function SearchBox() {
         autoComplete="off"
         value={query}
         onChange={(event) => handleChange(event.target.value)}
-        placeholder="Search a developer"
+        placeholder="Search a developer or paste a website address"
         aria-describedby={statusId}
         className="w-full min-h-11 rounded-lg border border-border bg-background px-5 py-4 text-lg text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
@@ -194,7 +194,7 @@ function ZeroResultState({
       <p className="mt-1 text-muted-foreground">
         {hasActiveFilter
           ? "Try another search, or clear filters to search everywhere."
-          : "Developer Connects is starting in Mumbai and adding verified developers over time."}
+          : "Covering verified developers across India and the UAE, including Mumbai and Dubai."}
       </p>
       {hasActiveFilter && (
         <button

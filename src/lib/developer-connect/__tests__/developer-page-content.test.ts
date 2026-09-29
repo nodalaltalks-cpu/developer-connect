@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { alsoKnownAs, buildDeveloperMetadataText, serializeJsonLd } from "../developer-page-content.ts";
+import {
+  alsoKnownAs,
+  buildDeveloperMetadataText,
+  developerIntroText,
+  serializeJsonLd,
+} from "../developer-page-content.ts";
 import { toPublicDeveloperProfile, type PublicDeveloperProfile } from "../public-view.ts";
 import type { Developer, WebsiteCandidate } from "../types.ts";
 
@@ -147,4 +152,76 @@ test("CTA and displayed domain come from the stored verified candidate", () => {
   assert.equal(p.officialWebsite?.canonicalDomain, "acme.example");
   const page = read("../../../app/developers/[slug]/page.tsx");
   assert.match(page, /url=\{developer\.officialWebsite\.url\}/);
+});
+
+// --- Visible official-website relationship sentence ------------------------
+// A stub formatter keeps these independent of the runtime's time zone.
+const fmt = (date: Date) => `<${date.toISOString().slice(0, 10)}>`;
+
+test("intro: a VERIFIED developer states the official-website relationship with name, location, domain, verifier and date", () => {
+  assert.equal(
+    developerIntroText(profile(), fmt),
+    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Its official website is acme.example, verified by Developer Connects on <2026-02-02>.",
+  );
+});
+
+test("intro: the domain shown is the stored canonical domain, not derived from the name or slug", () => {
+  const p = profile({}, verifiedCandidate({ url: "https://www.totally-unrelated.example/", canonicalDomain: "totally-unrelated.example" }));
+  const text = developerIntroText(p, fmt);
+  assert.ok(text.includes("totally-unrelated.example"));
+  assert.ok(!text.includes("acme.example"));
+  assert.ok(!text.includes("acme-realty"));
+});
+
+test("intro: no reliable verification date means no date in the sentence (nothing is invented)", () => {
+  const p = profile({}, verifiedCandidate({ reviewedAt: undefined }));
+  const text = developerIntroText(p, fmt);
+  assert.equal(
+    text,
+    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Its official website is acme.example, verified by Developer Connects.",
+  );
+  assert.doesNotMatch(text, / on /);
+  assert.doesNotMatch(text, /<\d{4}-\d{2}-\d{2}>/);
+});
+
+test("intro: an UNVERIFIED developer gets the location sentence only — never a verification claim", () => {
+  const text = developerIntroText(profile({}, null), fmt);
+  assert.equal(text, "Acme Realty is a real estate developer in Mumbai, Maharashtra, India.");
+  assert.doesNotMatch(text, /official website|verified|Developer Connects/i);
+});
+
+test("intro: missing optional location parts are omitted rather than printed blank", () => {
+  assert.equal(
+    developerIntroText(profile({ state: "  " }), fmt),
+    "Acme Realty is a real estate developer in Mumbai, India. Its official website is acme.example, verified by Developer Connects on <2026-02-02>.",
+  );
+  // No location at all: still one factual sentence, naming the developer directly.
+  assert.equal(
+    developerIntroText(profile({ city: "", state: "", country: "" }), fmt),
+    "Acme Realty's official website is acme.example, verified by Developer Connects on <2026-02-02>.",
+  );
+  assert.equal(developerIntroText(profile({ city: "", state: "", country: "" }, null), fmt), "");
+});
+
+test("intro: one natural statement — the developer name is not repeated as keyword variants", () => {
+  const text = developerIntroText(profile(), fmt);
+  assert.equal(text.match(/official website/gi)?.length, 1);
+  assert.doesNotMatch(text, /official site\b|website of|\bwebsite\b.*\bwebsite\b/i);
+});
+
+test("page: renders the sentence from developerIntroText once, and leaves the CTA/card, share, report and related section in place", () => {
+  const page = read("../../../app/developers/[slug]/page.tsx");
+  assert.equal((page.match(/developerIntroText\(/g) ?? []).length, 1);
+  assert.match(page, /\{introText && <p className="mt-2 text-foreground">\{introText\}<\/p>\}/);
+  // The sentence text itself lives in the content module, not hard-coded in the page.
+  assert.doesNotMatch(page, /official website is/);
+  // Existing UI is unchanged.
+  assert.match(page, /<VisitOfficialWebsiteButton[\s\S]*?url=\{developer\.officialWebsite\.url\}/);
+  assert.match(page, /<ExternalDomainLink[\s\S]*?url=\{developer\.officialWebsite\.url\}/);
+  assert.match(page, /Last verified \{formatDate\(developer\.officialWebsite\.verifiedAt\)\}/);
+  assert.match(page, /<ShareDeveloper /);
+  assert.match(page, /<ReportInaccurateInfo /);
+  assert.match(page, /Other verified developers in \{developer\.city\}/);
+  assert.match(page, /Also known as/);
+  assert.equal((page.match(/<OfficialWebsiteVerifiedBadge/g) ?? []).length, 1);
 });

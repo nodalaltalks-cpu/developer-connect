@@ -44,6 +44,48 @@ export function buildDeveloperMetadataText(developer: PublicDeveloperProfile): D
 }
 
 /**
+ * The visible sentence under the H1 that states the developer-to-website
+ * relationship in plain text, built only from stored data.
+ *
+ * - Location comes from city/state/country, using only the parts that are
+ *   actually present (blank parts are dropped, and with none the location
+ *   sentence is omitted).
+ * - The official-website sentence exists ONLY for a developer with a
+ *   VERIFIED website (officialWebsite non-null); an unverified developer
+ *   gets the location sentence alone and never a verification claim.
+ * - "on {date}" is added only when a real verification date exists
+ *   (verifiedAt is reviewedAt-only); otherwise the sentence simply omits
+ *   the date. The caller supplies the date formatter so the date reads
+ *   the same as the "Last verified" line.
+ *
+ * One natural statement: the domain is the stored canonical domain, and
+ * nothing here is derived from the name or slug.
+ */
+export function developerIntroText(
+  developer: PublicDeveloperProfile,
+  formatDate: (date: Date) => string,
+): string {
+  const location = [developer.city, developer.state, developer.country]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join(", ");
+
+  const sentences: string[] = [];
+  if (location) {
+    sentences.push(`${developer.displayName} is a real estate developer in ${location}.`);
+  }
+
+  if (developer.officialWebsite) {
+    const { canonicalDomain, verifiedAt } = developer.officialWebsite;
+    const subject = location ? "Its" : `${developer.displayName}'s`;
+    const when = verifiedAt ? ` on ${formatDate(verifiedAt)}` : "";
+    sentences.push(`${subject} official website is ${canonicalDomain}, verified by Developer Connects${when}.`);
+  }
+
+  return sentences.join(" ");
+}
+
+/**
  * JSON for a script tag of type application/ld+json. JSON.stringify leaves
  * the less-than character untouched, so a value containing a closing
  * script tag would end the element early. Each less-than is replaced with

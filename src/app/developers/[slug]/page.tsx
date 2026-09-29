@@ -19,6 +19,7 @@ import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view
 import {
   alsoKnownAs,
   buildDeveloperMetadataText,
+  developerIntroText,
   serializeJsonLd,
 } from "@/lib/developer-connect/developer-page-content";
 
@@ -135,6 +136,7 @@ export default async function DeveloperPage({
   }
 
   const { userId } = await auth();
+  const introText = developerIntroText(developer, formatDate);
 
   // Only fetched for a verified developer — an unverified page is
   // noindexed and low-traffic; there is no benefit to spending an extra
@@ -186,10 +188,7 @@ export default async function DeveloperPage({
               {developer.displayName}
             </h1>
 
-            <p className="mt-2 text-foreground">
-              {developer.displayName} is a real estate developer in {developer.city},{" "}
-              {developer.state}, {developer.country}.
-            </p>
+            {introText && <p className="mt-2 text-foreground">{introText}</p>}
 
             {developer.headquartersLocation && (
               <div className="mt-3">

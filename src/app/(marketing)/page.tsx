@@ -122,8 +122,15 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
           <div className="mx-auto mt-14 max-w-3xl sm:mt-20">
             <div className="grid grid-cols-3 gap-4 text-center sm:gap-8">
-              <StatCounter value={stats.verifiedDevelopers} label="Verified developers" />
-              <StatCounter value={stats.officialWebsitesVerified} label="Official websites verified" />
+              <StatCounter value={stats.verifiedDevelopers} label="Verified developers" prefix="+" />
+              <StatCounter
+                value={stats.officialWebsitesVerified}
+                label="Official websites verified"
+                prefix="+"
+              />
+              {/* Deliberately no "+" — a count of covered countries isn't an
+                  always-growing tally the way developer/website counts are;
+                  see OPERATING_COUNTRIES's own doc comment. */}
               <CountriesCoveredCard value={stats.countriesCovered} />
             </div>
           </div>

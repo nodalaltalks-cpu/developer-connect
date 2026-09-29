@@ -45,10 +45,10 @@ export const metadata: Metadata = {
  * belong to the parent NoDalalTalks brand, not to Developer Connects
  * itself, and asserting them as this entity's own profiles would
  * misrepresent the relationship rather than clarify it. `logo` points at
- * the one real image asset the site actually serves today; note that
- * favicon.ico is far smaller than the size Google's Organization logo
- * guidance calls for, so it won't be eligible for the logo rich result
- * until a real logo asset exists.
+ * the real brand mark (public/developer-connects-logo.jpg, 1600x1600 —
+ * see components/logo.tsx), replacing the earlier placeholder favicon.ico
+ * reference now that a real logo asset exists at a size Google's
+ * Organization logo guidance actually accepts.
  *
  * WebSite JSON-LD is deliberately NOT here: it describes the site as a
  * whole (its search entry point), which only makes sense attached to the
@@ -62,7 +62,7 @@ const organizationStructuredData = {
   "@type": "Organization",
   name: SITE_NAME,
   url: "https://developerconnects.com",
-  logo: "https://developerconnects.com/favicon.ico",
+  logo: "https://developerconnects.com/developer-connects-logo.jpg",
 };
 
 export const viewport: Viewport = {

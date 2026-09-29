@@ -54,12 +54,30 @@ export function useCountUp(value: number): { ref: RefObject<HTMLElement | null>;
   return { ref, display };
 }
 
-export function StatCounter({ value, label }: { value: number; label: string }) {
+/**
+ * `prefix` (e.g. "+") is purely presentational — it never touches `value`
+ * itself, which still comes straight from the real query result passed
+ * in by the caller (see (marketing)/page.tsx). A small right margin on
+ * the prefix keeps it from looking glued to the first digit; it's
+ * otherwise the same size/weight as the number, matching how a stat like
+ * this is styled elsewhere (a leading "+" reads as part of the number,
+ * not a separate label).
+ */
+export function StatCounter({
+  value,
+  label,
+  prefix,
+}: {
+  value: number;
+  label: string;
+  prefix?: string;
+}) {
   const { ref, display } = useCountUp(value);
 
   return (
     <div ref={ref as RefObject<HTMLDivElement>}>
       <p className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        {prefix && <span className="mr-0.5">{prefix}</span>}
         {display.toLocaleString("en-IN")}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">{label}</p>

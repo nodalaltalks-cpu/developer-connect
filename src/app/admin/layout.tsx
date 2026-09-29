@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { UserButton } from "@clerk/nextjs";
 import { requireFounder } from "@/lib/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { ScrollToTopButton } from "@/components/admin/scroll-to-top-button";
+import { DateRangeFilter } from "@/components/admin/date-range-filter";
 
 export const metadata: Metadata = {
   title: "Founder Dashboard | Developer Connects",
@@ -28,7 +30,17 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
               Founder
             </span>
           </div>
-          <UserButton />
+          <div className="flex items-center gap-4">
+            {/* The ONE global analytics date filter — every date-filtered
+                metric on every page below reads the exact same `?range=`
+                this sets. Suspense is required here: useSearchParams()
+                inside a Client Component needs a boundary, or Next.js
+                opts the whole route into fully dynamic/client rendering. */}
+            <Suspense fallback={<div className="h-[42px] w-32" aria-hidden="true" />}>
+              <DateRangeFilter />
+            </Suspense>
+            <UserButton />
+          </div>
         </div>
       </header>
 

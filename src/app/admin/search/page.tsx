@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSearchIntelligence, getHighPriorityVerificationOpportunities } from "@/lib/admin-analytics/queries";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 import type { VerificationOpportunity } from "@/lib/admin-analytics/types";
@@ -10,9 +11,16 @@ const STATUS_LABEL: Record<VerificationOpportunity["status"], string> = {
   INDEXED_VERIFIED: "Developer already verified — likely a name-matching gap, not a verification gap.",
 };
 
-export default async function AdminSearchIntelligencePage() {
+export default async function AdminSearchIntelligencePage({
+  searchParams,
+}: PageProps<"/admin/search">) {
+  const resolvedSearchParams = await searchParams;
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
+
+  // getHighPriorityVerificationOpportunities deliberately never takes
+  // `range` — see its own doc comment (an operational list, not history).
   const [intel, opportunities] = await Promise.all([
-    getSearchIntelligence(),
+    getSearchIntelligence(range),
     getHighPriorityVerificationOpportunities(),
   ]);
 
@@ -20,7 +28,7 @@ export default async function AdminSearchIntelligencePage() {
     <div>
       <SectionHeading
         title="Search Intelligence"
-        description="What people actually search for — and, critically, what returns nothing."
+        description={`What people actually search for — and, critically, what returns nothing. Showing ${range.label}.`}
       />
 
       <StatGrid>
@@ -81,7 +89,8 @@ export default async function AdminSearchIntelligencePage() {
           <h2 className="text-base font-semibold text-foreground">High-priority verification opportunities</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Every zero-result search, checked against the real developer directory — never a
-            synthesized demand score.
+            synthesized demand score. Always all-time and current — this operational list is
+            deliberately not affected by the date filter above.
           </p>
           {opportunities.length === 0 ? (
             <div className="mt-3">

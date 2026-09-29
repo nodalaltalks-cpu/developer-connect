@@ -6,6 +6,7 @@ import {
   getLastActivityByUserIds,
   activityBandFor,
 } from "@/lib/admin-analytics/queries";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import type { ActivityBand } from "@/lib/admin-analytics/types";
 import { formatRate } from "@/lib/admin-analytics/rate";
 import { listClerkUsers } from "@/lib/admin-analytics/clerk-users";
@@ -62,10 +63,14 @@ export default async function AdminUsersPage({
 }: PageProps<"/admin/users">) {
   const resolvedSearchParams = await searchParams;
   const page = Math.max(1, Number(resolvedSearchParams.page) || 1);
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
 
+  // getRetentionMetrics deliberately never takes `range` — retention is
+  // cohort-relative (return within N days of a session's OWN first
+  // visit), not a calendar period; see the approved Phase B decisions.
   const [intel, behavior, retention, people] = await Promise.all([
-    getUserAndProfileIntelligence(),
-    getUserBehaviorIntelligence(),
+    getUserAndProfileIntelligence(range),
+    getUserBehaviorIntelligence(range),
     getRetentionMetrics(),
     listClerkUsers({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
   ]);
@@ -253,8 +258,8 @@ export default async function AdminUsersPage({
       <div className="mt-3">
         <StatGrid>
           <StatTile label="Profiles started" value={intel.profilesStarted} />
-          <StatTile label="New (last 7 days)" value={intel.newProfilesLast7Days} />
-          <StatTile label="Active (last 7 days)" value={intel.activeProfilesLast7Days} />
+          <StatTile label={`New (${range.label})`} value={intel.newProfilesInRange} />
+          <StatTile label={`Active (${range.label})`} value={intel.activeProfilesInRange} />
           <StatTile label="Fields configured" value={intel.profileFieldsConfigured} />
           <StatTile
             label="Average completion"

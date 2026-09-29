@@ -1,14 +1,19 @@
 import { getAuditLog } from "@/lib/admin-analytics/queries";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 
-export default async function AdminAuditLogPage() {
-  const entries = await getAuditLog();
+export default async function AdminAuditLogPage({
+  searchParams,
+}: PageProps<"/admin/audit-log">) {
+  const resolvedSearchParams = await searchParams;
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
+  const entries = await getAuditLog(100, range);
 
   return (
     <div>
       <SectionHeading
         title="Audit Log"
-        description="Every verification status change ever recorded — append-only at the database level (Phase 2B.1), so this list can never have been edited after the fact."
+        description={`Every verification status change recorded during ${range.label} — append-only at the database level (Phase 2B.1), so this list can never have been edited after the fact.`}
       />
 
       {entries.length === 0 ? (

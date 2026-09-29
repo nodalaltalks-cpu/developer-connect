@@ -13,8 +13,13 @@ import type {
 
 export interface InaccuracyReportRepository {
   create(input: NewInaccuracyReportInput): Promise<InaccuracyReport>;
-  /** Newest first — the Founder's /admin/reports queue. */
-  list(limit?: number): Promise<InaccuracyReport[]>;
+  /**
+   * Newest first — the Founder's /admin/reports queue. `range`, when
+   * given, filters to reports SUBMITTED (createdAt) within
+   * `[range.start, range.end)` — the Founder Dashboard's global date
+   * filter; omitted, returns the full all-time list exactly as before.
+   */
+  list(limit?: number, range?: { start: Date; end: Date }): Promise<InaccuracyReport[]>;
   updateStatus(id: string, status: InaccuracyReportStatus): Promise<InaccuracyReport | null>;
 }
 
@@ -22,8 +27,14 @@ export interface ContactSubmissionRepository {
   create(input: NewContactSubmissionInput): Promise<ContactSubmission>;
   /** Active (deletedAt IS NULL) submissions only, newest first — the default /admin/contact list. */
   list(limit?: number): Promise<ContactSubmission[]>;
-  /** Soft-deleted (deletedAt IS NOT NULL) submissions only, newest-deleted first — the Trash view. */
-  listTrash(limit?: number): Promise<ContactSubmission[]>;
+  /**
+   * Soft-deleted (deletedAt IS NOT NULL) submissions only, newest-deleted
+   * first — the Trash view. `range`, when given, filters to items that
+   * ENTERED Trash (deletedAt — never createdAt, which would answer a
+   * different question: when the request was originally submitted, not
+   * when it was deleted) within `[range.start, range.end)`.
+   */
+  listTrash(limit?: number, range?: { start: Date; end: Date }): Promise<ContactSubmission[]>;
   getById(id: string): Promise<ContactSubmission | null>;
   updateStatus(id: string, status: ContactStatus): Promise<ContactSubmission | null>;
   /** Sets deletedAt/deletedBy — never removes the row. */
@@ -47,7 +58,9 @@ export interface NewsletterSubscriberRepository {
    * the Founder's subscriber count is always a real distinct-person count.
    */
   subscribe(input: NewNewsletterSubscriberInput): Promise<{ subscriber: NewsletterSubscriber; alreadySubscribed: boolean }>;
-  list(limit?: number): Promise<NewsletterSubscriber[]>;
+  /** Newest first. `range`, when given, filters to signups (createdAt) within `[range.start, range.end)` — the global date filter; the CURRENT active-subscriber count (`countActive`) below is never affected by it. */
+  list(limit?: number, range?: { start: Date; end: Date }): Promise<NewsletterSubscriber[]>;
+  /** Current, live count of SUBSCRIBED rows — always a snapshot, deliberately never date-filtered. */
   countActive(): Promise<number>;
 }
 

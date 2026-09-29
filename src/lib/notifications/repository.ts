@@ -12,6 +12,13 @@ export interface NotificationRepository {
   hasUnreadOfType(userId: string, type: NotificationType): Promise<boolean>;
   /** Anti-spam check for founder-sent messages: an unread notification already pointing at this exact route for this user, if any. */
   findUnreadByTarget(userId: string, targetRoute: string): Promise<Notification | null>;
-  /** Every notification of one type, newest first, across all users — for the founder's /admin/notifications history. Never user-scoped. */
-  listByType(type: NotificationType, limit?: number): Promise<Notification[]>;
+  /**
+   * Every notification of one type, newest first, across all users — for
+   * the founder's /admin/notifications history. Never user-scoped.
+   * `range`, when given, filters to notifications CREATED within
+   * `[range.start, range.end)` (the Founder Dashboard's global date
+   * filter) — omitted, this returns the full all-time history exactly as
+   * before.
+   */
+  listByType(type: NotificationType, limit?: number, range?: { start: Date; end: Date }): Promise<Notification[]>;
 }

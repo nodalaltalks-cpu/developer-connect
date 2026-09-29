@@ -30,8 +30,11 @@ export function createInMemoryEngagementRepositories(): EngagementRepositories {
       reports.set(record.id, record);
       return record;
     },
-    async list(limit = 200) {
-      return [...reports.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
+    async list(limit = 200, range) {
+      return [...reports.values()]
+        .filter((r) => !range || (r.createdAt >= range.start && r.createdAt < range.end))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, limit);
     },
     async updateStatus(id, status) {
       const existing = reports.get(id);
@@ -67,9 +70,10 @@ export function createInMemoryEngagementRepositories(): EngagementRepositories {
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .slice(0, limit);
     },
-    async listTrash(limit = 200) {
+    async listTrash(limit = 200, range) {
       return [...contacts.values()]
         .filter((c) => c.deletedAt !== null)
+        .filter((c) => !range || (c.deletedAt! >= range.start && c.deletedAt! < range.end))
         .sort((a, b) => b.deletedAt!.getTime() - a.deletedAt!.getTime())
         .slice(0, limit);
     },
@@ -147,8 +151,11 @@ export function createInMemoryEngagementRepositories(): EngagementRepositories {
       subscribers.set(input.email, record);
       return { subscriber: record, alreadySubscribed: false };
     },
-    async list(limit = 500) {
-      return [...subscribers.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
+    async list(limit = 500, range) {
+      return [...subscribers.values()]
+        .filter((s) => !range || (s.createdAt >= range.start && s.createdAt < range.end))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, limit);
     },
     async countActive() {
       return [...subscribers.values()].filter((s) => s.status === "SUBSCRIBED").length;

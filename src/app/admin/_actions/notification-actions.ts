@@ -85,8 +85,11 @@ export async function sendFounderNotificationAction(
   };
 }
 
-export async function listFounderNotificationHistoryAction(limit = 50): Promise<Notification[]> {
+export async function listFounderNotificationHistoryAction(
+  limit = 50,
+  range?: { start: Date; end: Date },
+): Promise<Notification[]> {
   await requireFounderForAction();
   const notificationRepo = createPostgresNotificationRepository();
-  return notificationRepo.listByType("FOUNDER_MESSAGE", limit);
+  return notificationRepo.listByType("FOUNDER_MESSAGE", limit, range);
 }

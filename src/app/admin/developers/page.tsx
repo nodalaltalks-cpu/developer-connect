@@ -3,6 +3,7 @@ import {
   getDeveloperIntelligence,
   getHighPriorityVerificationOpportunities,
 } from "@/lib/admin-analytics/queries";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { DeveloperManagementTable } from "@/components/admin/developer-management-table";
 import { buttonClassName } from "@/components/ui/button";
@@ -19,9 +20,13 @@ export default async function AdminDevelopersPage({
   const status = firstParam(resolvedSearchParams.status);
   const pageParam = Number(firstParam(resolvedSearchParams.page));
   const page = Number.isFinite(pageParam) && pageParam > 0 ? Math.floor(pageParam) : 1;
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
 
+  // getHighPriorityVerificationOpportunities deliberately never takes
+  // `range` — it's an operational "who needs attention now" list, not a
+  // historical report (see its own doc comment).
   const [{ developers, totalCount, pageSize }, opportunities] = await Promise.all([
-    getDeveloperIntelligence({ search, status, page }),
+    getDeveloperIntelligence({ search, status, page }, range),
     getHighPriorityVerificationOpportunities(),
   ]);
 
@@ -36,7 +41,7 @@ export default async function AdminDevelopersPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <SectionHeading
           title="Developer Management"
-          description="Every developer in the directory, with real search/page-view/click stats and current verification status. Rows marked “Needs attention” have real, unmet search demand and no verified site — see Search Intelligence for the underlying queries."
+          description={`Every developer in the directory, with real search/page-view/click stats for ${range.label} and current (always live, never period-filtered) verification status. Rows marked “Needs attention” have real, unmet search demand and no verified site — see Search Intelligence for the underlying queries.`}
         />
         <Link href="/admin/developers/new" className={buttonClassName("primary")}>
           Add developer

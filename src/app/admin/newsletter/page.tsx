@@ -1,17 +1,30 @@
 import Link from "next/link";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 import { createEngagementRepositories } from "@/lib/engagement/db/postgres-repository";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 
 export const metadata = {
   title: "Newsletter Subscribers | Developer Connects",
   robots: { index: false, follow: false },
 };
 
-/** Founder-only newsletter subscriber list (Part 29) — real-time via a fresh database read on every load, same as the rest of admin. */
-export default async function AdminNewsletterPage() {
+/**
+ * Founder-only newsletter subscriber list (Part 29) — real-time via a
+ * fresh database read on every load, same as the rest of admin.
+ * `activeCount` is a CURRENT SNAPSHOT (subscribed right now) and is never
+ * affected by the global date filter; the list below IS date-filtered —
+ * it shows signups (createdAt) during the selected period, not the
+ * lifetime roster.
+ */
+export default async function AdminNewsletterPage({
+  searchParams,
+}: PageProps<"/admin/newsletter">) {
+  const resolvedSearchParams = await searchParams;
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
+
   const engagement = createEngagementRepositories();
   const [subscribers, activeCount] = await Promise.all([
-    engagement.newsletter.list(500),
+    engagement.newsletter.list(500, range),
     engagement.newsletter.countActive(),
   ]);
 
@@ -19,7 +32,7 @@ export default async function AdminNewsletterPage() {
     <div>
       <SectionHeading
         title="Newsletter Subscribers"
-        description={`${activeCount} currently subscribed.`}
+        description={`${activeCount} currently subscribed (live count). Showing signups during ${range.label} below.`}
       />
 
       {subscribers.length === 0 ? (

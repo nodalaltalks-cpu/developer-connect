@@ -15,7 +15,8 @@ import { PROFILE_FIELD_CONFIG, PROFILE_SECTIONS } from "../profile/field-config.
 import { PENDING_REVIEW_STATUSES } from "../developer-connect/verification-queue-state.ts";
 import { calculateProfileCompletion } from "../profile/completion.ts";
 import { computeRate } from "./rate.ts";
-import { comparePeriods, MIN_SAMPLE_FOR_COMPARISON } from "./period-comparison.ts";
+import { comparePeriods, MIN_SAMPLE_FOR_COMPARISON, type PeriodComparison } from "./period-comparison.ts";
+import { getPreviousPeriod, type ResolvedDateRange } from "./date-range.ts";
 import type {
   ExecutiveOverview,
   SearchIntelligence,
@@ -85,32 +86,70 @@ async function countEventsInRange(eventNames: EventName[], start: Date, end: Dat
   );
 }
 
-/** Last 7 days vs the 7 days before that — a fixed, documented window, not user-configurable (yet). */
-async function compareLastSevenDays(eventNames: EventName[]) {
-  const now = new Date();
-  const periodMs = 7 * 24 * 60 * 60 * 1000;
-  const currentStart = new Date(now.getTime() - periodMs);
-  const previousStart = new Date(now.getTime() - 2 * periodMs);
+/**
+ * The one shared way every DATE-FILTERED query in this module applies the
+ * Founder Dashboard's global range (see date-range.ts): appends
+ * `column >= range.start AND column < range.end` (inclusive-start,
+ * exclusive-end) to a conditions array. `range` is deliberately OPTIONAL
+ * everywhere it's threaded through — omitting it (as every existing test
+ * and internal all-time caller, e.g. getHighPriorityVerificationOpportunities,
+ * still does) queries the real, complete all-time data, byte-identical to
+ * this function's behavior before the global filter existed. This is what
+ * "A. DATE-FILTERED" actually means throughout this file; "B. LIFETIME" /
+ * "C. SNAPSHOT" / "D. NOT APPLICABLE" functions never accept a `range` at
+ * all — see each function's own doc comment for which it is.
+ */
+function rangeConditions(column: Parameters<typeof gte>[0], range?: ResolvedDateRange): SQL[] {
+  if (!range) return [];
+  return [gte(column, range.start), lt(column, range.end)];
+}
 
-  const current = await countEventsInRange(eventNames, currentStart, now);
-  const previous = await countEventsInRange(eventNames, previousStart, currentStart);
-  return comparePeriods(current, previous);
+/**
+ * "Current selected range vs. an equal-length previous period" (replaces
+ * the old, permanently-hardcoded "last 7 days vs the 7 days before that").
+ * `getPreviousPeriod` (date-range.ts) defines exactly what "previous"
+ * means for each of the seven range options — this function only ever
+ * counts events in the two windows it's given.
+ */
+async function compareCurrentToPreviousPeriod(
+  eventNames: EventName[],
+  range: ResolvedDateRange,
+): Promise<PeriodComparison> {
+  const previous = getPreviousPeriod(range);
+  const [current, previousCount] = await Promise.all([
+    countEventsInRange(eventNames, range.start, range.end),
+    countEventsInRange(eventNames, previous.start, previous.end),
+  ]);
+  return comparePeriods(current, previousCount);
 }
 
 /**
  * Definition: platform-wide snapshot of directory size, verification
  * pipeline state, and the search→click funnel, plus the North Star
- * (official website clicks) and its 7-day trend.
+ * (official website clicks) and its period-over-period trend.
  * Source: developers, website_candidates, analytics_events, profiles.
- * Window: status counts and the funnel are all-time (cumulative); the two
- * *Comparison fields are the last 7 days vs the 7 days before, and report
- * "insufficient data" honestly rather than a misleading percentage when
- * volume is too low (see period-comparison.ts).
+ * Window: `range`, when given, DATE-FILTERS totalSearches,
+ * successfulSearches, zeroResultSearches, developerPageViews,
+ * officialWebsiteClicks, activeUsers, and the whole funnel — all real
+ * analytics_events.occurred_at activity, so this genuinely changes with
+ * the Founder Dashboard's global date filter. developersTracked,
+ * verifiedDevelopers, pendingVerification, needsReverification, and
+ * profilesStarted are NEVER filtered by `range` — they are current-state
+ * snapshots (SNAPSHOT/LIFETIME; see the Phase A audit's classification),
+ * and always report the real, current, all-time state regardless of which
+ * period is selected. The two *Comparison fields are the selected range
+ * vs. an equal-length previous period (see getPreviousPeriod in
+ * date-range.ts) — reporting "insufficient data" honestly rather than a
+ * misleading percentage when volume is too low (see period-comparison.ts).
+ * Omitting `range` entirely (as every existing caller/test that predates
+ * the global filter still does) queries all-time, exactly as this
+ * function always did, and the two comparisons fall back to their
+ * original fixed 7-day-vs-7-day window.
  * Limitation: `activeUsers` counts distinct authenticated user ids seen
  * in analytics_events, not Clerk's total signup count — someone who
  * signed up but never triggered a tracked event won't be counted.
  */
-export async function getExecutiveOverview(): Promise<ExecutiveOverview> {
+export async function getExecutiveOverview(range?: ResolvedDateRange): Promise<ExecutiveOverview> {
   const db = getDb();
 
   const [developersTracked] = await db.select({ n: count() }).from(developers);
@@ -138,32 +177,65 @@ export async function getExecutiveOverview(): Promise<ExecutiveOverview> {
     .from(websiteCandidates)
     .where(eq(websiteCandidates.verificationStatus, "NEEDS_REVERIFICATION"));
 
-  const successfulSearches = await countRows(eq(analyticsEvents.eventName, "search_performed"));
-  const zeroResultSearches = await countRows(eq(analyticsEvents.eventName, "zero_result_search"));
-  const searchResultClicks = await countRows(eq(analyticsEvents.eventName, "search_result_clicked"));
-  const developerPageViews = await countRows(eq(analyticsEvents.eventName, "developer_page_viewed"));
-  const officialWebsiteClicks = await countRows(eq(analyticsEvents.eventName, "official_website_clicked"));
+  const eventWhere = (eventName: EventName) =>
+    and(eq(analyticsEvents.eventName, eventName), ...rangeConditions(analyticsEvents.occurredAt, range));
+
+  const successfulSearches = await countRows(eventWhere("search_performed"));
+  const zeroResultSearches = await countRows(eventWhere("zero_result_search"));
+  const searchResultClicks = await countRows(eventWhere("search_result_clicked"));
+  const developerPageViews = await countRows(eventWhere("developer_page_viewed"));
+  const officialWebsiteClicks = await countRows(eventWhere("official_website_clicked"));
   const totalSearches = successfulSearches + zeroResultSearches;
 
   const [activeUsersRow] = await db
     .select({ n: sql<number>`count(distinct ${analyticsEvents.userId})` })
     .from(analyticsEvents)
-    .where(sql`${analyticsEvents.userId} is not null`);
+    .where(and(sql`${analyticsEvents.userId} is not null`, ...rangeConditions(analyticsEvents.occurredAt, range)));
   const [profilesStartedRow] = await db.select({ n: count() }).from(profiles);
 
   const [mobileRow] = await db
     .select({ n: count() })
     .from(analyticsEvents)
-    .where(sql`${analyticsEvents.payload}->>'deviceType' = 'mobile'`);
+    .where(
+      and(
+        sql`${analyticsEvents.payload}->>'deviceType' = 'mobile'`,
+        ...rangeConditions(analyticsEvents.occurredAt, range),
+      ),
+    );
   const [deviceKnownRow] = await db
     .select({ n: count() })
     .from(analyticsEvents)
-    .where(sql`${analyticsEvents.payload}->>'deviceType' is not null`);
+    .where(
+      and(
+        sql`${analyticsEvents.payload}->>'deviceType' is not null`,
+        ...rangeConditions(analyticsEvents.occurredAt, range),
+      ),
+    );
 
-  const [searchVolumeComparison, officialWebsiteClicksComparison] = await Promise.all([
-    compareLastSevenDays(["search_performed", "zero_result_search"]),
-    compareLastSevenDays(["official_website_clicked"]),
-  ]);
+  const [searchVolumeComparison, officialWebsiteClicksComparison] = range
+    ? await Promise.all([
+        compareCurrentToPreviousPeriod(["search_performed", "zero_result_search"], range),
+        compareCurrentToPreviousPeriod(["official_website_clicked"], range),
+      ])
+    : await (async () => {
+        // No range given: preserve the exact original fixed 7-day-vs-7-day
+        // behavior for any caller/test that predates the global filter.
+        const now = new Date();
+        const periodMs = 7 * 24 * 60 * 60 * 1000;
+        const currentStart = new Date(now.getTime() - periodMs);
+        const previousStart = new Date(now.getTime() - 2 * periodMs);
+        const compare = async (eventNames: EventName[]) => {
+          const [current, previous] = await Promise.all([
+            countEventsInRange(eventNames, currentStart, now),
+            countEventsInRange(eventNames, previousStart, currentStart),
+          ]);
+          return comparePeriods(current, previous);
+        };
+        return Promise.all([
+          compare(["search_performed", "zero_result_search"]),
+          compare(["official_website_clicked"]),
+        ]);
+      })();
 
   return {
     developersTracked: developersTracked?.n ?? 0,
@@ -195,17 +267,25 @@ export async function getExecutiveOverview(): Promise<ExecutiveOverview> {
  * searches return nothing (a direct, honest proxy for "high demand, no
  * verified website yet," since a zero-result query means exactly that).
  * Source: analytics_events (search_performed, zero_result_search).
- * Window: all-time. Limitation: query text is grouped case-insensitively
- * but not otherwise normalized (no typo/synonym clustering).
+ * Window: DATE-FILTERED — every field genuinely changes with `range`
+ * (analytics_events.occurred_at). Omitting `range` queries all-time,
+ * exactly as this function did before the global filter existed — the
+ * ONE existing caller that must never be affected by whichever period is
+ * selected, getHighPriorityVerificationOpportunities (an operational
+ * "who needs attention now" list — see its own doc comment), calls this
+ * with no range for exactly that reason.
+ * Limitation: query text is grouped case-insensitively but not otherwise
+ * normalized (no typo/synonym clustering).
  */
-export async function getSearchIntelligence(): Promise<SearchIntelligence> {
+export async function getSearchIntelligence(range?: ResolvedDateRange): Promise<SearchIntelligence> {
   const db = getDb();
   const queryText = sql<string>`lower(${analyticsEvents.payload}->>'query')`;
+  const occurredAtInRange = rangeConditions(analyticsEvents.occurredAt, range);
 
   const topQueries = await db
     .select({ query: queryText.as("query"), count: count() })
     .from(analyticsEvents)
-    .where(eq(analyticsEvents.eventName, "search_performed"))
+    .where(and(eq(analyticsEvents.eventName, "search_performed"), ...occurredAtInRange))
     .groupBy(queryText)
     .orderBy(desc(count()))
     .limit(10);
@@ -213,7 +293,7 @@ export async function getSearchIntelligence(): Promise<SearchIntelligence> {
   const highDemandUnverified = await db
     .select({ query: queryText.as("query"), count: count() })
     .from(analyticsEvents)
-    .where(eq(analyticsEvents.eventName, "zero_result_search"))
+    .where(and(eq(analyticsEvents.eventName, "zero_result_search"), ...occurredAtInRange))
     .groupBy(queryText)
     .orderBy(desc(count()))
     .limit(10);
@@ -222,18 +302,21 @@ export async function getSearchIntelligence(): Promise<SearchIntelligence> {
     .select({ n: sql<number>`count(distinct ${queryText})` })
     .from(analyticsEvents)
     .where(
-      sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`,
+      and(
+        sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`,
+        ...occurredAtInRange,
+      ),
     );
 
   const totalSearches =
-    (await countRows(eq(analyticsEvents.eventName, "search_performed"))) +
-    (await countRows(eq(analyticsEvents.eventName, "zero_result_search")));
+    (await countRows(and(eq(analyticsEvents.eventName, "search_performed"), ...occurredAtInRange))) +
+    (await countRows(and(eq(analyticsEvents.eventName, "zero_result_search"), ...occurredAtInRange)));
 
-  const searchBehavior = await getSearchBehaviorStats(db);
+  const searchBehavior = await getSearchBehaviorStats(db, range);
   const [geographyDemand, topEngagedDevelopers, authenticationSplit] = await Promise.all([
-    getSearchGeographyDemand(db),
-    getTopEngagedDevelopers(db),
-    getSearchAuthenticationSplit(db),
+    getSearchGeographyDemand(db, range),
+    getTopEngagedDevelopers(db, range),
+    getSearchAuthenticationSplit(db, range),
   ]);
 
   return {
@@ -258,7 +341,10 @@ export async function getSearchIntelligence(): Promise<SearchIntelligence> {
  * payload->>'country' / 'state' / 'city'.
  * Window: all-time.
  */
-async function getSearchGeographyDemand(db: ReturnType<typeof getDb>): Promise<GeographySearchDemand> {
+async function getSearchGeographyDemand(
+  db: ReturnType<typeof getDb>,
+  range?: ResolvedDateRange,
+): Promise<GeographySearchDemand> {
   async function byField(field: "country" | "state" | "city") {
     const column = sql<string>`${analyticsEvents.payload}->>${sql.raw(`'${field}'`)}`;
     const rows = await db
@@ -268,6 +354,7 @@ async function getSearchGeographyDemand(db: ReturnType<typeof getDb>): Promise<G
         and(
           sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`,
           isNotNull(column),
+          ...rangeConditions(analyticsEvents.occurredAt, range),
         ),
       )
       .groupBy(column)
@@ -292,7 +379,10 @@ async function getSearchGeographyDemand(db: ReturnType<typeof getDb>): Promise<G
  * official_website_clicked), joined to developers for display names.
  * Window: all-time.
  */
-async function getTopEngagedDevelopers(db: ReturnType<typeof getDb>): Promise<DeveloperEngagementRow[]> {
+async function getTopEngagedDevelopers(
+  db: ReturnType<typeof getDb>,
+  range?: ResolvedDateRange,
+): Promise<DeveloperEngagementRow[]> {
   const rows = await db
     .select({
       developerId: analyticsEvents.developerId,
@@ -308,6 +398,7 @@ async function getTopEngagedDevelopers(db: ReturnType<typeof getDb>): Promise<De
           "developer_page_viewed",
           "official_website_clicked",
         ]),
+        ...rangeConditions(analyticsEvents.occurredAt, range),
       ),
     )
     .groupBy(analyticsEvents.developerId, analyticsEvents.eventName);
@@ -351,16 +442,20 @@ async function getTopEngagedDevelopers(db: ReturnType<typeof getDb>): Promise<De
  * the Clerk session, never inferred/backfilled). Source:
  * analytics_events (search_performed, zero_result_search). Window: all-time.
  */
-async function getSearchAuthenticationSplit(db: ReturnType<typeof getDb>): Promise<SearchAuthenticationSplit> {
+async function getSearchAuthenticationSplit(
+  db: ReturnType<typeof getDb>,
+  range?: ResolvedDateRange,
+): Promise<SearchAuthenticationSplit> {
   const searchEventNames = sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`;
+  const occurredAtInRange = rangeConditions(analyticsEvents.occurredAt, range);
   const [anonymousRow] = await db
     .select({ n: count() })
     .from(analyticsEvents)
-    .where(and(searchEventNames, isNull(analyticsEvents.userId)));
+    .where(and(searchEventNames, isNull(analyticsEvents.userId), ...occurredAtInRange));
   const [authenticatedRow] = await db
     .select({ n: count() })
     .from(analyticsEvents)
-    .where(and(searchEventNames, isNotNull(analyticsEvents.userId)));
+    .where(and(searchEventNames, isNotNull(analyticsEvents.userId), ...occurredAtInRange));
 
   return {
     anonymousSearches: anonymousRow?.n ?? 0,
@@ -376,7 +471,11 @@ async function getSearchAuthenticationSplit(db: ReturnType<typeof getDb>): Promi
  * for. Source: search_performed + zero_result_search, grouped by
  * session_id. Window: all-time.
  */
-async function getSearchBehaviorStats(db: ReturnType<typeof getDb>): Promise<SearchBehaviorStats> {
+async function getSearchBehaviorStats(
+  db: ReturnType<typeof getDb>,
+  range?: ResolvedDateRange,
+): Promise<SearchBehaviorStats> {
+  const rangeClause = range ? sql`and occurred_at >= ${range.start} and occurred_at < ${range.end}` : sql``;
   const result = await db.execute<{
     searching_sessions: string;
     repeated_search_sessions: string;
@@ -386,6 +485,7 @@ async function getSearchBehaviorStats(db: ReturnType<typeof getDb>): Promise<Sea
       select session_id, lower(payload->>'query') as query
       from ${analyticsEvents}
       where event_name in ('search_performed', 'zero_result_search')
+      ${rangeClause}
     ),
     per_session as (
       select session_id, count(*) as total, count(distinct query) as distinct_queries
@@ -420,7 +520,11 @@ async function getSearchBehaviorStats(db: ReturnType<typeof getDb>): Promise<Sea
  * developers.search() (the same lookup the public search box uses) and
  * getVerifiedForDeveloper() — both existing repository methods, no new
  * matching logic invented for this.
- * Window: all-time (inherits from getSearchIntelligence).
+ * Window: DELIBERATELY all-time, always — NOT wired to the Founder
+ * Dashboard's global date filter. This is an operational "who needs
+ * attention right now" list (see the approved Phase B decisions), not a
+ * historical report; calling getSearchIntelligence() with no `range`
+ * here is intentional, not an oversight.
  * Limitation: one directory lookup per distinct query (top 10 max) — fine
  * at current volume.
  */
@@ -554,9 +658,16 @@ function effectiveVerificationStatusSql() {
  * still one extra round trip each per developer — bounded by `pageSize`
  * now (25 by default) rather than by the whole table, which is what
  * keeps this affordable as the developer count grows into the hundreds.
+ *
+ * `range`, when given, DATE-FILTERS those same three engagement counts
+ * (real analytics_events.occurred_at activity) — `verificationStatus`
+ * and `hasPendingChanges` are never affected by it: current operational
+ * status stays a current-state SNAPSHOT regardless of which period is
+ * selected, per the approved Phase B decisions.
  */
 export async function getDeveloperIntelligence(
   query: DeveloperIntelligenceQuery = {},
+  range?: ResolvedDateRange,
 ): Promise<DeveloperIntelligencePage> {
   const db = getDb();
   const pageSize = query.pageSize && query.pageSize > 0 ? query.pageSize : DEFAULT_DEVELOPER_PAGE_SIZE;
@@ -622,24 +733,28 @@ export async function getDeveloperIntelligence(
     .limit(pageSize)
     .offset((page - 1) * pageSize);
 
+  const occurredAtInRange = rangeConditions(analyticsEvents.occurredAt, range);
   const stats: DeveloperStat[] = [];
   for (const row of rows) {
     const searchResultClicks = await countRows(
       and(
         eq(analyticsEvents.eventName, "search_result_clicked"),
         eq(analyticsEvents.developerId, row.developerId),
+        ...occurredAtInRange,
       ),
     );
     const pageViews = await countRows(
       and(
         eq(analyticsEvents.eventName, "developer_page_viewed"),
         eq(analyticsEvents.developerId, row.developerId),
+        ...occurredAtInRange,
       ),
     );
     const clicks = await countRows(
       and(
         eq(analyticsEvents.eventName, "official_website_clicked"),
         eq(analyticsEvents.developerId, row.developerId),
+        ...occurredAtInRange,
       ),
     );
 
@@ -666,9 +781,17 @@ export async function getDeveloperIntelligence(
  * Source: website_candidates (status counts), verification_events
  * (turnaround, using each candidate's first event as "created" and its
  * transition into VERIFIED as "decided").
- * Window: all-time.
+ * Window: the status counts (discovered/pendingVerification/verified/
+ * rejected/needsReverification/inactive) are ALWAYS current-state
+ * SNAPSHOT — this is the live operational queue, never historical, and
+ * `range` has no effect on them, per the approved Phase B decisions.
+ * `averageTurnaroundHours`, when `range` is given, DATE-FILTERS to only
+ * candidates whose VERIFIED decision (verification_events.created_at)
+ * happened during the selected period — "average turnaround for
+ * candidates actually decided in this period," using the real decision
+ * event, never `updatedAt` as a substitute.
  */
-export async function getVerificationOperations(): Promise<VerificationOperations> {
+export async function getVerificationOperations(range?: ResolvedDateRange): Promise<VerificationOperations> {
   const db = getDb();
   const statusCounts = await db
     .select({ status: websiteCandidates.verificationStatus, n: count() })
@@ -677,6 +800,9 @@ export async function getVerificationOperations(): Promise<VerificationOperation
 
   const byStatus = Object.fromEntries(statusCounts.map((row) => [row.status, row.n]));
 
+  const turnaroundRangeClause = range
+    ? sql`and verified.created_at >= ${range.start} and verified.created_at < ${range.end}`
+    : sql``;
   const turnaroundResult = await db.execute<{ avg_hours: string | null }>(sql`
     select avg(extract(epoch from (verified.created_at - created.created_at)) / 3600.0) as avg_hours
     from ${verificationEvents} verified
@@ -684,6 +810,7 @@ export async function getVerificationOperations(): Promise<VerificationOperation
       on created.website_candidate_id = verified.website_candidate_id
     where verified.new_status = 'VERIFIED'
       and created.previous_status is null
+      ${turnaroundRangeClause}
   `);
   const turnaroundRow = turnaroundResult.rows[0];
 
@@ -700,10 +827,58 @@ export async function getVerificationOperations(): Promise<VerificationOperation
 }
 
 /**
+ * Definition: real verification ACTIVITY during the selected period —
+ * "developers verified during selected period", "rejected during
+ * selected period", "re-verification activity during selected period"
+ * (the approved Phase B decisions' own examples). Deliberately separate
+ * from getVerificationOperations' status counts, which are current-state
+ * and never historical: a website candidate currently VERIFIED may have
+ * been verified eight months ago, so "how many are VERIFIED right now"
+ * and "how many transitions INTO VERIFIED happened this month" are two
+ * genuinely different facts. This counts the second — real,
+ * already-recorded status transitions (verification_events.new_status),
+ * grouped by the new status, filtered on the actual event timestamp
+ * (verification_events.created_at) — never inferred from a candidate's
+ * current status.
+ * Source: verification_events. Window: DATE-FILTERED (range is required —
+ * an all-time "verification activity" total would just duplicate
+ * getInfrastructureEntityCounts' verificationEvents count with none of
+ * this function's actual value, which is the per-status breakdown for
+ * one specific period).
+ */
+export async function getVerificationActivity(
+  range: ResolvedDateRange,
+): Promise<Record<(typeof GRANULAR_VERIFICATION_STATUSES)[number], number>> {
+  const db = getDb();
+  const rows = await db
+    .select({ status: verificationEvents.newStatus, n: count() })
+    .from(verificationEvents)
+    .where(and(gte(verificationEvents.createdAt, range.start), lt(verificationEvents.createdAt, range.end)))
+    .groupBy(verificationEvents.newStatus);
+
+  const result = Object.fromEntries(
+    GRANULAR_VERIFICATION_STATUSES.map((status) => [status, 0]),
+  ) as Record<(typeof GRANULAR_VERIFICATION_STATUSES)[number], number>;
+  for (const row of rows) {
+    result[row.status] = row.n;
+  }
+  return result;
+}
+
+/**
  * Definition: structural signals worth the founder's attention that
  * aren't captured by the verification status counts alone.
  * Source: developers, website_candidates, evidence.
- * Window: all-time.
+ * Window: CURRENT-STATE SNAPSHOT, deliberately never date-filtered — each
+ * of these three numbers answers "what is wrong right now" (a developer
+ * with no verified site today, a candidate with no evidence today, a
+ * verified site never re-checked as of today). None of these describes
+ * an event with a timestamp of its own; reframing them as "how many
+ * entered this state during the selected period" would be a genuinely
+ * different, currently-unreconstructable metric (this table doesn't
+ * record WHEN a candidate became evidence-less, for instance) — exactly
+ * the "if it cannot be accurately reconstructed, do not invent it, keep
+ * it snapshot" rule from the approved Phase B decisions.
  */
 export async function getDataQuality(): Promise<DataQuality> {
   const db = getDb();
@@ -748,8 +923,13 @@ export async function getDataQuality(): Promise<DataQuality> {
  * Source: verification_events joined to website_candidates/developers for
  * display context. This is the actual audit_log the schema's append-only
  * trigger (Phase 2B.1) guarantees can never be edited after the fact.
+ * Window: DATE-FILTERED on verification_events.created_at (the real event
+ * timestamp) when `range` is given — this is the cleanest, most natural
+ * candidate for the global filter: real events, already timestamped,
+ * with no snapshot/lifetime ambiguity. Omitting `range` returns the full
+ * all-time log, exactly as before.
  */
-export async function getAuditLog(limit = 100): Promise<AuditLogEntry[]> {
+export async function getAuditLog(limit = 100, range?: ResolvedDateRange): Promise<AuditLogEntry[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -766,6 +946,7 @@ export async function getAuditLog(limit = 100): Promise<AuditLogEntry[]> {
     .from(verificationEvents)
     .leftJoin(websiteCandidates, eq(websiteCandidates.id, verificationEvents.websiteCandidateId))
     .leftJoin(developers, eq(developers.id, websiteCandidates.developerId))
+    .where(range ? and(...rangeConditions(verificationEvents.createdAt, range)) : undefined)
     .orderBy(desc(verificationEvents.createdAt))
     .limit(limit);
 
@@ -818,7 +999,20 @@ export async function getAiReadiness(): Promise<AiReadiness> {
  * Source: analytics_events (sessions, authenticated users), profiles
  * (completion, computed fresh via calculateProfileCompletion — never a
  * stored/stale percentage).
- * Window: all-time.
+ * Window: mixed, deliberately. `range`, when given, DATE-FILTERS
+ * distinctSessions/distinctAuthenticatedUsers (analytics_events.occurred_at),
+ * newProfilesInRange (profiles.created_at), activeProfilesInRange
+ * (profiles.updated_at), and the ENGAGEMENT counts inside
+ * engagementByCompletion (real analytics_events activity, per the
+ * approved Phase B decisions). `averageCompletionPercent`,
+ * `completionDistribution`, and `sectionCompletion`/its drop-off are
+ * ALWAYS a CURRENT SNAPSHOT of every profile's data as it exists right
+ * now, regardless of `range` — these answer "what does completion look
+ * like today," never "what fraction of profiles reached each level
+ * during the period," which this data model cannot accurately
+ * reconstruct (no historical per-profile completion-percentage snapshots
+ * are stored) — kept snapshot rather than invented, per the approved
+ * decisions.
  */
 function completionBucketLabel(percentage: number): string {
   if (percentage >= 100) return "100%";
@@ -844,30 +1038,43 @@ const ENGAGEMENT_EVENT_NAMES = [
   "official_website_clicked",
 ] as const;
 
-export async function getUserAndProfileIntelligence(): Promise<UserAndProfileIntelligence> {
+export async function getUserAndProfileIntelligence(range?: ResolvedDateRange): Promise<UserAndProfileIntelligence> {
   const db = getDb();
+  const occurredAtInRange = rangeConditions(analyticsEvents.occurredAt, range);
 
   const [sessionsRow] = await db
     .select({ n: sql<number>`count(distinct ${analyticsEvents.sessionId})` })
-    .from(analyticsEvents);
+    .from(analyticsEvents)
+    .where(and(...occurredAtInRange));
   const [usersRow] = await db
     .select({ n: sql<number>`count(distinct ${analyticsEvents.userId})` })
     .from(analyticsEvents)
-    .where(sql`${analyticsEvents.userId} is not null`);
+    .where(and(sql`${analyticsEvents.userId} is not null`, ...occurredAtInRange));
   const [profilesRow] = await db.select({ n: count() }).from(profiles);
 
   const distinctSessions = Number(sessionsRow?.n ?? 0);
   const distinctAuthenticatedUsers = Number(usersRow?.n ?? 0);
 
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // Falls back to the original fixed "last 7 days" only when no range is
+  // given at all (an existing test/caller that predates the global
+  // filter) — every real page call always passes a resolved range.
+  const fallbackWindowStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const [newProfilesRow] = await db
     .select({ n: count() })
     .from(profiles)
-    .where(gte(profiles.createdAt, sevenDaysAgo));
+    .where(
+      range
+        ? and(gte(profiles.createdAt, range.start), lt(profiles.createdAt, range.end))
+        : gte(profiles.createdAt, fallbackWindowStart),
+    );
   const [activeProfilesRow] = await db
     .select({ n: count() })
     .from(profiles)
-    .where(gte(profiles.updatedAt, sevenDaysAgo));
+    .where(
+      range
+        ? and(gte(profiles.updatedAt, range.start), lt(profiles.updatedAt, range.end))
+        : gte(profiles.updatedAt, fallbackWindowStart),
+    );
 
   const allProfiles = await db.select({ userId: profiles.userId, data: profiles.data }).from(profiles);
   const completions = allProfiles.map((row) => ({
@@ -914,6 +1121,7 @@ export async function getUserAndProfileIntelligence(): Promise<UserAndProfileInt
         and(
           sql`${analyticsEvents.userId} is not null`,
           inArray(analyticsEvents.eventName, [...ENGAGEMENT_EVENT_NAMES]),
+          ...occurredAtInRange,
         ),
       )
       .groupBy(analyticsEvents.userId, analyticsEvents.eventName);
@@ -962,8 +1170,8 @@ export async function getUserAndProfileIntelligence(): Promise<UserAndProfileInt
         ? Math.round((distinctSessions / distinctAuthenticatedUsers) * 10) / 10
         : null,
     profilesStarted: profilesRow?.n ?? 0,
-    newProfilesLast7Days: newProfilesRow?.n ?? 0,
-    activeProfilesLast7Days: activeProfilesRow?.n ?? 0,
+    newProfilesInRange: newProfilesRow?.n ?? 0,
+    activeProfilesInRange: activeProfilesRow?.n ?? 0,
     profileFieldsConfigured: PROFILE_FIELD_CONFIG.length,
     averageCompletionPercent,
     completionDistribution: COMPLETION_BUCKET_LABELS.map((label) => ({
@@ -983,33 +1191,47 @@ type CompletionBucketAccumulator = Record<string, number>;
  * can match more than one tag; these are independent signals read off the
  * existing event stream, not a strict partition. Source: analytics_events,
  * grouped by session_id (the same long-lived, 1-year session cookie used
- * everywhere else — see session.ts). Window: all-time.
+ * everywhere else — see session.ts). Window: DATE-FILTERED when `range`
+ * is given (analytics_events.occurred_at) — omitting it queries all-time,
+ * exactly as before.
  */
-export async function getUserBehaviorIntelligence(): Promise<UserBehaviorIntelligence> {
+export async function getUserBehaviorIntelligence(range?: ResolvedDateRange): Promise<UserBehaviorIntelligence> {
   const db = getDb();
+  const occurredAtInRange = rangeConditions(analyticsEvents.occurredAt, range);
 
   const [sessionsRow] = await db
     .select({ n: sql<number>`count(distinct ${analyticsEvents.sessionId})` })
-    .from(analyticsEvents);
+    .from(analyticsEvents)
+    .where(and(...occurredAtInRange));
   const distinctSessions = Number(sessionsRow?.n ?? 0);
 
   const searchCount = await countRows(
-    sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`,
+    and(sql`${analyticsEvents.eventName} in ('search_performed', 'zero_result_search')`, ...occurredAtInRange),
   );
-  const pageViewCount = await countRows(eq(analyticsEvents.eventName, "developer_page_viewed"));
-  const clickCount = await countRows(eq(analyticsEvents.eventName, "official_website_clicked"));
+  const pageViewCount = await countRows(
+    and(eq(analyticsEvents.eventName, "developer_page_viewed"), ...occurredAtInRange),
+  );
+  const clickCount = await countRows(
+    and(eq(analyticsEvents.eventName, "official_website_clicked"), ...occurredAtInRange),
+  );
 
   const [mobileRow] = await db
     .select({ n: count() })
     .from(analyticsEvents)
-    .where(sql`${analyticsEvents.payload}->>'deviceType' = 'mobile'`);
+    .where(and(sql`${analyticsEvents.payload}->>'deviceType' = 'mobile'`, ...occurredAtInRange));
   const [deviceKnownRow] = await db
     .select({ n: count() })
     .from(analyticsEvents)
     .where(
-      sql`${analyticsEvents.payload}->>'deviceType' is not null and ${analyticsEvents.payload}->>'deviceType' != 'unknown'`,
+      and(
+        sql`${analyticsEvents.payload}->>'deviceType' is not null and ${analyticsEvents.payload}->>'deviceType' != 'unknown'`,
+        ...occurredAtInRange,
+      ),
     );
 
+  const segmentRangeClause = range
+    ? sql`where occurred_at >= ${range.start} and occurred_at < ${range.end}`
+    : sql``;
   const segmentResult = await db.execute<{
     new_sessions: string;
     returning_sessions: string;
@@ -1026,6 +1248,7 @@ export async function getUserBehaviorIntelligence(): Promise<UserBehaviorIntelli
         bool_or(event_name = 'search_performed') as has_successful_search,
         bool_or(event_name = 'zero_result_search') as has_zero_result_search
       from ${analyticsEvents}
+      ${segmentRangeClause}
       group by session_id
     )
     select

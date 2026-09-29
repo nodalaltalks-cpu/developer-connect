@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { TrashGate } from "@/components/admin/trash-gate";
 import { requireFounder } from "@/lib/auth";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 
 export const metadata = {
   title: "Contact Trash | Developer Connects",
@@ -21,15 +22,21 @@ export const metadata = {
  * so being a Founder is necessary to reach this page but not sufficient
  * to see what's in Trash.
  */
-export default async function AdminContactTrashPage() {
+export default async function AdminContactTrashPage({
+  searchParams,
+}: PageProps<"/admin/contact/trash">) {
   await requireFounder();
+
+  const resolvedSearchParams = await searchParams;
+  const rangeKey = parseDateRangeKey(resolvedSearchParams.range);
+  const range = resolveDateRange(rangeKey);
 
   return (
     <div>
       <div className="flex items-start justify-between gap-4">
         <SectionHeading
           title="Trash"
-          description="Requests moved to Trash from Contact Submissions. Nothing here is public — Founder-only, and protected behind a fresh identity check."
+          description={`Requests that entered Trash during ${range.label} (by deletion date, not submission date). Nothing here is public — Founder-only, and protected behind a fresh identity check.`}
         />
         <Link href="/admin/contact" className="mt-1 shrink-0 text-sm text-accent-hover hover:underline">
           Back to Contact
@@ -37,7 +44,7 @@ export default async function AdminContactTrashPage() {
       </div>
 
       <div className="mt-6">
-        <TrashGate />
+        <TrashGate rangeKey={rangeKey} />
       </div>
     </div>
   );

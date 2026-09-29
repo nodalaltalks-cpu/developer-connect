@@ -1,18 +1,24 @@
 import { getExecutiveOverview } from "@/lib/admin-analytics/queries";
+import { DATE_RANGE_OPTIONS, parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { NorthStarMetric } from "@/components/admin/north-star-metric";
 import { RateDisplay } from "@/components/admin/rate-display";
 import { PlatformHealthSummaryCard } from "@/components/admin/platform-health-summary-card";
 
-export default async function AdminOverviewPage() {
-  const overview = await getExecutiveOverview();
+export default async function AdminOverviewPage({
+  searchParams,
+}: PageProps<"/admin">) {
+  const resolvedSearchParams = await searchParams;
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
+  const overview = await getExecutiveOverview(range);
+  const previousPeriodNoun = DATE_RANGE_OPTIONS.find((o) => o.key === range.key)!.label.toLowerCase();
 
   return (
     <div>
       <SectionHeading
         title="Overview"
-        description="Real counts from the database — nothing here is estimated or fabricated."
+        description={`Real counts from the database — nothing here is estimated or fabricated. Search/engagement figures below reflect ${range.label}; developer/verification status counts are always the current, live state.`}
       />
 
       <div className="mb-6">
@@ -23,6 +29,7 @@ export default async function AdminOverviewPage() {
         officialWebsiteClicks={overview.officialWebsiteClicks}
         conversion={overview.northStarConversion}
         comparison={overview.officialWebsiteClicksComparison}
+        periodNoun={previousPeriodNoun}
       />
 
       <div className="mt-6">
@@ -31,7 +38,7 @@ export default async function AdminOverviewPage() {
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           The North Star above is the last step of this funnel — the counts below show where
-          visitors are lost along the way. All-time, cumulative.
+          visitors are lost along the way, for {range.label}.
         </p>
 
         <div className="mt-4 space-y-2">
@@ -72,8 +79,8 @@ export default async function AdminOverviewPage() {
               value={overview.totalSearches}
               hint={
                 overview.searchVolumeComparison.sufficientData
-                  ? `${overview.searchVolumeComparison.absoluteChange >= 0 ? "+" : ""}${overview.searchVolumeComparison.absoluteChange} vs previous 7 days`
-                  : "Not enough data for a weekly trend yet"
+                  ? `${overview.searchVolumeComparison.absoluteChange >= 0 ? "+" : ""}${overview.searchVolumeComparison.absoluteChange} vs previous ${previousPeriodNoun}`
+                  : "Not enough data for a trend yet"
               }
             />
             <StatTile label="Zero-result searches" value={overview.zeroResultSearches} />

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, count } from "drizzle-orm";
+import { and, desc, eq, count, gte, lt } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "../../developer-connect/db/client.ts";
 import * as schema from "../../developer-connect/db/schema.ts";
@@ -108,11 +108,15 @@ export function createPostgresNotificationRepository(db: DbOrTx = getDb()): Noti
         .limit(1);
       return row ? toNotification(row) : null;
     },
-    async listByType(type, limit = 50) {
+    async listByType(type, limit = 50, range) {
       const rows = await db
         .select()
         .from(notifications)
-        .where(eq(notifications.type, type))
+        .where(
+          range
+            ? and(eq(notifications.type, type), gte(notifications.createdAt, range.start), lt(notifications.createdAt, range.end))
+            : eq(notifications.type, type),
+        )
         .orderBy(desc(notifications.createdAt))
         .limit(limit);
       return rows.map(toNotification);

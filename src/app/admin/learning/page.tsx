@@ -5,6 +5,7 @@ import {
   getUserBehaviorIntelligence,
   getRetentionMetrics,
 } from "@/lib/admin-analytics/queries";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 import { formatRate, computeRate } from "@/lib/admin-analytics/rate";
 
@@ -15,13 +16,25 @@ import { formatRate, computeRate } from "@/lib/admin-analytics/rate";
  * the founder forms hypotheses; this page only ever states observations.
  * Every rate quoted here goes through rate.ts, so a tiny sample always
  * carries its own counts rather than a bare, over-confident percentage.
+ *
+ * Composes the same DATE-FILTERED functions the Overview/Search/Users
+ * pages use, fed the exact same global `range` — so an observation here
+ * ("X% of searches returned zero results") always describes the same
+ * period those other pages show, never a silently different one.
+ * getHighPriorityVerificationOpportunities and getRetentionMetrics are
+ * never range-filtered, consistent with those pages.
  */
-export default async function AdminLearningPage() {
+export default async function AdminLearningPage({
+  searchParams,
+}: PageProps<"/admin/learning">) {
+  const resolvedSearchParams = await searchParams;
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
+
   const [search, overview, opportunities, behavior, retention] = await Promise.all([
-    getSearchIntelligence(),
-    getExecutiveOverview(),
+    getSearchIntelligence(range),
+    getExecutiveOverview(range),
     getHighPriorityVerificationOpportunities(),
-    getUserBehaviorIntelligence(),
+    getUserBehaviorIntelligence(range),
     getRetentionMetrics(),
   ]);
 
@@ -68,7 +81,7 @@ export default async function AdminLearningPage() {
     <div>
       <SectionHeading
         title="Learning"
-        description="Observations only — mechanically derived from real data, never a generated hypothesis or claimed cause."
+        description={`Observations only — mechanically derived from real data, never a generated hypothesis or claimed cause. Search/engagement observations reflect ${range.label}; the verification-opportunities and retention observations are always all-time/cohort-based, unaffected by the filter.`}
       />
 
       {observations.length === 0 ? (

@@ -3,6 +3,7 @@ import { EngagementStatusSelect } from "@/components/admin/engagement-status-sel
 import { createEngagementRepositories } from "@/lib/engagement/db/postgres-repository";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { updateInaccuracyReportStatusAction } from "@/app/admin/_actions/engagement-actions";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import type { InaccuracyReportStatus } from "@/lib/engagement/types";
 
 export const metadata = {
@@ -25,11 +26,16 @@ const CATEGORY_LABELS: Record<string, string> = {
  * area: a fresh database read on every page load/refresh, no separate
  * push infrastructure (Part 30).
  */
-export default async function AdminReportsPage() {
+export default async function AdminReportsPage({
+  searchParams,
+}: PageProps<"/admin/reports">) {
+  const resolvedSearchParams = await searchParams;
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
+
   const engagement = createEngagementRepositories();
   const developerRepos = createPostgresRepositories();
 
-  const reports = await engagement.reports.list(200);
+  const reports = await engagement.reports.list(200, range);
   const developers = await developerRepos.developers.getManyByIds(reports.map((r) => r.developerId));
   const developerNameById = new Map(developers.map((d) => [d.id, d.displayName]));
 
@@ -37,7 +43,7 @@ export default async function AdminReportsPage() {
     <div>
       <SectionHeading
         title="Inaccuracy Reports"
-        description="What visitors flagged as wrong on a developer's page — official website, name, headquarters, or something else."
+        description={`What visitors flagged as wrong on a developer's page during ${range.label} — official website, name, headquarters, or something else.`}
       />
 
       {reports.length === 0 ? (

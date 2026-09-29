@@ -14,10 +14,12 @@ export function NorthStarMetric({
   officialWebsiteClicks,
   conversion,
   comparison,
+  periodNoun,
 }: {
   officialWebsiteClicks: number;
   conversion: RateMetric;
   comparison: PeriodComparison;
+  periodNoun: string;
 }) {
   return (
     <div className="rounded-lg border-2 border-accent bg-accent-soft p-6">
@@ -30,7 +32,7 @@ export function NorthStarMetric({
         developer&apos;s official website.
       </p>
       <div className="mt-2">
-        <PeriodComparisonDisplay comparison={comparison} />
+        <PeriodComparisonDisplay comparison={comparison} periodNoun={periodNoun} />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listFounderNotificationHistoryAction } from "@/app/admin/_actions/notification-actions";
+import { parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import { SectionHeading, EmptyState } from "@/components/admin/empty-state";
 import { buttonClassName } from "@/components/ui/button";
 
@@ -22,8 +23,12 @@ function timeAgo(date: Date): string {
  * this deliberately does not fabricate one; each row is one real
  * notification a real user received.
  */
-export default async function AdminNotificationsPage() {
-  const history = await listFounderNotificationHistoryAction(100);
+export default async function AdminNotificationsPage({
+  searchParams,
+}: PageProps<"/admin/notifications">) {
+  const resolvedSearchParams = await searchParams;
+  const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
+  const history = await listFounderNotificationHistoryAction(100, range);
 
   return (
     <div>
@@ -36,7 +41,7 @@ export default async function AdminNotificationsPage() {
         Create notification
       </Link>
 
-      <h2 className="mt-8 text-base font-semibold text-foreground">Sent</h2>
+      <h2 className="mt-8 text-base font-semibold text-foreground">Sent — {range.label}</h2>
       {history.length === 0 ? (
         <div className="mt-3">
           <EmptyState

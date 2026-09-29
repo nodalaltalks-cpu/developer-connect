@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, isNull, isNotNull } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt, isNull, isNotNull } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "../../developer-connect/db/client.ts";
 import * as schema from "../../developer-connect/db/schema.ts";
@@ -94,8 +94,17 @@ function buildReportRepository(db: DbOrTx): InaccuracyReportRepository {
         .returning();
       return toReport(row);
     },
-    async list(limit = 200) {
-      const rows = await db.select().from(inaccuracyReports).orderBy(desc(inaccuracyReports.createdAt)).limit(limit);
+    async list(limit = 200, range) {
+      const rows = await db
+        .select()
+        .from(inaccuracyReports)
+        .where(
+          range
+            ? and(gte(inaccuracyReports.createdAt, range.start), lt(inaccuracyReports.createdAt, range.end))
+            : undefined,
+        )
+        .orderBy(desc(inaccuracyReports.createdAt))
+        .limit(limit);
       return rows.map(toReport);
     },
     async updateStatus(id, status) {
@@ -134,11 +143,19 @@ function buildContactRepository(db: DbOrTx): ContactSubmissionRepository {
         .limit(limit);
       return rows.map(toContact);
     },
-    async listTrash(limit = 200) {
+    async listTrash(limit = 200, range) {
       const rows = await db
         .select()
         .from(contactSubmissions)
-        .where(isNotNull(contactSubmissions.deletedAt))
+        .where(
+          range
+            ? and(
+                isNotNull(contactSubmissions.deletedAt),
+                gte(contactSubmissions.deletedAt, range.start),
+                lt(contactSubmissions.deletedAt, range.end),
+              )
+            : isNotNull(contactSubmissions.deletedAt),
+        )
         .orderBy(desc(contactSubmissions.deletedAt))
         .limit(limit);
       return rows.map(toContact);
@@ -237,10 +254,15 @@ function buildNewsletterRepository(db: DbOrTx): NewsletterSubscriberRepository {
         .returning();
       return { subscriber: toSubscriber(row), alreadySubscribed: false };
     },
-    async list(limit = 500) {
+    async list(limit = 500, range) {
       const rows = await db
         .select()
         .from(newsletterSubscribers)
+        .where(
+          range
+            ? and(gte(newsletterSubscribers.createdAt, range.start), lt(newsletterSubscribers.createdAt, range.end))
+            : undefined,
+        )
         .orderBy(desc(newsletterSubscribers.createdAt))
         .limit(limit);
       return rows.map(toSubscriber);

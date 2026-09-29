@@ -242,9 +242,17 @@ export interface UserAndProfileIntelligence {
   distinctAuthenticatedUsers: number;
   sessionsPerUser: number | null;
   profilesStarted: number;
-  /** Profiles created / updated within the last 7 days — the closest available proxy for "new"/"active" without a separate activity table. */
-  newProfilesLast7Days: number;
-  activeProfilesLast7Days: number;
+  /**
+   * Profiles created / updated within the Founder Dashboard's selected
+   * global date range — the closest available proxy for "new"/"active"
+   * without a separate activity table. Previously a permanently
+   * hardcoded "last 7 days"; now genuinely reflects whichever period is
+   * selected (Day/Week/Month/.../Year), per the approved Phase B
+   * decisions ("remove the hard-coded 7-day assumption... it should
+   * become activeProfilesDuringSelectedRange").
+   */
+  newProfilesInRange: number;
+  activeProfilesInRange: number;
   /** Always 0 while PROFILE_FIELD_CONFIG is empty — genuinely nothing to complete yet. */
   profileFieldsConfigured: number;
   averageCompletionPercent: number | null;

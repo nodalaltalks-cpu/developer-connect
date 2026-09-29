@@ -5,6 +5,7 @@ import { requireFounder } from "@/lib/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { ScrollToTopButton } from "@/components/admin/scroll-to-top-button";
 import { DateRangeFilter } from "@/components/admin/date-range-filter";
+import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = {
   title: "Founder Dashboard | Developer Connects",
@@ -23,9 +24,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <span className="text-lg font-semibold tracking-tight text-foreground">
-              Developer Connects
-            </span>
+            <Logo />
             <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-hover">
               Founder
             </span>

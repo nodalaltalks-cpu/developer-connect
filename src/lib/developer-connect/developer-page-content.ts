@@ -77,9 +77,10 @@ export function developerIntroText(
 
   if (developer.officialWebsite) {
     const { canonicalDomain, verifiedAt } = developer.officialWebsite;
-    const subject = location ? "Its" : `${developer.displayName}'s`;
     const when = verifiedAt ? ` on ${formatDate(verifiedAt)}` : "";
-    sentences.push(`${subject} official website is ${canonicalDomain}, verified by Developer Connects${when}.`);
+    sentences.push(
+      `${developer.displayName}'s official website is ${canonicalDomain}, as verified by Developer Connects${when}.`,
+    );
   }
 
   return sentences.join(" ");

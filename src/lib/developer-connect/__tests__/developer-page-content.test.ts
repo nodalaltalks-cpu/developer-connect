@@ -161,7 +161,7 @@ const fmt = (date: Date) => `<${date.toISOString().slice(0, 10)}>`;
 test("intro: a VERIFIED developer states the official-website relationship with name, location, domain, verifier and date", () => {
   assert.equal(
     developerIntroText(profile(), fmt),
-    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Its official website is acme.example, verified by Developer Connects on <2026-02-02>.",
+    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website is acme.example, as verified by Developer Connects on <2026-02-02>.",
   );
 });
 
@@ -178,7 +178,7 @@ test("intro: no reliable verification date means no date in the sentence (nothin
   const text = developerIntroText(p, fmt);
   assert.equal(
     text,
-    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Its official website is acme.example, verified by Developer Connects.",
+    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website is acme.example, as verified by Developer Connects.",
   );
   assert.doesNotMatch(text, / on /);
   assert.doesNotMatch(text, /<\d{4}-\d{2}-\d{2}>/);
@@ -193,12 +193,12 @@ test("intro: an UNVERIFIED developer gets the location sentence only — never a
 test("intro: missing optional location parts are omitted rather than printed blank", () => {
   assert.equal(
     developerIntroText(profile({ state: "  " }), fmt),
-    "Acme Realty is a real estate developer in Mumbai, India. Its official website is acme.example, verified by Developer Connects on <2026-02-02>.",
+    "Acme Realty is a real estate developer in Mumbai, India. Acme Realty's official website is acme.example, as verified by Developer Connects on <2026-02-02>.",
   );
   // No location at all: still one factual sentence, naming the developer directly.
   assert.equal(
     developerIntroText(profile({ city: "", state: "", country: "" }), fmt),
-    "Acme Realty's official website is acme.example, verified by Developer Connects on <2026-02-02>.",
+    "Acme Realty's official website is acme.example, as verified by Developer Connects on <2026-02-02>.",
   );
   assert.equal(developerIntroText(profile({ city: "", state: "", country: "" }, null), fmt), "");
 });
@@ -224,4 +224,23 @@ test("page: renders the sentence from developerIntroText once, and leaves the CT
   assert.match(page, /Other verified developers in \{developer\.city\}/);
   assert.match(page, /Also known as/);
   assert.equal((page.match(/<OfficialWebsiteVerifiedBadge/g) ?? []).length, 1);
+});
+
+// --- /how-we-verify methodology page ----------------------------------------
+test("how-we-verify: indexable page with its own title, description and canonical, and no unsupported claims", () => {
+  const page = read("../../../app/how-we-verify/page.tsx");
+  assert.match(page, /title: "How Developer Connects Verifies Official Developer Websites \| Developer Connects"/);
+  assert.match(page, /alternates: \{ canonical: "\/how-we-verify" \}/);
+  assert.doesNotMatch(page, /robots|application\/ld\+json/);
+  assert.match(page, /<h1[^>]*>\s*How Developer Connects Verifies Official Developer Websites\s*<\/h1>/);
+  assert.doesNotMatch(page, /trusted developer|legitimate company|approved developer|genuine developer/i);
+  assert.match(page, /not a certification of\s+the developer, its projects or its regulatory status/);
+});
+
+test("how-we-verify: linked from the developer page, homepage, about page, footer and sitemap", () => {
+  assert.match(read("../../../app/developers/[slug]/page.tsx"), /href="\/how-we-verify"/);
+  assert.match(read("../../../app/(marketing)/page.tsx"), /href="\/how-we-verify"/);
+  assert.match(read("../../../app/about/page.tsx"), /href="\/how-we-verify"/);
+  assert.match(read("../../../components/site-footer.tsx"), /"\/how-we-verify"/);
+  assert.match(read("../../../app/sitemap.ts"), /"\/how-we-verify"/);
 });

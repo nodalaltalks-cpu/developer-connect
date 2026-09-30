@@ -145,7 +145,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Every developer listed here has an official website verified by Developer
-                  Connects.
+                  Connects.{" "}
+                  <Link href="/how-we-verify" className="text-accent-hover hover:underline">
+                    How Developer Connects verifies official websites
+                  </Link>
                 </p>
               </div>
               <GeoFilters options={geographyOptions} selected={{ country, state, city }} />

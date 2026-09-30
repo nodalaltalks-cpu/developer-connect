@@ -59,6 +59,7 @@ function buildColumns(): FooterColumn[] {
       heading: "Resources",
       links: [
         { label: "FAQ", href: "/faq" },
+        { label: "How we verify", href: "/how-we-verify" },
         { label: "Blog", comingSoon: true },
         { label: "Guides", comingSoon: true },
       ],

@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
  * paginated scaffolding; the sitemap should list destination content, not
  * every intermediate listing page.
  */
-const STATIC_ROUTES = ["/", "/developers", "/about", "/contact", "/faq", "/privacy", "/terms", "/cookies", "/disclaimer"];
+const STATIC_ROUTES = ["/", "/developers", "/about", "/contact", "/faq", "/how-we-verify", "/privacy", "/terms", "/cookies", "/disclaimer"];
 
 /**
  * Dynamic sitemap (App Router convention — this file's default export is

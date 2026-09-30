@@ -46,7 +46,10 @@ export default function AboutPage() {
                 <p className="mt-2 text-muted-foreground">
                   We review developer websites and approve the website we identify as the
                   developer&rsquo;s official website. Every verified listing shows the date it was
-                  verified by Developer Connects.
+                  verified by Developer Connects.{" "}
+                  <a href="/how-we-verify" className="text-accent-hover hover:underline">
+                    How Developer Connects verifies official websites
+                  </a>
                 </p>
               </section>
 

@@ -222,6 +222,14 @@ export default async function DeveloperPage({
                     Last verified {formatDate(developer.officialWebsite.verifiedAt)}
                   </p>
                 )}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  This confirms only that Developer Connects approved this website as the one
+                  belonging to this developer. It is not a certification of the developer, its
+                  projects or its regulatory status.{" "}
+                  <Link href="/how-we-verify" className="text-accent-hover hover:underline">
+                    How Developer Connects verifies official websites
+                  </Link>
+                </p>
               </div>
             ) : (
               <div className="mt-8 rounded-lg border border-border bg-muted p-6">

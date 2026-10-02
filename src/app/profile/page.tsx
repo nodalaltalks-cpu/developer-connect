@@ -10,7 +10,7 @@ import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repos
 import { getOrCreateProfile } from "@/lib/profile/profile-service";
 import { PROFILE_FIELD_CONFIG } from "@/lib/profile/field-config";
 import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analytics-sink";
-import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
+import { readSessionId, getDeviceType } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Your profile | Developer Connects",
@@ -29,7 +29,9 @@ export default async function ProfilePage({
     typeof resolvedSearchParams.section === "string" ? resolvedSearchParams.section : undefined;
 
   const repo = createPostgresProfileRepository();
-  const sessionId = await getOrCreateSessionId();
+  // Server Components cannot set cookies, so only read the session id here;
+  // a visitor with no cookie yet gets a one-off id for this render's analytics.
+  const sessionId = (await readSessionId()) ?? crypto.randomUUID();
   const deviceType = await getDeviceType();
 
   const { profile, completion } = await getOrCreateProfile(repo, userId, {

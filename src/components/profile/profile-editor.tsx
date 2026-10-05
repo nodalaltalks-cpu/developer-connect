@@ -211,6 +211,11 @@ export function ProfileEditor({
         <CompletionCelebration
           sectionTitle={celebration.sectionTitle}
           percentage={celebration.percentage}
+          nextSectionTitle={nextSection?.title ?? null}
+          onContinue={() => {
+            setCelebration(null);
+            if (nextSection) handleWhatsLeftClick(nextSection.id);
+          }}
           onDismiss={() => setCelebration(null)}
         />
       )}

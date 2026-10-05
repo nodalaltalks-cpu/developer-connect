@@ -76,22 +76,26 @@ body {
  */
 @keyframes dc-confetti-fall {
   0% {
-    transform: translateY(-10%) rotate(0deg);
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+    opacity: 1;
+  }
+  85% {
     opacity: 1;
   }
   100% {
-    transform: translateY(115%) rotate(var(--dc-confetti-spin, 240deg));
+    transform: translate3d(var(--dc-confetti-drift, 0px), 108vh, 0) rotate(var(--dc-confetti-spin, 240deg));
     opacity: 0;
   }
 }
 
+/* Falls across the whole viewport (vh units, not % of the piece's own tiny box). */
 .dc-confetti-piece {
   position: absolute;
   top: 0;
-  width: 8px;
-  height: 14px;
+  width: var(--dc-confetti-w, 8px);
+  height: var(--dc-confetti-h, 14px);
   border-radius: 2px;
-  animation: dc-confetti-fall 1.6s ease-in forwards;
+  animation: dc-confetti-fall var(--dc-confetti-duration, 2.8s) cubic-bezier(0.3, 0.2, 0.6, 1) forwards;
   animation-delay: var(--dc-confetti-delay, 0s);
   will-change: transform, opacity;
 }

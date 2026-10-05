@@ -18,14 +18,13 @@ const BASE_URL = "https://developerconnects.com";
  * developers days later — the sitemap was frozen, silently missing more
  * than half the directory from Google's crawl.
  *
- * `force-dynamic` makes this route re-run its database query on every
+ * `force-dynamic` (now set on the route handler) makes it re-run its database query on every
  * request instead, guaranteeing it always reflects the current published
  * directory. The cost is one already-optimized query (a single batched
  * `getManyByIds`, not one query per developer — see
  * fetchAllVerifiedProfiles) on the comparatively rare requests this route
  * gets (crawlers and monitoring, not real visitors).
  */
-export const dynamic = "force-dynamic";
 
 /**
  * Public, indexable static pages — deliberately excludes /admin,
@@ -50,7 +49,7 @@ const STATIC_ROUTES = ["/", "/developers", "/buy-direct-from-developer", "/about
  * documented for years that it ignores both, so setting them adds runtime
  * cost with zero actual effect on crawling or ranking.
  */
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+export async function buildSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   const repos = createPostgresRepositories();
   const verifiedDevelopers = await listVerifiedDevelopers(repos);
 

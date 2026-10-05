@@ -67,7 +67,7 @@ test("developer page renders 'Last verified' only when verifiedAt exists", () =>
 });
 
 test("sitemap lastmod comes only from verifiedAt and is omitted when null", () => {
-  const sitemap = read("../../../app/sitemap.ts");
+  const sitemap = read("../../sitemap-entries.ts");
   assert.match(sitemap, /officialWebsite\?\.verifiedAt \? \{ lastModified: developer\.officialWebsite\.verifiedAt \} : \{\}/);
   assert.doesNotMatch(sitemap, /updatedAt|lastCheckedAt|createdAt/);
 });
@@ -242,5 +242,5 @@ test("how-we-verify: linked from the developer page, homepage, about page, foote
   assert.match(read("../../../app/(marketing)/page.tsx"), /href="\/how-we-verify"/);
   assert.match(read("../../../app/about/page.tsx"), /href="\/how-we-verify"/);
   assert.match(read("../../../components/site-footer.tsx"), /"\/how-we-verify"/);
-  assert.match(read("../../../app/sitemap.ts"), /"\/how-we-verify"/);
+  assert.match(read("../../sitemap-entries.ts"), /"\/how-we-verify"/);
 });

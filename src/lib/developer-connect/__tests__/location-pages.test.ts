@@ -194,7 +194,7 @@ test("intro: the count is always the live total passed in, with the right locati
 test("no page, helper or sitemap hard-codes a developer count in code or copy", () => {
   // Comments are ignored (existing ones mention historical numbers); only real code and strings are checked.
   const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
-  const files = [read("../location-pages.ts"), read("../../../app/developers/page.tsx"), read("../../../app/sitemap.ts")].map(withoutComments);
+  const files = [read("../location-pages.ts"), read("../../../app/developers/page.tsx"), read("../../sitemap-entries.ts")].map(withoutComments);
   for (const source of files) {
     for (const stored of ["896", "305", "1201", "1,201", "315", "257", "106", "82", "62"]) {
       const pattern = new RegExp(`(^|[^\\w.])${stored.replace(",", "\\,")}([^\\w]|$)`);
@@ -373,7 +373,7 @@ test("page: developer links stay plain crawlable links and the listing UI is unc
 });
 
 test("sitemap: lists only the approved locations (page 1) from the single approved list", () => {
-  const sitemap = read("../../../app/sitemap.ts");
+  const sitemap = read("../../sitemap-entries.ts");
   assert.match(sitemap, /approvedLocationPages\(\)\.map\(\(location\) => \(\{/);
   assert.match(sitemap, /url: `\$\{BASE_URL\}\$\{locationPath\(location\)\}`/);
   assert.match(sitemap, /\[\.\.\.staticEntries, \.\.\.locationEntries, \.\.\.guideEntries, \.\.\.developerEntries\]/);

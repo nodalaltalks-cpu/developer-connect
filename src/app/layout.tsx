@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { AnalyticsConsentProvider } from "@/components/analytics-consent";
+import { AttributionCapture } from "@/components/attribution-capture";
 import { getGaMeasurementId } from "@/lib/analytics-config";
 import "./globals.css";
 
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 
 const SITE_NAME = "Developer Connects";
 const SITE_DESCRIPTION =
-  "Developer Connects verifies real-estate developers' official websites, so you can buy directly from the developer instead of going through a broker or listing site.";
+  "Developer Connects verifies real-estate developers' official websites, so you can go to the source instead of a look-alike or listing site, with optional property assistance.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://developerconnects.com"),
@@ -102,6 +103,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             },
           }}
         >
+          <AttributionCapture />
           <AnalyticsConsentProvider measurementId={gaMeasurementId}>{children}</AnalyticsConsentProvider>
         </ClerkProvider>
       </body>

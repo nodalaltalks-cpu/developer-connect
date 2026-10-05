@@ -18,16 +18,19 @@ export default function DisclaimerPage() {
         <p>
           Nothing on Developer Connects — including developer listings, search results, rankings, or
           recommendations — is investment, financial, legal, or tax advice. We are not licensed financial
-          advisors, real-estate brokers, or legal counsel, and nothing here should be treated as a
-          recommendation to buy, sell, lease, or invest in any property or with any developer.
+          advisors or legal counsel, and nothing here should be treated as a recommendation to buy, sell,
+          lease, or invest in any property or with any developer.
         </p>
       </LegalSection>
 
-      <LegalSection title="2. Not a broker or transaction party">
+      <LegalSection title="2. Property assistance and transactions">
         <p>
-          Developer Connects does not sell property, negotiate on your behalf, collect payments, or participate
-          in any transaction between you and a developer. We only help you find a developer&apos;s genuine
-          official website.
+          Developer Connects is not the developer of any project and is not a party to your agreement with a
+          developer. Property assistance offered by Developer Connects is optional — you decide whether to
+          continue — and any purchase is a transaction between you and the developer. Developer Connects may
+          receive payment from developers or others in connection with property transactions; this has no effect
+          on whether a developer&apos;s website is verified. Always confirm the terms, any fees, and the
+          project&apos;s regulatory registration before you pay anything.
         </p>
       </LegalSection>
 

@@ -20,7 +20,7 @@ export function GET() {
 
   const body = `# Developer Connects
 
-> Developer Connects is an independent directory of real estate developers in India and the UAE. For each developer it lists the official website that Developer Connects has verified as belonging to that developer, so home buyers can buy directly from the developer instead of going through a broker or a look-alike website. Developer Connects is not a broker: it does not sell property, take commissions, or collect buyers' phone numbers for anyone.
+> Developer Connects is a directory of real estate developers in India and the UAE. For each developer it lists the official website that Developer Connects has verified as belonging to that developer, so home buyers can reach the real developer instead of a look-alike website. Developer Connects also offers optional property assistance: before continuing to a developer's website, a buyer can share a WhatsApp number or phone so Developer Connects' property team can help with their enquiry. Developer Connects is not the developer of any project.
 
 Each developer page is at ${BASE_URL}/developers/{developer-slug} and states the developer's name, location, verified official website domain, and the date it was last verified. Verification confirms only the developer-to-website relationship — not the developer's legal status, licences, regulatory approvals or project quality.
 

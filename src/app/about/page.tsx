@@ -35,9 +35,11 @@ export default function AboutPage() {
               <section>
                 <h2 className="text-lg font-semibold">What we do</h2>
                 <p className="mt-2 text-muted-foreground">
-                  Developer Connects is a directory of real-estate developers with one job: help
-                  you find a developer&apos;s genuine official website and go straight to it, so you
-                  can continue your research directly with the source.
+                  Developer Connects is a directory of real-estate developers that helps you find a
+                  developer&apos;s genuine official website and continue your research directly with
+                  the source. We also offer optional property assistance: when you continue to a
+                  developer&apos;s website, you can share your WhatsApp number or phone so our
+                  property team can help with your enquiry.
                 </p>
               </section>
 
@@ -54,11 +56,21 @@ export default function AboutPage() {
               </section>
 
               <section>
-                <h2 className="text-lg font-semibold">What we don&apos;t do</h2>
+                <h2 className="text-lg font-semibold">How property assistance works</h2>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-                  <li>We are not a broker, and we don&apos;t act as one.</li>
-                  <li>We don&apos;t sell properties or take a commission on anything.</li>
-                  <li>We don&apos;t collect your phone number to pass on to anyone.</li>
+                  <li>
+                    Developer Connects is not the developer, and the developer does not require your
+                    phone number to view its website.
+                  </li>
+                  <li>
+                    The details you share are given to Developer Connects, to help with your property
+                    enquiry through the contact method you choose.
+                  </li>
+                  <li>
+                    Developer Connects may receive payment from developers or others in connection with
+                    property transactions. This has no effect on whether a developer&apos;s website is
+                    verified.
+                  </li>
                 </ul>
               </section>
 

@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/platform-health", label: "Platform Health" },
   { href: "/admin/developers", label: "Developers" },
+  { href: "/admin/leads", label: "Leads" },
   { href: "/admin/verification", label: "Verification" },
   { href: "/admin/search", label: "Search Intelligence" },
   { href: "/admin/users", label: "Users & Profiles" },

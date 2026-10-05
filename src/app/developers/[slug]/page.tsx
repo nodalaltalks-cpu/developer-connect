@@ -23,6 +23,7 @@ import {
   serializeJsonLd,
 } from "@/lib/developer-connect/developer-page-content";
 import { buyDirectMarketForLocation, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
+import { getGateMode } from "@/lib/leads/gate/gate-config";
 
 // React cache(): generateMetadata and the page both need this developer in
 // the same request, so the second call reuses the first's result instead of
@@ -139,6 +140,7 @@ export default async function DeveloperPage({
   const { userId } = await auth();
   const introText = developerIntroText(developer, formatDate);
   const buyDirectGuide = buyDirectMarketForLocation(developer.country, developer.city);
+  const gateRequired = getGateMode() === "required";
 
   // Only fetched for a verified developer — an unverified page is
   // noindexed and low-traffic; there is no benefit to spending an extra
@@ -207,16 +209,22 @@ export default async function DeveloperPage({
               <div className="mt-6 rounded-lg border border-border bg-muted p-6">
                 <OfficialWebsiteVerifiedBadge full />
                 <p className="mt-4 text-sm text-muted-foreground">Official website</p>
-                <ExternalDomainLink
-                  url={developer.officialWebsite.url}
-                  domain={developer.officialWebsite.canonicalDomain}
-                  className="mt-1 font-mono text-lg"
-                />
+                {gateRequired ? (
+                  // The destination is only released after the assistance gate, so the domain is shown as plain text.
+                  <p className="mt-1 break-all font-mono text-lg text-foreground">{developer.officialWebsite.canonicalDomain}</p>
+                ) : (
+                  <ExternalDomainLink
+                    url={developer.officialWebsite.url}
+                    domain={developer.officialWebsite.canonicalDomain}
+                    className="mt-1 font-mono text-lg"
+                  />
+                )}
                 <div className="mt-5">
                   <VisitOfficialWebsiteButton
                     developerId={developer.id}
-                    url={developer.officialWebsite.url}
+                    developerName={developer.displayName}
                     domain={developer.officialWebsite.canonicalDomain}
+                    sourceCta="developer_page"
                   />
                 </div>
                 {developer.officialWebsite.verifiedAt && (

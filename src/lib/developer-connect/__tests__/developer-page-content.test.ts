@@ -216,8 +216,16 @@ test("page: renders the sentence from developerIntroText once, and leaves the CT
   // The sentence text itself lives in the content module, not hard-coded in the page.
   assert.doesNotMatch(page, /official website is/);
   // Existing UI is unchanged.
-  assert.match(page, /<VisitOfficialWebsiteButton[\s\S]*?url=\{developer\.officialWebsite\.url\}/);
+  // The CTA is unchanged in place and purpose, but since the assistance gate it no longer receives the destination URL:
+  // the server resolves it from the verified record once the buyer's details are saved (see lead-gate-actions.ts).
+  const cta = page.match(/<VisitOfficialWebsiteButton[\s\S]*?\/>/)?.[0] ?? "";
+  assert.match(cta, /developerId=\{developer\.id\}/);
+  assert.match(cta, /developerName=\{developer\.displayName\}/);
+  assert.match(cta, /domain=\{developer\.officialWebsite\.canonicalDomain\}/);
+  assert.doesNotMatch(cta, /\burl=/, "the browser is never handed the destination URL");
+  // The linked domain survives only when the gate is off (never on production); otherwise it is shown as plain text.
   assert.match(page, /<ExternalDomainLink[\s\S]*?url=\{developer\.officialWebsite\.url\}/);
+  assert.match(page, /gateRequired \?/);
   assert.match(page, /Last verified \{formatDate\(developer\.officialWebsite\.verifiedAt\)\}/);
   assert.match(page, /<ShareDeveloper /);
   assert.match(page, /<ReportInaccurateInfo /);

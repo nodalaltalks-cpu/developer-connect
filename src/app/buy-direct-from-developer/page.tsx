@@ -12,7 +12,7 @@ import {
 import { BUY_DIRECT_PATH, buyDirectFaq, buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
-const TITLE = "Buy Property Directly from the Developer (No Broker) | Developer Connects";
+const TITLE = "How to Buy Property Directly from the Developer | Developer Connects";
 const DESCRIPTION =
   "How to buy a home directly from the developer in India and the UAE: find the developer's verified official website, check the project with the regulator, and deal with the developer's own sales team.";
 
@@ -64,9 +64,8 @@ export default function BuyDirectHubPage() {
               How to buy property directly from the developer
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
-              You don&apos;t need a broker to buy a new home. Developers sell directly through their own
-              sales teams — the hard part is making sure you are dealing with the real developer. This
-              guide shows you how, step by step.
+              Developers sell new homes directly through their own sales teams — the hard part is making
+              sure you are dealing with the real developer. This guide shows you how, step by step.
             </p>
 
             <div className="mt-6 rounded-lg border border-accent-soft bg-accent-soft/40 p-5">
@@ -89,15 +88,15 @@ export default function BuyDirectHubPage() {
             <BuyDirectSteps />
 
             <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
-              Buying direct vs. through a broker
+              Buying direct vs. through an agent
             </h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-border p-5">
                 <h3 className="font-medium text-foreground">Going direct</h3>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                   <li>Prices, offers and payment plans straight from the source</li>
-                  <li>No separate brokerage fee in many cases</li>
-                  <li>Your details go only to the developer you choose</li>
+                  <li>Contact the developer&apos;s own sales team</li>
+                  <li>Confirm all terms and any fees with the developer in writing</li>
                 </ul>
               </div>
               <div className="rounded-lg border border-border p-5">
@@ -144,7 +143,7 @@ export default function BuyDirectHubPage() {
 
             <p className="mt-8 text-xs text-muted-foreground">
               This guide is general information, not legal or financial advice. Developer Connects is an
-              independent directory and is not a broker.{" "}
+              a directory of verified developer websites that also offers optional property assistance.{" "}
               <Link href="/how-we-verify" className="text-accent-hover hover:underline">
                 How we verify official websites
               </Link>

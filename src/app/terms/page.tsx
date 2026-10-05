@@ -27,8 +27,8 @@ export default function TermsOfServicePage() {
       <LegalSection title="2. About Developer Connects">
         <p>
           Developer Connects is a discovery and information platform that helps users find genuine official
-          websites of real-estate developers. It is not a property seller, a real-estate developer, a
-          real-estate agency, or a party to any property transaction.
+          websites of real-estate developers, and offers optional property assistance. It is not the developer
+          of any project and is not a party to your agreement with a developer.
         </p>
       </LegalSection>
 

@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: PageProps<"/buy-direct-from-d
 
   const { market, total } = data;
   const path = buyDirectPath(market);
-  const title = `Buy Property Directly from Developers in ${market.titleName} (No Broker) | Developer Connects`;
+  const title = `Buy Property Directly from Developers in ${market.titleName}  | Developer Connects`;
   const description = `Buy directly from ${total} verified real estate developers in ${market.name}. Go to each developer's verified official website, check the project with ${market.regulator.name.split(" (")[0]}, and skip the broker.`;
 
   return {
@@ -129,7 +129,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
               {total > 0
-                ? `${total} real estate developer${total === 1 ? "" : "s"} in ${market.name} with an official website verified by Developer Connects. Go straight to the developer — no broker, no lead forms.`
+                ? `${total} real estate developer${total === 1 ? "" : "s"} in ${market.name} with an official website verified by Developer Connects. Go to the developer's verified official website or ask for property assistance.`
                 : `Developer Connects is verifying developers in ${market.name}. Check back soon.`}
             </p>
 
@@ -218,7 +218,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
 
             <p className="mt-8 text-xs text-muted-foreground">
               This guide is general information, not legal or financial advice. Developer Connects is an
-              independent directory and is not a broker.{" "}
+              a directory of verified developer websites that also offers optional property assistance.{" "}
               <Link href="/how-we-verify" className="text-accent-hover hover:underline">
                 How we verify official websites
               </Link>

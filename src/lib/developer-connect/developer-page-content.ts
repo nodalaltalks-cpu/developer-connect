@@ -38,8 +38,8 @@ export function buildDeveloperMetadataText(developer: PublicDeveloperProfile): D
       ? `${name} Official Website in ${city} | ${SITE_NAME}`
       : `${name} Official Website | ${SITE_NAME}`,
     description: city
-      ? `Official website of ${name}, a real estate developer in ${city}. ${SITE_NAME}, an independent directory, has verified ${domain} as its official website.`
-      : `Official website of ${name}, a real estate developer. ${SITE_NAME}, an independent directory, has verified ${domain} as its official website.`,
+      ? `Official website of ${name}, a real estate developer in ${city}. ${SITE_NAME} has verified ${domain} as its official website.`
+      : `Official website of ${name}, a real estate developer. ${SITE_NAME} has verified ${domain} as its official website.`,
   };
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { SignInButton } from "@clerk/nextjs";
 import { buttonClassName } from "@/components/ui/button";
 import { OFFICIAL_WEBSITE_CLICK_EVENT } from "@/lib/login-conversion";
+import { acquireModal, isOtherModalOpen, MODAL_IDS, registerModalCloser, releaseModal } from "@/lib/modal-lock";
 
 const SHOWN_KEY = "dc_login_prompt_shown";
 const CLICK_COUNT_KEY = "dc_official_site_clicks";
@@ -60,6 +61,8 @@ export function LoginConversionPrompt() {
 
     function trigger() {
       if (shownRef.current) return;
+      // Never stack on another modal (the assistance gate): skip this trigger and leave it available for the next one.
+      if (isOtherModalOpen(MODAL_IDS.loginPrompt)) return;
       shownRef.current = true;
       setVisible(true);
     }
@@ -79,11 +82,19 @@ export function LoginConversionPrompt() {
 
   useEffect(() => {
     if (!visible) return;
+    // Hold the shared modal lock while visible, so the gate cannot open over this prompt either.
+    acquireModal(MODAL_IDS.loginPrompt);
+    // If the buyer opens the assistance gate, it asks this prompt to step aside.
+    const unregister = registerModalCloser(MODAL_IDS.loginPrompt, dismiss);
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") dismiss();
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unregister();
+      releaseModal(MODAL_IDS.loginPrompt);
+    };
   }, [visible]);
 
   function dismiss() {

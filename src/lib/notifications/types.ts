@@ -10,7 +10,7 @@
  *    the status of a signed-in visitor's Contact Us submission (see
  *    contact-service.ts) — its own type for the same reason as above.
  */
-export type NotificationType = "PROFILE_COMPLETION" | "FOUNDER_MESSAGE" | "CONTACT_STATUS_UPDATE";
+export type NotificationType = "PROFILE_COMPLETION" | "FOUNDER_MESSAGE" | "CONTACT_STATUS_UPDATE" | "LEAD_NEW";
 
 export interface Notification {
   id: string;

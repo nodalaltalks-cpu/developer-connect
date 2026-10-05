@@ -26,9 +26,9 @@ function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const TITLE = "Developer Connects | Buy Property Direct from Developers, No Broker";
+const TITLE = "Developer Connects | Verified Official Websites of Real Estate Developers";
 const DESCRIPTION =
-  "Buy property directly from the developer — no broker. Find the verified official websites of real estate developers across India and the UAE, including Mumbai, Bangalore and Dubai.";
+  "Find the verified official websites of real estate developers across India and the UAE, including Mumbai, Bangalore and Dubai.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -113,7 +113,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               Find the developer. Go directly to the source.
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
-              Verified developer websites. Skip the broker search.
+              Verified developer websites, plus optional property assistance.
             </p>
 
             <div className="mt-8">
@@ -207,7 +207,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Step-by-step guides to finding the real developer, checking the project with the regulator,
-                and buying without a broker.{" "}
+                and buying directly from the developer.{" "}
                 <Link href={buyDirectPath()} className="text-accent-hover hover:underline">
                   Read the full guide
                 </Link>

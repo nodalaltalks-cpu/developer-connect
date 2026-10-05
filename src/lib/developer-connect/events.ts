@@ -14,7 +14,11 @@ export type AnalyticsEventName =
   | "profile_field_completed"
   | "profile_updated"
   | "profile_completion_reached"
-  | "developer_shared";
+  | "developer_shared"
+  | "assistance_gate_shown"
+  | "assistance_form_started"
+  | "lead_submitted"
+  | "official_website_redirected";
 
 export type DeviceType = "mobile" | "desktop" | "unknown";
 
@@ -103,6 +107,45 @@ export interface DeveloperSharedEvent extends AnalyticsEventBase {
   method: ShareMethod;
 }
 
+/**
+ * The property-assistance funnel (Revenue OS Phase 1): page view -> official
+ * website click -> gate shown -> form started -> lead submitted -> redirected.
+ *
+ * These are ANONYMOUS analytics events. They deliberately carry no phone,
+ * email, name, note or lead id — only coarse, non-identifying facts. The
+ * private side of the same journey lives in the leads/lead_events tables,
+ * which analytics never reads and which never feed back into analytics.
+ */
+export interface AssistanceGateShownEvent extends AnalyticsEventBase {
+  eventName: "assistance_gate_shown";
+  developerId: string;
+  /** Which public surface the buyer clicked from (for example "developer_page", "directory_card"). */
+  sourceCta: string;
+  /** True when the gate recognised a recent lead and offered one-tap continue. */
+  returningVisitor: boolean;
+}
+
+export interface AssistanceFormStartedEvent extends AnalyticsEventBase {
+  eventName: "assistance_form_started";
+  developerId: string;
+  sourceCta: string;
+}
+
+export interface LeadSubmittedEvent extends AnalyticsEventBase {
+  eventName: "lead_submitted";
+  developerId: string;
+  sourceCta: string;
+  contactPreference: "WHATSAPP" | "PHONE_CALL";
+  /** True when this submission created the lead, false when it matched an existing one. */
+  newLead: boolean;
+}
+
+export interface OfficialWebsiteRedirectedEvent extends AnalyticsEventBase {
+  eventName: "official_website_redirected";
+  developerId: string;
+  targetDomain: string;
+}
+
 export type AnalyticsEvent =
   | SearchPerformedEvent
   | ZeroResultSearchEvent
@@ -113,7 +156,11 @@ export type AnalyticsEvent =
   | ProfileFieldCompletedEvent
   | ProfileUpdatedEvent
   | ProfileCompletionReachedEvent
-  | DeveloperSharedEvent;
+  | DeveloperSharedEvent
+  | AssistanceGateShownEvent
+  | AssistanceFormStartedEvent
+  | LeadSubmittedEvent
+  | OfficialWebsiteRedirectedEvent;
 
 /** Swappable sink so a real collector can be dropped in later without touching call sites. */
 export interface AnalyticsEventSink {

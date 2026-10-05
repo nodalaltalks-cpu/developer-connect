@@ -68,8 +68,9 @@ export function DeveloperCard({ developer }: { developer: PublicDeveloperProfile
         {website && (
           <VisitOfficialWebsiteButton
             developerId={developer.id}
-            url={website.url}
+            developerName={developer.displayName}
             domain={website.canonicalDomain}
+            sourceCta="directory_card"
           />
         )}
         <Link

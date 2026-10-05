@@ -279,12 +279,12 @@ export function buyDirectFaq(market?: BuyDirectMarket | null): FaqItem[] {
   return [
     {
       question: `Can I buy property directly from a developer${where}?`,
-      answer: `Yes. Developers${where} sell new and off-plan homes through their own sales teams, and you can contact them through their official website without going through a broker.`,
+      answer: `Yes. Developers${where} sell new and off-plan homes through their own sales teams, and you can contact them through their official website.`,
     },
     {
       question: "Is it cheaper to buy directly from the developer?",
       answer:
-        "Not always. Developers usually set the same list price whichever way you come in, but buying directly can avoid a separate brokerage fee, and you get pricing, offers and payment plans from the source. Compare the final, all-in cost in writing.",
+        "Not always. Developers usually set the same list price whichever way you come in, and you get pricing, offers and payment plans from the source. Whichever route you take, ask about any fees and compare the final, all-in cost in writing.",
     },
     {
       question: "How do I know I am on the developer's real website?",
@@ -298,9 +298,9 @@ export function buyDirectFaq(market?: BuyDirectMarket | null): FaqItem[] {
         : "Check the project with the real estate regulator for the place where the property is — in India, the state's RERA authority; in the UAE, the land and real estate authority of the emirate.",
     },
     {
-      question: "Does Developer Connects sell property or take a commission?",
+      question: "Does Developer Connects sell property? How does it earn money?",
       answer:
-        "No. Developer Connects is an independent directory. We don't sell property, take commissions or pass your details to anyone — we help you reach the developer's own official website.",
+        "Developer Connects does not sell property — developers do. We verify developers' official websites and offer optional property assistance. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on whether a developer's website is verified.",
     },
   ];
 }

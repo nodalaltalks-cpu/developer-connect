@@ -105,8 +105,8 @@ export function SiteFooter() {
           <div className="max-w-sm">
             <Logo size="sm" />
             <p className="mt-2 text-sm text-muted-foreground">
-              Find genuine developer websites. Research directly. We are not a broker, and we
-              don&apos;t sell properties or collect your phone number for anyone.
+              Find genuine developer websites. Research directly, and get optional property
+              assistance when you&apos;re ready.
             </p>
           </div>
           <NewsletterSignup source="footer" />

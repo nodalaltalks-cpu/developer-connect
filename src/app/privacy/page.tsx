@@ -30,8 +30,8 @@ export default function PrivacyPolicyPage() {
         <p>
           We maintain a directory of real-estate developers and review the official websites we link to,
           approving each one as the developer&apos;s official website. Visitors can search and filter the directory, and click through to a
-          developer&apos;s own website. We are not a broker, a property seller, or a party to any property
-          transaction.
+          developer&apos;s own website. We also offer optional property assistance (see section 10A). We are
+          not the developer of any project, and we are not a party to your agreement with a developer.
         </p>
       </LegalSection>
 
@@ -124,6 +124,39 @@ export default function PrivacyPolicyPage() {
           to investigate/correct directory information. It is visible only to Developer Connects; reporter
           identity is never shown publicly.
         </p>
+      </LegalSection>
+
+      <LegalSection title="10A. Property assistance enquiries">
+        <p>
+          When you continue to a developer&apos;s official website from Developer Connects, we ask for your
+          WhatsApp number or phone number so our property team can help with your property enquiry. The
+          developer does not require this information to view its own website; you are sharing it with
+          Developer Connects.
+        </p>
+        <ul>
+          <li>
+            <strong>What we collect:</strong> your phone or WhatsApp number (stored in international format),
+            your preferred contact method, your name and email if you give them, the developer and website you
+            were researching, any requirement you tell us about (such as location, budget, configuration or
+            timeline), and how you reached us (for example the page, referrer and campaign parameters).
+          </li>
+          <li>
+            <strong>Why:</strong> to contact you about your enquiry through the method you chose, to keep a
+            record of that enquiry, and to understand which of our pages and channels lead to genuine enquiries.
+          </li>
+          <li>
+            <strong>Consent:</strong> we record when you gave it and the wording you agreed to. You can ask us
+            to stop contacting you at any time.
+          </li>
+          <li>
+            <strong>Erasure:</strong> you can ask us to erase your enquiry details. We then remove your personal
+            details and keep only an anonymised record that an enquiry took place.
+          </li>
+          <li>
+            Enquiry details are visible only to Developer Connects and are never shown publicly. We do not sell
+            them.
+          </li>
+        </ul>
       </LegalSection>
 
       <LegalSection title="11. Newsletter information">

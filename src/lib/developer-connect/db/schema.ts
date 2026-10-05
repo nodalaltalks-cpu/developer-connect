@@ -10,6 +10,8 @@ import {
   index,
   jsonb,
   boolean,
+  bigint,
+  check,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -72,6 +74,13 @@ export const analyticsEventNameEnum = pgEnum("analytics_event_name", [
   "profile_updated",
   "profile_completion_reached",
   "developer_shared",
+  // Property-assistance funnel (Revenue OS Phase 1). Anonymous, session-scoped,
+  // and never carries a phone, email or any lead data — see leads/lead_events
+  // for the private side of the same journey.
+  "assistance_gate_shown",
+  "assistance_form_started",
+  "lead_submitted",
+  "official_website_redirected",
 ]);
 
 export const developers = pgTable(
@@ -275,6 +284,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "PROFILE_COMPLETION",
   "FOUNDER_MESSAGE",
   "CONTACT_STATUS_UPDATE",
+  "LEAD_NEW",
 ]);
 
 export const inaccuracyReportCategoryEnum = pgEnum("inaccuracy_report_category", [
@@ -463,4 +473,264 @@ export const newsletterSubscribers = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("newsletter_subscribers_email_key").on(table.email)],
+);
+
+// ============================================================================
+// Revenue Operating System — Phase 1 (property-assistance leads).
+//
+// Everything below is PRIVATE data: nothing here is ever read by a public
+// page, and no column here is ever copied into analytics_events or logs.
+// The developer-verification tables above are not referenced by anything
+// below except a plain foreign key from leads/bookings to developers.id.
+// ============================================================================
+
+export const leadStatusEnum = pgEnum("lead_status", [
+  "NEW",
+  "CONTACTED",
+  "QUALIFIED",
+  "SHORTLISTED",
+  "SITE_VISIT_SCHEDULED",
+  "SITE_VISIT_DONE",
+  "NEGOTIATION",
+  "BOOKED",
+  "CLOSED",
+  // Secondary outcomes.
+  "NOT_INTERESTED",
+  "UNQUALIFIED",
+  "WRONG_NUMBER",
+  "DUPLICATE",
+  "LOST",
+  "REVISIT_LATER",
+]);
+
+export const contactPreferenceEnum = pgEnum("contact_preference", ["WHATSAPP", "PHONE_CALL", "EMAIL"]);
+
+export const leadTimelineEnum = pgEnum("lead_timeline", [
+  "WITHIN_30_DAYS",
+  "ONE_TO_THREE_MONTHS",
+  "THREE_TO_SIX_MONTHS",
+  "SIX_MONTHS_PLUS",
+  "JUST_EXPLORING",
+]);
+
+export const leadPurposeEnum = pgEnum("lead_purpose", ["SELF_USE", "INVESTMENT"]);
+
+/** Budgets and booking values are whole units of one currency; totals are never summed across currencies. */
+export const leadCurrencyEnum = pgEnum("lead_currency", ["INR", "AED"]);
+
+export const leadEventTypeEnum = pgEnum("lead_event_type", [
+  "LEAD_CREATED",
+  "LEAD_CAPTURED",
+  "CONSENT_GIVEN",
+  "CONSENT_WITHDRAWN",
+  "CONTACT_PREFERENCE_SELECTED",
+  "OFFICIAL_WEBSITE_CLICKED",
+  "DEVELOPER_WEBSITE_REDIRECTED",
+  "REQUIREMENT_UPDATED",
+  "STATUS_CHANGED",
+  "NOTE_ADDED",
+  "CONTACT_LOGGED",
+  "FOLLOW_UP_SET",
+  "BOOKING_CREATED",
+  "BOOKING_UPDATED",
+  "LEAD_ERASED",
+  // Stage 4 (migration 0016).
+  "TEMPERATURE_CHANGED",
+  "OWNER_CHANGED",
+  "FOLLOW_UP_COMPLETED",
+]);
+
+/** How warm the buyer is. A separate concept from pipeline status; null on the lead = not yet rated. */
+export const leadTemperatureEnum = pgEnum("lead_temperature", ["HOT", "WARM", "COLD"]);
+
+/** Who performed a lead action. Separate from actor_type: a BUYER is not a founder/agent, and STAFF arrives in a later phase. */
+export const leadActorTypeEnum = pgEnum("lead_actor_type", ["BUYER", "FOUNDER", "SYSTEM"]);
+
+export const bookingStatusEnum = pgEnum("booking_status", ["BOOKED", "CANCELLED"]);
+
+/**
+ * One row per way a visitor arrived. Immutable (trigger in migration 0014):
+ * first-touch and latest-touch attribution are POINTERS to rows here, so
+ * neither can ever be overwritten. Deliberately holds no user id, no
+ * phone/email, and only the origin+path of a referrer (a full referrer URL
+ * can itself contain personal data).
+ */
+export const marketingTouches = pgTable(
+  "marketing_touches",
+  {
+    id: uuid("id").primaryKey(),
+    sessionId: text("session_id").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    landingPath: text("landing_path"),
+    referrer: text("referrer"),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    utmContent: text("utm_content"),
+    utmTerm: text("utm_term"),
+    gclid: text("gclid"),
+    fbclid: text("fbclid"),
+  },
+  (table) => [
+    index("marketing_touches_session_idx").on(table.sessionId),
+    index("marketing_touches_occurred_idx").on(table.occurredAt),
+  ],
+);
+
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey(),
+    name: text("name"),
+    // E.164. Nullable ONLY after erasure (see the check below); the partial
+    // unique index makes the phone number the duplicate-detection key.
+    phoneE164: text("phone_e164"),
+    email: text("email"),
+    contactPreference: contactPreferenceEnum("contact_preference").notNull().default("WHATSAPP"),
+    status: leadStatusEnum("status").notNull().default("NEW"),
+    temperature: leadTemperatureEnum("temperature"),
+    // Null = unassigned = the Founder's own queue (Phase 1 is founder-only).
+    ownerId: text("owner_id"),
+    // The developer the buyer was first researching; any later developers
+    // they click live in lead_events.developer_id, never overwriting this.
+    developerId: uuid("developer_id").references(() => developers.id, { onDelete: "restrict" }),
+    // Which public surface generated the lead (developer page, directory card, ...).
+    sourceCta: text("source_cta"),
+    location: text("location"),
+    budgetMin: bigint("budget_min", { mode: "number" }),
+    budgetMax: bigint("budget_max", { mode: "number" }),
+    budgetCurrency: leadCurrencyEnum("budget_currency"),
+    configuration: text("configuration"),
+    propertyType: text("property_type"),
+    purpose: leadPurposeEnum("purpose"),
+    timeline: leadTimelineEnum("timeline"),
+    sessionId: text("session_id"),
+    // The signed-in Clerk user id when the buyer happened to be signed in.
+    userId: text("user_id"),
+    firstTouchId: uuid("first_touch_id").references(() => marketingTouches.id, { onDelete: "restrict" }),
+    lastTouchId: uuid("last_touch_id").references(() => marketingTouches.id, { onDelete: "restrict" }),
+    nextFollowUpAt: timestamp("next_follow_up_at", { withTimezone: true }),
+    // Kept in step with every appended lead_event, so lists sort by
+    // "last activity" without scanning the timeline.
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
+    // Set when the buyer's personal details were erased. The row, its
+    // events, consents and attribution pointers survive as an anonymous skeleton.
+    erasedAt: timestamp("erased_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("leads_phone_e164_key")
+      .on(table.phoneE164)
+      .where(sql`${table.phoneE164} is not null`),
+    index("leads_status_created_idx").on(table.status, table.createdAt),
+    index("leads_temperature_idx").on(table.temperature),
+    index("leads_next_follow_up_idx").on(table.nextFollowUpAt),
+    index("leads_last_activity_idx").on(table.lastActivityAt),
+    index("leads_developer_idx").on(table.developerId),
+    index("leads_session_idx").on(table.sessionId),
+    check("leads_phone_present_ck", sql`${table.phoneE164} is not null or ${table.erasedAt} is not null`),
+    check(
+      "leads_budget_range_ck",
+      sql`${table.budgetMin} is null or ${table.budgetMax} is null or ${table.budgetMin} <= ${table.budgetMax}`,
+    ),
+    check(
+      "leads_budget_nonneg_ck",
+      sql`coalesce(${table.budgetMin}, 0) >= 0 and coalesce(${table.budgetMax}, 0) >= 0`,
+    ),
+  ],
+);
+
+/**
+ * The lead's immutable timeline. Append-only (trigger in migration 0014);
+ * the single, narrow exception is redacting `payload` during an erasure.
+ * `developer_id` is a real column (not buried in payload) so "developer ->
+ * leads" can be answered with an index, and has no foreign key so a lead's
+ * history can never be blocked by developer data changes.
+ */
+export const leadEvents = pgTable(
+  "lead_events",
+  {
+    id: uuid("id").primaryKey(),
+    // Insertion order. Every event of one request shares a timestamp, so
+    // created_at alone cannot order a timeline; this identity column breaks
+    // the tie in exactly the order events were written.
+    seq: bigint("seq", { mode: "number" }).generatedAlwaysAsIdentity().notNull(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    eventType: leadEventTypeEnum("event_type").notNull(),
+    actorType: leadActorTypeEnum("actor_type").notNull(),
+    // The Clerk user id for FOUNDER actors; null for BUYER/SYSTEM.
+    actorId: text("actor_id"),
+    developerId: uuid("developer_id"),
+    fromStatus: leadStatusEnum("from_status"),
+    toStatus: leadStatusEnum("to_status"),
+    payload: jsonb("payload").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("lead_events_lead_created_idx").on(table.leadId, table.createdAt),
+    index("lead_events_developer_type_idx").on(table.developerId, table.eventType),
+    index("lead_events_type_created_idx").on(table.eventType, table.createdAt),
+  ],
+);
+
+/**
+ * Proof of consent: what the buyer agreed to, the exact wording shown, and
+ * when. No IP address or device data is stored. `withdrawnAt` is the only
+ * column that ever changes after insert.
+ */
+export const leadConsents = pgTable(
+  "lead_consents",
+  {
+    id: uuid("id").primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    purpose: text("purpose").notNull(),
+    channel: contactPreferenceEnum("channel").notNull(),
+    textVersion: text("text_version").notNull(),
+    textShown: text("text_shown").notNull(),
+    givenAt: timestamp("given_at", { withTimezone: true }).notNull().defaultNow(),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+  },
+  (table) => [index("lead_consents_lead_idx").on(table.leadId)],
+);
+
+/**
+ * The revenue ground truth: a booking made through a lead, with the
+ * commission expected and received. Amounts evolve, so rows are updatable,
+ * but every create/change also appends a lead_event with the old and new
+ * values. `projectName` is free text — there is no property inventory.
+ */
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: uuid("id").primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    developerId: uuid("developer_id").references(() => developers.id, { onDelete: "restrict" }),
+    projectName: text("project_name"),
+    status: bookingStatusEnum("status").notNull().default("BOOKED"),
+    bookedAt: timestamp("booked_at", { withTimezone: true }).notNull().defaultNow(),
+    currency: leadCurrencyEnum("currency").notNull(),
+    bookingValue: bigint("booking_value", { mode: "number" }).notNull(),
+    commissionExpected: bigint("commission_expected", { mode: "number" }).notNull().default(0),
+    commissionReceived: bigint("commission_received", { mode: "number" }).notNull().default(0),
+    commissionReceivedAt: timestamp("commission_received_at", { withTimezone: true }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("bookings_lead_idx").on(table.leadId),
+    index("bookings_developer_idx").on(table.developerId),
+    index("bookings_status_idx").on(table.status),
+    check(
+      "bookings_amounts_nonneg_ck",
+      sql`${table.bookingValue} >= 0 and ${table.commissionExpected} >= 0 and ${table.commissionReceived} >= 0`,
+    ),
+  ],
 );

@@ -130,6 +130,8 @@ export interface PublishedLocation {
  */
 export interface PublishedDirectoryFilter extends DeveloperGeoFilter {
   query?: string;
+  /** Other stored spellings of `city` that are the same place (e.g. Bengaluru for Bangalore); matched like `city`. */
+  cityAliases?: string[];
 }
 
 /** Exact-match geography narrowing shared by DeveloperRepository.search and the public directory filters. */

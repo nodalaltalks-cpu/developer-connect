@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { listVerifiedDevelopers } from "@/lib/developer-connect/search-service";
 import { approvedLocationPages, locationPath } from "@/lib/developer-connect/location-pages";
+import { buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
 
 const BASE_URL = "https://developerconnects.com";
 
@@ -35,7 +36,7 @@ export const dynamic = "force-dynamic";
  * paginated scaffolding; the sitemap should list destination content, not
  * every intermediate listing page.
  */
-const STATIC_ROUTES = ["/", "/developers", "/about", "/contact", "/faq", "/how-we-verify", "/privacy", "/terms", "/cookies", "/disclaimer"];
+const STATIC_ROUTES = ["/", "/developers", "/buy-direct-from-developer", "/about", "/contact", "/faq", "/how-we-verify", "/privacy", "/terms", "/cookies", "/disclaimer"];
 
 /**
  * Dynamic sitemap (App Router convention — this file's default export is
@@ -64,11 +65,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${BASE_URL}${locationPath(location)}`,
   }));
 
+  // One buy-direct guide per approved market (the hub itself is in STATIC_ROUTES).
+  const guideEntries: MetadataRoute.Sitemap = buyDirectMarkets().map((market) => ({
+    url: `${BASE_URL}${buyDirectPath(market)}`,
+  }));
+
   const developerEntries: MetadataRoute.Sitemap = verifiedDevelopers.map((developer) => ({
     url: `${BASE_URL}/developers/${developer.slug}`,
     // Omitted (never substituted) when the verification date isn't recorded.
     ...(developer.officialWebsite?.verifiedAt ? { lastModified: developer.officialWebsite.verifiedAt } : {}),
   }));
 
-  return [...staticEntries, ...locationEntries, ...developerEntries];
+  return [...staticEntries, ...locationEntries, ...guideEntries, ...developerEntries];
 }

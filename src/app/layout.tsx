@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 const SITE_NAME = "Developer Connects";
 const SITE_DESCRIPTION =
-  "Developer Connects verifies real-estate developers' official websites, so you can go straight to the source instead of a broker or listing site.";
+  "Developer Connects verifies real-estate developers' official websites, so you can buy directly from the developer instead of going through a broker or listing site.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://developerconnects.com"),

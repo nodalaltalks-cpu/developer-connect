@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
 export const metadata: Metadata = {
   title: "FAQ | Developer Connects",
@@ -56,13 +58,38 @@ const FAQS: { question: string; answer: string }[] = [
   },
   {
     question: "Which locations does Developer Connects cover?",
-    answer: "Covering verified developers across India and the UAE, including Mumbai and Dubai.",
+    answer:
+      "Covering verified developers across India and the UAE, including Mumbai, Bangalore, Hyderabad, Pune, Gurugram, Thane, Navi Mumbai, Dubai and Abu Dhabi.",
+  },
+  {
+    question: "Can I buy property directly from the developer without a broker?",
+    answer:
+      "Yes. Developers sell new and off-plan homes through their own sales teams. Find the developer on Developer Connects, open its verified official website, and contact the developer through the details published there. Our buy-direct guide walks through every step.",
+  },
+  {
+    question: "How do I avoid fake developer websites?",
+    answer:
+      "Don't rely on search ads or links sent to you. Each developer on Developer Connects links to the website we have verified as its official one. Also check the project with the real estate regulator for its location before you pay anything.",
   },
 ];
+
+const faqStructuredData = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: { "@type": "Answer", text: faq.answer },
+  })),
+};
 
 export default function FaqPage() {
   return (
     <div className="flex flex-1 flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqStructuredData) }}
+      />
       <SiteHeader />
 
       <main className="flex-1">
@@ -80,6 +107,11 @@ export default function FaqPage() {
                 </div>
               ))}
             </dl>
+            <p className="mt-8 text-sm">
+              <Link href="/buy-direct-from-developer" className="text-accent-hover hover:underline">
+                Read the guide: how to buy property directly from the developer →
+              </Link>
+            </p>
           </div>
         </Container>
       </main>

@@ -52,6 +52,12 @@ export async function SiteHeader() {
           <Logo />
         </Link>
         <div className="flex items-center gap-4">
+          <Link
+            href="/buy-direct-from-developer"
+            className="hidden text-sm font-medium text-foreground hover:text-accent-hover sm:inline"
+          >
+            Buy direct
+          </Link>
           {userId ? (
             <>
               {showDashboard && (

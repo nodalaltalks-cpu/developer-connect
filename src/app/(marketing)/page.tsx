@@ -17,6 +17,7 @@ import { DIRECTORY_PAGE_SIZE, getPublicHomepageData } from "@/lib/developer-conn
 import { getRecentlyViewedDevelopers } from "@/lib/developer-connect/recently-viewed";
 import { readSessionId } from "@/lib/session";
 import { LoadMoreDevelopers } from "@/components/load-more-developers";
+import { buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
 
 /** How many developers the anonymous, unfiltered "initial discovery" view shows (unchanged). */
 const INITIAL_DISCOVERY_COUNT = 10;
@@ -25,9 +26,9 @@ function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const TITLE = "Developer Connects | Official Websites of Real Estate Developers";
+const TITLE = "Developer Connects | Buy Property Direct from Developers, No Broker";
 const DESCRIPTION =
-  "Find verified official websites of real estate developers across India and the UAE. Research developer websites directly, without broker or property-portal noise.";
+  "Buy property directly from the developer — no broker. Find the verified official websites of real estate developers across India and the UAE, including Mumbai, Bangalore and Dubai.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -198,6 +199,32 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               </>
             )}
           </div>
+
+          {!hasActiveFilter && (
+            <section className="mx-auto mt-16 max-w-5xl rounded-lg border border-border p-6">
+              <h2 className="text-xl font-semibold tracking-tight text-foreground">
+                Buy property directly from the developer
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Step-by-step guides to finding the real developer, checking the project with the regulator,
+                and buying without a broker.{" "}
+                <Link href={buyDirectPath()} className="text-accent-hover hover:underline">
+                  Read the full guide
+                </Link>
+              </p>
+              <ul className="mt-4 grid gap-2 sm:grid-cols-3">
+                {buyDirectMarkets()
+                  .filter((market) => market.location.city)
+                  .map((market) => (
+                    <li key={market.slug}>
+                      <Link href={buyDirectPath(market)} className="text-sm text-accent-hover hover:underline">
+                        Buy direct in {market.name}
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )}
         </Container>
       </main>
 

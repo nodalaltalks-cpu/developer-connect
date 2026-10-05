@@ -332,7 +332,14 @@ function publishedWhere(filter: PublishedDirectoryFilter) {
   const conditions = [eq(d.status, "ACTIVE"), eq(c.verificationStatus, "VERIFIED")];
   if (filter.country) conditions.push(sql`lower(${d.country}) = lower(${filter.country})`);
   if (filter.state) conditions.push(sql`lower(${d.state}) = lower(${filter.state})`);
-  if (filter.city) conditions.push(sql`lower(${d.city}) = lower(${filter.city})`);
+  if (filter.city) {
+    const cities = [filter.city, ...(filter.cityAliases ?? [])].map((city) => city.toLowerCase());
+    conditions.push(
+      cities.length === 1
+        ? sql`lower(${d.city}) = ${cities[0]}`
+        : sql`lower(${d.city}) in (${sql.join(cities.map((city) => sql`${city}`), sql`, `)})`,
+    );
+  }
   if (filter.query) {
     const haystack = sql`lower(concat_ws(' ', ${d.displayName}, coalesce(${d.legalName}, ''), ${d.city}, ${d.state}, ${d.country}, ${c.canonicalDomain}))`;
     conditions.push(sql`${haystack} like ${likePattern(filter.query.toLowerCase())}`);

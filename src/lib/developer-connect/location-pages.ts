@@ -29,6 +29,13 @@ interface ApprovedCity {
   country: string;
   /** Exact, canonically-cased value stored in developers.city. */
   name: string;
+  /**
+   * Other stored spellings of the SAME place, merged into this page (both
+   * for matching the URL and for the listing). Only for genuine same-place
+   * variants — Founder decision: Bengaluru is Bangalore, and that is the
+   * only merge. Similar-looking but different places are never aliased.
+   */
+  aliases?: readonly string[];
 }
 
 const APPROVED_COUNTRIES: readonly ApprovedCountry[] = [
@@ -36,18 +43,29 @@ const APPROVED_COUNTRIES: readonly ApprovedCountry[] = [
   { name: "United Arab Emirates", titleName: "UAE", phrase: "the UAE" },
 ];
 
+/**
+ * Wave 1: Mumbai, Hyderabad, Pune, Navi Mumbai, Dubai.
+ * Wave 2: Bangalore (incl. Bengaluru), Gurugram, Thane, Abu Dhabi — every
+ * city with 15+ verified developers, so each page is a substantial listing.
+ */
 const APPROVED_CITIES: readonly ApprovedCity[] = [
   { country: "India", name: "Mumbai" },
   { country: "India", name: "Hyderabad" },
   { country: "India", name: "Pune" },
   { country: "India", name: "Navi Mumbai" },
   { country: "United Arab Emirates", name: "Dubai" },
+  { country: "India", name: "Bangalore", aliases: ["Bengaluru"] },
+  { country: "India", name: "Gurugram" },
+  { country: "India", name: "Thane" },
+  { country: "United Arab Emirates", name: "Abu Dhabi" },
 ];
 
 /** A validated location, always with canonical casing. */
 export interface LocationPage {
   country: string;
   city?: string;
+  /** Same-place spellings of `city` to include in the listing (see ApprovedCity.aliases). */
+  cityAliases?: string[];
   /** Used in titles: the city, or the country's short title name. */
   titleName: string;
   /** Used inside sentences: the city, or the country's phrase. */
@@ -83,11 +101,19 @@ export function resolveLocationPage(country: ParamValue, city: ParamValue): Loca
   }
 
   const matchedCity = APPROVED_CITIES.find(
-    (entry) => entry.country === matchedCountry.name && entry.name.toLowerCase() === wantedCity,
+    (entry) =>
+      entry.country === matchedCountry.name &&
+      [entry.name, ...(entry.aliases ?? [])].some((name) => name.toLowerCase() === wantedCity),
   );
   if (!matchedCity) return null;
 
-  return { country: matchedCountry.name, city: matchedCity.name, titleName: matchedCity.name, phrase: matchedCity.name };
+  return {
+    country: matchedCountry.name,
+    city: matchedCity.name,
+    ...(matchedCity.aliases?.length ? { cityAliases: [...matchedCity.aliases] } : {}),
+    titleName: matchedCity.name,
+    phrase: matchedCity.name,
+  };
 }
 
 /**

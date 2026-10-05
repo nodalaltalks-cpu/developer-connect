@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { submitToIndexNow } from "@/lib/indexnow";
 import { requireFounderForAction } from "@/lib/auth";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import {
@@ -210,6 +212,11 @@ export async function approveCandidateAction(
     );
     revalidateCandidate(candidateId, candidate.developerId);
     revalidatePublicDirectory();
+    // A newly published developer page — ask search engines to crawl it now, after the response is sent.
+    after(async () => {
+      const developer = await repos.developers.getById(candidate.developerId);
+      if (developer) await submitToIndexNow([`/developers/${developer.slug}`]);
+    });
     return { ok: true, candidate };
   } catch (err) {
     return { ok: false, error: describeVerificationError(err) };

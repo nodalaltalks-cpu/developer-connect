@@ -178,6 +178,8 @@ export interface PublicDirectoryFilter {
   country?: string;
   state?: string;
   city?: string;
+  /** Same-place spellings of `city` (see location-pages.ts) — only ever set by approved location pages. */
+  cityAliases?: string[];
 }
 
 /** Case-insensitive exact match — geography filters are "pick one of these options", not free text. */
@@ -349,6 +351,7 @@ function normalizeDirectoryFilter(filter: PublicDirectoryFilter): PublicDirector
     country: filter.country || undefined,
     state: filter.state || undefined,
     city: filter.city || undefined,
+    cityAliases: filter.city && filter.cityAliases?.length ? filter.cityAliases : undefined,
   };
 }
 

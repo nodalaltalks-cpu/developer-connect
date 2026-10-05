@@ -22,6 +22,7 @@ import {
   developerIntroText,
   serializeJsonLd,
 } from "@/lib/developer-connect/developer-page-content";
+import { buyDirectMarketForLocation, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
 
 // React cache(): generateMetadata and the page both need this developer in
 // the same request, so the second call reuses the first's result instead of
@@ -137,6 +138,7 @@ export default async function DeveloperPage({
 
   const { userId } = await auth();
   const introText = developerIntroText(developer, formatDate);
+  const buyDirectGuide = buyDirectMarketForLocation(developer.country, developer.city);
 
   // Only fetched for a verified developer — an unverified page is
   // noindexed and low-traffic; there is no benefit to spending an extra
@@ -248,6 +250,30 @@ export default async function DeveloperPage({
 
             {alsoKnownAs(developer) && (
               <p className="mt-6 text-xs text-muted-foreground">Also known as {alsoKnownAs(developer)}</p>
+            )}
+
+            {developer.officialWebsite && (
+              <section className="mt-10 border-t border-border pt-8">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Buying directly from {developer.displayName}
+                </h2>
+                <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
+                  <li>
+                    Contact {developer.displayName} only through the details published on its official
+                    website, {developer.officialWebsite.canonicalDomain}.
+                  </li>
+                  <li>Check the project is registered with the real estate regulator for its location.</li>
+                  <li>Get prices and payment terms in writing, and pay only into the project account named in your agreement.</li>
+                </ul>
+                <Link
+                  href={buyDirectPath(buyDirectGuide)}
+                  className="mt-3 inline-block text-sm font-medium text-accent-hover hover:underline"
+                >
+                  {buyDirectGuide
+                    ? `How to buy directly from developers in ${buyDirectGuide.name} →`
+                    : "How to buy property directly from the developer →"}
+                </Link>
+              </section>
             )}
           </div>
 

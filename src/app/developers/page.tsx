@@ -15,6 +15,9 @@ import {
   locationMetadataText,
   resolveLocationPage,
 } from "@/lib/developer-connect/location-pages";
+import { buyDirectMarketForLocation, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
+import { breadcrumbStructuredData } from "@/components/buy-direct-guide-sections";
+import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
 /**
  * How many developers one page of this index shows. Deliberately plain
@@ -43,10 +46,14 @@ function parsePage(raw: string | string[] | undefined): number {
  * arguments are primitives on purpose so calls with the same values match).
  * With no location the filter is empty — exactly the original behaviour.
  */
-const loadDirectoryPage = cache(async (country: string | undefined, city: string | undefined, page: number) => {
-  const repos = createPostgresRepositories();
-  return getPublicDirectoryPage(repos, { country, city }, (page - 1) * PAGE_SIZE, PAGE_SIZE);
-});
+const loadDirectoryPage = cache(
+  async (country: string | undefined, city: string | undefined, cityAliases: string, page: number) => {
+    const repos = createPostgresRepositories();
+    // Aliases arrive "|"-joined so every cache() argument stays a primitive.
+    const aliases = cityAliases ? cityAliases.split("|") : undefined;
+    return getPublicDirectoryPage(repos, { country, city, cityAliases: aliases }, (page - 1) * PAGE_SIZE, PAGE_SIZE);
+  },
+);
 
 export async function generateMetadata({
   searchParams,
@@ -71,7 +78,7 @@ export async function generateMetadata({
   const text = locationMetadataText(location, page);
   const canonical = developersPath(location, page);
   // An approved location that has no results is not a real listing, so it is kept out of the index.
-  const { total } = await loadDirectoryPage(location.country, location.city, page);
+  const { total } = await loadDirectoryPage(location.country, location.city, location.cityAliases?.join("|") ?? "", page);
 
   return {
     title: text.title,
@@ -107,7 +114,12 @@ export default async function DevelopersIndexPage({
   const page = parsePage(resolvedSearchParams.page);
   const location = resolveLocationPage(resolvedSearchParams.country, resolvedSearchParams.city);
 
-  const { developers, total } = await loadDirectoryPage(location?.country, location?.city, page);
+  const { developers, total } = await loadDirectoryPage(
+    location?.country,
+    location?.city,
+    location?.cityAliases?.join("|") ?? "",
+    page,
+  );
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // A page number beyond the real range is never a genuine listing —
@@ -121,9 +133,15 @@ export default async function DevelopersIndexPage({
   const breadcrumbs = location
     ? locationBreadcrumbs(location)
     : [{ label: "Home", href: "/" }, { label: "Developers" }];
+  const buyDirectGuide = location ? buyDirectMarketForLocation(location.country, location.city ?? "") : null;
+  // BreadcrumbList mirrors the visible breadcrumb; the current page (no href) uses its own canonical URL.
+  const breadcrumbJsonLd = breadcrumbStructuredData(
+    breadcrumbs.map((item) => ({ name: item.label, path: item.href ?? developersPath(location, 1) })),
+  );
 
   return (
     <div className="flex flex-1 flex-col">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }} />
       <SiteHeader />
 
       <main className="flex-1">
@@ -154,6 +172,13 @@ export default async function DevelopersIndexPage({
             {location
               ? locationIntro(location, total)
               : `${total} real estate developer${total === 1 ? "" : "s"} with an official website verified by Developer Connects.`}
+          </p>
+          <p className="mt-2 text-sm">
+            <Link href={buyDirectPath(buyDirectGuide)} className="text-accent-hover hover:underline">
+              {buyDirectGuide
+                ? `How to buy property directly from developers in ${buyDirectGuide.name} →`
+                : "How to buy property directly from the developer →"}
+            </Link>
           </p>
 
           {groups.length === 0 ? (

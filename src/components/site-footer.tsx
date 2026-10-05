@@ -60,8 +60,8 @@ function buildColumns(): FooterColumn[] {
       links: [
         { label: "FAQ", href: "/faq" },
         { label: "How we verify", href: "/how-we-verify" },
+        { label: "Buy direct from developer", href: "/buy-direct-from-developer" },
         { label: "Blog", comingSoon: true },
-        { label: "Guides", comingSoon: true },
       ],
     },
     {

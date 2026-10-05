@@ -32,6 +32,10 @@ const APPROVED: Array<{ name: string; country: string; city?: string; path: stri
   { name: "Pune", country: INDIA, city: "Pune", path: "/developers?country=India&city=Pune" },
   { name: "Navi Mumbai", country: INDIA, city: "Navi Mumbai", path: "/developers?country=India&city=Navi+Mumbai" },
   { name: "Dubai", country: UAE, city: "Dubai", path: "/developers?country=United+Arab+Emirates&city=Dubai" },
+  { name: "Bangalore", country: INDIA, city: "Bangalore", path: "/developers?country=India&city=Bangalore" },
+  { name: "Gurugram", country: INDIA, city: "Gurugram", path: "/developers?country=India&city=Gurugram" },
+  { name: "Thane", country: INDIA, city: "Thane", path: "/developers?country=India&city=Thane" },
+  { name: "Abu Dhabi", country: UAE, city: "Abu Dhabi", path: "/developers?country=United+Arab+Emirates&city=Abu+Dhabi" },
 ];
 
 for (const entry of APPROVED) {
@@ -47,7 +51,7 @@ for (const entry of APPROVED) {
   });
 }
 
-test("location: exactly the seven approved locations exist, in sitemap order", () => {
+test("location: exactly the eleven approved locations exist (Wave 1 + Wave 2), in sitemap order", () => {
   assert.deepEqual(
     approvedLocationPages().map((location) => locationPath(location)),
     APPROVED.map((entry) => entry.path),
@@ -82,24 +86,22 @@ test("canonical: the parameters are always written country, city, page — and p
 
 // --- unsupported locations keep today's behaviour ----------------------------------------------
 
-test("unsupported: Bangalore and Bengaluru are NOT enabled, with or without a country", () => {
-  for (const [country, city] of [
-    [undefined, "Bengaluru"],
-    [undefined, "Bangalore"],
-    [INDIA, "Bengaluru"],
-    [INDIA, "Bangalore"],
-    [INDIA, "bengaluru"],
-  ] as Array<[string | undefined, string]>) {
-    assert.equal(resolveLocationPage(country, city), null, `${country ?? "(none)"} / ${city}`);
+test("alias: Bengaluru is the same place as Bangalore — it resolves to the single Bangalore page", () => {
+  for (const city of ["Bengaluru", "bengaluru", "Bangalore", " BANGALORE "]) {
+    const location = resolveLocationPage(INDIA, city);
+    assert.ok(location, city);
+    assert.equal(location.city, "Bangalore");
+    assert.deepEqual(location.cityAliases, ["Bengaluru"]);
+    assert.equal(locationPath(location), "/developers?country=India&city=Bangalore");
   }
+  // Still needs its country, like every other city.
+  assert.equal(resolveLocationPage(undefined, "Bengaluru"), null);
+  assert.equal(resolveLocationPage(UAE, "Bangalore"), null);
 });
 
-test("unsupported: Abu Dhabi and every other city, plus wrong or missing countries, are NOT enabled", () => {
+test("unsupported: every other city, plus wrong or missing countries, are NOT enabled", () => {
   for (const [country, city] of [
-    [UAE, "Abu Dhabi"],
     [UAE, "Sharjah"],
-    [INDIA, "Gurugram"],
-    [INDIA, "Thane"],
     [INDIA, "Kalyan"],
     [INDIA, "Vasai-Virar"],
     [INDIA, "Dubai"], // an approved city paired with the wrong country
@@ -118,13 +120,13 @@ test("unsupported: Abu Dhabi and every other city, plus wrong or missing countri
 test("unsupported: an unsupported combination falls back to the original unfiltered directory URLs", () => {
   assert.equal(developersPath(null, 1), "/developers");
   assert.equal(developersPath(null, 2), "/developers?page=2");
-  assert.equal(developersPath(resolveLocationPage(INDIA, "Bangalore"), 3), "/developers?page=3");
+  assert.equal(developersPath(resolveLocationPage(INDIA, "Kalyan"), 3), "/developers?page=3");
 });
 
-test("the approved list contains only the seven approved values — no other city name appears in it", () => {
+test("the approved list contains only the eleven approved values — no other city name appears in it", () => {
   const source = read("../location-pages.ts");
-  assert.doesNotMatch(source, /Bang|Bengal|Abu Dhabi|Gurugram|Thane|Kalyan|Vasai|Virar|Sharjah|Delhi|Chennai/i);
-  assert.equal(approvedLocationPages().length, 7);
+  assert.doesNotMatch(source, /Kalyan|Vasai|Virar|Bhayandar|Sharjah|Delhi|Chennai|Ajman|Panvel|Dombivli/i);
+  assert.equal(approvedLocationPages().length, 11);
 });
 
 // --- metadata ----------------------------------------------------------------------------------
@@ -275,16 +277,23 @@ test("directory: each approved location returns exactly its own developers, usin
     [INDIA, "Pune", 2],
     [INDIA, "Navi Mumbai", 1],
     [UAE, "Dubai", 4],
+    [INDIA, "Bangalore", 3], // 1 Bangalore + 2 Bengaluru, merged
+    [UAE, "Abu Dhabi", 2],
   ];
   for (const [country, city, count] of expected) {
     const location = resolveLocationPage(country, city);
     assert.ok(location);
-    const { developers, total } = await getPublicDirectoryPage(repos, { country: location.country, city: location.city }, 0, 100);
+    const { developers, total } = await getPublicDirectoryPage(
+      repos,
+      { country: location.country, city: location.city, cityAliases: location.cityAliases },
+      0,
+      100,
+    );
     assert.equal(total, count, `${city ?? country} total`);
     assert.equal(developers.length, count);
     for (const developer of developers) {
       assert.equal(developer.country, location.country);
-      if (location.city) assert.equal(developer.city, location.city);
+      if (location.city) assert.ok([location.city, ...(location.cityAliases ?? [])].includes(developer.city));
     }
   }
 });
@@ -299,12 +308,13 @@ test("directory: the totals are live — adding a developer changes the number, 
   assert.notEqual(locationIntro(dubai, before.total), locationIntro(dubai, after.total));
 });
 
-test("directory: the unsupported spellings never resolve to a page, while their developers remain in the country listing", async () => {
+test("directory: the Bengaluru alias never leaks into other cities, and country totals are unchanged", async () => {
   const repos = await buildDirectory();
-  assert.equal(resolveLocationPage(INDIA, "Bangalore"), null);
-  assert.equal(resolveLocationPage(INDIA, "Bengaluru"), null);
-  assert.equal(resolveLocationPage(UAE, "Abu Dhabi"), null);
-  // Nothing is lost: they are still counted in the India / UAE country pages.
+  const mumbai = await getPublicDirectoryPage(repos, { country: INDIA, city: "Mumbai", cityAliases: undefined }, 0, 100);
+  assert.equal(mumbai.total, 3);
+  // An alias with no city is ignored rather than widening the listing.
+  const aliasOnly = await getPublicDirectoryPage(repos, { country: INDIA, cityAliases: ["Bengaluru"] }, 0, 100);
+  assert.equal(aliasOnly.total, 11);
   const india = await getPublicDirectoryPage(repos, { country: INDIA }, 0, 100);
   const uae = await getPublicDirectoryPage(repos, { country: UAE }, 0, 100);
   assert.equal(india.total, 11);
@@ -324,7 +334,7 @@ test("directory: unfiltered /developers behaviour is unchanged (an empty filter 
 test("page: uses the helper for validation, canonical, titles, breadcrumbs and pagination", () => {
   const page = read("../../../app/developers/page.tsx");
   assert.match(page, /resolveLocationPage\(resolvedSearchParams\.country, resolvedSearchParams\.city\)/);
-  assert.match(page, /getPublicDirectoryPage\(repos, \{ country, city \}/);
+  assert.match(page, /getPublicDirectoryPage\(repos, \{ country, city, cityAliases: aliases \}/);
   assert.match(page, /alternates: \{ canonical \}/);
   assert.match(page, /const canonical = developersPath\(location, page\);/);
   assert.match(page, /locationMetadataText\(location, page\)/);
@@ -339,7 +349,9 @@ test("page: uses the helper for validation, canonical, titles, breadcrumbs and p
 test("page: no other query parameter can influence what is listed or indexed", () => {
   const page = read("../../../app/developers/page.tsx");
   assert.doesNotMatch(page, /resolvedSearchParams\.(q|query|state|search|utm)/);
-  assert.doesNotMatch(page, /application\/ld\+json/); // no structured data was added to this page
+  // The only structured data is the BreadcrumbList mirroring the visible breadcrumb.
+  assert.equal((page.match(/application\/ld\+json/g) ?? []).length, 1);
+  assert.match(page, /breadcrumbStructuredData\(/);
   // Only country and city ever reach the directory filter.
   assert.equal((page.match(/resolvedSearchParams\.\w+/g) ?? []).filter((usage, index, all) => all.indexOf(usage) === index).sort().join(","),
     "resolvedSearchParams.city,resolvedSearchParams.country,resolvedSearchParams.page");
@@ -364,7 +376,7 @@ test("sitemap: lists only the approved locations (page 1) from the single approv
   const sitemap = read("../../../app/sitemap.ts");
   assert.match(sitemap, /approvedLocationPages\(\)\.map\(\(location\) => \(\{/);
   assert.match(sitemap, /url: `\$\{BASE_URL\}\$\{locationPath\(location\)\}`/);
-  assert.match(sitemap, /\[\.\.\.staticEntries, \.\.\.locationEntries, \.\.\.developerEntries\]/);
+  assert.match(sitemap, /\[\.\.\.staticEntries, \.\.\.locationEntries, \.\.\.guideEntries, \.\.\.developerEntries\]/);
 });
 
 test("footer: the country links point at the approved country pages and fall back to the old filter otherwise", () => {

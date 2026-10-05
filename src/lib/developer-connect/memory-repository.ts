@@ -39,7 +39,12 @@ function matchesPublishedFilter(
 ): boolean {
   if (filter.country && developer.country.toLowerCase() !== filter.country.toLowerCase()) return false;
   if (filter.state && developer.state.toLowerCase() !== filter.state.toLowerCase()) return false;
-  if (filter.city && developer.city.toLowerCase() !== filter.city.toLowerCase()) return false;
+  if (
+    filter.city &&
+    ![filter.city, ...(filter.cityAliases ?? [])].some((city) => developer.city.toLowerCase() === city.toLowerCase())
+  ) {
+    return false;
+  }
   if (!filter.query) return true;
   const haystack = [
     developer.displayName,

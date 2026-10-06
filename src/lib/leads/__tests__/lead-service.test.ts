@@ -8,7 +8,6 @@ import {
   eraseLead,
   getLeadTimeline,
   logContact,
-  recordWebsiteRedirect,
   setFollowUp,
   updateBooking,
   updateRequirement,
@@ -34,25 +33,25 @@ test("capture: a new buyer creates a NEW lead keyed by E.164, with every approve
   assert.equal(lead.ownerId, null, "Phase 1 leads are unassigned = the founder's queue");
 
   const events = await getLeadTimeline(repos, lead.id);
-  assert.deepEqual(types(events), ["LEAD_CREATED", "CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "OFFICIAL_WEBSITE_CLICKED"]);
+  assert.deepEqual(types(events), ["LEAD_CREATED", "CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "DEVELOPER_CONNECT_REQUESTED"]);
   for (const event of events) {
     assert.equal(event.actorType, "BUYER");
     assert.equal(event.createdAt.getTime(), T0.getTime());
   }
 });
 
-test("capture: the click event records the exact developer, verified website and verification date at that moment", async () => {
+test("capture: the connect-request event records the developer and source — and never a website, URL or domain", async () => {
   const repos = createInMemoryLeadRepositories();
   const { lead } = await captureAssistanceLead(repos, captureInput(), T0);
-  const click = (await getLeadTimeline(repos, lead.id)).find((event) => event.eventType === "OFFICIAL_WEBSITE_CLICKED")!;
+  const request = (await getLeadTimeline(repos, lead.id)).find((event) => event.eventType === "DEVELOPER_CONNECT_REQUESTED")!;
 
-  assert.equal(click.developerId, DEVELOPER_A.id);
-  assert.equal(click.payload.developerSlug, "acme-realty");
-  assert.equal(click.payload.developerName, "Acme Realty");
-  assert.equal(click.payload.websiteDomain, "acme.example");
-  assert.equal(click.payload.websiteUrl, "https://acme.example/");
-  assert.equal(click.payload.verifiedAt, "2026-09-01T00:00:00.000Z");
-  assert.equal(click.payload.sourceCta, "developer_page");
+  assert.equal(request.developerId, DEVELOPER_A.id);
+  assert.equal(request.payload.developerSlug, "acme-realty");
+  assert.equal(request.payload.developerName, "Acme Realty");
+  assert.equal(request.payload.sourceCta, "developer_page");
+  assert.equal(request.payload.requestedAt, T0.toISOString());
+  assert.deepEqual(Object.keys(request.payload).sort(), ["developerName", "developerSlug", "requestedAt", "sourceCta"]);
+  assert.doesNotMatch(JSON.stringify(request.payload), /acme\.example|https?:|website/i);
 });
 
 test("capture: consent is stored with the exact wording and version shown, for the chosen channel", async () => {
@@ -67,12 +66,12 @@ test("capture: consent is stored with the exact wording and version shown, for t
   assert.equal(consent.withdrawnAt, null);
 });
 
-test("capture: an unverified-website snapshot is recorded honestly as a null verification date", async () => {
+test("capture: the buyer's own press time is recorded, and defaults to now", async () => {
   const repos = createInMemoryLeadRepositories();
-  const input = captureInput();
-  const { lead } = await captureAssistanceLead(repos, { ...input, website: { ...input.website, verifiedAt: null } }, T0);
-  const click = (await getLeadTimeline(repos, lead.id)).find((event) => event.eventType === "OFFICIAL_WEBSITE_CLICKED")!;
-  assert.equal(click.payload.verifiedAt, null);
+  const pressed = new Date(T0.getTime() - 5_000);
+  const { lead } = await captureAssistanceLead(repos, captureInput({ requestedAt: pressed }), T0);
+  const request = (await getLeadTimeline(repos, lead.id)).find((event) => event.eventType === "DEVELOPER_CONNECT_REQUESTED")!;
+  assert.equal(request.payload.requestedAt, pressed.toISOString());
 });
 
 // --- validation --------------------------------------------------------------------------------
@@ -141,10 +140,10 @@ test("duplicates: the same number typed differently is the SAME lead — a repea
     "LEAD_CREATED",
     "CONSENT_GIVEN",
     "CONTACT_PREFERENCE_SELECTED",
-    "OFFICIAL_WEBSITE_CLICKED",
+    "DEVELOPER_CONNECT_REQUESTED",
     "LEAD_CAPTURED",
     "CONSENT_GIVEN",
-    "OFFICIAL_WEBSITE_CLICKED",
+    "DEVELOPER_CONNECT_REQUESTED",
   ]);
 });
 
@@ -156,7 +155,7 @@ test("duplicates: a second developer is recorded on the existing lead's events, 
   const lead = (await repos.leads.getById(first.lead.id))!;
   assert.equal(lead.developerId, DEVELOPER_A.id, "the originally researched developer is never overwritten");
 
-  const clicks = (await getLeadTimeline(repos, lead.id)).filter((event) => event.eventType === "OFFICIAL_WEBSITE_CLICKED");
+  const clicks = (await getLeadTimeline(repos, lead.id)).filter((event) => event.eventType === "DEVELOPER_CONNECT_REQUESTED");
   assert.deepEqual(clicks.map((click) => click.developerId), [DEVELOPER_A.id, DEVELOPER_B.id]);
 });
 
@@ -221,7 +220,7 @@ test("concurrency: 25 simultaneous submissions of the same number produce exactl
   const captures = snapshot.events.filter((event) => event.eventType === "LEAD_CAPTURED").length;
   assert.equal(creates, 1);
   assert.equal(captures, 24);
-  assert.equal(snapshot.events.filter((event) => event.eventType === "OFFICIAL_WEBSITE_CLICKED").length, 25, "every click is recorded");
+  assert.equal(snapshot.events.filter((event) => event.eventType === "DEVELOPER_CONNECT_REQUESTED").length, 25, "every request is recorded");
 });
 
 test("concurrency: simultaneous submissions of DIFFERENT numbers each get their own lead", async () => {
@@ -402,14 +401,14 @@ test("requirement can arrive with the gate submission itself and is recorded in 
 
 // --- redirect ----------------------------------------------------------------------------------
 
-test("redirect: recording it appends DEVELOPER_WEBSITE_REDIRECTED for that developer", async () => {
+test("no redirect: the lead service has no way to record sending a buyer to a developer website", async () => {
+  const service = await import("../lead-service.ts");
+  assert.equal("recordWebsiteRedirect" in service, false);
   const repos = createInMemoryLeadRepositories();
   const { lead } = await captureAssistanceLead(repos, captureInput(), T0);
-  await recordWebsiteRedirect(repos, lead.id, DEVELOPER_A, { url: "https://acme.example/", domain: "acme.example" }, minutes(1));
-  const event = (await getLeadTimeline(repos, lead.id)).at(-1)!;
-  assert.equal(event.eventType, "DEVELOPER_WEBSITE_REDIRECTED");
-  assert.equal(event.developerId, DEVELOPER_A.id);
-  assert.equal(event.payload.websiteDomain, "acme.example");
+  const timeline = await getLeadTimeline(repos, lead.id);
+  assert.ok(!types(timeline).includes("DEVELOPER_WEBSITE_REDIRECTED"));
+  assert.ok(!types(timeline).includes("OFFICIAL_WEBSITE_CLICKED"));
 });
 
 // --- founder operations ------------------------------------------------------------------------
@@ -660,12 +659,10 @@ test("no PII: a capture's event payloads never contain the phone, email, name or
     T0,
   );
   await captureAssistanceLead(repos, captureInput({ name: "Other Name", developer: DEVELOPER_B }), minutes(5));
-  await recordWebsiteRedirect(repos, lead.id, DEVELOPER_A, { url: "https://acme.example/", domain: "acme.example" }, minutes(6));
 
   const events = await getLeadTimeline(repos, lead.id);
   const serialised = JSON.stringify(events.filter((event) => event.eventType !== "REQUIREMENT_UPDATED").map((event) => event.payload));
-  for (const secret of ["9876543210", "+91", "Asha", "Verma", "asha.verma", "example.com/", "Other Name"]) {
-    if (secret === "example.com/") continue; // the developer's own public website is expected
+  for (const secret of ["9876543210", "+91", "Asha", "Verma", "asha.verma", "acme.example", "Other Name"]) {
     assert.ok(!serialised.includes(secret), `"${secret}" leaked into an event payload`);
   }
 });

@@ -212,8 +212,6 @@ export interface CaptureAssistanceLeadInput {
   contactPreference: ContactPreference;
   /** The developer being researched, exactly as the buyer saw it. */
   developer: { id: string; slug: string; displayName: string };
-  /** The verified official website the buyer asked for, and when that relationship was verified (read-only snapshot). */
-  website: { url: string; domain: string; verifiedAt: Date | null };
   /** Which public surface generated the lead (for example "developer_page" or "directory_card"). */
   sourceCta: string;
   sessionId: string;
@@ -223,8 +221,8 @@ export interface CaptureAssistanceLeadInput {
   /** The buyer's earliest known arrival, if the browser remembered one. */
   firstTouch?: TouchInput | null;
   requirement?: Requirement;
-  /** When the buyer clicked "Visit official website". */
-  clickedAt?: Date;
+  /** When the buyer asked to be connected. */
+  requestedAt?: Date;
 }
 
 export interface CaptureResult {
@@ -366,41 +364,20 @@ export async function captureAssistanceLead(
       }
     }
 
-    // ---- the click itself: the exact verified website the buyer asked for ----
-    await appendEvent(tx.events, lead.id, "OFFICIAL_WEBSITE_CLICKED", buyer, now, {
+    // ---- the request itself: which developer the buyer asked Developer Connects to connect them with.
+    // No website, URL or domain is recorded: the buyer is never sent to one. ----
+    await appendEvent(tx.events, lead.id, "DEVELOPER_CONNECT_REQUESTED", buyer, now, {
       developerId: input.developer.id,
       payload: {
         developerSlug: input.developer.slug,
         developerName: input.developer.displayName,
-        websiteDomain: input.website.domain,
-        websiteUrl: input.website.url,
-        verifiedAt: input.website.verifiedAt ? input.website.verifiedAt.toISOString() : null,
         sourceCta: input.sourceCta,
-        clickedAt: (input.clickedAt ?? now).toISOString(),
+        requestedAt: (input.requestedAt ?? now).toISOString(),
       },
     });
 
     lead = await tx.leads.update(lead.id, patch, now);
     return { lead, created };
-  });
-}
-
-/** Records that the buyer was sent on to the verified official website. Called once the redirect has been issued. */
-export async function recordWebsiteRedirect(
-  repos: LeadRepositories,
-  leadId: string,
-  developer: { id: string; slug: string },
-  website: { url: string; domain: string },
-  now: Date = new Date(),
-): Promise<void> {
-  await repos.transaction(async (tx) => {
-    const lead = await requireLead(tx, leadId);
-    requireNotErased(lead);
-    await appendEvent(tx.events, leadId, "DEVELOPER_WEBSITE_REDIRECTED", { actorType: "BUYER" }, now, {
-      developerId: developer.id,
-      payload: { developerSlug: developer.slug, websiteDomain: website.domain, websiteUrl: website.url },
-    });
-    await tx.leads.update(leadId, { lastActivityAt: now }, now);
   });
 }
 

@@ -75,9 +75,10 @@ export default function DisclaimerPage() {
 
       <LegalSection title="7. External websites">
         <p>
-          Clicking through to a developer&apos;s official website takes you to a site we don&apos;t control or
-          operate. We&apos;re not responsible for the content, accuracy, availability, or practices of any
-          external website.
+          Developer Connects does not send you to developers&apos; own websites. If a website or other
+          third-party link reaches you in any other way, including one shared by a Developer Connects team
+          member, it is a site we don&apos;t control or operate. We&apos;re not responsible for the content,
+          accuracy, availability, or practices of any external website.
         </p>
       </LegalSection>
 

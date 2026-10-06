@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { toPublicDeveloperProfile } from "../public-view.ts";
+import { toPublicDeveloperProfile , internalSearchDomain } from "../public-view.ts";
 import { submitWebsiteCandidate } from "../candidate-service.ts";
 import { approveCandidate, markReadyForReview } from "../verification-service.ts";
 import { setUpTestDeveloper } from "./test-helpers.ts";
@@ -46,9 +46,16 @@ test("public view: a VERIFIED candidate is exposed, but without internal verific
 
   const profile = toPublicDeveloperProfile(developer, verified);
 
-  assert.equal(profile.officialWebsite?.url, "https://example.com/");
-  assert.equal(profile.officialWebsite?.canonicalDomain, "example.com");
+  // The public profile proves the website is VERIFIED, but never carries its URL or domain.
   assert.ok(profile.officialWebsite?.verifiedAt instanceof Date);
+  assert.deepEqual(Object.keys(profile.officialWebsite ?? {}), ["verifiedAt"]);
+  assert.ok(!JSON.stringify(profile).includes("example.com"));
+  assert.ok(!("url" in (profile.officialWebsite ?? {})));
+  assert.ok(!("canonicalDomain" in (profile.officialWebsite ?? {})));
+  // ...while server-side search can still match on the domain without it being serialisable.
+  assert.equal(internalSearchDomain(profile), "example.com");
+  assert.ok(!Object.keys(profile).includes("searchDomain"));
+  assert.ok(!JSON.stringify(structuredClone(profile)).includes("example.com"));
   // legalName is surfaced in the public detail page as secondary/progressive
   // disclosure info — must keep passing through toPublicDeveloperProfile.
   assert.equal(profile.legalName, developer.legalName);

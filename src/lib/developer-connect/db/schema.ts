@@ -538,6 +538,8 @@ export const leadEventTypeEnum = pgEnum("lead_event_type", [
   "TEMPERATURE_CHANGED",
   "OWNER_CHANGED",
   "FOLLOW_UP_COMPLETED",
+  // Stage 5 (migration 0017): the buyer asked Developer Connects to connect them with a developer.
+  "DEVELOPER_CONNECT_REQUESTED",
 ]);
 
 /** How warm the buyer is. A separate concept from pipeline status; null on the lead = not yet rated. */

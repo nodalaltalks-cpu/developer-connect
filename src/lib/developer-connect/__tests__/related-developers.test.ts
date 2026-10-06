@@ -278,7 +278,9 @@ test("developer page: uses the new selection, keeps the section's design, links 
   assert.match(page, /<h2 className="text-lg font-semibold text-foreground">/);
   assert.match(page, /<ul className="mt-4 grid gap-3 sm:grid-cols-2">/);
   assert.match(page, /<Link\s+href=\{`\/developers\/\$\{other\.slug\}`\}\s+className="block truncate text-foreground hover:text-accent-hover hover:underline"\s*>\s*\{other\.displayName\}\s*<\/Link>/);
-  assert.match(page, /\{other\.officialWebsite\.canonicalDomain\}/);
+  // The related list shows the city under each name — never the developer's website domain.
+  assert.match(page, /\{other\.city\}/);
+  assert.doesNotMatch(page, /canonicalDomain/);
   // The heading keeps its original text when every link is in the city, and says the country otherwise.
   assert.match(page, /Other verified developers in \{developer\.city\}/);
   assert.match(page, /Other verified developers in \{developer\.country\}/);

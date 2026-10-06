@@ -255,7 +255,7 @@ export async function getExecutiveOverview(range?: ResolvedDateRange): Promise<E
       { label: "Searches", count: totalSearches },
       { label: "Results clicked", count: searchResultClicks },
       { label: "Developer pages viewed", count: developerPageViews },
-      { label: "Official website clicks", count: officialWebsiteClicks },
+      { label: "Connect requests", count: officialWebsiteClicks },
     ]),
     searchVolumeComparison,
     officialWebsiteClicksComparison,
@@ -1467,11 +1467,11 @@ function describeActivity(
     case "developer_page_viewed":
       return developerName ? `Viewed ${developerName}'s page` : null;
     case "official_website_clicked":
-      return developerName
-        ? `Visited ${developerName}'s official website`
-        : typeof payload.targetDomain === "string"
-          ? `Visited ${payload.targetDomain}`
-          : null;
+      // Rows from before Stage 5 carry a targetDomain and really were website visits; newer rows are connect requests.
+      if (typeof payload.targetDomain === "string") {
+        return developerName ? `Visited ${developerName}'s official website` : `Visited ${payload.targetDomain}`;
+      }
+      return developerName ? `Asked to connect with ${developerName}` : null;
     case "profile_started":
       return "Started their profile";
     case "profile_field_completed":

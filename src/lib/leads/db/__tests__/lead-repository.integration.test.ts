@@ -57,7 +57,6 @@ function captureInput(developer: { id: string; slug: string; displayName: string
     email: "integration.buyer@example.com",
     contactPreference: "WHATSAPP" as const,
     developer,
-    website: { url: "https://example.test/", domain: "example.test", verifiedAt: new Date("2026-09-01T00:00:00.000Z") },
     sourceCta: "developer_page",
     sessionId: `session-${randomUUID()}`,
     currentTouch: { sessionId: "s", landingPath: "/developers/x", utmSource: "google", utmMedium: "cpc", utmCampaign: "brand" },
@@ -111,7 +110,7 @@ test("postgres: 15 simultaneous captures of one number (typed 5 different ways) 
   const byType = Object.fromEntries(counts.map((row) => [row.event_type, row.n]));
   assert.equal(byType.LEAD_CREATED, 1);
   assert.equal(byType.LEAD_CAPTURED, 14);
-  assert.equal(byType.OFFICIAL_WEBSITE_CLICKED, 15);
+  assert.equal(byType.DEVELOPER_CONNECT_REQUESTED, 15);
   assert.equal(byType.CONSENT_GIVEN, 15);
 
   const leadRows = (await db.execute(sql`select count(*)::int as n from leads where phone_e164 = ${e164}`)).rows as Array<{ n: number }>;
@@ -198,7 +197,7 @@ test("postgres: a failure part-way through a capture rolls EVERYTHING back — n
           events: {
             ...tx.events,
             append: async (event) => {
-              if (event.eventType === "OFFICIAL_WEBSITE_CLICKED") throw new Error("simulated failure on the last event");
+              if (event.eventType === "DEVELOPER_CONNECT_REQUESTED") throw new Error("simulated failure on the last event");
               return tx.events.append(event);
             },
           },
@@ -434,7 +433,7 @@ test("postgres: events written with the SAME timestamp keep their insertion orde
   const events = await service.getLeadTimeline(repos, lead.id);
   assert.deepEqual(
     events.map((event) => event.eventType),
-    ["LEAD_CREATED", "CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "OFFICIAL_WEBSITE_CLICKED", "NOTE_ADDED", "NOTE_ADDED", "NOTE_ADDED"],
+    ["LEAD_CREATED", "CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "DEVELOPER_CONNECT_REQUESTED", "NOTE_ADDED", "NOTE_ADDED", "NOTE_ADDED"],
   );
   assert.deepEqual(events.filter((event) => event.eventType === "NOTE_ADDED").map((event) => event.payload.note), ["one", "two", "three"]);
   assert.ok(events.every((event) => !("seq" in event)), "the ordering column is internal and never leaks into the domain object");

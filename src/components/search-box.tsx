@@ -146,11 +146,6 @@ export function SearchBox() {
                     </span>
                     <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                       <VerifiedBadge />
-                      {developer.officialWebsite && (
-                        <span className="truncate font-mono text-xs text-muted-foreground">
-                          {developer.officialWebsite.canonicalDomain}
-                        </span>
-                      )}
                     </span>
                   </span>
                   <span aria-hidden="true" className="mt-1 shrink-0 text-muted-foreground">

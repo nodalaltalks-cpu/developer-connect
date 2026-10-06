@@ -68,10 +68,15 @@ export interface DeveloperPageViewedEvent extends AnalyticsEventBase {
   referrerQuery?: string;
 }
 
+/**
+ * The buyer pressed "Connect with developer". The stored event name is kept so
+ * the history stays continuous with earlier data; since Stage 5 it carries no
+ * target domain (earlier rows do, and are still read that way).
+ */
 export interface OfficialWebsiteClickedEvent extends AnalyticsEventBase {
   eventName: "official_website_clicked";
   developerId: string;
-  targetDomain: string;
+  targetDomain?: string;
 }
 
 /** Fires once, the first time a profile row is created for a user. */

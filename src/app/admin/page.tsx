@@ -34,7 +34,7 @@ export default async function AdminOverviewPage({
 
       <div className="mt-6">
         <h2 className="text-base font-semibold text-foreground">
-          Search → official website funnel
+          Search → connect request funnel
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           The North Star above is the last step of this funnel — the counts below show where

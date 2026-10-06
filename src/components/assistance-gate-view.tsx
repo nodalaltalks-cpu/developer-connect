@@ -51,7 +51,7 @@ export function AssistanceGateView({
     state.phase === "form" || (state.phase === "error" && state.lastAttempt !== "returning") || (submitting && state.lastAttempt !== "returning");
   const showReturning =
     state.phase === "returning" || (state.phase === "error" && state.lastAttempt === "returning") || (submitting && state.lastAttempt === "returning");
-  const done = state.phase === "success" || state.phase === "blocked";
+  const done = state.phase === "success";
   const phoneError = state.error?.field === "phone" || state.error?.code === "INVALID_PHONE";
 
   return (
@@ -93,27 +93,11 @@ export function AssistanceGateView({
         {done && (
           <div role="status">
             <h2 id="assistance-gate-title" className="pr-10 text-lg font-semibold text-foreground">
-              {state.phase === "success" ? copy.successTitle : copy.title}
+              {copy.successTitle}
             </h2>
-            <p className="mt-3 text-sm text-muted-foreground">
-              {state.phase === "success" ? "The official website has opened in a new tab." : copy.successBody}
-            </p>
-            {state.phase === "blocked" && state.destinationUrl && (
-              <>
-                <p className="mt-2 text-sm text-muted-foreground">{copy.popupHelp}</p>
-                <a
-                  href={state.destinationUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={buttonClassName("primary", "mt-4 w-full")}
-                >
-                  {copy.successContinue}
-                  <span aria-hidden="true">↗</span>
-                </a>
-              </>
-            )}
-            <button type="button" onClick={onClose} className={buttonClassName("secondary", "mt-3 w-full")}>
-              {copy.close}
+            <p className="mt-3 text-sm text-muted-foreground">{copy.successBody}</p>
+            <button type="button" onClick={onClose} className={buttonClassName("primary", "mt-5 w-full min-h-12 text-base")}>
+              {copy.successClose}
             </button>
           </div>
         )}
@@ -251,7 +235,6 @@ export function AssistanceGateView({
                 <div>
                   <button type="submit" disabled={submitting} className={buttonClassName("primary", "w-full min-h-12 text-base")}>
                     {submitting ? copy.submitting : state.phase === "error" ? copy.retry : copy.submit}
-                    {!submitting && <span aria-hidden="true">↗</span>}
                   </button>
                   <p className="mt-1.5 text-center text-xs text-muted-foreground">{copy.submitHint}</p>
                 </div>
@@ -268,7 +251,6 @@ export function AssistanceGateView({
                   className={buttonClassName("primary", "w-full min-h-12 text-base")}
                 >
                   {submitting ? copy.submitting : state.phase === "error" ? copy.retry : copy.returningContinue}
-                  {!submitting && <span aria-hidden="true">↗</span>}
                 </button>
                 <button type="button" disabled={submitting} onClick={onUseDifferentNumber} className={buttonClassName("secondary", "w-full min-h-12")}>
                   {copy.useDifferentNumber}

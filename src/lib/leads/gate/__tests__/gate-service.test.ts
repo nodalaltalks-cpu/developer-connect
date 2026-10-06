@@ -12,7 +12,7 @@ import {
   continueAsReturning,
   getGateState,
   recordFormStarted,
-  resolveVerifiedDestination,
+  resolveVerifiedDeveloper,
   submitGate,
   type GateContext,
   type GateDeps,
@@ -20,6 +20,8 @@ import {
 import type { GateSubmitInput } from "../gate-flow.ts";
 
 const founder = { actorType: "FOUNDER" as const, actorId: "founder-1" };
+/** Anything that would let a buyer reach the developer directly. */
+const WEBSITE = /acme-realty\.example|https?:\/\/|destination|websiteUrl|websiteDomain/i;
 const T0 = new Date("2026-10-05T10:00:00.000Z");
 const PHONE = "+91 98765 43210";
 
@@ -89,15 +91,15 @@ const names = (events: AnalyticsEvent[]) => events.map((event) => event.eventNam
 // SUCCESSFUL SUBMISSION
 // =================================================================================================
 
-test("success: saves the lead, then returns the verified destination resolved by the SERVER", async () => {
+test("success: saves the lead and confirms — the response carries NO URL, domain or destination", async () => {
   const w = await world();
   const result = await submitGate(w.deps, w.ctx, input(w));
 
   assert.equal(result.response.ok, true);
   assert.ok(result.response.ok);
-  assert.equal(result.response.destinationUrl, "https://acme-realty.example/home");
-  assert.equal(result.response.destinationDomain, "acme-realty.example");
+  assert.deepEqual(Object.keys(result.response).sort(), ["contactPreference", "maskedPhone", "ok"]);
   assert.equal(result.response.contactPreference, "WHATSAPP");
+  assert.doesNotMatch(JSON.stringify(result.response), WEBSITE);
   assert.ok(result.leadId, "the action gets the lead id to set the returning-buyer cookie");
 });
 
@@ -125,19 +127,21 @@ test("success: consent is stored with the exact wording for the chosen channel",
   assert.equal(consent.purpose, "PROPERTY_ASSISTANCE");
 });
 
-test("success: the lead's timeline has the click, the exact verified website, the verification date and the issued redirect", async () => {
+test("success: the timeline records the connect request — developer, source, time — and no website, URL or domain", async () => {
   const w = await world();
   const { leadId } = await submitGate(w.deps, w.ctx, input(w));
   const timeline = await w.lead.events.listByLead(leadId!);
   assert.deepEqual(
     timeline.map((e) => e.eventType),
-    ["LEAD_CREATED", "CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "OFFICIAL_WEBSITE_CLICKED", "DEVELOPER_WEBSITE_REDIRECTED"],
+    ["LEAD_CREATED", "CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "DEVELOPER_CONNECT_REQUESTED"],
   );
-  const click = timeline.find((e) => e.eventType === "OFFICIAL_WEBSITE_CLICKED")!;
-  assert.equal(click.payload.websiteUrl, "https://acme-realty.example/home");
-  assert.equal(click.payload.websiteDomain, "acme-realty.example");
-  assert.equal(click.payload.developerName, "Acme Realty");
-  assert.equal(typeof click.payload.verifiedAt, "string", "the verification date at that moment is kept");
+  const request = timeline.find((e) => e.eventType === "DEVELOPER_CONNECT_REQUESTED")!;
+  assert.equal(request.developerId, w.verified.id);
+  assert.equal(request.payload.developerName, "Acme Realty");
+  assert.equal(request.payload.developerSlug, w.verified.slug);
+  assert.equal(request.payload.sourceCta, "developer_page");
+  assert.equal(typeof request.payload.requestedAt, "string");
+  assert.doesNotMatch(JSON.stringify(timeline), WEBSITE, "the developer's website stays internal");
 });
 
 test("success: only the MASKED phone leaves the server — never the full number, a lead id or an email", async () => {
@@ -198,18 +202,18 @@ test("invalid input: an unknown contact method, source, country or non-string ph
 // VERIFIED vs UNVERIFIED
 // =================================================================================================
 
-test("verified: the destination is exactly the verified record's URL", async () => {
+test("verified: an ACTIVE developer with a VERIFIED website resolves — to its identity only, never its website", async () => {
   const w = await world();
-  const destination = await resolveVerifiedDestination(w.deps, w.verified.id);
-  assert.equal(destination?.url, "https://acme-realty.example/home");
-  assert.equal(destination?.domain, "acme-realty.example");
-  assert.equal(destination?.developer.slug, w.verified.slug);
-  assert.ok(destination?.verifiedAt instanceof Date);
+  const resolved = await resolveVerifiedDeveloper(w.deps, w.verified.id);
+  assert.deepEqual(Object.keys(resolved ?? {}), ["developer"]);
+  assert.equal(resolved?.developer.slug, w.verified.slug);
+  assert.equal(resolved?.developer.displayName, "Acme Realty");
+  assert.doesNotMatch(JSON.stringify(resolved), WEBSITE);
 });
 
-test("unverified: a developer whose website was never verified can NOT produce a destination — no redirect, no lead", async () => {
+test("unverified: a developer whose website was never verified cannot take a request — no lead", async () => {
   const w = await world();
-  assert.equal(await resolveVerifiedDestination(w.deps, w.unverified.id), null);
+  assert.equal(await resolveVerifiedDeveloper(w.deps, w.unverified.id), null);
   const { response, leadId } = await submitGate(w.deps, w.ctx, input(w, { developerId: w.unverified.id }));
   assert.equal(response.ok, false);
   assert.equal(!response.ok && response.code, "NOT_VERIFIED");
@@ -218,21 +222,21 @@ test("unverified: a developer whose website was never verified can NOT produce a
   assert.equal(w.lead.snapshot().leads.length, 0, "a lead is not created for an unverified developer");
 });
 
-test("unverified: an unknown, malformed or non-string developer id gets no destination", async () => {
+test("unverified: an unknown, malformed or non-string developer id is refused", async () => {
   const w = await world();
   for (const id of ["00000000-0000-4000-8000-000000000000", "not-a-uuid", "", "1; DROP TABLE developers", null, undefined, 42, {}] as unknown[]) {
-    assert.equal(await resolveVerifiedDestination(w.deps, id), null, String(id));
+    assert.equal(await resolveVerifiedDeveloper(w.deps, id), null, String(id));
     const { response } = await submitGate(w.deps, w.ctx, input(w, { developerId: id as string }));
     assert.equal(response.ok, false);
   }
 });
 
-test("unverified: a developer that is no longer ACTIVE cannot be redirected to", async () => {
+test("unverified: a developer that is no longer ACTIVE cannot take a request", async () => {
   const w = await world();
   const developer = await w.deps.developers.developers.getById(w.inactive.id);
   assert.equal(developer?.status, "INACTIVE", "the fixture really is inactive");
   assert.ok(await w.deps.developers.candidates.getVerifiedForDeveloper(w.inactive.id), "...and has a VERIFIED website");
-  assert.equal(await resolveVerifiedDestination(w.deps, w.inactive.id), null);
+  assert.equal(await resolveVerifiedDeveloper(w.deps, w.inactive.id), null);
   const { response, leadId } = await submitGate(w.deps, w.ctx, input(w, { developerId: w.inactive.id }));
   assert.equal(response.ok, false);
   assert.equal(!response.ok && response.code, "NOT_VERIFIED");
@@ -243,7 +247,7 @@ test("unverified: a developer that is no longer ACTIVE cannot be redirected to",
 // OPEN-REDIRECT PROTECTION
 // =================================================================================================
 
-test("open redirect: the input type has NO url/redirect field, and extra fields a caller sends are ignored", async () => {
+test("no outbound path: the input type has NO url/redirect field, and extra fields a caller sends are ignored", async () => {
   const w = await world();
   const hostile = {
     ...input(w),
@@ -259,32 +263,34 @@ test("open redirect: the input type has NO url/redirect field, and extra fields 
 
   const { response } = await submitGate(w.deps, w.ctx, hostile);
   assert.ok(response.ok);
-  assert.equal(response.destinationUrl, "https://acme-realty.example/home", "the server's verified URL, not the client's");
   assert.ok(!JSON.stringify(response).includes("evil.example"));
+  assert.doesNotMatch(JSON.stringify(response), WEBSITE);
   // And nothing hostile was stored on the lead's timeline either.
   const timeline = await w.lead.events.listByLead((await w.lead.leads.listForQueue(10))[0].id);
   assert.ok(!JSON.stringify(timeline).includes("evil.example"));
 });
 
-test("open redirect: the destination is the same whatever the client says, across many hostile attempts", async () => {
+test("no outbound path: whatever the client sends, the response never contains a URL", async () => {
   for (const evil of ["javascript:alert(1)", "data:text/html,<script>1</script>", "//evil.example", "https://evil.example@acme-realty.example", "/\\evil.example", "file:///etc/passwd"]) {
     const w = await world();
     const { response } = await submitGate(w.deps, w.ctx, { ...input(w), url: evil, destinationUrl: evil, redirect: evil } as unknown as GateSubmitInput);
     assert.ok(response.ok, evil);
-    assert.equal(response.destinationUrl, "https://acme-realty.example/home", evil);
+    assert.doesNotMatch(JSON.stringify(response), WEBSITE, evil);
+    assert.ok(!JSON.stringify(response).includes("evil"), evil);
   }
 });
 
-test("open redirect: a stored non-http(s) URL would still be refused (defence in depth)", async () => {
+test("no outbound path: even a hostile stored website URL can never reach the buyer or the timeline", async () => {
   const w = await world();
   const original = w.deps.developers.candidates.getVerifiedForDeveloper.bind(w.deps.developers.candidates);
   w.deps.developers.candidates.getVerifiedForDeveloper = async (id) => {
     const candidate = await original(id);
     return candidate ? { ...candidate, url: "javascript:alert(1)" } : null;
   };
-  assert.equal(await resolveVerifiedDestination(w.deps, w.verified.id), null);
-  const { response } = await submitGate(w.deps, w.ctx, input(w));
-  assert.equal(response.ok, false);
+  const { response, leadId } = await submitGate(w.deps, w.ctx, input(w));
+  assert.ok(response.ok);
+  assert.ok(!JSON.stringify(response).includes("javascript"));
+  assert.ok(!JSON.stringify(await w.lead.events.listByLead(leadId!)).includes("javascript"));
 });
 
 // =================================================================================================
@@ -305,26 +311,26 @@ test("duplicate: the same number again is the SAME lead, with a new click, a fre
   assert.equal((await w.lead.consents.listByLead(lead.id)).length, 2);
 });
 
-test("returning: one-tap continue uses the number on file — the browser sends none — and records the click", async () => {
+test("returning: one-tap continue uses the number on file — the browser sends none — and records the request", async () => {
   const w = await world();
   const first = await submitGate(w.deps, w.ctx, input(w));
   w.setNow(new Date(T0.getTime() + 86_400_000));
 
   const again = await continueAsReturning(w.deps, w.ctx, first.leadId!, { developerId: w.verified.id, sourceCta: "directory_card" });
   assert.ok(again.response.ok);
-  assert.equal(again.response.destinationUrl, "https://acme-realty.example/home");
+  assert.doesNotMatch(JSON.stringify(again.response), WEBSITE);
   assert.equal(again.leadId, first.leadId);
   assert.equal(w.lead.snapshot().leads.length, 1);
 
-  const clicks = (await w.lead.events.listByLead(first.leadId!)).filter((e) => e.eventType === "OFFICIAL_WEBSITE_CLICKED");
-  assert.equal(clicks.length, 2);
-  assert.equal(clicks[1].payload.sourceCta, "directory_card");
+  const requests = (await w.lead.events.listByLead(first.leadId!)).filter((e) => e.eventType === "DEVELOPER_CONNECT_REQUESTED");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].payload.sourceCta, "directory_card");
 });
 
 test("returning: the gate state offers the returning card with only a MASKED number", async () => {
   const w = await world();
   const first = await submitGate(w.deps, w.ctx, input(w));
-  const state = await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId, "required");
+  const state = await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId);
   assert.deepEqual(state, { mode: "required", returning: true, maskedPhone: "+91 ••••••210", contactPreference: "WHATSAPP" });
   assert.ok(!JSON.stringify(state).includes("9876543210"));
 });
@@ -332,12 +338,12 @@ test("returning: the gate state offers the returning card with only a MASKED num
 test("returning: no cookie, an unknown lead or an ERASED lead shows the normal form (never an error, never someone else's number)", async () => {
   const w = await world();
   const first = await submitGate(w.deps, w.ctx, input(w));
-  assert.deepEqual(await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null, "required"), { mode: "required", returning: false });
-  assert.deepEqual(await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", "00000000-0000-4000-8000-000000000000", "required"), { mode: "required", returning: false });
+  assert.deepEqual(await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null), { mode: "required", returning: false });
+  assert.deepEqual(await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", "00000000-0000-4000-8000-000000000000"), { mode: "required", returning: false });
 
   const { eraseLead } = await import("../../lead-service.ts");
   await eraseLead(w.lead, first.leadId!, founder);
-  assert.deepEqual(await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId, "required"), { mode: "required", returning: false });
+  assert.deepEqual(await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId), { mode: "required", returning: false });
   const blocked = await continueAsReturning(w.deps, w.ctx, first.leadId!, { developerId: w.verified.id, sourceCta: "developer_page" });
   assert.equal(blocked.response.ok, false);
   assert.equal(!blocked.response.ok && blocked.response.code, "RETURNING_UNAVAILABLE");
@@ -355,7 +361,7 @@ test("returning: continuing for an unverified developer is refused too", async (
 // FAILURE / RETRY — never a silent bypass
 // =================================================================================================
 
-test("failure: if saving the lead fails the buyer gets a retryable error and NO destination", async () => {
+test("failure: if saving the lead fails the buyer gets a retryable error and nothing is confirmed", async () => {
   const w = await world();
   w.lead.consents.create = async () => {
     throw new Error("simulated database outage");
@@ -366,10 +372,8 @@ test("failure: if saving the lead fails the buyer gets a retryable error and NO 
   assert.equal(!response.ok && response.code, "TEMPORARY_FAILURE");
   assert.equal(!response.ok && response.message, GATE_ERROR_MESSAGES.TEMPORARY_FAILURE);
   assert.equal(leadId, null);
-  assert.ok(!("destinationUrl" in response), "the gate is NOT bypassed on failure");
   assert.equal(w.lead.snapshot().leads.length, 0, "nothing half-saved");
-  assert.ok(!names(w.events).includes("official_website_redirected"), "no redirect event for a redirect that never happened");
-  assert.ok(!names(w.events).includes("lead_submitted"));
+  assert.ok(!names(w.events).includes("lead_submitted"), "no 'submitted' event for a request that was never saved");
 });
 
 test("failure: retrying after the outage clears succeeds and creates the lead", async () => {
@@ -410,7 +414,7 @@ test("failure: the gate state degrades to 'unavailable' (an error), not to an op
   w.deps.developers.developers.getById = async () => {
     throw new Error("db down");
   };
-  const state = await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null, "required");
+  const state = await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null);
   assert.equal(state.mode, "unavailable");
   assert.ok(!("destinationUrl" in state));
 });
@@ -421,19 +425,7 @@ test("failure: a flaky 'returning' lookup falls back to the normal form rather t
   w.lead.leads.getById = async () => {
     throw new Error("blip");
   };
-  assert.deepEqual(await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId, "required"), { mode: "required", returning: false });
-});
-
-test("failure: if only the redirect LOG line fails, the already-saved lead still proceeds", async () => {
-  const w = await world();
-  const original = w.lead.events.append.bind(w.lead.events);
-  w.lead.events.append = async (event) => {
-    if (event.eventType === "DEVELOPER_WEBSITE_REDIRECTED") throw new Error("log write failed");
-    return original(event);
-  };
-  const { response, leadId } = await submitGate(w.deps, w.ctx, input(w));
-  assert.equal(response.ok, true, "the lead was saved; losing a log line must not strand the buyer");
-  assert.ok(leadId);
+  assert.deepEqual(await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId), { mode: "required", returning: false });
 });
 
 // =================================================================================================
@@ -492,21 +484,21 @@ test("attribution input is sanitised: unknown fields dropped, oversize values ca
 // FUNNEL EVENTS (anonymous) — and no PII anywhere in them
 // =================================================================================================
 
-test("funnel: gate shown → form started → lead submitted → redirected, in order, each with only anonymous fields", async () => {
+test("funnel: gate shown → form started → lead submitted, in order, each with only anonymous fields", async () => {
   const w = await world();
-  await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null, "required");
+  await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null);
   await recordFormStarted(w.deps, w.ctx, w.verified.id, "developer_page");
   await submitGate(w.deps, w.ctx, input(w));
 
-  assert.deepEqual(names(w.events), ["assistance_gate_shown", "assistance_form_started", "lead_submitted", "official_website_redirected"]);
+  assert.deepEqual(names(w.events), ["assistance_gate_shown", "assistance_form_started", "lead_submitted"]);
 
-  const [shown, started, submitted, redirected] = w.events as unknown as Array<Record<string, unknown>>;
+  const [shown, started, submitted] = w.events as unknown as Array<Record<string, unknown>>;
   assert.equal(shown.returningVisitor, false);
   assert.equal(shown.developerId, w.verified.id);
   assert.equal(started.sourceCta, "developer_page");
   assert.equal(submitted.contactPreference, "WHATSAPP");
   assert.equal(submitted.newLead, true);
-  assert.equal(redirected.targetDomain, "acme-realty.example");
+  assert.doesNotMatch(JSON.stringify(w.events), WEBSITE, "no analytics event carries the developer's website");
   for (const event of w.events) assert.equal((event as { sessionId: string }).sessionId, "session-1");
 });
 
@@ -514,7 +506,7 @@ test("funnel: a repeat submission is recorded as newLead=false, and a returning 
   const w = await world();
   const first = await submitGate(w.deps, w.ctx, input(w));
   w.events.length = 0;
-  await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId, "required");
+  await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId);
   await continueAsReturning(w.deps, w.ctx, first.leadId!, { developerId: w.verified.id, sourceCta: "developer_page" });
   const shown = w.events.find((e) => e.eventName === "assistance_gate_shown") as unknown as Record<string, unknown>;
   const submitted = w.events.find((e) => e.eventName === "lead_submitted") as unknown as Record<string, unknown>;
@@ -525,7 +517,7 @@ test("funnel: a repeat submission is recorded as newLead=false, and a returning 
 test("funnel: NO PII — no event, in any scenario, contains the phone, name, email, a lead id or a note", async () => {
   const w = await world();
   const first = await submitGate(w.deps, w.ctx, input(w, { name: "Asha Verma" }));
-  await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId, "required");
+  await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", first.leadId);
   await recordFormStarted(w.deps, w.ctx, w.verified.id, "directory_card");
   await continueAsReturning(w.deps, w.ctx, first.leadId!, { developerId: w.verified.id, sourceCta: "developer_page" });
   await submitGate(w.deps, w.ctx, input(w, { phone: "12345" })); // a failed attempt must not leak either
@@ -534,7 +526,7 @@ test("funnel: NO PII — no event, in any scenario, contains the phone, name, em
   for (const secret of ["9876543210", "98765", "+91", "Asha", "Verma", first.leadId!, "@", "utm", "google"]) {
     assert.ok(!dump.includes(secret), `"${secret}" leaked into analytics`);
   }
-  const allowedKeys = new Set(["eventName", "occurredAt", "sessionId", "userId", "deviceType", "developerId", "sourceCta", "returningVisitor", "contactPreference", "newLead", "targetDomain"]);
+  const allowedKeys = new Set(["eventName", "occurredAt", "sessionId", "userId", "deviceType", "developerId", "sourceCta", "returningVisitor", "contactPreference", "newLead"]);
   for (const event of w.events) {
     for (const key of Object.keys(event)) assert.ok(allowedKeys.has(key), `unexpected analytics key: ${key}`);
   }
@@ -546,7 +538,7 @@ test("funnel: an unknown or unverified developer records no funnel events (no ju
   await recordFormStarted(w.deps, w.ctx, "not-a-uuid", "developer_page");
   await recordFormStarted(w.deps, w.ctx, w.verified.id, "evil");
   assert.deepEqual(w.events, []);
-  const state = await getGateState(w.deps, w.ctx, w.unverified.id, "developer_page", null, "required");
+  const state = await getGateState(w.deps, w.ctx, w.unverified.id, "developer_page", null);
   assert.equal(state.mode, "unavailable");
   assert.deepEqual(w.events, []);
 });
@@ -561,22 +553,29 @@ test("funnel: an analytics outage never breaks the gate", async () => {
 });
 
 // =================================================================================================
-// OPERATOR ESCAPE HATCH (LEAD_GATE_MODE=off)
+// NO MODES, NO BYPASS
 // =================================================================================================
 
-test("mode off: hands over only the VERIFIED destination, without a lead — and an unverified developer still gets nothing", async () => {
+test("no bypass: getGateState has no mode argument and can only return the form, the returning card or 'unavailable'", async () => {
   const w = await world();
-  const state = await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null, "off");
-  assert.deepEqual(state, { mode: "off", destinationUrl: "https://acme-realty.example/home", destinationDomain: "acme-realty.example" });
-  assert.equal(w.lead.snapshot().leads.length, 0);
-  assert.equal((await getGateState(w.deps, w.ctx, w.unverified.id, "developer_page", null, "off")).mode, "unavailable");
+  assert.equal(getGateState.length, 5, "(deps, ctx, developerId, sourceCta, leadId) — nothing else can change what it returns");
+  const states = [
+    await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null),
+    await getGateState(w.deps, w.ctx, w.unverified.id, "developer_page", null),
+  ];
+  for (const state of states) {
+    assert.ok(["required", "unavailable"].includes(state.mode));
+    assert.doesNotMatch(JSON.stringify(state), WEBSITE);
+  }
+  assert.equal(w.lead.snapshot().leads.length, 0, "opening the gate never creates a lead");
 });
 
-test("mode off is never reached by a failure: a database error in 'required' mode stays an error", async () => {
+test("no bypass: a database error while the gate loads stays an error — it never degrades into anything that exposes a website", async () => {
   const w = await world();
   w.deps.developers.developers.getById = async () => {
     throw new Error("db");
   };
-  const state = await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null, "required");
+  const state = await getGateState(w.deps, w.ctx, w.verified.id, "developer_page", null);
   assert.equal(state.mode, "unavailable");
+  assert.doesNotMatch(JSON.stringify(state), WEBSITE);
 });

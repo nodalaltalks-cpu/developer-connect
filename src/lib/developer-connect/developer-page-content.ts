@@ -32,14 +32,15 @@ export function buildDeveloperMetadataText(developer: PublicDeveloperProfile): D
     };
   }
 
-  const domain = developer.officialWebsite.canonicalDomain;
+  // The title keeps its established "Official Website" pattern (it is the keyword buyers search). The
+  // description states the verification but never names the site: the domain is internal data.
   return {
     title: city
       ? `${name} Official Website in ${city} | ${SITE_NAME}`
       : `${name} Official Website | ${SITE_NAME}`,
     description: city
-      ? `Official website of ${name}, a real estate developer in ${city}. ${SITE_NAME} has verified ${domain} as its official website.`
-      : `Official website of ${name}, a real estate developer. ${SITE_NAME} has verified ${domain} as its official website.`,
+      ? `${name} is a real estate developer in ${city}. ${SITE_NAME} has verified its official website. Share your requirement and we'll help connect you.`
+      : `${name} is a real estate developer. ${SITE_NAME} has verified its official website. Share your requirement and we'll help connect you.`,
   };
 }
 
@@ -76,11 +77,9 @@ export function developerIntroText(
   }
 
   if (developer.officialWebsite) {
-    const { canonicalDomain, verifiedAt } = developer.officialWebsite;
+    const { verifiedAt } = developer.officialWebsite;
     const when = verifiedAt ? ` on ${formatDate(verifiedAt)}` : "";
-    sentences.push(
-      `${developer.displayName}'s official website is ${canonicalDomain}, as verified by Developer Connects${when}.`,
-    );
+    sentences.push(`${developer.displayName}'s official website has been verified by Developer Connects${when}.`);
   }
 
   return sentences.join(" ");

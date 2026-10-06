@@ -11,6 +11,7 @@ import {
 import { getPublicDeveloperBySlug, listVerifiedDevelopers } from "../search-service.ts";
 import { DuplicateCandidateError, NotFoundError, UnauthorizedVerificationActionError } from "../errors.ts";
 import { setUpTestDeveloper } from "./test-helpers.ts";
+import { internalSearchDomain } from "../public-view.ts";
 
 const founder = { actorType: "FOUNDER" as const, actorId: "founder-1" };
 
@@ -317,7 +318,7 @@ test("updateCandidateUrl: re-verification is an explicit Founder approval — th
 
   await approveCandidate(repos, candidate.id, founder, "Re-checked the new website");
   const publicProfile = await getPublicDeveloperBySlug(repos, developer.slug);
-  assert.equal(publicProfile?.officialWebsite?.canonicalDomain, "different-domain.example");
+  assert.equal(internalSearchDomain(publicProfile!), "different-domain.example");
 });
 
 test("updateCandidateUrl: the invariant lives in the service — a non-FOUNDER cannot change a VERIFIED URL at all", async () => {

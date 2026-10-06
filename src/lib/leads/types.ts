@@ -67,6 +67,7 @@ export const LEAD_EVENT_TYPES = [
   "TEMPERATURE_CHANGED",
   "OWNER_CHANGED",
   "FOLLOW_UP_COMPLETED",
+  "DEVELOPER_CONNECT_REQUESTED",
 ] as const;
 export type LeadEventType = (typeof LEAD_EVENT_TYPES)[number];
 

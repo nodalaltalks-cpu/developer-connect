@@ -15,12 +15,12 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "What is Developer Connects?",
     answer:
-      "A directory of real-estate developers that helps you find a developer's genuine official website and continue your research directly with the source. We also offer optional property assistance.",
+      "A directory of verified real-estate developers. We review each developer's official website, and our property assistance helps you connect with the developer based on your requirement.",
   },
   {
     question: "Is Developer Connects the developer, or a party to my purchase?",
     answer:
-      "No. Developer Connects is not the developer of any project and is not a party to your agreement with a developer. We help you find the developer's own website, and we offer optional property assistance. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on whether a developer's website is verified.",
+      "No. Developer Connects is not the developer of any project and is not a party to your agreement with a developer. We verify developers' official websites and help buyers connect with developers through property assistance. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on whether a developer's website is verified.",
   },
   {
     question: "How do you verify developers?",
@@ -42,9 +42,9 @@ const FAQS: { question: string; answer: string }[] = [
       "You can search and browse developer pages freely. When you continue to a developer's official website, we ask for your WhatsApp number or phone so our property team can help with your enquiry. The developer does not require it — you are sharing it with Developer Connects, and you choose whether we contact you by WhatsApp or phone call.",
   },
   {
-    question: "How do I visit the developer's official website?",
+    question: "How do I get in touch with a developer?",
     answer:
-      "Open a developer's page and use the “Visit official website” button. After you share your contact details for property assistance, their real site opens in a new tab.",
+      "Open a developer's page and use the “Connect with” button. You share your WhatsApp number or phone with Developer Connects, and our property team contacts you to help connect you with the developer. Developer Connects does not send you to the developer's website.",
   },
   {
     question: "What if I find incorrect information?",
@@ -64,12 +64,12 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "Can I buy property directly from the developer without a broker?",
     answer:
-      "Yes. Developers sell new and off-plan homes through their own sales teams. Find the developer on Developer Connects, open its verified official website, and contact the developer through the details published there. You can also ask Developer Connects for property assistance. Our buy-direct guide walks through every step.",
+      "Developers sell new and off-plan homes through their own sales teams, and many buyers deal with the developer directly. Find the developer on Developer Connects and use the “Connect with” button: our property team contacts you and helps connect you with the developer. Our buy-direct guide walks through every step.",
   },
   {
     question: "How do I avoid fake developer websites?",
     answer:
-      "Don't rely on search ads or links sent to you. Each developer on Developer Connects links to the website we have verified as its official one. Also check the project with the real estate regulator for its location before you pay anything.",
+      "Don't rely on search ads or links sent to you. Developer Connects verifies each developer's official website, and our property team connects you with the real developer. Also check the project with the real estate regulator for its location before you pay anything.",
   },
 ];
 

@@ -7,23 +7,23 @@ import { GATE_ERROR_MESSAGES, gateCopy } from "@/lib/leads/gate/gate-copy";
 import type { GateSourceCta } from "@/lib/leads/gate/gate-config";
 import {
   actionForResult,
+  gatePreference,
   gateReducer,
   initialGateState,
   runGateSubmit,
   type GateAction,
   type GateState,
-  type TabHandle,
 } from "@/lib/leads/gate/gate-flow";
 import { MODAL_IDS, preemptModal, releaseModal } from "@/lib/modal-lock";
 import { AssistanceGateView } from "@/components/assistance-gate-view";
 
 /**
- * The property-assistance gate: shown whenever a visitor presses "Visit
- * official website". It asks, plainly, for a WhatsApp number or phone so
- * Developer Connects' property team can help — and says plainly that the
- * DEVELOPER does not need it. After a successful submit the visitor is sent
- * on to the verified official website; there is no way past it that skips the
- * save, and a failure shows a retry state, never a bypass.
+ * The property-assistance gate: shown whenever a visitor presses "Connect with
+ * developer". It asks, plainly, for a WhatsApp number or phone so Developer
+ * Connects' property team can help connect them — and says plainly that the
+ * DEVELOPER does not require it. After a successful submit the visitor sees
+ * "we've received your request"; they are never sent to a developer's website,
+ * and a failure shows a retry state.
  *
  * Two parts (the view lives in assistance-gate-view.tsx):
  *  - AssistanceGateView: a pure, stateless rendering of a GateState (so every
@@ -33,42 +33,18 @@ import { AssistanceGateView } from "@/components/assistance-gate-view";
 
 // --- container ------------------------------------------------------------------------------------
 
-/** Opens a blank tab synchronously (inside the click, so popup blockers allow it) and later points it at the destination. */
-function openBlankTab(): TabHandle | null {
-  const tab = window.open("about:blank", "_blank");
-  if (!tab) return null;
-  try {
-    tab.opener = null; // the destination site gets no handle back to us
-  } catch {
-    /* some browsers forbid it; the tab is still ours alone */
-  }
-  return {
-    navigate: (url) => {
-      tab.location.replace(url);
-    },
-    close: () => {
-      try {
-        tab.close();
-      } catch {
-        /* nothing to do */
-      }
-    },
-  };
-}
-
 export interface AssistanceGateProps {
   developerId: string;
   developerName: string;
-  domain: string;
   sourceCta: GateSourceCta;
-  /** When the visitor pressed "Visit official website" (ISO). */
-  clickedAt: string;
+  /** When the visitor pressed "Connect with developer" (ISO). */
+  requestedAt: string;
   onClose: () => void;
-  /** Fired once the buyer has been sent on (or can continue) — the details are saved. */
+  /** Fired once the request is saved. */
   onCompleted: () => void;
 }
 
-export function AssistanceGate({ developerId, developerName, domain, sourceCta, clickedAt, onClose, onCompleted }: AssistanceGateProps) {
+export function AssistanceGate({ developerId, developerName, sourceCta, requestedAt, onClose, onCompleted }: AssistanceGateProps) {
   const [state, dispatch] = useReducer(gateReducer, undefined, () => initialGateState());
   const startedRef = useRef(false);
   const stateRef = useRef(state);
@@ -76,7 +52,7 @@ export function AssistanceGate({ developerId, developerName, domain, sourceCta, 
     stateRef.current = state;
   }, [state]);
 
-  const copy = gateCopy(developerName, domain, state.form.preference);
+  const copy = gateCopy(developerName, gatePreference(state));
 
   // One modal at a time. The buyer explicitly asked for the gate, so it takes priority: an open sign-in prompt is
   // dismissed (never stacked under or over it) — pressing the button is never a silent dead end.
@@ -91,7 +67,6 @@ export function AssistanceGate({ developerId, developerName, domain, sourceCta, 
     void getGateState(developerId, sourceCta).then((response) => {
       if (cancelled) return;
       if (response.mode === "unavailable") dispatch({ type: "LOAD_FAILED", code: response.code, message: response.message });
-      else if (response.mode === "off") dispatch({ type: "LOADED_OFF", destinationUrl: response.destinationUrl });
       else if (response.returning) dispatch({ type: "LOADED_RETURNING", maskedPhone: response.maskedPhone, preference: response.contactPreference });
       else dispatch({ type: "LOADED_NEW" });
     }).catch(() => {
@@ -126,11 +101,10 @@ export function AssistanceGate({ developerId, developerName, domain, sourceCta, 
       }
       dispatch({ type: "SUBMIT_START", attempt });
       const attribution = readAttributionForSubmit();
-      // NOTE: runGateSubmit opens the tab synchronously, before any await — keep this call in the click's own tick.
       const work =
         attempt === "form"
           ? runGateSubmit(
-              { submit: submitGate, openTab: openBlankTab },
+              { submit: submitGate },
               {
                 developerId,
                 sourceCta,
@@ -139,18 +113,18 @@ export function AssistanceGate({ developerId, developerName, domain, sourceCta, 
                 contactPreference: current.form.preference,
                 name: current.form.name || undefined,
                 attribution,
-                clickedAt,
+                requestedAt,
                 website: (document.querySelector('input[name="website"]') as HTMLInputElement | null)?.value ?? "",
               },
             )
-          : runGateSubmit({ submit: continueAsReturning, openTab: openBlankTab }, { developerId, sourceCta, attribution, clickedAt });
+          : runGateSubmit({ submit: continueAsReturning }, { developerId, sourceCta, attribution, requestedAt });
       void work.then((result) => {
         const action: GateAction = actionForResult(result);
         dispatch(action);
         if (result.kind !== "error") onCompleted();
       });
     },
-    [developerId, sourceCta, clickedAt, onCompleted],
+    [developerId, sourceCta, requestedAt, onCompleted],
   );
 
   const onEdit = useCallback(

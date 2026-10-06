@@ -4,7 +4,7 @@
  * without a browser/DOM. No marketing language, no phone-number capture.
  */
 export function buildShareMessage(developerName: string, url: string): string {
-  return `I found the official website for ${developerName} on Developer Connects:\n${url}`;
+  return `I found ${developerName} on Developer Connects:\n${url}`;
 }
 
 export function buildWhatsAppShareUrl(developerName: string, url: string): string {
@@ -12,7 +12,7 @@ export function buildWhatsAppShareUrl(developerName: string, url: string): strin
 }
 
 export function buildMailtoShareUrl(developerName: string, url: string): string {
-  const subject = encodeURIComponent(`Official website for ${developerName}`);
+  const subject = encodeURIComponent(`${developerName} on Developer Connects`);
   const body = encodeURIComponent(buildShareMessage(developerName, url));
   return `mailto:?subject=${subject}&body=${body}`;
 }

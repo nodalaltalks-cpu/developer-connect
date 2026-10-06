@@ -71,15 +71,15 @@ const submission = (developerId: string, phone: string, extra: Record<string, un
   ...extra,
 });
 
-test("postgres gate: a verified developer + valid number saves the lead, consent, attribution and events, then returns the verified URL", { skip }, async () => {
+test("postgres gate: a verified developer + valid number saves the lead, consent, attribution and events, and confirms — returning no URL", { skip }, async () => {
   const s = await setup();
   const developer = await verifiedDeveloper(s);
   const phone = await freshPhone(s);
 
   const { response, leadId } = await s.gate.submitGate(deps(s), ctx(), submission(developer.id, phone));
   assert.ok(response.ok);
-  assert.equal(response.destinationUrl, developer.url);
-  assert.equal(response.destinationDomain, developer.domain);
+  assert.deepEqual(Object.keys(response).sort(), ["contactPreference", "maskedPhone", "ok"]);
+  assert.ok(!JSON.stringify(response).includes(developer.domain));
   assert.ok(leadId);
 
   const lead = (await s.leads.leads.getById(leadId!))!;
@@ -92,11 +92,13 @@ test("postgres gate: a verified developer + valid number saves the lead, consent
   assert.equal(touch.utmSource, "google");
 
   const timeline = await s.leads.events.listByLead(leadId!);
-  assert.deepEqual(timeline.map((e) => e.eventType), ["LEAD_CREATED", "CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "OFFICIAL_WEBSITE_CLICKED", "DEVELOPER_WEBSITE_REDIRECTED"]);
-  assert.equal(timeline.find((e) => e.eventType === "OFFICIAL_WEBSITE_CLICKED")!.payload.websiteUrl, developer.url);
+  assert.deepEqual(timeline.map((e) => e.eventType), ["LEAD_CREATED", "CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "DEVELOPER_CONNECT_REQUESTED"]);
+  const request = timeline.find((e) => e.eventType === "DEVELOPER_CONNECT_REQUESTED")!;
+  assert.equal(request.developerId, developer.id);
+  assert.ok(!JSON.stringify(timeline).includes(developer.domain), "the developer's website is not recorded on the lead");
 });
 
-test("postgres gate: an unverified developer cannot produce a destination — no redirect and NO lead row", { skip }, async () => {
+test("postgres gate: an unverified developer cannot take a request — NO lead row", { skip }, async () => {
   const s = await setup();
   const unverified = await unverifiedDeveloper(s);
   const phone = await freshPhone(s);
@@ -111,17 +113,17 @@ test("postgres gate: an unverified developer cannot produce a destination — no
   assert.equal(rows[0].n, 0);
 });
 
-test("postgres gate: hostile client fields cannot change where the buyer is sent", { skip }, async () => {
+test("postgres gate: hostile client fields cannot introduce a URL anywhere", { skip }, async () => {
   const s = await setup();
   const developer = await verifiedDeveloper(s);
   const hostile = { ...submission(developer.id, await freshPhone(s)), url: "https://evil.example/", redirect: "//evil.example", destinationUrl: "javascript:alert(1)" };
   const { response } = await s.gate.submitGate(deps(s), ctx(), hostile as never);
   assert.ok(response.ok);
-  assert.equal(response.destinationUrl, developer.url);
   assert.ok(!JSON.stringify(response).includes("evil"));
+  assert.ok(!JSON.stringify(await s.leads.events.listByLead((await s.leads.leads.listForQueue(1))[0].id)).includes("evil"));
 });
 
-test("postgres gate: 8 simultaneous submissions of one number create exactly ONE lead, and every buyer is sent on", { skip }, async () => {
+test("postgres gate: 8 simultaneous submissions of one number create exactly ONE lead, and every buyer is confirmed", { skip }, async () => {
   const s = await setup();
   const developer = await verifiedDeveloper(s);
   const phone = await freshPhone(s);
@@ -139,15 +141,15 @@ test("postgres gate: a returning buyer continues with one tap using the number o
   const other = await verifiedDeveloper(s, "Second Gate Co");
   const first = await s.gate.submitGate(deps(s), ctx(), submission(developer.id, await freshPhone(s)));
 
-  const state = await s.gate.getGateState(deps(s), ctx(), other.id, "directory_card", first.leadId, "required");
+  const state = await s.gate.getGateState(deps(s), ctx(), other.id, "directory_card", first.leadId);
   assert.equal(state.mode, "required");
   assert.ok("returning" in state && state.returning);
   const again = await s.gate.continueAsReturning(deps(s), ctx(), first.leadId, { developerId: other.id, sourceCta: "directory_card" });
   assert.ok(again.response.ok);
-  assert.equal(again.response.destinationUrl, other.url);
+  assert.ok(!JSON.stringify(again.response).includes(other.domain));
   assert.equal(again.leadId, first.leadId);
 
-  const clicks = (await s.leads.events.listByLead(first.leadId!)).filter((e) => e.eventType === "OFFICIAL_WEBSITE_CLICKED");
+  const clicks = (await s.leads.events.listByLead(first.leadId!)).filter((e) => e.eventType === "DEVELOPER_CONNECT_REQUESTED");
   assert.deepEqual(clicks.map((c) => c.developerId), [developer.id, other.id]);
   const lead = (await s.leads.leads.getById(first.leadId!))!;
   assert.equal(lead.developerId, developer.id, "the originally researched developer is kept");
@@ -167,7 +169,7 @@ test("postgres gate: a database failure shows an error — NO destination, NO ha
           events: {
             ...tx.events,
             append: async (event) => {
-              if (event.eventType === "OFFICIAL_WEBSITE_CLICKED") throw new Error("simulated outage");
+              if (event.eventType === "DEVELOPER_CONNECT_REQUESTED") throw new Error("simulated outage");
               return tx.events.append(event);
             },
           },
@@ -207,13 +209,13 @@ test("postgres gate: the rate limit counts real touch rows — the sixth submiss
   assert.deepEqual(outcomes, ["ok", "ok", "ok", "ok", "ok", "RATE_LIMITED"]);
 });
 
-test("postgres gate: funnel events land in analytics_events (shown → started → submitted → redirected) with NO personal data", { skip }, async () => {
+test("postgres gate: funnel events land in analytics_events (shown → started → submitted) with NO personal data", { skip }, async () => {
   const s = await setup();
   const developer = await verifiedDeveloper(s);
   const session = ctx();
   const phone = await freshPhone(s);
 
-  await s.gate.getGateState(deps(s), session, developer.id, "developer_page", null, "required");
+  await s.gate.getGateState(deps(s), session, developer.id, "developer_page", null);
   await s.gate.recordFormStarted(deps(s), session, developer.id, "developer_page");
   const { leadId } = await s.gate.submitGate(deps(s), session, submission(developer.id, phone, { name: "Meera Kapoor" }));
   await s.gate.submitGate(deps(s), session, submission(developer.id, "12345")); // a failed attempt must not leak either
@@ -222,11 +224,11 @@ test("postgres gate: funnel events land in analytics_events (shown → started �
     await s.db.execute(s.sql`select event_name, developer_id, payload, session_id, user_id from analytics_events where session_id = ${session.sessionId} order by occurred_at, id`)
   ).rows as Array<{ event_name: string; developer_id: string; payload: Record<string, unknown>; session_id: string; user_id: string | null }>;
 
-  assert.deepEqual(rows.map((r) => r.event_name), ["assistance_gate_shown", "assistance_form_started", "lead_submitted", "official_website_redirected"]);
+  assert.deepEqual(rows.map((r) => r.event_name), ["assistance_gate_shown", "assistance_form_started", "lead_submitted"]);
   assert.ok(rows.every((r) => r.developer_id === developer.id));
   const submitted = rows.find((r) => r.event_name === "lead_submitted")!;
   assert.deepEqual(submitted.payload, { sourceCta: "developer_page", contactPreference: "WHATSAPP", newLead: true, deviceType: "mobile" });
-  assert.equal(rows.find((r) => r.event_name === "official_website_redirected")!.payload.targetDomain, developer.domain);
+  assert.ok(!JSON.stringify(rows).includes(developer.domain), "no analytics row names the developer's website");
 
   const dump = JSON.stringify(rows);
   for (const secret of [phone, phone.slice(3), "Meera", "Kapoor", leadId!, "google", "@"]) {
@@ -248,13 +250,4 @@ test("postgres gate: capturing a lead never changes the developer's verification
   await s.gate.submitGate(deps(s), ctx(), submission(developer.id, phone));
   await s.gate.submitGate(deps(s), ctx(), submission(developer.id, phone));
   assert.equal(await snapshot(), before);
-});
-
-test("postgres gate: LEAD_GATE_MODE=off releases only the VERIFIED destination, with no lead — and still nothing for an unverified developer", { skip }, async () => {
-  const s = await setup();
-  const developer = await verifiedDeveloper(s);
-  const unverified = await unverifiedDeveloper(s);
-  const off = await s.gate.getGateState(deps(s), ctx(), developer.id, "developer_page", null, "off");
-  assert.deepEqual(off, { mode: "off", destinationUrl: developer.url, destinationDomain: developer.domain });
-  assert.equal((await s.gate.getGateState(deps(s), ctx(), unverified.id, "developer_page", null, "off")).mode, "unavailable");
 });

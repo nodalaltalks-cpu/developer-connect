@@ -147,11 +147,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
                       >
                         {developer.displayName}
                       </Link>
-                      {developer.officialWebsite && (
-                        <span className="block truncate font-mono text-xs text-muted-foreground">
-                          {developer.officialWebsite.canonicalDomain}
-                        </span>
-                      )}
+                      <span className="block truncate text-xs text-muted-foreground">{developer.city}</span>
                     </li>
                   ))}
                 </ul>

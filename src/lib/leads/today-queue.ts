@@ -179,7 +179,7 @@ function classify(input: TodayQueueInput, now: Date): Candidate | null {
     const respondedAfter = summary?.lastContactAt && summary.lastContactAt.getTime() >= buyerAt.getTime();
     if (!respondedAfter && buyerAt.getTime() > lead.createdAt.getTime()) {
       const where = summary?.lastBuyerActivityDeveloperName
-        ? `came back — clicked ${summary.lastBuyerActivityDeveloperName}'s website ${formatDuration(now.getTime() - buyerAt.getTime())} ago`
+        ? `came back — asked to connect with ${summary.lastBuyerActivityDeveloperName} ${formatDuration(now.getTime() - buyerAt.getTime())} ago`
         : `came back ${formatDuration(now.getTime() - buyerAt.getTime())} ago`;
       return make("RECENT_ACTIVITY", [where, budget, timeline], -buyerAt.getTime());
     }

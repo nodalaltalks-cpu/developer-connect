@@ -6,8 +6,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { OfficialWebsiteVerifiedBadge } from "@/components/official-website-verified-badge";
-import { VisitOfficialWebsiteButton } from "@/components/visit-official-website-button";
-import { ExternalDomainLink } from "@/components/external-domain-link";
+import { ConnectWithDeveloperButton } from "@/components/connect-with-developer-button";
 import { DeveloperPageViewTracker } from "@/components/developer-page-view-tracker";
 import { ShareDeveloper } from "@/components/share-developer";
 import { ReportInaccurateInfo } from "@/components/report-inaccurate-info";
@@ -23,7 +22,6 @@ import {
   serializeJsonLd,
 } from "@/lib/developer-connect/developer-page-content";
 import { buyDirectMarketForLocation, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
-import { getGateMode } from "@/lib/leads/gate/gate-config";
 
 // React cache(): generateMetadata and the page both need this developer in
 // the same request, so the second call reuses the first's result instead of
@@ -38,18 +36,17 @@ const loadDeveloper = cache(async (slug: string) => {
  * describing the third-party developer entity itself, distinct from
  * Developer Connects' own Organization markup in the root layout. Only
  * ever built for a verified developer: every property here corresponds
- * to text already visible on the page, and `url` is deliberately the
- * developer's own verified official website, not this page's URL — the
- * exact developer -> official-website relationship this product exists
- * to establish. No logo, sameAs, description, or rating: none of that is
- * real, reviewed data this page actually has.
+ * to text already visible on the page. `url` is deliberately omitted
+ * (schema.org does not require it): the developer's own website is internal
+ * verification data and is never published here. No logo, sameAs,
+ * description, or rating: none of that is real, reviewed data this page
+ * actually has.
  */
 function buildDeveloperStructuredData(developer: PublicDeveloperProfile) {
   const organization: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: developer.displayName,
-    url: developer.officialWebsite!.url,
     address: {
       "@type": "PostalAddress",
       addressLocality: developer.city,
@@ -140,7 +137,6 @@ export default async function DeveloperPage({
   const { userId } = await auth();
   const introText = developerIntroText(developer, formatDate);
   const buyDirectGuide = buyDirectMarketForLocation(developer.country, developer.city);
-  const gateRequired = getGateMode() === "required";
 
   // Only fetched for a verified developer — an unverified page is
   // noindexed and low-traffic; there is no benefit to spending an extra
@@ -208,22 +204,14 @@ export default async function DeveloperPage({
             {developer.officialWebsite ? (
               <div className="mt-6 rounded-lg border border-border bg-muted p-6">
                 <OfficialWebsiteVerifiedBadge full />
-                <p className="mt-4 text-sm text-muted-foreground">Official website</p>
-                {gateRequired ? (
-                  // The destination is only released after the assistance gate, so the domain is shown as plain text.
-                  <p className="mt-1 break-all font-mono text-lg text-foreground">{developer.officialWebsite.canonicalDomain}</p>
-                ) : (
-                  <ExternalDomainLink
-                    url={developer.officialWebsite.url}
-                    domain={developer.officialWebsite.canonicalDomain}
-                    className="mt-1 font-mono text-lg"
-                  />
-                )}
+                <p className="mt-4 text-sm text-foreground">
+                  Interested in {developer.displayName}? Share your requirement with Developer Connects and we&apos;ll help
+                  connect you.
+                </p>
                 <div className="mt-5">
-                  <VisitOfficialWebsiteButton
+                  <ConnectWithDeveloperButton
                     developerId={developer.id}
                     developerName={developer.displayName}
-                    domain={developer.officialWebsite.canonicalDomain}
                     sourceCta="developer_page"
                   />
                 </div>
@@ -267,8 +255,8 @@ export default async function DeveloperPage({
                 </h2>
                 <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
                   <li>
-                    Contact {developer.displayName} only through the details published on its official
-                    website, {developer.officialWebsite.canonicalDomain}.
+                    Ask {developer.displayName}&apos;s sales team for prices, payment terms and project details in
+                    writing.
                   </li>
                   <li>Check the project is registered with the real estate regulator for its location.</li>
                   <li>Get prices and payment terms in writing, and pay only into the project account named in your agreement.</li>
@@ -303,11 +291,7 @@ export default async function DeveloperPage({
                     >
                       {other.displayName}
                     </Link>
-                    {other.officialWebsite && (
-                      <span className="block truncate font-mono text-xs text-muted-foreground">
-                        {other.officialWebsite.canonicalDomain}
-                      </span>
-                    )}
+                    <span className="block truncate text-xs text-muted-foreground">{other.city}</span>
                   </li>
                 ))}
               </ul>

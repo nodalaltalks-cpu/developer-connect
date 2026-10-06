@@ -8,42 +8,42 @@ import { buttonClassName } from "@/components/ui/button";
 import { notifyOfficialWebsiteClicked } from "@/lib/login-conversion";
 import type { GateSourceCta } from "@/lib/leads/gate/gate-config";
 
-interface VisitOfficialWebsiteButtonProps {
+interface ConnectWithDeveloperButtonProps {
   developerId: string;
   developerName: string;
-  /** The verified domain, shown to the buyer in the gate (display only — the destination itself is resolved by the server). */
-  domain: string;
   sourceCta?: GateSourceCta;
+  /** "primary" on the developer page, "compact" on directory cards. */
+  size?: "primary" | "compact";
 }
 
 /**
- * "Visit official website". Pressing it opens the property-assistance gate
- * (see assistance-gate.tsx); the buyer reaches the verified official website
- * only after completing it.
+ * "Connect with {Developer}". Pressing it opens the property-assistance gate
+ * (see assistance-gate.tsx), where the buyer shares their details with
+ * Developer Connects and we help connect them with the developer.
  *
- * Note what is NOT here any more: a URL. The button is a real <button>, the
- * browser is never handed the destination up front, and the address that is
- * eventually opened is resolved by the server from the verified developer
- * record once the buyer's details are saved.
+ * Note what is NOT here: a URL, a domain, a link. The button is a real
+ * <button>; the browser is never handed a developer website, because the
+ * buyer is never sent to one. The developer's verified website is internal
+ * data for the Founder.
  *
- * The existing anonymous `official_website_clicked` event still fires on the
- * press itself, so click analytics stay continuous with the earlier data.
+ * The anonymous `official_website_clicked` event still fires on the press
+ * (its stored name is kept so analytics stay continuous), without a domain.
  */
-export function VisitOfficialWebsiteButton({
+export function ConnectWithDeveloperButton({
   developerId,
   developerName,
-  domain,
   sourceCta = "developer_page",
-}: VisitOfficialWebsiteButtonProps) {
+  size = "primary",
+}: ConnectWithDeveloperButtonProps) {
   const [openedAt, setOpenedAt] = useState<string | null>(null);
 
   const handleClick = () => {
-    void recordOfficialWebsiteClick(developerId, domain);
+    void recordOfficialWebsiteClick(developerId);
     setOpenedAt(new Date().toISOString());
   };
 
   const close = useCallback(() => setOpenedAt(null), []);
-  // Fires once the buyer has been sent on; lets the sign-in prompt count it — after the gate, never over it.
+  // Fires once the request is saved; lets the sign-in prompt count it - after the gate, never over it.
   const completed = useCallback(() => notifyOfficialWebsiteClicked(), []);
 
   return (
@@ -52,19 +52,17 @@ export function VisitOfficialWebsiteButton({
         type="button"
         onClick={handleClick}
         aria-haspopup="dialog"
-        className={buttonClassName("primary", "w-full sm:w-auto text-base px-6 py-3.5")}
+        className={buttonClassName("primary", size === "primary" ? "w-full sm:w-auto text-base px-6 py-3.5" : "w-full")}
       >
-        Visit official website
-        <span aria-hidden="true">↗</span>
+        Connect with {developerName}
       </button>
       {openedAt &&
         createPortal(
           <AssistanceGate
             developerId={developerId}
             developerName={developerName}
-            domain={domain}
             sourceCta={sourceCta}
-            clickedAt={openedAt}
+            requestedAt={openedAt}
             onClose={close}
             onCompleted={completed}
           />,

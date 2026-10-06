@@ -288,7 +288,7 @@ test("explanation: a high-value lead leads with the budget and says when it was 
 test("explanation: a returning buyer says which developer they clicked and when", () => {
   const l = lead({ status: "CONTACTED", createdAt: ago(300) });
   const [entry] = buildTodayQueue([input(l, {}, { lastContactAt: ago(100), lastBuyerActivityAt: ago(2), lastBuyerActivityDeveloperName: "Beta Homes" })], NOW);
-  assert.equal(entry.summary, "Came back — clicked Beta Homes's website 2 hours ago");
+  assert.equal(entry.summary, "Came back — asked to connect with Beta Homes 2 hours ago");
 });
 
 test("explanation: a lead with no budget or timeline still gets a clear reason, and a contacted-before lead says so", () => {
@@ -353,7 +353,7 @@ test("service: getTodayQueue builds the queue from real lead history (new lead, 
     [c.lead.id, "RECENT_ACTIVITY"],
   ]);
   assert.match(queue[1].summary, /New lead from Acme Realty • ₹2\.5 Cr budget • Wants to buy within 30 days • No contact attempt in 6 hours/);
-  assert.match(queue[2].summary, /clicked Gamma Group's website 3 hours ago/);
+  assert.match(queue[2].summary, /asked to connect with Gamma Group 3 hours ago/);
   assert.ok(!queue.some((entry) => entry.leadId === d.lead.id));
 });
 

@@ -93,9 +93,10 @@ export default function TermsOfServicePage() {
 
       <LegalSection title="9. External developer websites">
         <p>
-          When you click &ldquo;Visit official website,&rdquo; you leave Developer Connects and go to a
-          third-party website that we don&apos;t control. Review that website&apos;s own terms, privacy policy,
-          and disclosures before relying on anything there or taking any action.
+          Developer Connects does not send you to developers&apos; own websites. If a Developer Connects team
+          member or anyone else shares a third-party website with you, it is a site we don&apos;t control. Review
+          that website&apos;s own terms, privacy policy, and disclosures before relying on anything there or
+          taking any action.
         </p>
       </LegalSection>
 

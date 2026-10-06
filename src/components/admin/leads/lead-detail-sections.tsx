@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ExternalDomainLink } from "@/components/external-domain-link";
 import { formatBudget, formatDateTime, formatEnumLabel, formatMoney } from "@/lib/leads/format";
 import { describeTimeline } from "@/lib/leads/timeline";
 import type { Booking, Lead, LeadConsent, LeadEvent, MarketingTouch } from "@/lib/leads/types";
@@ -46,16 +47,32 @@ export function RequirementCard({ lead }: { lead: Lead }) {
   );
 }
 
-export function InterestCard({ developerName, developersViewed }: { developerName: string | null; developersViewed: string[] }) {
+export function InterestCard({
+  developerName,
+  developersViewed,
+  developerWebsite,
+}: {
+  developerName: string | null;
+  developersViewed: string[];
+  /** The developer's verified website. Founder-only: it is internal data and is never shown to buyers. */
+  developerWebsite?: { url: string; domain: string } | null;
+}) {
   return (
     <Card title="Developer interest">
       <Rows
         rows={[
-          ["First researched", developerName],
-          ["Opened websites", developersViewed.length ? developersViewed.join(", ") : null],
+          ["Asked about", developerName],
+          ["All requests", developersViewed.length ? developersViewed.join(", ") : null],
+          [
+            "Verified website",
+            developerWebsite ? <ExternalDomainLink key="site" url={developerWebsite.url} domain={developerWebsite.domain} /> : null,
+          ],
         ]}
       />
-      <p className="mt-2 text-xs text-muted-foreground">Projects are not captured yet — only developers.</p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        The website is internal: buyers are never sent to it. Share it with a buyer yourself when it is the right next step. Projects are
+        not captured yet — only developers.
+      </p>
     </Card>
   );
 }

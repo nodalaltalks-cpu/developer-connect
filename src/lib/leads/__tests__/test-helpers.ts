@@ -20,7 +20,6 @@ export function captureInput(overrides: Partial<CaptureAssistanceLeadInput> = {}
     email: "asha.verma@example.com",
     contactPreference: "WHATSAPP",
     developer: DEVELOPER_A,
-    website: { url: "https://acme.example/", domain: "acme.example", verifiedAt: new Date("2026-09-01T00:00:00.000Z") },
     sourceCta: "developer_page",
     sessionId: "session-1",
     currentTouch: { sessionId: "session-1", landingPath: "/developers/acme-realty", utmSource: "google", utmMedium: "cpc", utmCampaign: "brand" },

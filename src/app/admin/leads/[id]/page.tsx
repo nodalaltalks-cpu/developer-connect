@@ -12,6 +12,7 @@ import {
   RequirementCard,
   TimelineCard,
 } from "@/components/admin/leads/lead-detail-sections";
+import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { telHref, whatsappHref } from "@/lib/leads/contact-links";
 import { formatDateTime, formatEnumLabel } from "@/lib/leads/format";
@@ -40,6 +41,12 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
   if (!detail) notFound();
   const { lead } = detail;
   const erased = lead.erasedAt !== null;
+
+  // The developer's verified website is INTERNAL data: only this founder-only page reads it (after requireFounder above),
+  // and it is never returned to a buyer or rendered on a public page.
+  const verified =
+    lead.developerId && !erased ? await createPostgresRepositories().candidates.getVerifiedForDeveloper(lead.developerId) : null;
+  const developerWebsite = verified ? { url: verified.url, domain: verified.canonicalDomain } : null;
 
   return (
     <div>
@@ -101,7 +108,7 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
 
         <div className="space-y-4">
           <RequirementCard lead={lead} />
-          <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} />
+          <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} developerWebsite={developerWebsite} />
           <AttributionCard firstTouch={detail.firstTouch} lastTouch={detail.lastTouch} sourceCta={lead.sourceCta} />
           <BookingsCard bookings={detail.bookings} />
           <TimelineCard events={detail.events} />

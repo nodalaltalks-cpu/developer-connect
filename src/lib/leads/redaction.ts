@@ -33,6 +33,7 @@ const SAFE_PAYLOAD_KEYS: Record<LeadEventType, readonly string[]> = {
   TEMPERATURE_CHANGED: ["from", "to"],
   OWNER_CHANGED: ["from", "to"],
   FOLLOW_UP_COMPLETED: [],
+  DEVELOPER_CONNECT_REQUESTED: ["developerSlug", "developerName", "sourceCta", "requestedAt"],
 };
 
 /** Requirement fields whose values are free text and so are dropped from a REQUIREMENT_UPDATED payload. */

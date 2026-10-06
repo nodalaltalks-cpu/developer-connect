@@ -35,11 +35,11 @@ export default function AboutPage() {
               <section>
                 <h2 className="text-lg font-semibold">What we do</h2>
                 <p className="mt-2 text-muted-foreground">
-                  Developer Connects is a directory of real-estate developers that helps you find a
-                  developer&apos;s genuine official website and continue your research directly with
-                  the source. We also offer optional property assistance: when you continue to a
-                  developer&apos;s website, you can share your WhatsApp number or phone so our
-                  property team can help with your enquiry.
+                  Developer Connects is a directory of verified real-estate developers. We review each
+                  developer&apos;s official website and approve it as the developer&apos;s own, and we
+                  offer property assistance: when you ask to connect with a developer, you share your
+                  WhatsApp number or phone with Developer Connects so our property team can help
+                  connect you based on your requirement.
                 </p>
               </section>
 
@@ -60,7 +60,7 @@ export default function AboutPage() {
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
                   <li>
                     Developer Connects is not the developer, and the developer does not require your
-                    phone number to view its website.
+                    phone number through this flow.
                   </li>
                   <li>
                     The details you share are given to Developer Connects, to help with your property

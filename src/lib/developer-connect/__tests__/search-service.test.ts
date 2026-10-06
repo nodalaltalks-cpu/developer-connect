@@ -16,6 +16,7 @@ import { submitWebsiteCandidate } from "../candidate-service.ts";
 import { approveCandidate, markReadyForReview } from "../verification-service.ts";
 import { createDeveloper } from "../developer-service.ts";
 import { setUpTestDeveloper } from "./test-helpers.ts";
+import { internalSearchDomain } from "../public-view.ts";
 
 const founder = { actorType: "FOUNDER" as const, actorId: "founder-1" };
 
@@ -398,7 +399,8 @@ test("getPublicDeveloperBySlug: a verified developer includes its official websi
   await verifyDeveloper(repos, developer.id, "https://example.com");
 
   const profile = await getPublicDeveloperBySlug(repos, developer.slug);
-  assert.equal(profile?.officialWebsite?.canonicalDomain, "example.com");
+  assert.equal(internalSearchDomain(profile!), "example.com");
+  assert.ok(!JSON.stringify(profile).includes("example.com"), "the domain is not part of the public profile");
 });
 
 // --- searchPublicDevelopers + geography: search and filters must refine

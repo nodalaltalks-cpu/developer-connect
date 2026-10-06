@@ -108,7 +108,7 @@ export interface LeadDetail {
   lastTouch: MarketingTouch | null;
   consents: LeadConsent[];
   bookings: Booking[];
-  /** Distinct developers whose official website the buyer opened, first-opened first. */
+  /** Distinct developers the buyer asked to be connected with, first-asked first. */
   developersViewed: string[];
   followUp: FollowUpState | null;
 }
@@ -128,7 +128,7 @@ export async function getLeadDetail(repos: LeadRepositories, leadId: string, now
 
   const viewed: string[] = [];
   for (const event of events) {
-    const name = event.eventType === "OFFICIAL_WEBSITE_CLICKED" ? event.payload.developerName : null;
+    const name = event.eventType === "DEVELOPER_CONNECT_REQUESTED" || event.eventType === "OFFICIAL_WEBSITE_CLICKED" ? event.payload.developerName : null;
     if (typeof name === "string" && !viewed.includes(name)) viewed.push(name);
   }
 

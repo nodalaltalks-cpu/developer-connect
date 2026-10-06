@@ -9,7 +9,8 @@ import type { GateContactPreference } from "./gate-config.ts";
  *  1. this is a Developer Connects property-assistance enquiry;
  *  2. the DEVELOPER does not need the buyer's number — the gate is ours;
  *  3. the buyer is choosing to share details with Developer Connects;
- *  4. after submitting, they continue to the verified official website.
+ *  4. after submitting, Developer Connects contacts them — they are NOT sent to
+ *     another website (the developer's website is internal verification data).
  *
  * What it must never do: imply the developer requires the number, use
  * urgency or scarcity, hide the purpose, or offer a misleading button label.
@@ -47,19 +48,19 @@ export interface GateCopy {
   retry: string;
   successTitle: string;
   successBody: string;
-  successContinue: string;
-  popupHelp: string;
+  successClose: string;
 }
 
-export function gateCopy(developerName: string, domain: string, preference: GateContactPreference = "WHATSAPP"): GateCopy {
+export function gateCopy(developerName: string, preference: GateContactPreference = "WHATSAPP"): GateCopy {
   const channelWords = preference === "WHATSAPP" ? "on WhatsApp" : "by phone call";
   return {
-    title: `Looking for a property from ${developerName}?`,
-    intro: "Get personalised property assistance from Developer Connects before you visit the developer's website.",
+    title: `Connect with ${developerName}`,
+    intro:
+      "You've found the developer you're interested in. Share your details with Developer Connects and we'll help connect you based on your requirement.",
     transparency:
-      `${developerName} does not need your phone number to view its website. ` +
-      "You're choosing to share your details with Developer Connects, so our property team can help you explore " +
-      "suitable properties, configurations and next steps.",
+      `${developerName} does not require your phone number through this flow. ` +
+      `You're sharing your details with Developer Connects — we are not ${developerName} — so our property team can ` +
+      "help you explore suitable properties, configurations and next steps.",
     phoneLabel: "Your WhatsApp or phone number",
     phoneHelp: "We'll use this to reach you about your enquiry — nothing else.",
     countryLabel: "Country code",
@@ -71,22 +72,21 @@ export function gateCopy(developerName: string, domain: string, preference: Gate
     consent: consentTextFor(preference),
     reassurance: "Your details are used to help with your property enquiry. You can choose your preferred contact method.",
     privacyLinkLabel: "Privacy Policy",
-    submit: "Continue to official website",
-    submitHint: `Opens ${domain} in a new tab`,
+    submit: "Request a connection",
+    submitHint: `Developer Connects will contact you ${channelWords}. You won't be sent to another website.`,
     submitting: "Saving your details…",
     close: "Close",
-    verifiedNote: `${domain} is the official website Developer Connects has verified for ${developerName}.`,
+    verifiedNote: `Developer Connects has verified ${developerName}'s official website.`,
     returningTitle: "Welcome back",
-    returningBody: `We'll keep helping you ${channelWords}. Continue to ${developerName}'s official website with the details you shared earlier?`,
-    returningContinue: "Continue to official website",
+    returningBody: `We'll keep helping you ${channelWords}. Send your request to connect with ${developerName} using the details you shared earlier?`,
+    returningContinue: "Request a connection",
     useDifferentNumber: "Use a different number",
     errorTitle: "We couldn't save your details",
     validationTitle: "Please check your details",
     retry: "Try again",
-    successTitle: "Thank you — your details are saved",
-    successBody: `Your property enquiry has been received. Continue to ${developerName}'s official website below.`,
-    successContinue: "Continue to official website",
-    popupHelp: "Your browser blocked the new tab. Use the button below to open the website.",
+    successTitle: "Thank you — we've received your request",
+    successBody: `Developer Connects will contact you ${channelWords} to help connect you with ${developerName}.`,
+    successClose: "Done",
   };
 }
 
@@ -94,10 +94,10 @@ export function gateCopy(developerName: string, domain: string, preference: Gate
 export const GATE_ERROR_MESSAGES = {
   INVALID_PHONE: "Please enter a valid WhatsApp or phone number, including the country code if it isn't an Indian or UAE number.",
   INVALID_INPUT: "Something in the form isn't right. Please check it and try again.",
-  NOT_VERIFIED: "We can't confirm an official website for this developer right now, so we can't open it from here.",
+  NOT_VERIFIED: "We can't confirm this developer right now, so we can't take your request from here.",
   RATE_LIMITED: "You've tried several times in a short while. Please wait a few minutes and try again.",
   GATE_REJECTED: "We couldn't process this request. Please try again.",
-  TEMPORARY_FAILURE: "We couldn't save your details just now, so we haven't opened the website. Please try again in a moment.",
+  TEMPORARY_FAILURE: "We couldn't save your details just now, so your request hasn't been sent. Please try again in a moment.",
   RETURNING_UNAVAILABLE: "We couldn't find your earlier details. Please enter your number again.",
 } as const;
 

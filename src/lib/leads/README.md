@@ -1,6 +1,6 @@
 # Lead system (Revenue OS, Phases 1–3)
 
-Private lead data for the property-assistance gate: leads, an immutable event
+Private lead data for the "Connect with developer" enquiry gate (the buyer is never sent to a developer website — it is internal verification data): leads, an immutable event
 timeline, attribution touches, consent records and bookings. Nothing here is
 ever shown on a public page, and none of it is copied into analytics.
 
@@ -9,7 +9,6 @@ ever shown on a public page, and none of it is copied into analytics.
 | Variable | Purpose | Required? | Where it is read |
 |---|---|---|---|
 | `LEAD_COOKIE_SECRET` | Signing key for the `dc_lead` cookie that lets a returning buyer continue with one tap ("Continue as +91 ••••••223?") instead of retyping their number. The cookie holds only a lead id and an expiry, signed with this key (HMAC-SHA256). | **Optional.** Without it the gate works normally; every buyer simply sees the full form and the one-tap convenience is off. It never falls back to an unsigned cookie. **Recommended for production** (set a long random value, 32+ characters). | `src/app/_actions/lead-gate-actions.ts` — `verifyLeadToken(…, process.env.LEAD_COOKIE_SECRET, …)` in `buildGate()` and `signLeadToken(…, process.env.LEAD_COOKIE_SECRET, …)` in `rememberLead()`; the signing/verification code is `src/lib/leads/gate/lead-cookie.ts`. |
-| `LEAD_GATE_MODE` | Operator switch for the assistance gate. **Leave it unset in production.** | **Do not set on production.** Unset means `required`. `off` is honoured only outside Vercel production (`VERCEL_ENV !== "production"`), e.g. a preview deployment without the lead tables. | `src/lib/leads/gate/gate-config.ts` — `getGateMode()`, called from `src/app/developers/[slug]/page.tsx` and `src/app/_actions/lead-gate-actions.ts`. |
 
 Existing variables the lead system also uses (already configured for the rest of
 the product): `DATABASE_URL` (via `src/lib/developer-connect/db/client.ts`) and
@@ -19,9 +18,11 @@ the Clerk keys (signed-in user id on a lead, when the buyer happens to be signed
 
 1. **Production Clerk instance.** Production still runs on a Clerk *development*
    instance. Move to a production instance first.
-2. **Migrations `0013`, `0014`, `0015` applied to production — before the code is
-   deployed.** Otherwise every "Visit official website" press would show the
-   retry error (by design the gate never silently lets a buyer through).
+2. **Migrations `0013`–`0017` applied to production — before the code is
+   deployed.** (`0013`–`0016` are already applied; `0017` adds the
+   `DEVELOPER_CONNECT_REQUESTED` event the gate now writes.) Otherwise every
+   "Connect with developer" press would show the retry error (by design the gate
+   never silently accepts a request it could not save).
 3. **Legal review:** the consent wording (`src/lib/leads/consent.ts`), the
    mandatory phone/WhatsApp collection, property-agent registration/licensing,
    and the "may receive payment" disclosure (About, Disclaimer, FAQ).
@@ -32,16 +33,14 @@ the Clerk keys (signed-in user id on a lead, when the buyer happens to be signed
 
 Chrome Android, Safari iPhone (if available), desktop Chrome. On each, check:
 
-- the gate opens from the developer page and from a directory card
+- the "Connect with {developer}" button opens the gate from the developer page and from a directory card
 - the phone field (numeric keyboard, autofill, no zoom on focus)
 - WhatsApp is preselected; switching to Phone call changes the consent wording
 - the consent sentence is visible beside the button
-- a successful submission saves and opens the official website
-- new-tab behaviour: the site opens in a NEW tab and the gate shows "saved"
-- popup blocking: with popups blocked the gate shows the "Continue to official
-  website" link instead, and the details are still saved
+- a successful submission shows "we've received your request" — no new tab opens,
+  no developer website is linked anywhere
 - retry after failure (e.g. switch the device to airplane mode, submit, then
-  go back online and press "Try again"): the website is NOT opened until a save succeeds
+  go back online and press "Try again"): the request is not confirmed until a save succeeds
 - returning visitor: "Welcome back — Continue as +91 ••••••XYZ?" appears on the
   next visit and one tap continues
 - "Use a different number" returns to the full form

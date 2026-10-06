@@ -40,9 +40,11 @@ function headlineFor(event: LeadEvent): { headline: string; detail: string | nul
     case "CONTACT_PREFERENCE_SELECTED":
       return { headline: `Contact preference: ${label(p.to)}`, detail: null };
     case "OFFICIAL_WEBSITE_CLICKED":
-      return { headline: `Opened ${text(p.developerName) ?? "a developer"}'s official website`, detail: null };
+      return { headline: `Opened ${text(p.developerName) ?? "a developer"}'s official website (earlier flow)`, detail: null };
+    case "DEVELOPER_CONNECT_REQUESTED":
+      return { headline: `Asked to connect with ${text(p.developerName) ?? "a developer"}`, detail: null };
     case "DEVELOPER_WEBSITE_REDIRECTED":
-      return { headline: "Sent on to the developer's website", detail: null };
+      return { headline: "Sent on to the developer's website (earlier flow)", detail: null };
     case "REQUIREMENT_UPDATED": {
       const changed = requirementSummary(p.fields);
       return { headline: changed ? `Requirement updated (${changed})` : "Requirement updated", detail: null };

@@ -6,7 +6,7 @@ import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-
 import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analytics-sink";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
-import { getGateMode, RETURNING_LEAD_TTL_DAYS } from "@/lib/leads/gate/gate-config";
+import { RETURNING_LEAD_TTL_DAYS } from "@/lib/leads/gate/gate-config";
 import { LEAD_COOKIE_NAME, signLeadToken, verifyLeadToken } from "@/lib/leads/gate/lead-cookie";
 import {
   continueAsReturning as continueAsReturningCore,
@@ -30,8 +30,9 @@ import { GATE_ERROR_MESSAGES } from "@/lib/leads/gate/gate-copy";
  *
  *  1. No founder authorization is (or may be) used — this is the buyer's own
  *     action. All input is untrusted and re-validated in gate-service.ts.
- *  2. The browser never supplies a URL. The destination is resolved from the
- *     verified developer record on the server.
+ *  2. The browser never supplies a URL, and none is ever returned: the buyer is
+ *     not sent to a developer's website. The developer is checked against the
+ *     verified record on the server.
  *  3. Nothing returned contains a lead id, a full phone number or an email —
  *     only a masked number — and nothing here sends personal data to analytics
  *     or to a log.
@@ -76,7 +77,7 @@ function failureResponse(): Extract<GateSubmitResponse, { ok: false }> {
 export async function getGateState(developerId: string, sourceCta: string): Promise<GateStateResponse> {
   try {
     const { deps, ctx, leadId } = await buildGate();
-    return await getGateStateCore(deps, ctx, developerId, sourceCta, leadId, getGateMode());
+    return await getGateStateCore(deps, ctx, developerId, sourceCta, leadId);
   } catch {
     return { mode: "unavailable", code: "TEMPORARY_FAILURE", message: GATE_ERROR_MESSAGES.TEMPORARY_FAILURE };
   }
@@ -92,7 +93,7 @@ export async function recordGateFormStarted(developerId: string, sourceCta: stri
   }
 }
 
-/** The buyer submits the gate: save the lead, then return the server-resolved verified destination. */
+/** The buyer submits the gate: save the lead and confirm. No developer URL is ever returned. */
 export async function submitGate(input: GateSubmitInput): Promise<GateSubmitResponse> {
   try {
     const { deps, ctx } = await buildGate();

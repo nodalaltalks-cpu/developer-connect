@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AssistanceGateView, type AssistanceGateViewProps } from "../assistance-gate-view.tsx";
 import { gateCopy } from "../../lib/leads/gate/gate-copy.ts";
-import { gateReducer, initialGateState, type GateAction, type GateState } from "../../lib/leads/gate/gate-flow.ts";
+import { gatePreference, gateReducer, initialGateState, type GateAction, type GateState } from "../../lib/leads/gate/gate-flow.ts";
 
 /**
  * Renders the REAL gate component (its pure view) in every state and checks
@@ -12,13 +12,13 @@ import { gateReducer, initialGateState, type GateAction, type GateState } from "
  */
 
 const DEV = "Acme Realty";
-const DOMAIN = "acme.example";
-const DESTINATION = "https://acme.example/";
+/** Anything that would let a buyer reach the developer directly. */
+const WEBSITE = /acme\.example|https?:\/\/(?!(www\.)?developerconnects)|new tab/i;
 
 const noop = () => {};
 const baseProps = (state: GateState): AssistanceGateViewProps => ({
   state,
-  copy: gateCopy(DEV, DOMAIN, state.form.preference),
+  copy: gateCopy(DEV, gatePreference(state)),
   onEdit: noop,
   onSubmit: noop,
   onContinueReturning: noop,
@@ -37,11 +37,11 @@ const STATES = {
   returning: reduce({ type: "LOADED_RETURNING", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" }),
   submitting: reduce({ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }),
   returningSubmitting: reduce({ type: "LOADED_RETURNING", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" }, { type: "SUBMIT_START", attempt: "returning" }),
-  failure: reduce({ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_ERROR", code: "TEMPORARY_FAILURE", message: "We couldn't save your details just now, so we haven't opened the website. Please try again in a moment." }),
+  failure: reduce({ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_ERROR", code: "TEMPORARY_FAILURE", message: "We couldn't save your details just now, so your request hasn't been sent. Please try again in a moment." }),
   invalidPhone: reduce({ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_ERROR", code: "INVALID_PHONE", message: "Please enter a valid WhatsApp or phone number.", field: "phone" }),
-  returningFailure: reduce({ type: "LOADED_RETURNING", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" }, { type: "SUBMIT_START", attempt: "returning" }, { type: "SUBMIT_ERROR", code: "TEMPORARY_FAILURE", message: "We couldn't save your details just now, so we haven't opened the website." }),
-  success: reduce({ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_REDIRECTED" }),
-  blocked: reduce({ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_BLOCKED", destinationUrl: DESTINATION }),
+  returningFailure: reduce({ type: "LOADED_RETURNING", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" }, { type: "SUBMIT_START", attempt: "returning" }, { type: "SUBMIT_ERROR", code: "TEMPORARY_FAILURE", message: "We couldn't save your details just now, so your request hasn't been sent." }),
+  success: reduce({ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_SUCCEEDED", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" }),
+  successPhone: reduce({ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_SUCCEEDED", maskedPhone: "+91 ••••••210", preference: "PHONE_CALL" }),
 };
 
 // =================================================================================================
@@ -50,17 +50,20 @@ const STATES = {
 
 test("render: the form states the purpose, the transparency note and the developer's name", () => {
   const out = html(STATES.form);
-  assert.match(out, /Looking for a property from Acme Realty\?/);
-  assert.match(out, /personalised property assistance from Developer Connects/);
-  assert.match(out, /Acme Realty does not need your phone number to view its website/);
-  assert.match(out, /You&#x27;re choosing to share your details with Developer Connects/);
-  assert.match(out, /acme\.example is the official website Developer Connects has verified for Acme Realty/);
+  assert.match(out, /Connect with Acme Realty/);
+  assert.match(out, /You&#x27;ve found the developer you&#x27;re interested in/);
+  assert.match(out, /Share your details with Developer Connects and we&#x27;ll help connect you based on your requirement/);
+  assert.match(out, /Acme Realty does not require your phone number through this flow/);
+  assert.match(out, /we are not Acme Realty/);
+  assert.match(out, /You&#x27;re sharing your details with Developer Connects/);
+  assert.match(out, /Developer Connects has verified Acme Realty&#x27;s official website\./);
 });
 
-test("render: the submit button reads 'Continue to official website' and says where it opens", () => {
+test("render: the submit button reads 'Request a connection' and says Developer Connects will contact the buyer", () => {
   const out = html(STATES.form);
-  assert.match(out, /<button type="submit"[^>]*>Continue to official website/);
-  assert.match(out, /Opens acme\.example in a new tab/);
+  assert.match(out, /<button type="submit"[^>]*>Request a connection/);
+  assert.match(out, /Developer Connects will contact you on WhatsApp\. You won&#x27;t be sent to another website\./);
+  assert.doesNotMatch(out, /Continue to official website|Visit official website|↗/);
 });
 
 test("render: WhatsApp is the FIRST and pre-selected contact method; phone call is the second", () => {
@@ -117,7 +120,7 @@ test("render: there is NO way past the gate — no skip, no 'continue without', 
     const out = html(STATES[name]);
     assert.doesNotMatch(out, /skip|continue without|maybe later|no thanks/i, name);
     assert.doesNotMatch(out, /href="https?:\/\/(?!(www\.)?developerconnects)/i, `${name} links off-site`);
-    assert.ok(!out.includes(DESTINATION), `${name} exposes the destination`);
+    assert.doesNotMatch(out, WEBSITE, `${name} exposes a developer website`);
   }
 });
 
@@ -129,15 +132,17 @@ test("render: a returning buyer sees a masked number, one-tap continue and 'use 
   const out = html(STATES.returning);
   assert.match(out, /Welcome back/);
   assert.match(out, /Continue as <span[^>]*>\+91 ••••••210<\/span>\?/);
-  assert.match(out, /Continue to official website/);
+  assert.match(out, /Request a connection/);
+  assert.match(out, /connect with Acme Realty/);
   assert.match(out, /Use a different number/);
   assert.doesNotMatch(out, /name="phone"/);
   assert.doesNotMatch(out, /9876543210/);
+  assert.doesNotMatch(out, /Continue to official website/);
 });
 
 test("render: the returning card still shows the transparency note and the consent wording (it is a fresh affirmative act)", () => {
   const out = html(STATES.returning);
-  assert.match(out, /Acme Realty does not need your phone number/);
+  assert.match(out, /Acme Realty does not require your phone number/);
   assert.match(out, /I agree that Developer Connects may contact me on WhatsApp/);
 });
 
@@ -153,14 +158,13 @@ test("render: while saving, the form is disabled and the button says so (no doub
   assert.ok((out.match(/disabled=""/g) ?? []).length >= 5, "inputs and button are disabled");
 });
 
-test("render: FAILURE shows a clear error, says the website was NOT opened, and offers Try again — never a link to the site", () => {
+test("render: FAILURE shows a clear error, says the request was NOT sent, and offers Try again — never a link to a site", () => {
   const out = html(STATES.failure);
   assert.match(out, /role="alert"/);
   assert.match(out, /We couldn&#x27;t save your details/);
-  assert.match(out, /we haven&#x27;t opened the website/);
+  assert.match(out, /your request hasn&#x27;t been sent/);
   assert.match(out, /Try again/);
-  assert.doesNotMatch(out, /href="https:\/\/acme/);
-  assert.ok(!out.includes(DESTINATION));
+  assert.doesNotMatch(out, WEBSITE);
   assert.match(out, /data-gate-phase="error"/);
 });
 
@@ -188,27 +192,23 @@ test("render: a failed one-tap continue stays on the returning card with Try aga
 // SUCCESS
 // =================================================================================================
 
-test("render: success confirms the details are saved and the website opened — with no link, since the tab was already sent", () => {
+test("render: success confirms the request was received and who will contact the buyer — with no link and no new tab", () => {
   const out = html(STATES.success);
-  assert.match(out, /Thank you — your details are saved/);
-  assert.match(out, /The official website has opened in a new tab/);
+  assert.match(out, /Thank you — we&#x27;ve received your request/);
+  assert.match(out, /Developer Connects will contact you on WhatsApp to help connect you with Acme Realty/);
+  assert.match(out, /data-gate-phase="success"/);
   assert.doesNotMatch(out, /<a /);
-  assert.ok(!out.includes(DESTINATION));
+  assert.doesNotMatch(out, WEBSITE);
+  assert.match(out, /<button type="button"[^>]*>Done<\/button>/);
+  assert.match(html(STATES.successPhone), /will contact you by phone call/);
 });
 
-test("render: if the browser blocked the new tab, a REAL link (opened by the buyer's own click) is offered — safely", () => {
-  const out = html(STATES.blocked);
-  assert.match(out, /Your browser blocked the new tab/);
-  const anchor = out.match(/<a [^>]*href="https:\/\/acme\.example\/"[^>]*>/)?.[0];
-  assert.ok(anchor, "the destination anchor is rendered in the blocked state");
-  assert.match(anchor!, /target="_blank"/);
-  assert.match(anchor!, /rel="noopener noreferrer"/);
-});
-
-test("render: the destination appears in exactly ONE state — the blocked-popup fallback — and nowhere else", () => {
+test("render: NO state of the gate, in any phase, can show a developer website, link or new-tab wording", () => {
   for (const [name, state] of Object.entries(STATES)) {
-    const present = html(state).includes(DESTINATION);
-    assert.equal(present, name === "blocked", `${name}: destination present = ${present}`);
+    const out = html(state);
+    assert.doesNotMatch(out, WEBSITE, `${name} exposes a developer website`);
+    assert.doesNotMatch(out, /Visit official website|Continue to official website|blocked the new tab/i, `${name} uses the old outbound wording`);
+    for (const match of out.matchAll(/href="([^"]*)"/g)) assert.match(match[1], /^\/(?!\/)/, `${name} links outside Developer Connects: ${match[1]}`);
   }
 });
 
@@ -326,7 +326,7 @@ test("a11y: errors are announced (role=alert) and success is announced politely 
 // =================================================================================================
 
 test("privacy: no state's markup ever contains a full phone number it was not given by the buyer in this session", () => {
-  for (const name of ["loading", "form", "returning", "submitting", "failure", "success", "blocked"] as const) {
+  for (const name of ["loading", "form", "returning", "submitting", "failure", "success", "successPhone"] as const) {
     const out = html(STATES[name]);
     assert.doesNotMatch(out, /\+91\s?\d{5}\s?\d{5}|\b\d{10}\b/, `${name} contains a full number`);
   }

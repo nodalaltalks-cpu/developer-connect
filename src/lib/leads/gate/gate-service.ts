@@ -2,7 +2,7 @@ import { toPublicDeveloperProfile } from "../../developer-connect/public-view.ts
 import { safeRecordAnalyticsEvent, type AnalyticsEventSink } from "../../developer-connect/events.ts";
 import type { DeveloperConnectRepositories } from "../../developer-connect/repository.ts";
 import { LeadValidationError } from "../errors.ts";
-import { captureAssistanceLead, recordWebsiteRedirect } from "../lead-service.ts";
+import { captureAssistanceLead } from "../lead-service.ts";
 import { maskPhone } from "../phone.ts";
 import type { LeadRepositories } from "../repository.ts";
 import type { ContactPreference, TouchInput } from "../types.ts";
@@ -24,12 +24,13 @@ import type { GateAttribution, GateReturningInput, GateStateResponse, GateSubmit
  * app/_actions/lead-gate-actions.ts add the session, the signed cookie and
  * the production repositories.
  *
- * THE central rule: the destination comes from the VERIFIED developer record
- * in our database, resolved here, and the client never supplies a URL. The
- * input types below have no URL field at all, and anything extra a caller
- * sends is ignored. A developer without a verified official website (or one
- * that is not ACTIVE) cannot produce a destination, so the gate can never be
- * used as an open redirect or to send a buyer to an unverified site.
+ * THE central rule: the buyer is never sent anywhere. The gate records an
+ * enquiry with Developer Connects about a VERIFIED, ACTIVE developer and says
+ * "we've received your request" - no response from this module contains a
+ * developer URL or domain, and the input types have no URL field at all (the
+ * developer is identified by id, resolved against our own records; anything
+ * extra a caller sends is ignored). The developer's verified website stays
+ * internal data for the Founder.
  *
  * Nothing here logs, and nothing it returns contains a lead id, a full phone
  * number or an email — the only phone form that leaves is the masked one.
@@ -68,24 +69,21 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | nul
   return typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : null;
 }
 
-// --- resolving the destination from the verified record ----------------------------------------
+// --- resolving the developer from the verified record -----------------------------------------
 
-export interface ResolvedDestination {
+export interface ResolvedDeveloper {
   developer: { id: string; slug: string; displayName: string };
-  url: string;
-  domain: string;
-  verifiedAt: Date | null;
 }
 
 /**
- * The ONLY place a destination is produced. Returns null unless the developer
- * exists, is ACTIVE, and has a VERIFIED official website whose URL is plain
- * http(s).
+ * Returns the developer only if it exists, is ACTIVE and has a VERIFIED
+ * official website - the same condition under which its public page offers
+ * the connect button. The website itself is deliberately not read out.
  */
-export async function resolveVerifiedDestination(
+export async function resolveVerifiedDeveloper(
   deps: Pick<GateDeps, "developers">,
   developerId: unknown,
-): Promise<ResolvedDestination | null> {
+): Promise<ResolvedDeveloper | null> {
   if (typeof developerId !== "string" || !UUID.test(developerId)) return null;
 
   const developer = await deps.developers.developers.getById(developerId);
@@ -97,20 +95,7 @@ export async function resolveVerifiedDestination(
   const profile = toPublicDeveloperProfile(developer, candidate);
   if (!profile.officialWebsite) return null;
 
-  let parsed: URL;
-  try {
-    parsed = new URL(profile.officialWebsite.url);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
-
-  return {
-    developer: { id: profile.id, slug: profile.slug, displayName: profile.displayName },
-    url: profile.officialWebsite.url,
-    domain: profile.officialWebsite.canonicalDomain,
-    verifiedAt: profile.officialWebsite.verifiedAt,
-  };
+  return { developer: { id: profile.id, slug: profile.slug, displayName: profile.displayName } };
 }
 
 // --- attribution input ---------------------------------------------------------------------------
@@ -140,20 +125,20 @@ function attributionTouches(attribution: GateAttribution | undefined, sessionId:
   return { currentTouch: current, firstTouch: first ?? null };
 }
 
-function clickTime(raw: unknown, now: Date): Date {
+function requestTime(raw: unknown, now: Date): Date {
   if (typeof raw !== "string") return now;
   const date = new Date(raw);
   const age = now.getTime() - date.getTime();
-  // A real click happened a moment ago; ignore anything in the future or older than an hour.
+  // A real press happened a moment ago; ignore anything in the future or older than an hour.
   return Number.isNaN(date.getTime()) || age < 0 || age > 3_600_000 ? now : date;
 }
 
 // --- the shared capture path --------------------------------------------------------------------
 
-async function captureAndRedirect(
+async function captureRequest(
   deps: GateDeps,
   ctx: GateContext,
-  destination: ResolvedDestination,
+  resolved: ResolvedDeveloper,
   details: {
     phone: string;
     phoneCountry: GatePhoneCountry;
@@ -161,7 +146,7 @@ async function captureAndRedirect(
     name?: string | null;
     sourceCta: GateSourceCta;
     attribution?: GateAttribution;
-    clickedAt?: unknown;
+    requestedAt?: unknown;
   },
 ): Promise<GateResult> {
   const now = deps.now();
@@ -188,14 +173,13 @@ async function captureAndRedirect(
         name: details.name ?? null,
         email: null,
         contactPreference: details.contactPreference as ContactPreference,
-        developer: destination.developer,
-        website: { url: destination.url, domain: destination.domain, verifiedAt: destination.verifiedAt },
+        developer: resolved.developer,
         sourceCta: details.sourceCta,
         sessionId: ctx.sessionId,
         userId: ctx.userId ?? null,
         currentTouch,
         firstTouch,
-        clickedAt: clickTime(details.clickedAt, now),
+        requestedAt: requestTime(details.requestedAt, now),
       },
       now,
     );
@@ -203,47 +187,24 @@ async function captureAndRedirect(
     if (error instanceof LeadValidationError) {
       return fail(error.field === "phone" ? "INVALID_PHONE" : "INVALID_INPUT", error.field);
     }
-    // Any other failure (database down, constraint, timeout): the lead was NOT saved, so the buyer is NOT sent on.
+    // Any other failure (database down, constraint, timeout): the lead was NOT saved, so the buyer is told to retry.
     return fail("TEMPORARY_FAILURE");
-  }
-
-  // The destination has been issued by the server. Recording it is best-effort: the lead is already safe.
-  try {
-    await recordWebsiteRedirect(
-      deps.leads,
-      captured.lead.id,
-      { id: destination.developer.id, slug: destination.developer.slug },
-      { url: destination.url, domain: destination.domain },
-      now,
-    );
-  } catch {
-    /* never block a saved lead's redirect on the redirect log line */
   }
 
   const base = { occurredAt: now, sessionId: ctx.sessionId, userId: ctx.userId ?? undefined, deviceType: ctx.deviceType };
   await safeRecordAnalyticsEvent(deps.analytics, {
     ...base,
     eventName: "lead_submitted",
-    developerId: destination.developer.id,
+    developerId: resolved.developer.id,
     sourceCta: details.sourceCta,
     contactPreference: details.contactPreference,
     newLead: captured.created,
-  });
-  // Strictly after "lead_submitted": analytics has no insertion-order column, so equal timestamps would sort arbitrarily.
-  await safeRecordAnalyticsEvent(deps.analytics, {
-    ...base,
-    occurredAt: new Date(now.getTime() + 1),
-    eventName: "official_website_redirected",
-    developerId: destination.developer.id,
-    targetDomain: destination.domain,
   });
 
   return {
     leadId: captured.lead.id,
     response: {
       ok: true,
-      destinationUrl: destination.url,
-      destinationDomain: destination.domain,
       maskedPhone: maskPhone(captured.lead.phoneE164 ?? ""),
       contactPreference: details.contactPreference,
     },
@@ -255,7 +216,7 @@ async function captureAndRedirect(
 /**
  * A buyer submits the gate. Everything the browser sends is treated as
  * untrusted: unknown fields are ignored, enums are checked, the honeypot is
- * enforced, and the destination is resolved server-side.
+ * enforced, and the developer is checked against our verified record server-side.
  */
 export async function submitGate(deps: GateDeps, ctx: GateContext, input: GateSubmitInput): Promise<GateResult> {
   if (!input || typeof input !== "object") return fail("INVALID_INPUT");
@@ -268,22 +229,22 @@ export async function submitGate(deps: GateDeps, ctx: GateContext, input: GateSu
   const phoneCountry = oneOf(input.phoneCountry, GATE_PHONE_COUNTRIES);
   if (!sourceCta || !contactPreference || !phoneCountry || typeof input.phone !== "string") return fail("INVALID_INPUT");
 
-  let destination: ResolvedDestination | null;
+  let resolved: ResolvedDeveloper | null;
   try {
-    destination = await resolveVerifiedDestination(deps, input.developerId);
+    resolved = await resolveVerifiedDeveloper(deps, input.developerId);
   } catch {
     return fail("TEMPORARY_FAILURE");
   }
-  if (!destination) return fail("NOT_VERIFIED");
+  if (!resolved) return fail("NOT_VERIFIED");
 
-  return captureAndRedirect(deps, ctx, destination, {
+  return captureRequest(deps, ctx, resolved, {
     phone: input.phone,
     phoneCountry,
     contactPreference,
     name: typeof input.name === "string" ? input.name : null,
     sourceCta,
     attribution: input.attribution,
-    clickedAt: input.clickedAt,
+    requestedAt: input.requestedAt,
   });
 }
 
@@ -301,26 +262,26 @@ export async function continueAsReturning(
   const sourceCta = oneOf(input?.sourceCta, GATE_SOURCE_CTAS);
   if (!sourceCta) return fail("INVALID_INPUT");
 
-  let destination: ResolvedDestination | null;
+  let resolved: ResolvedDeveloper | null;
   let lead;
   try {
-    destination = await resolveVerifiedDestination(deps, input.developerId);
+    resolved = await resolveVerifiedDeveloper(deps, input.developerId);
     lead = leadId ? await deps.leads.leads.getById(leadId) : null;
   } catch {
     return fail("TEMPORARY_FAILURE");
   }
-  if (!destination) return fail("NOT_VERIFIED");
+  if (!resolved) return fail("NOT_VERIFIED");
   if (!lead || lead.erasedAt || !lead.phoneE164) return fail("RETURNING_UNAVAILABLE");
 
   const preference = oneOf(lead.contactPreference, GATE_CONTACT_PREFERENCES) ?? "WHATSAPP";
-  return captureAndRedirect(deps, ctx, destination, {
+  return captureRequest(deps, ctx, resolved, {
     phone: lead.phoneE164,
     phoneCountry: "IN", // irrelevant: a stored E.164 number carries its own country code
     contactPreference: preference,
     name: null,
     sourceCta,
     attribution: input.attribution,
-    clickedAt: input.clickedAt,
+    requestedAt: input.requestedAt,
   });
 }
 
@@ -334,30 +295,19 @@ export async function getGateState(
   developerId: unknown,
   sourceCtaRaw: unknown,
   leadId: string | null,
-  mode: "required" | "off",
 ): Promise<GateStateResponse> {
   const sourceCta = oneOf(sourceCtaRaw, GATE_SOURCE_CTAS);
   if (!sourceCta) return { mode: "unavailable", code: "INVALID_INPUT", message: GATE_ERROR_MESSAGES.INVALID_INPUT };
 
-  let destination: ResolvedDestination | null;
+  let resolved: ResolvedDeveloper | null;
   try {
-    destination = await resolveVerifiedDestination(deps, developerId);
+    resolved = await resolveVerifiedDeveloper(deps, developerId);
   } catch {
     return { mode: "unavailable", code: "TEMPORARY_FAILURE", message: GATE_ERROR_MESSAGES.TEMPORARY_FAILURE };
   }
-  if (!destination) return { mode: "unavailable", code: "NOT_VERIFIED", message: GATE_ERROR_MESSAGES.NOT_VERIFIED };
+  if (!resolved) return { mode: "unavailable", code: "NOT_VERIFIED", message: GATE_ERROR_MESSAGES.NOT_VERIFIED };
 
   const base = { occurredAt: deps.now(), sessionId: ctx.sessionId, userId: ctx.userId ?? undefined, deviceType: ctx.deviceType };
-
-  if (mode === "off") {
-    await safeRecordAnalyticsEvent(deps.analytics, {
-      ...base,
-      eventName: "official_website_redirected",
-      developerId: destination.developer.id,
-      targetDomain: destination.domain,
-    });
-    return { mode: "off", destinationUrl: destination.url, destinationDomain: destination.domain };
-  }
 
   let returning: Extract<GateStateResponse, { returning: true }> | null = null;
   try {
@@ -377,7 +327,7 @@ export async function getGateState(
   await safeRecordAnalyticsEvent(deps.analytics, {
     ...base,
     eventName: "assistance_gate_shown",
-    developerId: destination.developer.id,
+    developerId: resolved.developer.id,
     sourceCta,
     returningVisitor: returning !== null,
   });
@@ -388,20 +338,20 @@ export async function getGateState(
 export async function recordFormStarted(deps: GateDeps, ctx: GateContext, developerId: unknown, sourceCtaRaw: unknown): Promise<void> {
   const sourceCta = oneOf(sourceCtaRaw, GATE_SOURCE_CTAS);
   if (!sourceCta) return;
-  let destination: ResolvedDestination | null = null;
+  let resolved: ResolvedDeveloper | null = null;
   try {
-    destination = await resolveVerifiedDestination(deps, developerId);
+    resolved = await resolveVerifiedDeveloper(deps, developerId);
   } catch {
     return;
   }
-  if (!destination) return;
+  if (!resolved) return;
   await safeRecordAnalyticsEvent(deps.analytics, {
     occurredAt: deps.now(),
     sessionId: ctx.sessionId,
     userId: ctx.userId ?? undefined,
     deviceType: ctx.deviceType,
     eventName: "assistance_form_started",
-    developerId: destination.developer.id,
+    developerId: resolved.developer.id,
     sourceCta,
   });
 }

@@ -142,10 +142,8 @@ export async function recordDeveloperPageView(
   });
 }
 
-export async function recordOfficialWebsiteClick(
-  developerId: string,
-  targetDomain: string,
-): Promise<void> {
+/** The buyer pressed "Connect with developer" (anonymous funnel event; no URL or domain is recorded). */
+export async function recordOfficialWebsiteClick(developerId: string): Promise<void> {
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
   const userId = await currentUserId();
@@ -156,7 +154,6 @@ export async function recordOfficialWebsiteClick(
     deviceType,
     userId,
     developerId,
-    targetDomain,
   });
 }
 

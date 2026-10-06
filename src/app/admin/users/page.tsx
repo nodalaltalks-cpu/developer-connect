@@ -47,7 +47,7 @@ const DROP_OFF_LABEL: Record<string, string> = {
 const METRIC_LABEL: Record<string, string> = {
   searches: "Searches",
   developerPageViews: "Developer page views",
-  officialWebsiteClicks: "Official website clicks",
+  officialWebsiteClicks: "Connect requests",
 };
 
 const SEGMENT_LABEL: Record<string, string> = {

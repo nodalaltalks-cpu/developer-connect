@@ -2,6 +2,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { hasTestDatabase } from "../test-db-guard.ts";
+import { internalSearchDomain } from "../../public-view.ts";
 
 /**
  * These tests exercise the real PostgreSQL adapter and the database-level
@@ -573,7 +574,7 @@ test(
 
     results = await searchPublicDevelopers(repos, uniqueName);
     assert.equal(results.length, 1);
-    assert.ok(results[0].officialWebsite?.canonicalDomain.startsWith("intake-workflow-"));
+    assert.ok(internalSearchDomain(results[0]).startsWith("intake-workflow-"));
   },
 );
 
@@ -768,7 +769,7 @@ test(
     // Confirm it's genuinely live before touching anything.
     let results = await searchPublicDevelopers(repos, uniqueName);
     assert.equal(results.length, 1);
-    assert.equal(results[0].officialWebsite?.canonicalDomain, `domain-change-old-${token}.example`);
+    assert.equal(internalSearchDomain(results[0]), `domain-change-old-${token}.example`);
 
     // The Founder submits a new official website for this already-verified developer.
     const newCandidate = await submitWebsiteCandidate(repos, {
@@ -783,7 +784,7 @@ test(
     results = await searchPublicDevelopers(repos, uniqueName);
     assert.equal(results.length, 1);
     assert.equal(
-      results[0].officialWebsite?.canonicalDomain,
+      internalSearchDomain(results[0]),
       `domain-change-old-${token}.example`,
       "the old verified domain must remain the live public one until the new one is explicitly approved",
     );
@@ -800,7 +801,7 @@ test(
 
     results = await searchPublicDevelopers(repos, uniqueName);
     assert.equal(results.length, 1);
-    assert.equal(results[0].officialWebsite?.canonicalDomain, `domain-change-new-${token}.example`);
+    assert.equal(internalSearchDomain(results[0]), `domain-change-new-${token}.example`);
 
     const oldAfter = await repos.candidates.getById(oldCandidate.id);
     assert.equal(oldAfter?.verificationStatus, "INACTIVE", "the superseded candidate must be retired, not left VERIFIED");

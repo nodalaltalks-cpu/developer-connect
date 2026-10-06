@@ -213,7 +213,7 @@ function build(db: DbOrTx): LeadRepositories {
             (count(*) filter (where event_type = 'CONTACT_LOGGED'))::int as contact_attempts,
             max(created_at) filter (
               where actor_type = 'BUYER'
-                and event_type in ('LEAD_CREATED', 'LEAD_CAPTURED', 'OFFICIAL_WEBSITE_CLICKED')
+                and event_type in ('LEAD_CREATED', 'LEAD_CAPTURED', 'DEVELOPER_CONNECT_REQUESTED', 'OFFICIAL_WEBSITE_CLICKED')
             ) as last_buyer_activity_at
           from lead_events
           where lead_id in (${uuidList(leadIds)})
@@ -222,7 +222,7 @@ function build(db: DbOrTx): LeadRepositories {
         const clicks = await db.execute(sql`
           select lead_id, payload->>'developerName' as developer_name
           from lead_events
-          where event_type = 'OFFICIAL_WEBSITE_CLICKED' and lead_id in (${uuidList(leadIds)})
+          where event_type in ('DEVELOPER_CONNECT_REQUESTED', 'OFFICIAL_WEBSITE_CLICKED') and lead_id in (${uuidList(leadIds)})
           order by created_at asc, seq asc`);
 
         const byLead = new Map<string, LeadActivitySummary>();

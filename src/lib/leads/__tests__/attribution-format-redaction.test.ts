@@ -136,7 +136,25 @@ test("redaction: a requirement update drops the free-text location but keeps the
   assert.deepEqual(result, { fields: { timeline: { from: null, to: "WITHIN_30_DAYS" } }, redacted: true });
 });
 
-test("redaction: the website-click event keeps the developer facts (needed for developer analytics) and nothing else", () => {
+test("redaction: the connect-request event keeps only the developer facts, source and time — and never any website", () => {
+  const result = redactPayload("DEVELOPER_CONNECT_REQUESTED", {
+    developerSlug: "acme-realty",
+    developerName: "Acme Realty",
+    sourceCta: "developer_page",
+    requestedAt: "2026-10-05T10:00:00.000Z",
+    websiteUrl: "https://acme.example/",
+    note: "typed text",
+  });
+  assert.deepEqual(result, {
+    developerSlug: "acme-realty",
+    developerName: "Acme Realty",
+    sourceCta: "developer_page",
+    requestedAt: "2026-10-05T10:00:00.000Z",
+    redacted: true,
+  });
+});
+
+test("redaction: the (legacy) website-click event keeps the developer facts (needed for developer analytics) and nothing else", () => {
   const result = redactPayload("OFFICIAL_WEBSITE_CLICKED", {
     developerSlug: "acme",
     developerName: "Acme",

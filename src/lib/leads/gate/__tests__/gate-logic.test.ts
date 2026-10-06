@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GATE_ERROR_MESSAGES, gateCopy } from "../gate-copy.ts";
-import { GATE_CONTACT_PREFERENCES, GATE_SOURCE_CTAS, getGateMode, parseGateMode } from "../gate-config.ts";
+import * as gateConfig from "../gate-config.ts";
+import { GATE_CONTACT_PREFERENCES, GATE_SOURCE_CTAS } from "../gate-config.ts";
 import {
   actionForResult,
   gateReducer,
@@ -10,7 +11,6 @@ import {
   type GateAction,
   type GateState,
   type GateSubmitResponse,
-  type TabHandle,
 } from "../gate-flow.ts";
 import { signLeadToken, verifyLeadToken } from "../lead-cookie.ts";
 import { acquireModal, isOtherModalOpen, preemptModal, registerModalCloser, releaseModal } from "../../../modal-lock.ts";
@@ -29,33 +29,46 @@ import {
 // =================================================================================================
 
 const DEV = "Acme Realty";
-const DOMAIN = "acme.example";
-const allCopy = (preference: "WHATSAPP" | "PHONE_CALL" = "WHATSAPP") => Object.values(gateCopy(DEV, DOMAIN, preference)).join("\n");
+const allCopy = (preference: "WHATSAPP" | "PHONE_CALL" = "WHATSAPP") => Object.values(gateCopy(DEV, preference)).join("\n");
 
-test("copy: says plainly that this is a Developer Connects property-assistance enquiry", () => {
-  const copy = gateCopy(DEV, DOMAIN);
-  assert.match(copy.intro, /property assistance from Developer Connects/i);
+test("copy: says plainly that this is a Developer Connects enquiry to be connected with the developer", () => {
+  const copy = gateCopy(DEV);
+  assert.equal(copy.title, `Connect with ${DEV}`);
+  assert.match(copy.intro, /You've found the developer you're interested in/);
+  assert.match(copy.intro, /Share your details with Developer Connects/);
+  assert.match(copy.intro, /help connect you based on your requirement/);
   assert.match(copy.transparency, /Developer Connects/);
   assert.match(copy.transparency, /property team/i);
 });
 
-test("copy: says plainly that the DEVELOPER does not need the buyer's number", () => {
-  const { transparency } = gateCopy(DEV, DOMAIN);
-  assert.match(transparency, new RegExp(`${DEV} does not need your phone number to view its website`));
+test("copy: says plainly that the DEVELOPER does not require the buyer's number, and that Developer Connects is not the developer", () => {
+  const { transparency } = gateCopy(DEV);
+  assert.match(transparency, new RegExp(`${DEV} does not require your phone number through this flow`));
+  assert.match(transparency, new RegExp(`we are not ${DEV}`));
 });
 
 test("copy: says plainly that the buyer is VOLUNTARILY sharing details with Developer Connects", () => {
-  const { transparency, consent } = gateCopy(DEV, DOMAIN);
-  assert.match(transparency, /You're choosing to share your details with Developer Connects/);
+  const { transparency, consent } = gateCopy(DEV);
+  assert.match(transparency, /You're sharing your details with Developer Connects/);
   assert.match(consent, /I agree that Developer Connects may contact me/);
   assert.match(consent, /sharing these details with Developer Connects, not with the developer/);
 });
 
-test("copy: says what happens next — they continue to the verified official website", () => {
-  const copy = gateCopy(DEV, DOMAIN);
-  assert.equal(copy.submit, "Continue to official website");
-  assert.equal(copy.submitHint, `Opens ${DOMAIN} in a new tab`);
-  assert.match(copy.verifiedNote, new RegExp(`${DOMAIN} is the official website Developer Connects has verified for ${DEV}`));
+test("copy: says what happens next — Developer Connects contacts them; they are NOT sent to another website", () => {
+  const copy = gateCopy(DEV);
+  assert.equal(copy.submit, "Request a connection");
+  assert.match(copy.submitHint, /Developer Connects will contact you on WhatsApp/);
+  assert.match(copy.submitHint, /won't be sent to another website/);
+  assert.equal(copy.verifiedNote, `Developer Connects has verified ${DEV}'s official website.`);
+  assert.match(copy.successTitle, /we've received your request/);
+  assert.match(copy.successBody, new RegExp(`will contact you on WhatsApp to help connect you with ${DEV}`));
+});
+
+test("copy: contains no URL, domain, link or outbound wording anywhere", () => {
+  const text = allCopy() + allCopy("PHONE_CALL") + Object.values(GATE_ERROR_MESSAGES).join("\n");
+  for (const pattern of [/https?:\/\//i, /\bwww\./i, /\b[a-z0-9-]+\.(com|in|ae|net|org|co|example)\b/i, /new tab/i, /opens .* in a/i, /visit/i, /continue to (the |its |their )?(official |developer)/i, /popup|pop-up/i]) {
+    assert.doesNotMatch(text, pattern, `copy matches ${pattern}`);
+  }
 });
 
 test("copy: never implies the developer requires the number or that the number unlocks anything", () => {
@@ -70,6 +83,13 @@ test("copy: never implies the developer requires the number or that the number u
   for (const pattern of forbidden) assert.doesNotMatch(text, pattern, `copy matches ${pattern}`);
 });
 
+test("copy: makes no unsupported commercial claim and never presents Developer Connects as the developer", () => {
+  const text = allCopy() + allCopy("PHONE_CALL") + Object.values(GATE_ERROR_MESSAGES).join("\n");
+  for (const pattern of [/zero[- ](commission|brokerage)/i, /no[- ]brokerage/i, /brokerage[- ]free/i, /commission[- ]free/i, /free of (cost|charge)/i, /\bfree\b/i, /we are (the |your )?developer/i, /we (build|sell) (these )?(homes|properties)/i]) {
+    assert.doesNotMatch(text, pattern, `copy matches ${pattern}`);
+  }
+});
+
 test("copy: no urgency, scarcity, countdown or guilt (no dark patterns)", () => {
   const text = allCopy();
   for (const pattern of [/hurry/i, /limited (time|offer|slots|units)/i, /only \d+ left/i, /last chance/i, /don't miss/i, /act now/i, /expires/i, /countdown/i, /exclusive deal/i, /no thanks, i (don't|do not)/i]) {
@@ -78,14 +98,15 @@ test("copy: no urgency, scarcity, countdown or guilt (no dark patterns)", () => 
 });
 
 test("copy: the button says what it does, and there is no misleading 'skip' / 'maybe later' that leaves without the save", () => {
-  const copy = gateCopy(DEV, DOMAIN);
-  assert.equal(copy.submit, "Continue to official website");
+  assert.equal(gateCopy(DEV).submit, "Request a connection");
+  assert.equal(gateCopy(DEV).returningContinue, "Request a connection");
   assert.doesNotMatch(allCopy(), /skip|continue without|maybe later|no thanks/i);
 });
 
 test("copy: the consent wording follows the chosen channel (WhatsApp is the default)", () => {
-  assert.match(gateCopy(DEV, DOMAIN).consent, /on WhatsApp/);
-  assert.match(gateCopy(DEV, DOMAIN, "PHONE_CALL").consent, /by phone call/);
+  assert.match(gateCopy(DEV).consent, /on WhatsApp/);
+  assert.match(gateCopy(DEV, "PHONE_CALL").consent, /by phone call/);
+  assert.match(gateCopy(DEV, "PHONE_CALL").successBody, /by phone call/);
   assert.equal(GATE_CONTACT_PREFERENCES[0], "WHATSAPP", "WhatsApp is the primary option");
   assert.deepEqual([...GATE_CONTACT_PREFERENCES], ["WHATSAPP", "PHONE_CALL"]);
 });
@@ -95,14 +116,14 @@ test("copy: every error message is calm, actionable and none suggests skipping t
     assert.ok(message.length > 20, code);
     assert.doesNotMatch(message, /skip|bypass|continue anyway|ignore/i, code);
   }
-  assert.match(GATE_ERROR_MESSAGES.TEMPORARY_FAILURE, /haven't opened the website/);
+  assert.match(GATE_ERROR_MESSAGES.TEMPORARY_FAILURE, /request hasn't been sent/);
   assert.match(GATE_ERROR_MESSAGES.TEMPORARY_FAILURE, /try again/i);
 });
 
 test("copy: the returning-buyer text says who they continue as and why", () => {
-  const copy = gateCopy(DEV, DOMAIN, "WHATSAPP");
+  const copy = gateCopy(DEV, "WHATSAPP");
   assert.match(copy.returningBody, /on WhatsApp/);
-  assert.match(copy.returningBody, new RegExp(`${DEV}'s official website`));
+  assert.match(copy.returningBody, new RegExp(`connect with ${DEV}`));
   assert.equal(copy.useDifferentNumber, "Use a different number");
 });
 
@@ -110,27 +131,14 @@ test("copy: the returning-buyer text says who they continue as and why", () => {
 // CONFIG
 // =================================================================================================
 
-test("config: the gate is REQUIRED unless the operator explicitly writes 'off'; a typo can only make it stricter", () => {
-  assert.equal(parseGateMode(undefined), "required");
-  assert.equal(parseGateMode(""), "required");
-  assert.equal(parseGateMode("required"), "required");
-  assert.equal(parseGateMode("REQUIRED"), "required");
-  assert.equal(parseGateMode("of"), "required");
-  assert.equal(parseGateMode("false"), "required");
-  assert.equal(parseGateMode("0"), "required");
-  assert.equal(parseGateMode("off"), "off");
-  assert.equal(parseGateMode(" OFF "), "off");
-  assert.equal(getGateMode({}), "required");
-  assert.equal(getGateMode({ LEAD_GATE_MODE: "off" }), "off", "allowed outside production (e.g. a preview deployment)");
-  assert.equal(getGateMode({ LEAD_GATE_MODE: "off", VERCEL_ENV: "preview" }), "off");
-  assert.equal(getGateMode({ LEAD_GATE_MODE: "off", VERCEL_ENV: "development" }), "off");
-});
-
-test("config: on Vercel PRODUCTION the gate is always required — the off switch is not even read there", () => {
-  assert.equal(getGateMode({ VERCEL_ENV: "production" }), "required");
-  assert.equal(getGateMode({ VERCEL_ENV: "production", LEAD_GATE_MODE: "off" }), "required");
-  assert.equal(getGateMode({ VERCEL_ENV: "production", LEAD_GATE_MODE: " OFF " }), "required");
-  assert.equal(getGateMode({ VERCEL_ENV: "production", LEAD_GATE_MODE: "required" }), "required");
+test("config: the gate has NO operating modes and no environment switch — nothing can turn it off or reveal a developer URL", async () => {
+  assert.equal("getGateMode" in gateConfig, false);
+  assert.equal("parseGateMode" in gateConfig, false);
+  const { readFileSync } = await import("node:fs");
+  for (const file of ["../../../../app/_actions/lead-gate-actions.ts", "../../../../app/developers/[slug]/page.tsx", "../gate-config.ts", "../gate-service.ts"]) {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+    assert.doesNotMatch(source, /LEAD_GATE_MODE|getGateMode|GateMode/, `${file} still refers to a gate mode`);
+  }
 });
 
 test("docs: the lead README documents the returning-buyer variable, where it is read, and the launch blockers", async () => {
@@ -142,6 +150,7 @@ test("docs: the lead README documents the returning-buyer variable, where it is 
   assert.match(readme, /src\/lib\/leads\/gate\/lead-cookie\.ts/);
   assert.match(readme, /Production Clerk instance/);
   assert.match(readme, /Legal review/);
+  assert.doesNotMatch(readme, /\| `LEAD_GATE_MODE` \|/, "the removed gate switch must not be documented as a variable");
   // The file it points to really reads that variable.
   const actions = readFileSync(new URL("../../../../app/_actions/lead-gate-actions.ts", import.meta.url), "utf8");
   assert.match(actions, /process\.env\.LEAD_COOKIE_SECRET/);
@@ -165,14 +174,14 @@ test("state: starts loading, then shows the form for a new buyer", () => {
   assert.equal(state.phase, "form");
   assert.equal(state.form.preference, "WHATSAPP", "WhatsApp is preselected");
   assert.equal(state.form.country, "IN");
-  assert.equal(state.destinationUrl, null);
+  assert.equal(state.success, null);
 });
 
 test("state: a returning buyer sees the one-tap card with their MASKED number", () => {
   const state = run([{ type: "LOADED_RETURNING", maskedPhone: "+91 ••••••210", preference: "PHONE_CALL" }]);
   assert.equal(state.phase, "returning");
   assert.equal(state.returning?.maskedPhone, "+91 ••••••210");
-  assert.equal(state.destinationUrl, null, "no destination until a submit succeeds");
+  assert.equal(state.success, null, "nothing is confirmed until a submit succeeds");
 });
 
 test("state: 'use a different number' returns to the form and forgets the returning identity", () => {
@@ -196,23 +205,21 @@ test("state: submitting cannot be started twice (no double submission)", () => {
   assert.strictEqual(gateReducer(once, { type: "SUBMIT_START", attempt: "form" }), once);
 });
 
-test("state: SUCCESS — a destination exists only after a server-approved redirect, and only in the blocked-popup case", () => {
-  const redirected = run([{ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_REDIRECTED" }]);
-  assert.equal(redirected.phase, "success");
-  assert.equal(redirected.destinationUrl, null, "the tab was already navigated; no URL is kept in state");
-
-  const blocked = run([{ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_BLOCKED", destinationUrl: "https://acme.example/" }]);
-  assert.equal(blocked.phase, "blocked");
-  assert.equal(blocked.destinationUrl, "https://acme.example/");
+test("state: SUCCESS is reachable only from a submit in flight, and carries only the masked number and the channel", () => {
+  const done = run([{ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_SUCCEEDED", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" }]);
+  assert.equal(done.phase, "success");
+  assert.deepEqual(done.success, { maskedPhone: "+91 ••••••210", preference: "WHATSAPP" });
+  // A stray success while the form is merely open changes nothing.
+  const form = run([{ type: "LOADED_NEW" }]);
+  assert.strictEqual(gateReducer(form, { type: "SUBMIT_SUCCEEDED", maskedPhone: "x", preference: "WHATSAPP" }), form);
 });
 
-test("state: FAILURE — an error never holds a destination and never reaches success without a new submit", () => {
+test("state: FAILURE — an error never reaches success without a new submit", () => {
   let state = run([{ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_ERROR", code: "TEMPORARY_FAILURE", message: GATE_ERROR_MESSAGES.TEMPORARY_FAILURE }]);
   assert.equal(state.phase, "error");
-  assert.equal(state.destinationUrl, null);
+  assert.equal(state.success, null);
   // Stray late events cannot turn an error into a success.
-  assert.strictEqual(gateReducer(state, { type: "SUBMIT_REDIRECTED" }), state);
-  assert.strictEqual(gateReducer(state, { type: "SUBMIT_BLOCKED", destinationUrl: "https://evil.example/" }), state);
+  assert.strictEqual(gateReducer(state, { type: "SUBMIT_SUCCEEDED", maskedPhone: "x", preference: "WHATSAPP" }), state);
   // Retrying is a fresh submit, remembering which kind it was.
   state = gateReducer(state, { type: "SUBMIT_START", attempt: "form" });
   assert.equal(state.phase, "submitting");
@@ -234,98 +241,52 @@ test("state: a failed returning-buyer continue can be retried as a returning con
 test("state: a lost-session load failure is an error, not a way through", () => {
   const state = run([{ type: "LOAD_FAILED", code: "NOT_VERIFIED", message: GATE_ERROR_MESSAGES.NOT_VERIFIED }]);
   assert.equal(state.phase, "error");
-  assert.equal(state.destinationUrl, null);
+  assert.equal(state.success, null);
 });
 
-test("state: the only transitions that set a destination are the operator escape hatch and a server-approved blocked-popup result", () => {
-  const sources = [
-    { type: "LOADED_NEW" } as GateAction,
-    { type: "LOADED_RETURNING", maskedPhone: "m", preference: "WHATSAPP" } as GateAction,
-    { type: "SUBMIT_ERROR", code: "INVALID_PHONE", message: "m" } as GateAction,
-    { type: "EDIT", patch: { phone: "1" } } as GateAction,
-    { type: "USE_DIFFERENT_NUMBER" } as GateAction,
-  ];
-  for (const action of sources) {
-    for (const start of [initialGateState(), run([{ type: "LOADED_NEW" }]), run([{ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }])]) {
-      assert.equal(gateReducer(start, action).destinationUrl, null, `${action.type} produced a destination`);
-    }
-  }
+test("state: no state and no action can carry a URL or domain (the state machine has no field for one)", () => {
+  const everything = JSON.stringify([
+    initialGateState(),
+    run([{ type: "LOADED_NEW" }]),
+    run([{ type: "LOADED_RETURNING", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" }]),
+    run([{ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_SUCCEEDED", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" }]),
+    run([{ type: "LOADED_NEW" }, { type: "SUBMIT_START", attempt: "form" }, { type: "SUBMIT_ERROR", code: "INVALID_PHONE", message: "m" }]),
+  ]);
+  assert.doesNotMatch(everything, /destination|https?:|\.example|\.com/i);
 });
 
 // =================================================================================================
 // SUBMIT ORCHESTRATION (what happens when the button is pressed)
 // =================================================================================================
 
-function fakeTab() {
-  const calls: string[] = [];
-  const tab: TabHandle = { navigate: (url) => calls.push(`navigate:${url}`), close: () => calls.push("close") };
-  return { tab, calls };
-}
-const OK: GateSubmitResponse = { ok: true, destinationUrl: "https://acme.example/", destinationDomain: "acme.example", maskedPhone: "+91 ••••••210", contactPreference: "WHATSAPP" };
+const OK: GateSubmitResponse = { ok: true, maskedPhone: "+91 ••••••210", contactPreference: "WHATSAPP" };
 
-test("submit: the tab is opened SYNCHRONOUSLY, before the server is asked (so popup blockers allow it)", async () => {
-  const order: string[] = [];
-  const { tab } = fakeTab();
-  const promise = runGateSubmit(
-    {
-      openTab: () => {
-        order.push("openTab");
-        return tab;
-      },
-      submit: async () => {
-        order.push("submit");
-        return OK;
-      },
-    },
-    {},
-  );
-  assert.deepEqual(order, ["openTab", "submit"], "openTab ran in the same tick as the call, before any await");
-  await promise;
+test("submit: success returns only the masked number and the channel — there is nothing to navigate to", async () => {
+  const result = await runGateSubmit({ submit: async () => OK }, {});
+  assert.deepEqual(result, { kind: "success", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" });
+  assert.deepEqual(actionForResult(result), { type: "SUBMIT_SUCCEEDED", maskedPhone: "+91 ••••••210", preference: "WHATSAPP" });
 });
 
-test("submit: success navigates the pre-opened tab to the SERVER's URL", async () => {
-  const { tab, calls } = fakeTab();
-  const result = await runGateSubmit({ openTab: () => tab, submit: async () => OK }, {});
-  assert.deepEqual(result, { kind: "redirected" });
-  assert.deepEqual(calls, ["navigate:https://acme.example/"]);
-});
-
-test("submit: a blocked popup still succeeds — the details are saved and the buyer gets a real link to click", async () => {
-  const result = await runGateSubmit({ openTab: () => null, submit: async () => OK }, {});
-  assert.deepEqual(result, { kind: "blocked", destinationUrl: "https://acme.example/" });
-});
-
-test("submit: an invalid phone is an error — the tab is CLOSED and nothing is navigated", async () => {
-  const { tab, calls } = fakeTab();
+test("submit: an invalid phone is an error with the field named", async () => {
   const result = await runGateSubmit(
-    { openTab: () => tab, submit: async () => ({ ok: false, code: "INVALID_PHONE", message: GATE_ERROR_MESSAGES.INVALID_PHONE, field: "phone" }) },
+    { submit: async () => ({ ok: false, code: "INVALID_PHONE", message: GATE_ERROR_MESSAGES.INVALID_PHONE, field: "phone" }) },
     {},
   );
   assert.deepEqual(result, { kind: "error", code: "INVALID_PHONE", message: GATE_ERROR_MESSAGES.INVALID_PHONE, field: "phone" });
-  assert.deepEqual(calls, ["close"]);
 });
 
-test("submit: a server failure (rejected promise) is a retryable error — NEVER a navigation", async () => {
-  const { tab, calls } = fakeTab();
-  const result = await runGateSubmit({ openTab: () => tab, submit: async () => Promise.reject(new Error("network down")) }, {});
+test("submit: a server failure (rejected promise) is a retryable error, never a success", async () => {
+  const result = await runGateSubmit({ submit: async () => Promise.reject(new Error("network down")) }, {});
   assert.equal(result.kind, "error");
   assert.equal(result.kind === "error" && result.code, "TEMPORARY_FAILURE");
-  assert.deepEqual(calls, ["close"]);
 });
 
-test("submit: every failure code leaves the buyer on the gate with a retry — none navigates", async () => {
+test("submit: every failure code leaves the buyer on the gate with a retry — none is a success", async () => {
   for (const code of Object.keys(GATE_ERROR_MESSAGES) as Array<keyof typeof GATE_ERROR_MESSAGES>) {
-    const { tab, calls } = fakeTab();
-    const result = await runGateSubmit({ openTab: () => tab, submit: async () => ({ ok: false, code, message: GATE_ERROR_MESSAGES[code] }) }, {});
+    const result = await runGateSubmit({ submit: async () => ({ ok: false, code, message: GATE_ERROR_MESSAGES[code] }) }, {});
     assert.equal(result.kind, "error", code);
-    assert.ok(!calls.some((call) => call.startsWith("navigate")), `${code} navigated`);
     assert.equal(actionForResult(result).type, "SUBMIT_ERROR");
   }
-});
-
-test("submit: results map onto the right state-machine actions", () => {
-  assert.deepEqual(actionForResult({ kind: "redirected" }), { type: "SUBMIT_REDIRECTED" });
-  assert.deepEqual(actionForResult({ kind: "blocked", destinationUrl: "https://a.example/" }), { type: "SUBMIT_BLOCKED", destinationUrl: "https://a.example/" });
 });
 
 // =================================================================================================

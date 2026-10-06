@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { OfficialWebsiteVerifiedBadge } from "@/components/official-website-verified-badge";
-import { VisitOfficialWebsiteButton } from "@/components/visit-official-website-button";
+import { ConnectWithDeveloperButton } from "@/components/connect-with-developer-button";
 import { buttonClassName } from "@/components/ui/button";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 
@@ -13,9 +13,9 @@ import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view
  * developers are ever passed in.
  *
  * Two distinct, clearly separated actions rather than a whole-card link:
- * "Visit official website" (external, opens a new tab) and "View
- * developer" (internal). Neither click should surprise the user about
- * where it leads.
+ * "Connect with {developer}" (opens the Developer Connects enquiry gate) and
+ * "View developer" (internal). The card never shows or links to the
+ * developer's own website: that is internal verification data.
  */
 export function DeveloperCard({ developer }: { developer: PublicDeveloperProfile }) {
   const website = developer.officialWebsite;
@@ -43,34 +43,23 @@ export function DeveloperCard({ developer }: { developer: PublicDeveloperProfile
         )}
 
         {website && (
-          <>
-            <div className="mt-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Official website
-              </p>
-              <p className="mt-0.5 truncate font-mono text-sm text-foreground">
-                {website.canonicalDomain}
-              </p>
-            </div>
-
-            <div className="mt-3">
-              <OfficialWebsiteVerifiedBadge full />
-            </div>
-          </>
+          <div className="mt-3">
+            <OfficialWebsiteVerifiedBadge full />
+          </div>
         )}
       </div>
 
       {/* mt-auto anchors this CTA row to the bottom of the card regardless
-          of how much content is above it — keeps "Visit official website"
+          of how much content is above it — keeps "Connect with developer"
           and "View developer" aligned across a row of cards whose content
           height differs (headquarters/website present or not). */}
       <div className="mt-auto flex flex-col gap-2 pt-5">
         {website && (
-          <VisitOfficialWebsiteButton
+          <ConnectWithDeveloperButton
             developerId={developer.id}
             developerName={developer.displayName}
-            domain={website.canonicalDomain}
             sourceCta="directory_card"
+            size="compact"
           />
         )}
         <Link

@@ -22,10 +22,14 @@ export function summariseEvents(leadId: string, events: LeadEvent[]): LeadActivi
     }
     const buyerActivity =
       event.actorType === "BUYER" &&
-      (event.eventType === "LEAD_CREATED" || event.eventType === "LEAD_CAPTURED" || event.eventType === "OFFICIAL_WEBSITE_CLICKED");
+      (event.eventType === "LEAD_CREATED" ||
+        event.eventType === "LEAD_CAPTURED" ||
+        event.eventType === "DEVELOPER_CONNECT_REQUESTED" ||
+        event.eventType === "OFFICIAL_WEBSITE_CLICKED");
     if (buyerActivity) lastBuyerActivityAt = event.createdAt;
 
-    if (event.eventType === "OFFICIAL_WEBSITE_CLICKED") {
+    // OFFICIAL_WEBSITE_CLICKED is the pre-Stage-5 form of the same fact; both name the developer the buyer asked about.
+    if (event.eventType === "DEVELOPER_CONNECT_REQUESTED" || event.eventType === "OFFICIAL_WEBSITE_CLICKED") {
       const name = typeof event.payload.developerName === "string" ? event.payload.developerName : null;
       lastBuyerActivityDeveloperName = name;
       if (firstDeveloperName === null && name !== null) firstDeveloperName = name;

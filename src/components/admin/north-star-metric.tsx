@@ -23,13 +23,13 @@ export function NorthStarMetric({
 }) {
   return (
     <div className="rounded-lg border-2 border-accent bg-accent-soft p-6">
-      <p className="text-sm font-medium text-accent-hover">North Star — Verified Official Website Visits</p>
+      <p className="text-sm font-medium text-accent-hover">North Star — Connect Requests</p>
       <p className="mt-2 text-5xl font-semibold tracking-tight text-foreground">
         {officialWebsiteClicks}
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
-        <RateDisplay rate={conversion} /> of all searches ended with a visitor reaching a real
-        developer&apos;s official website.
+        <RateDisplay rate={conversion} /> of all searches ended with a visitor pressing Connect on a
+        verified developer. (Earlier periods counted website visits; the stored event is the same.)
       </p>
       <div className="mt-2">
         <PeriodComparisonDisplay comparison={comparison} periodNoun={periodNoun} />

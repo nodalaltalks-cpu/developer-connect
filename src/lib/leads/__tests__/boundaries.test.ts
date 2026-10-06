@@ -162,7 +162,6 @@ test("authorization: every founder-only service operation calls assertFounder be
 test("authorization: the buyer-facing operations never require a founder (and cannot claim to be one)", () => {
   const source = read(path.join(leadsRoot, "lead-service.ts"));
   assert.doesNotMatch(functionBody(source, "captureAssistanceLead"), /assertFounder\(/);
-  assert.doesNotMatch(functionBody(source, "recordWebsiteRedirect"), /assertFounder\(/);
   // captureAssistanceLead hard-codes the BUYER actor; callers cannot pass one in.
   assert.match(functionBody(source, "captureAssistanceLead"), /actorType: "BUYER"/);
   // updateRequirement serves both buyer and founder, but a FOUNDER actor must prove itself.

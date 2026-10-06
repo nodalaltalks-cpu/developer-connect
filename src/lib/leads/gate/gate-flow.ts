@@ -6,11 +6,11 @@ import type { GateContactPreference, GatePhoneCountry, GateSourceCta } from "./g
  * without a browser: a state machine (what the buyer sees) and the submit
  * orchestration (what happens when they press the button).
  *
- * The invariant that matters most: a destination URL exists in state ONLY in
- * the two "success" phases, which are reached ONLY from a server response
- * that said ok. An error can never carry or produce a destination, and there
- * is no transition from an error (or from "form") straight to a redirect —
- * so a failure can never silently bypass the gate.
+ * The invariant that matters most: nothing in this module — no state, no
+ * server response type, no action — can carry a developer URL or domain.
+ * The buyer is never sent to a developer's website; a successful submit only
+ * ever leads to the "we've received your request" phase, and a failure can
+ * only ever lead to an error the buyer can retry.
  */
 
 // --- responses from the server actions ---------------------------------------------------------
@@ -44,23 +44,20 @@ export interface GateSubmitInput {
   attribution?: GateAttribution;
   /** A hidden field a human never fills in; a bot that does is refused. */
   website?: string;
-  /** When the buyer pressed "Visit official website" (ISO). */
-  clickedAt?: string;
+  /** When the buyer pressed "Connect with developer" (ISO). */
+  requestedAt?: string;
 }
 
 export interface GateReturningInput {
   developerId: string;
   sourceCta: GateSourceCta;
   attribution?: GateAttribution;
-  clickedAt?: string;
+  requestedAt?: string;
 }
 
 export type GateSubmitResponse =
   | {
       ok: true;
-      /** Resolved by the SERVER from the verified developer record — never supplied by the client. */
-      destinationUrl: string;
-      destinationDomain: string;
       /** A masked form only ("+91 ••••••210"). The full number never returns to the browser. */
       maskedPhone: string;
       contactPreference: GateContactPreference;
@@ -70,13 +67,11 @@ export type GateSubmitResponse =
 export type GateStateResponse =
   | { mode: "required"; returning: false }
   | { mode: "required"; returning: true; maskedPhone: string; contactPreference: GateContactPreference }
-  /** Operator escape hatch (LEAD_GATE_MODE=off): the server hands over the verified destination without a lead. */
-  | { mode: "off"; destinationUrl: string; destinationDomain: string }
   | { mode: "unavailable"; code: GateErrorCode; message: string };
 
 // --- state machine ------------------------------------------------------------------------------
 
-export type GatePhase = "loading" | "form" | "returning" | "submitting" | "success" | "blocked" | "error";
+export type GatePhase = "loading" | "form" | "returning" | "submitting" | "success" | "error";
 
 export interface GateFormState {
   country: GatePhoneCountry;
@@ -90,8 +85,8 @@ export interface GateState {
   form: GateFormState;
   returning: { maskedPhone: string; preference: GateContactPreference } | null;
   error: { code: GateErrorCode; message: string; field?: string } | null;
-  /** Present ONLY in the "success" and "blocked" phases. */
-  destinationUrl: string | null;
+  /** Present only in the "success" phase: how Developer Connects will reach the buyer. */
+  success: { maskedPhone: string; preference: GateContactPreference } | null;
   /** Which kind of submit was in flight, so "Try again" repeats the right one. */
   lastAttempt: "form" | "returning" | null;
 }
@@ -102,20 +97,28 @@ export function initialGateState(country: GatePhoneCountry = "IN"): GateState {
     form: { country, phone: "", preference: "WHATSAPP", name: "" },
     returning: null,
     error: null,
-    destinationUrl: null,
+    success: null,
     lastAttempt: null,
   };
+}
+
+/**
+ * The contact method the buyer-facing copy should speak about: the one they just
+ * used (success), the one on file (returning buyer), otherwise the one selected in the form.
+ */
+export function gatePreference(state: GateState): GateContactPreference {
+  if (state.phase === "success" && state.success) return state.success.preference;
+  if (state.returning && (state.phase === "returning" || state.lastAttempt === "returning")) return state.returning.preference;
+  return state.form.preference;
 }
 
 export type GateAction =
   | { type: "LOADED_NEW" }
   | { type: "LOADED_RETURNING"; maskedPhone: string; preference: GateContactPreference }
-  | { type: "LOADED_OFF"; destinationUrl: string }
   | { type: "LOAD_FAILED"; code: GateErrorCode; message: string }
   | { type: "EDIT"; patch: Partial<GateFormState> }
   | { type: "SUBMIT_START"; attempt: "form" | "returning" }
-  | { type: "SUBMIT_REDIRECTED" }
-  | { type: "SUBMIT_BLOCKED"; destinationUrl: string }
+  | { type: "SUBMIT_SUCCEEDED"; maskedPhone: string; preference: GateContactPreference }
   | { type: "SUBMIT_ERROR"; code: GateErrorCode; message: string; field?: string }
   | { type: "USE_DIFFERENT_NUMBER" };
 
@@ -129,10 +132,6 @@ export function gateReducer(state: GateState, action: GateAction): GateState {
         ? { ...state, phase: "returning", returning: { maskedPhone: action.maskedPhone, preference: action.preference } }
         : state;
 
-    case "LOADED_OFF":
-      // Operator escape hatch only: the buyer still presses a real button to leave.
-      return state.phase === "loading" ? { ...state, phase: "blocked", destinationUrl: action.destinationUrl } : state;
-
     case "LOAD_FAILED":
       return state.phase === "loading"
         ? { ...state, phase: "error", error: { code: action.code, message: action.message }, lastAttempt: null }
@@ -144,23 +143,15 @@ export function gateReducer(state: GateState, action: GateAction): GateState {
 
     case "SUBMIT_START":
       if (state.phase === "submitting") return state; // no double submit
-      return { ...state, phase: "submitting", error: null, destinationUrl: null, lastAttempt: action.attempt };
+      return { ...state, phase: "submitting", error: null, success: null, lastAttempt: action.attempt };
 
-    case "SUBMIT_REDIRECTED":
-      return state.phase === "submitting" ? { ...state, phase: "success" } : state;
-
-    case "SUBMIT_BLOCKED":
-      // The browser blocked the new tab. The buyer's details ARE saved; they open the site with a real click.
-      return state.phase === "submitting" ? { ...state, phase: "blocked", destinationUrl: action.destinationUrl } : state;
+    case "SUBMIT_SUCCEEDED":
+      // Only a server response that said ok (the details are saved) can reach "success".
+      return state.phase === "submitting" ? { ...state, phase: "success", success: { maskedPhone: action.maskedPhone, preference: action.preference } } : state;
 
     case "SUBMIT_ERROR":
       if (state.phase !== "submitting") return state;
-      return {
-        ...state,
-        phase: "error",
-        destinationUrl: null,
-        error: { code: action.code, message: action.message, field: action.field },
-      };
+      return { ...state, phase: "error", error: { code: action.code, message: action.message, field: action.field } };
 
     case "USE_DIFFERENT_NUMBER":
       return state.phase === "returning" || state.phase === "error"
@@ -171,61 +162,29 @@ export function gateReducer(state: GateState, action: GateAction): GateState {
 
 // --- submit orchestration ------------------------------------------------------------------------
 
-/** A tab the gate opened synchronously (inside the click) so the browser's popup blocker allows it. */
-export interface TabHandle {
-  navigate(url: string): void;
-  close(): void;
-}
-
 export interface GateRunDeps<TInput> {
   submit(input: TInput): Promise<GateSubmitResponse>;
-  /** Called synchronously, before any await. Returns null when the browser refused to open a tab. */
-  openTab(): TabHandle | null;
 }
 
 export type GateRunResult =
-  | { kind: "redirected" }
-  | { kind: "blocked"; destinationUrl: string }
+  | { kind: "success"; maskedPhone: string; preference: GateContactPreference }
   | { kind: "error"; code: GateErrorCode; message: string; field?: string };
 
-/**
- * Runs one submit: open the tab FIRST (popup blockers only allow this inside
- * the user's click), ask the server, and only then — on an ok response —
- * point the tab at the server-resolved URL. On any failure the tab is closed
- * and NOTHING is navigated.
- */
+/** Runs one submit. Any failure — including a network error or a crash — is an error result the buyer can retry. */
 export async function runGateSubmit<TInput>(deps: GateRunDeps<TInput>, input: TInput): Promise<GateRunResult> {
-  const tab = deps.openTab();
-
   let response: GateSubmitResponse;
   try {
     response = await deps.submit(input);
   } catch {
-    // Network error, server crash, timeout: an error state, never a bypass.
-    tab?.close();
     return { kind: "error", code: "TEMPORARY_FAILURE", message: GATE_ERROR_MESSAGES.TEMPORARY_FAILURE };
   }
-
-  if (!response.ok) {
-    tab?.close();
-    return { kind: "error", code: response.code, message: response.message, field: response.field };
-  }
-
-  if (tab) {
-    tab.navigate(response.destinationUrl);
-    return { kind: "redirected" };
-  }
-  return { kind: "blocked", destinationUrl: response.destinationUrl };
+  if (!response.ok) return { kind: "error", code: response.code, message: response.message, field: response.field };
+  return { kind: "success", maskedPhone: response.maskedPhone, preference: response.contactPreference };
 }
 
 /** Maps a run result onto the state machine. */
 export function actionForResult(result: GateRunResult): GateAction {
-  switch (result.kind) {
-    case "redirected":
-      return { type: "SUBMIT_REDIRECTED" };
-    case "blocked":
-      return { type: "SUBMIT_BLOCKED", destinationUrl: result.destinationUrl };
-    case "error":
-      return { type: "SUBMIT_ERROR", code: result.code, message: result.message, field: result.field };
-  }
+  return result.kind === "success"
+    ? { type: "SUBMIT_SUCCEEDED", maskedPhone: result.maskedPhone, preference: result.preference }
+    : { type: "SUBMIT_ERROR", code: result.code, message: result.message, field: result.field };
 }

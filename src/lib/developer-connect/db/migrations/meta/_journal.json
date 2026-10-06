@@ -120,6 +120,13 @@
       "when": 1791237047285,
       "tag": "0016_lead_temperature_stage4",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791242975716,
+      "tag": "0017_developer_connect_requested_event",
+      "breakpoints": true
     }
   ]
 }

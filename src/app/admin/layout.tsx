@@ -22,14 +22,20 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="flex min-h-full flex-col">
       <header className="border-b border-border">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
+        {/* Wraps on a phone: brand + avatar on the first row, the date filter on its own row beneath, so the
+            header never pushes the page wider than the screen (it was ~54px too wide at 390px). From `sm` up it is
+            the original single row: brand left, filter and avatar right. */}
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:h-16 sm:gap-x-4 sm:px-6 sm:py-0">
+          <div className="mr-auto flex min-w-0 items-center gap-3">
             <Logo />
             <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-hover">
               Founder
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="order-2 shrink-0 sm:order-3">
+            <UserButton />
+          </div>
+          <div className="order-3 flex w-full justify-end sm:order-2 sm:w-auto">
             {/* The ONE global analytics date filter — every date-filtered
                 metric on every page below reads the exact same `?range=`
                 this sets. Suspense is required here: useSearchParams()
@@ -38,12 +44,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             <Suspense fallback={<div className="h-[42px] w-32" aria-hidden="true" />}>
               <DateRangeFilter />
             </Suspense>
-            <UserButton />
           </div>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-6 lg:flex-row">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
         <nav className="lg:w-56 lg:shrink-0" aria-label="Founder dashboard">
           <AdminNav />
         </nav>

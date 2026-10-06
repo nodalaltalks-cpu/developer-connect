@@ -4,7 +4,7 @@ import type {
   PublishedDeveloperEntry,
   PublishedDirectoryFilter,
 } from "./repository.ts";
-import { toPublicDeveloperProfile, type PublicDeveloperProfile } from "./public-view.ts";
+import { internalSearchDomain, toPublicDeveloperProfile, type PublicDeveloperProfile } from "./public-view.ts";
 import { OPERATING_COUNTRIES } from "./operating-countries.ts";
 
 /** Final, compact result count shown to a visitor — see the "keep the dropdown compact" requirement. */
@@ -46,7 +46,7 @@ function scoreDeveloperMatch(
   const q = query.toLowerCase();
   const displayName = profile.displayName.toLowerCase();
   const legalName = (profile.legalName ?? "").toLowerCase();
-  const domain = profile.officialWebsite?.canonicalDomain.toLowerCase() ?? "";
+  const domain = internalSearchDomain(profile).toLowerCase();
   const city = profile.city.toLowerCase();
   const state = profile.state.toLowerCase();
   const country = profile.country.toLowerCase();
@@ -272,7 +272,7 @@ export async function listPublicDirectory(
       developer.city,
       developer.state,
       developer.country,
-      developer.officialWebsite?.canonicalDomain ?? "",
+      internalSearchDomain(developer),
     ]
       .join(" ")
       .toLowerCase();

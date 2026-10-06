@@ -76,7 +76,8 @@ test("sitemap lastmod comes only from verifiedAt and is omitted when null", () =
 test("verified metadata states official-website intent, with the city when present", () => {
   const { title, description } = buildDeveloperMetadataText(profile());
   assert.equal(title, "Acme Realty Official Website in Mumbai | Developer Connects");
-  assert.match(description, /acme\.example/);
+  assert.doesNotMatch(description, /acme\.example|https?:|\.com\b/, "the developer's website is never named in public metadata");
+  assert.match(description, /verified its official website/);
   assert.match(description, /Mumbai/);
   assert.match(description, /Developer Connects/);
 });
@@ -146,12 +147,13 @@ test("developer loader is wrapped in React cache()", () => {
 });
 
 // CTA is the stored URL
-test("CTA and displayed domain come from the stored verified candidate", () => {
+test("the public profile carries no URL or domain, and the page renders neither", () => {
   const p = profile();
-  assert.equal(p.officialWebsite?.url, "https://www.acme.example/");
-  assert.equal(p.officialWebsite?.canonicalDomain, "acme.example");
+  assert.ok(!("url" in (p.officialWebsite ?? {})));
+  assert.ok(!("canonicalDomain" in (p.officialWebsite ?? {})));
+  assert.ok(!JSON.stringify(p).includes("acme.example"));
   const page = read("../../../app/developers/[slug]/page.tsx");
-  assert.match(page, /url=\{developer\.officialWebsite\.url\}/);
+  assert.doesNotMatch(page, /officialWebsite\.url|canonicalDomain|ExternalDomainLink/);
 });
 
 // --- Visible official-website relationship sentence ------------------------
@@ -161,16 +163,17 @@ const fmt = (date: Date) => `<${date.toISOString().slice(0, 10)}>`;
 test("intro: a VERIFIED developer states the official-website relationship with name, location, domain, verifier and date", () => {
   assert.equal(
     developerIntroText(profile(), fmt),
-    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website is acme.example, as verified by Developer Connects on <2026-02-02>.",
+    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website has been verified by Developer Connects on <2026-02-02>.",
   );
 });
 
-test("intro: the domain shown is the stored canonical domain, not derived from the name or slug", () => {
+test("intro: never names the website, whatever its domain is", () => {
   const p = profile({}, verifiedCandidate({ url: "https://www.totally-unrelated.example/", canonicalDomain: "totally-unrelated.example" }));
   const text = developerIntroText(p, fmt);
-  assert.ok(text.includes("totally-unrelated.example"));
+  assert.ok(!text.includes("totally-unrelated.example"));
   assert.ok(!text.includes("acme.example"));
   assert.ok(!text.includes("acme-realty"));
+  assert.match(text, /official website has been verified by Developer Connects/);
 });
 
 test("intro: no reliable verification date means no date in the sentence (nothing is invented)", () => {
@@ -178,7 +181,7 @@ test("intro: no reliable verification date means no date in the sentence (nothin
   const text = developerIntroText(p, fmt);
   assert.equal(
     text,
-    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website is acme.example, as verified by Developer Connects.",
+    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website has been verified by Developer Connects.",
   );
   assert.doesNotMatch(text, / on /);
   assert.doesNotMatch(text, /<\d{4}-\d{2}-\d{2}>/);
@@ -193,12 +196,12 @@ test("intro: an UNVERIFIED developer gets the location sentence only — never a
 test("intro: missing optional location parts are omitted rather than printed blank", () => {
   assert.equal(
     developerIntroText(profile({ state: "  " }), fmt),
-    "Acme Realty is a real estate developer in Mumbai, India. Acme Realty's official website is acme.example, as verified by Developer Connects on <2026-02-02>.",
+    "Acme Realty is a real estate developer in Mumbai, India. Acme Realty's official website has been verified by Developer Connects on <2026-02-02>.",
   );
   // No location at all: still one factual sentence, naming the developer directly.
   assert.equal(
     developerIntroText(profile({ city: "", state: "", country: "" }), fmt),
-    "Acme Realty's official website is acme.example, as verified by Developer Connects on <2026-02-02>.",
+    "Acme Realty's official website has been verified by Developer Connects on <2026-02-02>.",
   );
   assert.equal(developerIntroText(profile({ city: "", state: "", country: "" }, null), fmt), "");
 });
@@ -214,18 +217,14 @@ test("page: renders the sentence from developerIntroText once, and leaves the CT
   assert.equal((page.match(/developerIntroText\(/g) ?? []).length, 1);
   assert.match(page, /\{introText && <p className="mt-2 text-foreground">\{introText\}<\/p>\}/);
   // The sentence text itself lives in the content module, not hard-coded in the page.
-  assert.doesNotMatch(page, /official website is/);
+  assert.doesNotMatch(page, /official website is|has been verified by/);
   // Existing UI is unchanged.
-  // The CTA is unchanged in place and purpose, but since the assistance gate it no longer receives the destination URL:
-  // the server resolves it from the verified record once the buyer's details are saved (see lead-gate-actions.ts).
-  const cta = page.match(/<VisitOfficialWebsiteButton[\s\S]*?\/>/)?.[0] ?? "";
+  // The primary CTA is "Connect with {developer}": it opens the Developer Connects gate and is handed neither a URL nor a domain.
+  const cta = page.match(/<ConnectWithDeveloperButton[\s\S]*?\/>/)?.[0] ?? "";
   assert.match(cta, /developerId=\{developer\.id\}/);
   assert.match(cta, /developerName=\{developer\.displayName\}/);
-  assert.match(cta, /domain=\{developer\.officialWebsite\.canonicalDomain\}/);
-  assert.doesNotMatch(cta, /\burl=/, "the browser is never handed the destination URL");
-  // The linked domain survives only when the gate is off (never on production); otherwise it is shown as plain text.
-  assert.match(page, /<ExternalDomainLink[\s\S]*?url=\{developer\.officialWebsite\.url\}/);
-  assert.match(page, /gateRequired \?/);
+  assert.doesNotMatch(cta, /\burl=|\bdomain=/, "the browser is never handed a developer website");
+  assert.doesNotMatch(page, /ExternalDomainLink|gateRequired|VisitOfficialWebsiteButton/);
   assert.match(page, /Last verified \{formatDate\(developer\.officialWebsite\.verifiedAt\)\}/);
   assert.match(page, /<ShareDeveloper /);
   assert.match(page, /<ReportInaccurateInfo /);

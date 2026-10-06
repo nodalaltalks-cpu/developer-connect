@@ -29,11 +29,21 @@ const actions = read("app/admin/_actions/lead-actions.ts");
 test("lead actions: every exported action goes through run(), and run() authorizes the founder before anything else", () => {
   const exported = [...code(actions).matchAll(/export async function (\w+)\(/g)].map((match) => match[1]);
   assert.ok(exported.length >= 7, "the CRM actions exist");
+  // The dialer and import actions return richer results than run() can (a call id, counts), so they authorize the
+  // Founder THEMSELVES — as their very first statement, before any argument is looked at.
+  const DIRECT = ["placeLeadCallAction", "getLeadCallStatusAction", "setLeadCallDispositionAction", "importLeadsAction"];
   for (const name of exported) {
     const body = code(actions).slice(code(actions).indexOf(`export async function ${name}(`));
     const end = body.indexOf("\nexport async function", 10);
-    assert.match(end === -1 ? body : body.slice(0, end), /return run\(leadId,/, `${name} must delegate to run()`);
+    const text = end === -1 ? body : body.slice(0, end);
+    if (DIRECT.includes(name)) {
+      const open = text.indexOf("{");
+      assert.match(text.slice(open + 1).trimStart(), /^const founderId = await requireFounderForAction\(\);/, `${name} must authorize the founder first`);
+      continue;
+    }
+    assert.match(text, /return run\(leadId,/, `${name} must delegate to run()`);
   }
+  for (const name of DIRECT) assert.ok(exported.includes(name), `${name} exists`);
 
   const runBody = code(actions).slice(code(actions).indexOf("async function run("));
   const auth = runBody.indexOf("requireFounderForAction()");
@@ -50,8 +60,45 @@ test("lead actions: the acting founder comes from the verified session, never fr
   }
 });
 
-test("lead actions: nothing deletes — no delete/erase/redact call exists in the CRM actions", () => {
-  assert.doesNotMatch(code(actions), /\b(eraseLead|delete|destroy|truncate|redact)\w*\b/i);
+test("lead actions: nothing deletes history — the ONLY removal is the founder's erasure of personal data, through one dedicated action", () => {
+  const source = code(actions);
+  assert.doesNotMatch(source, /\b(delete|destroy|truncate|redact)\w*\b/i, "no delete/destroy/truncate/redact anywhere in the CRM actions");
+  // eraseLead is only reachable through the confirmation guard, and only from eraseLeadAction.
+  assert.doesNotMatch(source, /\beraseLead\b/, "the raw eraseLead must not be called directly — use the confirmed wrapper");
+  const callers = [...source.matchAll(/eraseLeadOnFounderRequest\(/g)];
+  assert.equal(callers.length, 1, "exactly one call site for the erasure wrapper");
+  const exportedErase = [...source.matchAll(/export async function (\w*[Ee]rase\w*)\(/g)].map((match) => match[1]);
+  assert.deepEqual(exportedErase, ["eraseLeadAction"], "exactly one erasure action is exported");
+  assert.match(source, /export async function eraseLeadAction\(leadId: string, confirmation: string\)[^]*?return run\(leadId,/, "erasure goes through run() — founder check first");
+});
+
+test("erasure: there is no public way in — no public action, page or API route can reach it, and only the CRM screen uses the action", () => {
+  const allowed = new Set([
+    "app/admin/_actions/lead-actions.ts",
+    "lib/leads/erasure.ts",
+    "lib/leads/lead-service.ts",
+    "components/admin/leads/lead-erase-card.tsx",
+  ]);
+  const offenders = walk(srcRoot)
+    .filter((file) => /\.(ts|tsx)$/.test(file) && !/__tests__|\.test\./.test(file))
+    .filter((file) => /\b(eraseLead|eraseLeadOnFounderRequest|eraseLeadAction)\b/.test(code(readFileSync(file, "utf8"))))
+    .map((file) => path.relative(srcRoot, file).split(path.sep).join("/"))
+    .filter((file) => !allowed.has(file));
+  assert.deepEqual(offenders, [], "erasure referenced outside its founder-only path");
+
+  // The public gate actions must not expose it.
+  assert.doesNotMatch(code(read("app/_actions/lead-gate-actions.ts")), /erase/i);
+});
+
+test("erasure screen: the card calls the founder action, needs the typed word, and the page shows it only to a founder for a lead that is not already erased", () => {
+  const card = code(read("components/admin/leads/lead-erase-card.tsx"));
+  assert.match(card, /eraseLeadAction\(leadId, typed\)/);
+  assert.match(card, /disabled=\{!confirmed \|\| pending\}/, "the destructive button stays disabled until the word is typed");
+  assert.doesNotMatch(card, /actorId|userId|founderId/i, "the browser never says who is acting");
+
+  const page = code(read("app/admin/leads/[id]/page.tsx"));
+  assert.match(page, /\{!erased && <LeadEraseCard leadId=\{lead\.id\} \/>\}/);
+  assert.ok(page.indexOf("await requireFounder()") < page.indexOf("<LeadEraseCard"), "mounted only after founder authorization");
 });
 
 test("lead actions: errors returned to the browser are short messages, never raw errors", () => {
@@ -108,7 +155,17 @@ test("public surfaces never link to or expose the CRM: sitemap, robots, llms.txt
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
-  const publicFiles = walk(path.join(srcRoot, "components")).filter((file) => !file.includes(`${path.sep}admin${path.sep}`) && !file.includes("__tests__") && /\.tsx?$/.test(file));
+  // components/admin, components/team and components/leads (shared by the two) are PRIVATE, session-gated areas. They
+  // are held to their own, stricter guarantees in lib/team/__tests__/team-security.test.ts and
+  // lib/leads/__tests__/requirements-security.test.ts (which also proves only private pages import components/leads).
+  const publicFiles = walk(path.join(srcRoot, "components")).filter(
+    (file) =>
+      !file.includes(`${path.sep}admin${path.sep}`) &&
+      !file.includes(`${path.sep}components${path.sep}team${path.sep}`) &&
+      !file.includes(`${path.sep}components${path.sep}leads${path.sep}`) &&
+      !file.includes("__tests__") &&
+      /\.tsx?$/.test(file),
+  );
   for (const file of publicFiles) {
     assert.doesNotMatch(readFileSync(file, "utf8"), /admin\/leads|lib\/leads\/lead-reads|lead-actions/, `${path.relative(srcRoot, file)} reaches the CRM`);
   }
@@ -127,14 +184,23 @@ test("temperature, status and follow-up controls exist and call the matching fou
   for (const action of [
     "setLeadTemperatureAction",
     "changeLeadStatusAction",
-    "setLeadFollowUpAction",
-    "completeLeadFollowUpAction",
     "addLeadNoteAction",
     "logLeadContactAction",
-    "updateLeadRequirementAction",
   ]) {
     assert.ok(panel.includes(`${action}(`), `${action} is wired into the panel`);
   }
+  // The buyer requirement moved out of the panel into its own section, wired on the lead page to the three
+  // founder requirement actions (the legacy single-field editor is gone, so there is one source of truth).
+  assert.doesNotMatch(panel, /updateLeadRequirementAction|Edit requirement/);
+  const page = read("app/admin/leads/[id]/page.tsx");
+  for (const action of ["createRequirementAction", "updateRequirementDetailsAction", "setRequirementStatusAction"]) {
+    assert.ok(page.includes(`${action}.bind(null, lead.id)`), `${action} is wired into the founder lead page`);
+  }
+  // Follow-ups likewise live in their own section now (exact time, type, reschedule, cancel with a reason).
+  for (const action of ["setLeadFollowUpAction", "rescheduleLeadFollowUpAction", "completeLeadFollowUpAction", "cancelLeadFollowUpAction"]) {
+    assert.ok(page.includes(`${action}.bind(null, lead.id)`), `${action} is wired into the founder lead page`);
+  }
+  assert.doesNotMatch(panel, /setLeadFollowUpAction|completeLeadFollowUpAction/, "the panel no longer carries a date-only follow-up control");
   // Call/WhatsApp only RECORD an outcome once the founder taps one — opening the dialer alone logs nothing.
   assert.match(panel, /Only what you tap is recorded/);
   assert.match(panel, /onClick=\{\(\) => setChannel\(/);

@@ -29,8 +29,14 @@ export interface LeadCounts {
 }
 
 export interface LeadListQuery {
-  /** "attention" is served by the Today queue, not by this list; the repository treats it as "all". */
-  view: Exclude<LeadView, "attention">;
+  /**
+   * "attention" is served by the Today queue, not by this list; the repository treats it as "all".
+   * "follow_up_due" (overdue OR due before the end of today) exists for the team workspace only — it is not a
+   * founder tab.
+   */
+  view: Exclude<LeadView, "attention"> | "follow_up_due";
+  /** When set, only leads owned by this id. The team workspace ALWAYS sets it, from the verified session — never from the browser. */
+  ownerId?: string;
   limit: number;
   offset: number;
   now: Date;
@@ -58,6 +64,8 @@ export function matchesView(lead: Lead, view: LeadListQuery["view"], now: Date, 
       return due !== null && due.getTime() < now.getTime() && open(lead);
     case "due_today":
       return due !== null && due.getTime() >= now.getTime() && due.getTime() < endOfToday.getTime() && open(lead);
+    case "follow_up_due":
+      return due !== null && due.getTime() < endOfToday.getTime() && open(lead);
     case "qualified":
       return lead.status === "QUALIFIED";
   }
@@ -83,7 +91,7 @@ export function countLeads(leads: Lead[], now: Date, endOfToday: Date): LeadCoun
 /** Sort order for a list view: follow-up views by what is due first, everything else by latest activity; lead id last so pages are stable. */
 export function compareForView(view: LeadListQuery["view"]): (a: Lead, b: Lead) => number {
   const byActivity = (a: Lead, b: Lead) => b.lastActivityAt.getTime() - a.lastActivityAt.getTime() || a.id.localeCompare(b.id);
-  if (view === "overdue" || view === "due_today") {
+  if (view === "overdue" || view === "due_today" || view === "follow_up_due") {
     return (a, b) => (a.nextFollowUpAt?.getTime() ?? 0) - (b.nextFollowUpAt?.getTime() ?? 0) || a.id.localeCompare(b.id);
   }
   return byActivity;

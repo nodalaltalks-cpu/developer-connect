@@ -136,7 +136,7 @@ export default function PrivacyPolicyPage() {
         <ul>
           <li>
             <strong>What we collect:</strong> your phone or WhatsApp number (stored in international format),
-            your preferred contact method, your name and email if you give them, the developer you
+            your preferred contact method, your name if you give it, the developer you
             asked about, any requirement you tell us about (such as location, budget, configuration or
             timeline), and how you reached us (for example the page, referrer and campaign parameters).
           </li>
@@ -149,8 +149,26 @@ export default function PrivacyPolicyPage() {
             to stop contacting you at any time.
           </li>
           <li>
-            <strong>Erasure:</strong> you can ask us to erase your enquiry details. We then remove your personal
-            details and keep only an anonymised record that an enquiry took place.
+            <strong>Remembering you on this browser:</strong> after you send a request we may set a cookie called{" "}
+            <code>dc_lead</code> for 30 days so we can offer to continue with the number you shared earlier. It is
+            httpOnly and signed, and contains only an internal reference to your enquiry record, an expiry and a
+            signature — not your name, number or email. See our Cookie Policy.
+          </li>
+          <li>
+            <strong>Our commercial relationship:</strong> Developer Connects may receive payment from developers or
+            others in connection with property transactions. This has no effect on whether a developer&apos;s website
+            is verified.
+          </li>
+          <li>
+            <strong>Erasure:</strong> you can ask us to erase your enquiry details by emailing{" "}
+            <a href={`mailto:${LEGAL_CONFIG.privacyEmail}`} className="text-accent-hover hover:underline">
+              {LEGAL_CONFIG.privacyEmail}
+            </a>
+            . We then remove your name, phone number, email, location and any free text we recorded, and withdraw your
+            consent record. We keep an anonymised record of the enquiry — for example its status, the developer it
+            concerned, the structured parts of the requirement (such as budget range and configuration), how it
+            reached us, any booking and a timeline of what happened and when — none of which identifies you. If you
+            enquire again afterwards, you are treated as a new enquiry.
           </li>
           <li>
             Enquiry details are visible only to Developer Connects and are never shown publicly. We do not sell

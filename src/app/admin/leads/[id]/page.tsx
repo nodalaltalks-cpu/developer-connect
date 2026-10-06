@@ -2,6 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireFounder } from "@/lib/auth";
 import { LeadActionsPanel } from "@/components/admin/leads/lead-actions-panel";
+import { LeadEraseCard } from "@/components/admin/leads/lead-erase-card";
+import { LeadOwnerCard } from "@/components/admin/leads/lead-owner-card";
+import { FounderCallButton } from "@/components/admin/leads/founder-call-button";
+import { CallHistoryCard } from "@/components/leads/call-history";
+import { FollowUpSection } from "@/components/leads/follow-up-section";
+import { RequirementSection } from "@/components/leads/requirement-section";
 import { StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
 import {
   AttributionCard,
@@ -15,8 +21,24 @@ import {
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { telHref, whatsappHref } from "@/lib/leads/contact-links";
-import { formatDateTime, formatEnumLabel } from "@/lib/leads/format";
+import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
 import { getLeadDetail } from "@/lib/leads/lead-reads";
+import { prefillFromLead, toRequirementView } from "@/lib/leads/requirement-view";
+import { toCallView } from "@/lib/leads/call-view";
+import { toFollowUpView } from "@/lib/leads/follow-up-view";
+import { leadSourceLabel } from "@/lib/leads/lead-source";
+import { getTelephonyProvider } from "@/lib/leads/telephony";
+import {
+  cancelLeadFollowUpAction,
+  completeLeadFollowUpAction,
+  createRequirementAction,
+  rescheduleLeadFollowUpAction,
+  setLeadFollowUpAction,
+  setRequirementStatusAction,
+  updateRequirementDetailsAction,
+} from "@/app/admin/_actions/lead-actions";
+import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
+import { staffNameMap } from "@/lib/staff/staff-service";
 
 export const metadata = {
   title: "Lead | Developer Connects",
@@ -40,6 +62,9 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
   const detail = await getLeadDetail(createPostgresLeadRepositories(), id, now);
   if (!detail) notFound();
   const { lead } = detail;
+  const team = await createPostgresStaffRepository().list();
+  const names = staffNameMap(team);
+  const ownerName = lead.ownerId ? (names[lead.ownerId] ?? "Team member") : undefined;
   const erased = lead.erasedAt !== null;
 
   // The developer's verified website is INTERNAL data: only this founder-only page reads it (after requireFounder above),
@@ -63,7 +88,8 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusBadge status={lead.status} />
-          <span className="text-xs text-muted-foreground">{lead.ownerId ? "Assigned" : "Owner: Founder"}</span>
+          <span className="text-xs text-muted-foreground">Owner: {ownerName ?? "Founder"}</span>
+          <span className="text-xs text-muted-foreground">{leadSourceLabel(lead)}</span>
         </div>
         {!erased && (
           <p className="mt-2 text-sm text-foreground">
@@ -75,7 +101,7 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
         {detail.followUp && lead.nextFollowUpAt && (
           <p className={`mt-2 text-sm font-medium ${detail.followUp === "OVERDUE" ? "text-red-700" : detail.followUp === "TODAY" ? "text-amber-700" : "text-muted-foreground"}`}>
             {detail.followUp === "OVERDUE" ? "Follow-up overdue — was due " : "Follow-up "}
-            {formatDateTime(lead.nextFollowUpAt)}
+            {formatDateTimeFull(lead.nextFollowUpAt)}
           </p>
         )}
       </header>
@@ -86,34 +112,56 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
           <div className="lg:order-2">
             <LeadActionsPanel
               leadId={lead.id}
+              dialerConfigured={getTelephonyProvider().configured}
+              callSlot={<FounderCallButton leadId={lead.id} phoneE164={lead.phoneE164} />}
               telHref={telHref(lead.phoneE164)}
               whatsappHref={whatsappHref(lead.phoneE164)}
               prefersWhatsApp={lead.contactPreference === "WHATSAPP"}
               temperature={lead.temperature}
               status={lead.status}
-              nextFollowUpAt={lead.nextFollowUpAt ? lead.nextFollowUpAt.toISOString() : null}
-              requirement={{
-                location: lead.location,
-                budgetMin: lead.budgetMin,
-                budgetMax: lead.budgetMax,
-                budgetCurrency: lead.budgetCurrency,
-                configuration: lead.configuration,
-                propertyType: lead.propertyType,
-                purpose: lead.purpose,
-                timeline: lead.timeline,
-              }}
             />
           </div>
         )}
 
         <div className="space-y-4">
-          <RequirementCard lead={lead} />
+          {!erased && (
+            <LeadOwnerCard
+              leadId={lead.id}
+              currentOwnerId={lead.ownerId}
+              currentOwnerName={ownerName ?? null}
+              members={team.filter((m) => m.active).map((m) => ({ id: m.id, userId: m.userId, name: m.displayName }))}
+              ownerInactive={lead.ownerId !== null && team.some((m) => m.userId === lead.ownerId && !m.active)}
+            />
+          )}
+          {!erased && <CallHistoryCard calls={detail.calls.map(toCallView)} names={names} />}
+          {!erased && (
+            <FollowUpSection
+              followUps={detail.followUps.map(toFollowUpView)}
+              nowIso={now.toISOString()}
+              onSchedule={setLeadFollowUpAction.bind(null, lead.id)}
+              onReschedule={rescheduleLeadFollowUpAction.bind(null, lead.id)}
+              onComplete={completeLeadFollowUpAction.bind(null, lead.id)}
+              onCancel={cancelLeadFollowUpAction.bind(null, lead.id)}
+            />
+          )}
+          {erased ? (
+            <RequirementCard lead={lead} />
+          ) : (
+            <RequirementSection
+              requirements={detail.requirements.map(toRequirementView)}
+              prefill={prefillFromLead(lead)}
+              onCreate={createRequirementAction.bind(null, lead.id)}
+              onUpdate={updateRequirementDetailsAction.bind(null, lead.id)}
+              onSetStatus={setRequirementStatusAction.bind(null, lead.id)}
+            />
+          )}
           <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} developerWebsite={developerWebsite} />
           <AttributionCard firstTouch={detail.firstTouch} lastTouch={detail.lastTouch} sourceCta={lead.sourceCta} />
           <BookingsCard bookings={detail.bookings} />
-          <TimelineCard events={detail.events} />
+          <TimelineCard events={detail.events} names={names} />
           <ConsentCard consents={detail.consents} />
-          <AuditCard lead={lead} />
+          <AuditCard lead={lead} ownerName={ownerName} />
+          {!erased && <LeadEraseCard leadId={lead.id} />}
         </div>
       </div>
     </div>

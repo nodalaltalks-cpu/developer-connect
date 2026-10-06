@@ -69,3 +69,62 @@ export function formatEnumLabel(value: string): string {
 export function formatDateTime(date: Date, timeZone = "Asia/Kolkata"): string {
   return new Intl.DateTimeFormat("en-IN", { timeZone, day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(date);
 }
+
+/** The business time zone every time on a lead is shown in (India; no daylight saving). Instants are stored as UTC timestamptz. */
+export const BUSINESS_TIME_ZONE = "Asia/Kolkata";
+
+/** "10 Oct 2026, 10:42 AM" in the business time zone — deterministic regardless of the server's or browser's own zone. */
+export function formatDateTimeFull(date: Date, timeZone = BUSINESS_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("day")} ${get("month")} ${get("year")}, ${get("hour")}:${get("minute")} ${get("dayPeriod").toUpperCase()}`;
+}
+
+/** "2h 18m" / "45m" / "3d 4h" — how long ago a scheduled time passed. Never negative. */
+export function formatOverdue(milliseconds: number): string {
+  const totalMinutes = Math.max(0, Math.floor(milliseconds / 60_000));
+  if (totalMinutes < 1) return "under a minute";
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  return `${minutes}m`;
+}
+
+/**
+ * Turns the wall-clock value of a datetime-local input ("2026-10-12T15:30") into the exact instant it means IN THE
+ * BUSINESS TIME ZONE — not in whatever zone the browser happens to be set to. Returns null for anything that is not
+ * a valid local date-time with minutes (a date alone is not enough: follow-ups need an exact time).
+ */
+export function businessLocalToInstant(local: string, timeZone = BUSINESS_TIME_ZONE): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(typeof local === "string" ? local.trim() : "");
+  if (!match) return null;
+  const [year, month, day, hour, minute] = match.slice(1).map(Number);
+  const asUtc = Date.UTC(year, month - 1, day, hour, minute);
+  const check = new Date(asUtc);
+  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return null;
+  // The zone's offset at (about) that instant, found with Intl rather than assumed.
+  const offsetAt = (instant: number) => {
+    const p = new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" }).formatToParts(new Date(instant));
+    const n = (t: string) => Number(p.find((x) => x.type === t)?.value);
+    return Date.UTC(n("year"), n("month") - 1, n("day"), n("hour"), n("minute"), n("second")) - instant;
+  };
+  const first = asUtc - offsetAt(asUtc);
+  return new Date(asUtc - offsetAt(first));
+}
+
+/** A datetime-local value ("2026-10-12T10:00") for `days` from `now`, at `hour`:00, in the business time zone. */
+export function businessPresetLocal(now: Date, days: number, hour = 10, timeZone = BUSINESS_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(now.getTime() + days * 86_400_000));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${String(hour).padStart(2, "0")}:00`;
+}

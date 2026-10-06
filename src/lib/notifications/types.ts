@@ -10,7 +10,19 @@
  *    the status of a signed-in visitor's Contact Us submission (see
  *    contact-service.ts) — its own type for the same reason as above.
  */
-export type NotificationType = "PROFILE_COMPLETION" | "FOUNDER_MESSAGE" | "CONTACT_STATUS_UPDATE" | "LEAD_NEW";
+/**
+ *  - FOLLOW_UP_MISSED / FOLLOW_UP_DUE / LEAD_RETURNED / LEAD_ASSIGNED: sales-operations notifications for team members
+ *    (follow-up discipline). Their text never contains a buyer's name or number; the link opens the lead.
+ */
+export type NotificationType =
+  | "PROFILE_COMPLETION"
+  | "FOUNDER_MESSAGE"
+  | "CONTACT_STATUS_UPDATE"
+  | "LEAD_NEW"
+  | "FOLLOW_UP_MISSED"
+  | "FOLLOW_UP_DUE"
+  | "LEAD_RETURNED"
+  | "LEAD_ASSIGNED";
 
 export interface Notification {
   id: string;

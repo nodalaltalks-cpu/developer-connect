@@ -461,7 +461,7 @@ test("notes, follow-ups and contact logs are recorded as events and update last 
   assert.equal(cleared.nextFollowUpAt, null);
 
   const events = await getLeadTimeline(repos, lead.id);
-  assert.deepEqual(types(events).slice(-4), ["NOTE_ADDED", "FOLLOW_UP_SET", "CONTACT_LOGGED", "FOLLOW_UP_SET"]);
+  assert.deepEqual(types(events).slice(-4), ["NOTE_ADDED", "FOLLOW_UP_SET", "CONTACT_LOGGED", "FOLLOW_UP_CANCELLED"], "clearing a follow-up cancels it (reason recorded)");
   assert.equal(events.find((event) => event.eventType === "NOTE_ADDED")!.payload.note, "Prefers evening calls");
   assert.equal((await repos.leads.getById(lead.id))!.lastActivityAt.getTime(), minutes(8).getTime());
 });

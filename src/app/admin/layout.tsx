@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { UserButton } from "@clerk/nextjs";
+import { currentUser } from "@clerk/nextjs/server";
+import { NotificationBell } from "@/components/notification-bell";
+import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
+import { getFounderAttention } from "@/lib/leads/follow-up-reads";
 import { requireFounder } from "@/lib/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { ScrollToTopButton } from "@/components/admin/scroll-to-top-button";
@@ -19,6 +23,20 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // calls requireFounderForAction itself — never just a hidden UI button.
   await requireFounder();
 
+  // The Founder's attention signal: unresolved missed follow-ups and returned leads, as nav badges. Best effort —
+  // a failure here must never stop the dashboard from loading.
+  const badges: Record<string, number> = {};
+  try {
+    const user = await currentUser();
+    if (user) {
+      const attention = await getFounderAttention(createPostgresLeadRepositories(), { actorType: "FOUNDER", actorId: user.id });
+      if (attention.missed > 0) badges["/admin/missed-leads"] = attention.missed;
+      if (attention.returned > 0) badges["/admin/returned-leads"] = attention.returned;
+    }
+  } catch {
+    // no badges
+  }
+
   return (
     <div className="flex min-h-full flex-col">
       <header className="border-b border-border">
@@ -32,7 +50,8 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
               Founder
             </span>
           </div>
-          <div className="order-2 shrink-0 sm:order-3">
+          <div className="order-2 flex shrink-0 items-center gap-2 sm:order-3">
+            <NotificationBell />
             <UserButton />
           </div>
           <div className="order-3 flex w-full justify-end sm:order-2 sm:w-auto">
@@ -50,7 +69,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
         <nav className="lg:w-56 lg:shrink-0" aria-label="Founder dashboard">
-          <AdminNav />
+          <AdminNav badges={badges} />
         </nav>
 
         <main className="min-w-0 flex-1">{children}</main>

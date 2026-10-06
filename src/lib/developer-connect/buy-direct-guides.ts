@@ -1,5 +1,5 @@
 /**
- * "Buy property directly from the developer" guides — the content behind
+ * Developer research guides — the content behind
  * /buy-direct-from-developer and /buy-direct-from-developer/[market].
  *
  * Each market maps onto an APPROVED location page (location-pages.ts), so a
@@ -249,19 +249,19 @@ export interface FaqItem {
   answer: string;
 }
 
-/** The shared, step-by-step "how to buy directly" process. */
+/** The shared, step-by-step "how to research a developer" process. */
 export const BUY_DIRECT_STEPS: { title: string; body: string }[] = [
   {
-    title: "Find the developer's genuine official website",
-    body: "Fake and look-alike websites are common. Use a developer's verified official website — every developer on Developer Connects links to the site we have verified as theirs — rather than a search ad or a link someone sent you.",
+    title: "Make sure you are dealing with the genuine developer",
+    body: "Fake and look-alike websites are common. Developer Connects confirms the official website that belongs to each developer it lists, so start from a verified listing rather than a search ad or a link someone sent you.",
   },
   {
     title: "Check the project with the regulator",
     body: "Confirm the project is registered with the real estate regulator for its location, and that the developer named in the registration is the one you are dealing with.",
   },
   {
-    title: "Contact the developer through its official channels",
-    body: "Use the phone numbers, email addresses and sales offices published on the official website. A developer's own sales team can share pricing, payment plans, floor plans and availability directly.",
+    title: "Speak to the developer's own sales team",
+    body: "A developer's own sales team can share pricing, payment plans, floor plans and availability. Through Developer Connects, our property team can help you reach them; however you are put in touch, confirm the sales office and phone numbers before you pay or share documents.",
   },
   {
     title: "Get every term in writing",
@@ -278,18 +278,18 @@ export function buyDirectFaq(market?: BuyDirectMarket | null): FaqItem[] {
   const where = market ? ` in ${market.name}` : "";
   return [
     {
-      question: `Can I buy property directly from a developer${where}?`,
-      answer: `Yes. Developers${where} sell new and off-plan homes through their own sales teams, and you can contact them through their official website.`,
+      question: `How do developers sell new homes${where}?`,
+      answer: `Yes. Developers${where} sell new and off-plan homes through their own sales teams, and Developer Connects can help you connect with the developer.`,
     },
     {
-      question: "Is it cheaper to buy directly from the developer?",
+      question: "How do I compare the real cost of a purchase?",
       answer:
-        "Not always. Developers usually set the same list price whichever way you come in, and you get pricing, offers and payment plans from the source. Whichever route you take, ask about any fees and compare the final, all-in cost in writing.",
+        "Prices, offers and payment plans come from the developer's sales team, so ask for the current figures in writing. Whichever route you take, ask about any fees and compare the final, all-in cost.",
     },
     {
       question: "How do I know I am on the developer's real website?",
       answer:
-        "Look the developer up on Developer Connects: each listing shows the official website we have verified as belonging to that developer, with the date it was last verified. Be cautious of look-alike domains and of websites reached through ads or messages.",
+        "Look the developer up on Developer Connects: each listing states that we have verified its official website as belonging to that developer, with the date it was last verified. Be cautious of look-alike domains and of websites reached through ads or messages, and use Connect so our property team can help you reach the real developer.",
     },
     {
       question: `How do I check a project is genuine${where}?`,

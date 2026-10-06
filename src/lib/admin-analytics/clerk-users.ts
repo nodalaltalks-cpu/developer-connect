@@ -118,3 +118,19 @@ export async function getClerkUser(userId: string): Promise<ClerkUserSummary | n
     return null;
   }
 }
+
+/**
+ * Resolves an email address to exactly one Clerk user (founder team management only — never a public path).
+ * Returns null when nobody, or more than one account, matches: the founder must never add the wrong person.
+ */
+export async function findClerkUserByEmail(email: string): Promise<ClerkUserSummary | null> {
+  const clean = email.trim().toLowerCase();
+  if (!clean || clean.length > 254) return null;
+  try {
+    const users = (await clerkFetch(`/users?limit=2&email_address=${encodeURIComponent(clean)}`)) as ClerkApiUser[];
+    if (!Array.isArray(users) || users.length !== 1) return null;
+    return toSummary(users[0]);
+  } catch {
+    return null;
+  }
+}

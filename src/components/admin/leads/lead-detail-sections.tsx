@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ExternalDomainLink } from "@/components/external-domain-link";
-import { formatBudget, formatDateTime, formatEnumLabel, formatMoney } from "@/lib/leads/format";
+import { formatBudget, formatDateTime, formatDateTimeFull, formatEnumLabel, formatMoney } from "@/lib/leads/format";
 import { describeTimeline } from "@/lib/leads/timeline";
 import type { Booking, Lead, LeadConsent, LeadEvent, MarketingTouch } from "@/lib/leads/types";
 
@@ -150,14 +150,14 @@ export function BookingsCard({ bookings }: { bookings: Booking[] }) {
   );
 }
 
-export function AuditCard({ lead }: { lead: Lead }) {
+export function AuditCard({ lead, ownerName }: { lead: Lead; ownerName?: string }) {
   return (
     <Card title="Record">
       <Rows
         rows={[
           ["Created", formatDateTime(lead.createdAt)],
           ["Last activity", formatDateTime(lead.lastActivityAt)],
-          ["Owner", lead.ownerId ? "Assigned" : "Founder (unassigned)"],
+          ["Owner", lead.ownerId ? (ownerName ?? "Team member") : "Founder (unassigned)"],
           ["Erased", lead.erasedAt ? formatDateTime(lead.erasedAt) : null],
         ]}
       />
@@ -166,9 +166,9 @@ export function AuditCard({ lead }: { lead: Lead }) {
   );
 }
 
-/** Newest first — the founder wants what just happened at the top. */
-export function TimelineCard({ events }: { events: LeadEvent[] }) {
-  const lines = describeTimeline(events).reverse();
+/** Chronological, oldest first: the single source of truth for who did what, and when (India time). */
+export function TimelineCard({ events, names }: { events: LeadEvent[]; names?: Record<string, string> }) {
+  const lines = describeTimeline(events, names);
   return (
     <Card title="Activity">
       <ol className="space-y-3">
@@ -177,7 +177,7 @@ export function TimelineCard({ events }: { events: LeadEvent[] }) {
             <p className="text-sm text-foreground">{line.headline}</p>
             {line.detail && <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-muted-foreground">{line.detail}</p>}
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {line.by} · {formatDateTime(line.at)}
+              {line.by} · {formatDateTimeFull(line.at)}
             </p>
           </li>
         ))}

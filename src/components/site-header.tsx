@@ -56,7 +56,7 @@ export async function SiteHeader() {
             href="/buy-direct-from-developer"
             className="hidden text-sm font-medium text-foreground hover:text-accent-hover sm:inline"
           >
-            Buy direct
+            Guides
           </Link>
           {userId ? (
             <>

@@ -319,14 +319,14 @@ test("timeline: every Stage 4 action reads clearly, in order, and notes appear o
   const headlines = lines.map((line) => line.headline);
   assert.ok(headlines.includes("Temperature: none → hot"));
   assert.ok(headlines.includes("Status: new → contacted"));
-  assert.ok(headlines.includes("Call: no answer"));
-  assert.ok(headlines.includes("WhatsApp: sent"));
-  assert.ok(headlines.includes("Follow-up set"));
+  assert.ok(headlines.includes("Call attempted — No answer"));
+  assert.ok(headlines.includes("WhatsApp — Sent"));
+  assert.ok(headlines.some((line) => line.startsWith("Follow-up scheduled — ")), "scheduled with its exact date and time");
   assert.ok(headlines.includes("Follow-up completed"));
   assert.ok(headlines.some((line) => line.startsWith("Requirement updated (configuration")));
   assert.ok(headlines.includes("Owner changed"));
   assert.equal(lines.find((line) => line.headline === "Note added")?.detail, "Wants east-facing");
-  assert.equal(lines.find((line) => line.headline === "Follow-up set")?.detail, "Ask about budget");
+  assert.equal(lines.find((line) => line.headline.startsWith("Follow-up scheduled"))?.detail, "Ask about budget");
   assert.equal(lines.find((line) => line.by === "You")?.by, "You");
   assert.equal(lines[0].by, "Buyer");
 });

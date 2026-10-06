@@ -30,16 +30,16 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "What does “official website verified” mean?",
     answer:
-      "It means Developer Connects approved the linked website as the developer’s official website. Every verified listing shows the date it was verified. It does not confirm the developer’s legal status, licences, regulatory approvals, domain ownership, or the quality of the developer or its projects.",
+      "It means Developer Connects approved a website as the developer’s official website. Every verified listing shows the date it was verified. It does not confirm the developer’s legal status, licences, regulatory approvals, domain ownership, or the quality of the developer or its projects.",
   },
   {
     question: "Does Developer Connects sell properties itself?",
-    answer: "No. Properties are sold by the developers themselves. We link to developers' own websites and offer optional property assistance.",
+    answer: "No. Properties are sold by the developers themselves. We verify developers' official websites and offer optional property assistance.",
   },
   {
     question: "Why do you ask for my WhatsApp number or phone?",
     answer:
-      "You can search and browse developer pages freely. When you continue to a developer's official website, we ask for your WhatsApp number or phone so our property team can help with your enquiry. The developer does not require it — you are sharing it with Developer Connects, and you choose whether we contact you by WhatsApp or phone call.",
+      "You can search and browse developer pages freely. When you ask to connect with a developer, we ask for your WhatsApp number or phone so our property team can help with your enquiry. The developer does not require it — you are sharing it with Developer Connects, and you choose whether we contact you by WhatsApp or phone call.",
   },
   {
     question: "How do I get in touch with a developer?",
@@ -62,9 +62,9 @@ const FAQS: { question: string; answer: string }[] = [
       "Covering verified developers across India and the UAE, including Mumbai, Bangalore, Hyderabad, Pune, Gurugram, Thane, Navi Mumbai, Dubai and Abu Dhabi.",
   },
   {
-    question: "Can I buy property directly from the developer without a broker?",
+    question: "What should I check before I buy a property?",
     answer:
-      "Developers sell new and off-plan homes through their own sales teams, and many buyers deal with the developer directly. Find the developer on Developer Connects and use the “Connect with” button: our property team contacts you and helps connect you with the developer. Our buy-direct guide walks through every step.",
+      "Developers sell new and off-plan homes through their own sales teams. Before you pay anything, make sure you are dealing with the genuine developer, check the project with the real estate regulator for its location, and get prices and terms in writing. You can request a connection from a developer's page, and our property team will help with your enquiry. Our research guide walks through every step.",
   },
   {
     question: "How do I avoid fake developer websites?",
@@ -109,7 +109,7 @@ export default function FaqPage() {
             </dl>
             <p className="mt-8 text-sm">
               <Link href="/buy-direct-from-developer" className="text-accent-hover hover:underline">
-                Read the guide: how to buy property directly from the developer →
+                Read the guide: how to research a developer before you buy →
               </Link>
             </p>
           </div>

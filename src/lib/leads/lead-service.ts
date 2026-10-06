@@ -4,6 +4,18 @@ import { LeadNotFoundError, LeadStateError, LeadValidationError, UnauthorizedLea
 import { normalizePhone, type SupportedPhoneCountry } from "./phone.ts";
 import { redactPayload } from "./redaction.ts";
 import { DEFAULT_QUEUE_LIMIT } from "./queue-config.ts";
+import { assertWorkingActor } from "./lead-access.ts";
+import { classifyDigitalSource } from "./lead-source.ts";
+import {
+  cancelLeadFollowUp,
+  closeOpenFollowUpForLead,
+  completeLeadFollowUp,
+  deliver,
+  guardLeadAction,
+  scheduleFollowUp,
+  type LeadNotifier,
+} from "./follow-up-service.ts";
+import type { StaffRepository } from "../staff/repository.ts";
 import { buildTodayQueue, type TodayQueueEntry, type TodayQueueInput } from "./today-queue.ts";
 import type { LeadEventRepository, LeadRepositories, LeadPatch } from "./repository.ts";
 import {
@@ -60,7 +72,19 @@ export type LostReasonCode = (typeof LOST_REASON_CODES)[number];
 
 export const CONTACT_CHANNELS = ["WHATSAPP", "PHONE_CALL"] as const;
 export type ContactChannel = (typeof CONTACT_CHANNELS)[number];
-export const CONTACT_OUTCOMES = ["ATTEMPTED", "CONNECTED", "NO_ANSWER", "BUSY", "FAILED", "SENT", "REPLIED", "WRONG_NUMBER"] as const;
+export const CONTACT_OUTCOMES = [
+  "ATTEMPTED",
+  "CONNECTED",
+  "NO_ANSWER",
+  "BUSY",
+  "SWITCHED_OFF",
+  "INVALID_NUMBER",
+  "CALLBACK_REQUESTED",
+  "FAILED",
+  "SENT",
+  "REPLIED",
+  "WRONG_NUMBER",
+] as const;
 export type ContactOutcome = (typeof CONTACT_OUTCOMES)[number];
 
 // --- guards and validation ---------------------------------------------------------------------
@@ -290,6 +314,8 @@ export async function captureAssistanceLead(
       sourceCta: input.sourceCta,
       sessionId: input.sessionId,
       userId: input.userId ?? null,
+      // Where it came from: a website lead (the gate), classified from the evidence in its first attribution touch.
+      source: { sourceType: "DIGITAL", sourceDetail: classifyDigitalSource(firstTouchClean ?? currentTouchClean), creationMethod: "WEBSITE_GATE", importBatchId: null, createdBy: null },
       now,
     });
 
@@ -398,6 +424,9 @@ export async function updateRequirement(
   now: Date = new Date(),
 ): Promise<{ lead: Lead; changed: string[] }> {
   if (actor.actorType === "FOUNDER") assertFounder(actor);
+  // Team members cannot rewrite a buyer's requirement in this version; without this line an EMPLOYEE actor would
+  // fall through to the buyer path below.
+  if (actor.actorType === "EMPLOYEE") throw new UnauthorizedLeadActionError("That lead action is not available to team members.");
   const validated = validateRequirement(requirement);
 
   return repos.transaction(async (tx) => {
@@ -465,12 +494,13 @@ export async function addNote(
   actor: LeadActor,
   now: Date = new Date(),
 ): Promise<LeadEvent> {
-  assertFounder(actor);
+  assertWorkingActor(actor);
   const note = optionalText("note", text, MAX_NOTE);
   if (!note) throw new LeadValidationError("note", "Write a note first.");
 
   return repos.transaction(async (tx) => {
     const lead = await requireLead(tx, leadId);
+    await guardLeadAction(tx, actor, lead, "ADD_NOTE", now);
     requireNotErased(lead);
     const event = await appendEvent(tx.events, leadId, "NOTE_ADDED", actor, now, { payload: { note } });
     await tx.leads.update(leadId, { lastActivityAt: now }, now);
@@ -478,49 +508,38 @@ export async function addNote(
   });
 }
 
-/** Sets (or, with null, clears) the next follow-up time. */
+/**
+ * Sets (or, with null, clears) the lead's follow-up. Kept for the Founder CRM and existing callers: it now runs on
+ * the follow-up service (an exact future time, a stable follow-up id, a lifecycle) — see follow-up-service.ts for
+ * types, rescheduling, cancellation with a reason and missed handling. Clearing cancels the open follow-up.
+ */
 export async function setFollowUp(
   repos: LeadRepositories,
   leadId: string,
   when: Date | null,
   actor: LeadActor,
   now: Date = new Date(),
-  options: { note?: string } = {},
+  options: { note?: string; type?: import("./types.ts").FollowUpType } = {},
 ): Promise<Lead> {
-  assertFounder(actor);
-  if (when !== null && Number.isNaN(when.getTime())) throw new LeadValidationError("nextFollowUpAt", "Choose a valid follow-up date and time.");
-  const note = optionalText("note", options.note, MAX_NOTE);
-
-  return repos.transaction(async (tx) => {
-    const lead = await requireLead(tx, leadId);
-    requireNotErased(lead);
-    await appendEvent(tx.events, leadId, "FOLLOW_UP_SET", actor, now, {
-      payload: { cleared: when === null, ...(when ? { dueAt: when.toISOString() } : {}), ...(note ? { note } : {}) },
-    });
-    return tx.leads.update(leadId, { nextFollowUpAt: when, lastActivityAt: now }, now);
-  });
+  if (when === null) {
+    // A reason-less clear is the Founder's legacy shortcut. A team member removes a follow-up only through
+    // cancelLeadFollowUp, which demands a structured reason — so a missed follow-up can never be quietly dismissed.
+    assertFounder(actor);
+    await cancelLeadFollowUp(repos, leadId, undefined, "NO_LONGER_NEEDED", options.note, actor, now);
+  } else await scheduleFollowUp(repos, leadId, { scheduledAt: when, type: options.type, note: options.note }, actor, now);
+  return requireLead(repos, leadId);
 }
 
-/** Marks the current follow-up done: records it (with what was due) and clears the date. A lead with no follow-up set cannot be completed. */
+/** Marks the open follow-up done: records it (with what was due, and whether it was late) and clears the date. A lead with no follow-up cannot be completed. */
 export async function completeFollowUp(
   repos: LeadRepositories,
   leadId: string,
   actor: LeadActor,
   now: Date = new Date(),
-  options: { note?: string } = {},
+  options: { note?: string; followUpId?: string } = {},
 ): Promise<Lead> {
-  assertFounder(actor);
-  const note = optionalText("note", options.note, MAX_NOTE);
-
-  return repos.transaction(async (tx) => {
-    const lead = await requireLead(tx, leadId);
-    requireNotErased(lead);
-    if (lead.nextFollowUpAt === null) throw new LeadStateError("This lead has no follow-up to complete.");
-    await appendEvent(tx.events, leadId, "FOLLOW_UP_COMPLETED", actor, now, {
-      payload: { dueAt: lead.nextFollowUpAt.toISOString(), ...(note ? { note } : {}) },
-    });
-    return tx.leads.update(leadId, { nextFollowUpAt: null, lastActivityAt: now }, now);
-  });
+  await completeLeadFollowUp(repos, leadId, { followUpId: options.followUpId, note: options.note }, actor, now);
+  return requireLead(repos, leadId);
 }
 
 /** Sets (or, with null, clears) how warm the buyer is. Separate from status; every change is recorded with the previous value. */
@@ -544,9 +563,8 @@ export async function setTemperature(
 }
 
 /**
- * Records who owns a lead. null = the Founder's own queue. Phase 1 has no staff accounts, so the only
- * owners that exist are the founder and "unassigned" — but the change is recorded now so a future
- * assignment history is complete from day one. Builds no employee permissions.
+ * Low-level owner write: records the change and who made it, but does NOT check that the new owner is a real,
+ * active team member. The screens never call this — they use assignLead below, which does. null = the Founder's own queue.
  */
 export async function assignOwner(
   repos: LeadRepositories,
@@ -567,6 +585,57 @@ export async function assignOwner(
   });
 }
 
+const STAFF_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Assigns a lead to a team member, hands it back to the Founder, or reassigns it (founder only).
+ *
+ * `assigneeStaffId` is a staff_members.id (never a free-text owner): it must exist and be ACTIVE — an inactive
+ * member cannot receive new leads. null returns the lead to the Founder's own queue. Every change appends an
+ * immutable OWNER_CHANGED event recording the previous and the new owner, so the whole ownership history stays
+ * readable; the previous owner is never overwritten out of existence.
+ */
+export async function assignLead(
+  repos: LeadRepositories,
+  staff: StaffRepository,
+  leadId: string,
+  assigneeStaffId: string | null,
+  actor: LeadActor,
+  now: Date = new Date(),
+  notifier?: LeadNotifier,
+): Promise<Lead> {
+  assertFounder(actor);
+
+  let nextOwnerId: string | null = null;
+  if (assigneeStaffId !== null) {
+    if (typeof assigneeStaffId !== "string" || !STAFF_ID.test(assigneeStaffId)) {
+      throw new LeadValidationError("assignee", "Choose a team member from the list.");
+    }
+    const member = await staff.getById(assigneeStaffId);
+    if (!member) throw new LeadValidationError("assignee", "Choose a team member from the list.");
+    if (!member.active) throw new LeadValidationError("assignee", `${member.displayName} is inactive and cannot receive new leads.`);
+    nextOwnerId = member.userId;
+  }
+
+  const updated = await repos.transaction(async (tx) => {
+    const lead = await requireLead(tx, leadId);
+    requireNotErased(lead);
+    if (lead.ownerId === nextOwnerId) throw new LeadStateError("The lead already has that owner.");
+    // The previous owner's open follow-up (and any miss on it) stays in the history, but the lead leaves their hands.
+    await closeOpenFollowUpForLead(tx, lead, "REASSIGNED", actor, now);
+    await appendEvent(tx.events, leadId, "OWNER_CHANGED", actor, now, { payload: { from: lead.ownerId, to: nextOwnerId } });
+    // Assigning someone ends the lead's "returned" state; the RETURNED_TO_FOUNDER event stays in the history.
+    const cleared = nextOwnerId !== null ? { returnedAt: null, returnedFrom: null, returnReason: null } : {};
+    return tx.leads.update(leadId, { ownerId: nextOwnerId, lastActivityAt: now, ...cleared }, now);
+  });
+  if (nextOwnerId !== null) {
+    await deliver(notifier, [
+      { userId: nextOwnerId, type: "LEAD_ASSIGNED", title: "New lead assigned", body: "A lead was assigned to you. Open it to get started.", targetRoute: `/team/leads/${leadId}` },
+    ]);
+  }
+  return updated;
+}
+
 /** Logs a call or WhatsApp the founder made by hand (there is no telephony or WhatsApp integration in Phase 1). */
 export async function logContact(
   repos: LeadRepositories,
@@ -575,13 +644,14 @@ export async function logContact(
   actor: LeadActor,
   now: Date = new Date(),
 ): Promise<LeadEvent> {
-  assertFounder(actor);
+  assertWorkingActor(actor);
   const channel = oneOf("channel", contact.channel, CONTACT_CHANNELS);
   const outcome = oneOf("outcome", contact.outcome, CONTACT_OUTCOMES);
   const note = optionalText("note", contact.note, MAX_NOTE);
 
   return repos.transaction(async (tx) => {
     const lead = await requireLead(tx, leadId);
+    await guardLeadAction(tx, actor, lead, "LOG_CONTACT", now);
     requireNotErased(lead);
     const event = await appendEvent(tx.events, leadId, "CONTACT_LOGGED", actor, now, {
       payload: { channel, outcome, ...(note ? { note } : {}) },
@@ -731,8 +801,14 @@ export async function eraseLead(
       });
     }
 
+    // 1b. An open follow-up on an erased lead is closed (and its free text cleared below); it must not linger as "missed".
+    await closeOpenFollowUpForLead(tx, lead, "LEAD_ERASED", actor, now);
+
     // 2. Redact every EXISTING event's payload (the new events below are already clean).
     await tx.events.redactPayloads(leadId, (event) => redactPayload(event.eventType, event.payload));
+    //    Requirement free text (notes) and preferred locations go too; the structured requirement rows stay as history.
+    await tx.requirements.eraseForLead(leadId);
+    await tx.followUps.eraseForLead(leadId);
 
     // 3. Strip personal data from the lead itself.
     const erased = await tx.leads.update(

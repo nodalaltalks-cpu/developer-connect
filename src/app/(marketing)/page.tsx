@@ -110,10 +110,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <Container className="py-12 sm:py-16">
           <div className="mx-auto max-w-2xl">
             <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Find the developer. Go directly to the source.
+              Find the developer. Connect with confidence.
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
-              Verified developer websites, plus optional property assistance.
+              Developers with verified official websites, plus optional property assistance to help you connect.
             </p>
 
             <div className="mt-8">
@@ -203,11 +203,11 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           {!hasActiveFilter && (
             <section className="mx-auto mt-16 max-w-5xl rounded-lg border border-border p-6">
               <h2 className="text-xl font-semibold tracking-tight text-foreground">
-                Buy property directly from the developer
+                Research a developer before you buy
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Step-by-step guides to finding the real developer, checking the project with the regulator,
-                and buying directly from the developer.{" "}
+                and knowing what to ask for before you pay.{" "}
                 <Link href={buyDirectPath()} className="text-accent-hover hover:underline">
                   Read the full guide
                 </Link>
@@ -218,7 +218,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   .map((market) => (
                     <li key={market.slug}>
                       <Link href={buyDirectPath(market)} className="text-sm text-accent-hover hover:underline">
-                        Buy direct in {market.name}
+                        Research developers in {market.name}
                       </Link>
                     </li>
                   ))}

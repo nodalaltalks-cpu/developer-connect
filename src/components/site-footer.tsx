@@ -60,7 +60,7 @@ function buildColumns(): FooterColumn[] {
       links: [
         { label: "FAQ", href: "/faq" },
         { label: "How we verify", href: "/how-we-verify" },
-        { label: "Buy direct from developer", href: "/buy-direct-from-developer" },
+        { label: "Developer research guides", href: "/buy-direct-from-developer" },
         { label: "Blog", comingSoon: true },
       ],
     },
@@ -105,7 +105,7 @@ export function SiteFooter() {
           <div className="max-w-sm">
             <Logo size="sm" />
             <p className="mt-2 text-sm text-muted-foreground">
-              Find genuine developer websites. Research directly, and get optional property
+              Research verified developers first. Get optional property
               assistance when you&apos;re ready.
             </p>
           </div>

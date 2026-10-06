@@ -251,7 +251,7 @@ export default async function DeveloperPage({
             {developer.officialWebsite && (
               <section className="mt-10 border-t border-border pt-8">
                 <h2 className="text-lg font-semibold text-foreground">
-                  Buying directly from {developer.displayName}
+                  Before you buy from {developer.displayName}
                 </h2>
                 <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
                   <li>
@@ -266,8 +266,8 @@ export default async function DeveloperPage({
                   className="mt-3 inline-block text-sm font-medium text-accent-hover hover:underline"
                 >
                   {buyDirectGuide
-                    ? `How to buy directly from developers in ${buyDirectGuide.name} →`
-                    : "How to buy property directly from the developer →"}
+                    ? `How to research developers in ${buyDirectGuide.name} →`
+                    : "How to research a developer before you buy →"}
                 </Link>
               </section>
             )}

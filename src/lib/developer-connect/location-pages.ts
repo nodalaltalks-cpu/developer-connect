@@ -150,7 +150,7 @@ export function locationMetadataText(location: LocationPage, page = 1): Location
   const baseTitle = `${location.titleName} Real Estate Developers – Verified Official Websites | Developer Connects`;
   return {
     title: page > 1 ? `${baseTitle} – Page ${page}` : baseTitle,
-    description: `Explore verified real estate developers in ${location.phrase} and go straight to each developer’s official website, as verified by Developer Connects.`,
+    description: `Explore verified real estate developers in ${location.phrase}. Developer Connects has verified each developer’s official website and can help you connect with the developer.`,
     h1: `Verified real estate developers in ${location.phrase}`,
   };
 }

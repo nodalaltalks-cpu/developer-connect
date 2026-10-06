@@ -50,7 +50,7 @@ export default function TermsOfServicePage() {
       </LegalSection>
 
       <LegalSection title="5. Permitted use">
-        <p>You may use Developer Connects to search for, discover, and reach genuine developer websites.</p>
+        <p>You may use Developer Connects to search for and discover genuine developers and to request property assistance.</p>
       </LegalSection>
 
       <LegalSection title="6. Search and directory use">
@@ -164,7 +164,7 @@ export default function TermsOfServicePage() {
         <p>
           To the fullest extent permitted by law, Developer Connects will not be liable for indirect,
           incidental, or consequential damages arising from your use of the service or reliance on information
-          found through it, including information on external developer websites we link to.
+          found through it, including information provided by developers or other third parties.
         </p>
       </LegalSection>
 

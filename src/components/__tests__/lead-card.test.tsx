@@ -24,6 +24,14 @@ function lead(overrides: Partial<Lead> = {}): Lead {
     status: "NEW",
     temperature: "HOT",
     ownerId: null,
+    returnedAt: null,
+    returnedFrom: null,
+    returnReason: null,
+    sourceType: "DIGITAL",
+    sourceDetail: null,
+    creationMethod: "WEBSITE_GATE",
+    importBatchId: null,
+    createdBy: null,
     developerId: null,
     sourceCta: "developer_page",
     location: "Thane",
@@ -170,7 +178,7 @@ test("requirement: empty requirement says nothing is recorded; filled one format
   assert.ok(filled.includes("₹1 Cr–₹2 Cr") && filled.includes("Within 30 days") && filled.includes("Investment"));
 });
 
-test("timeline: newest first, who did it, notes shown, hostile note escaped", () => {
+test("timeline: chronological (oldest first), who did it, notes shown, hostile note escaped", () => {
   const ev = (id: string, minute: number, eventType: LeadEvent["eventType"], actorType: LeadEvent["actorType"], payload: Record<string, unknown> = {}): LeadEvent => ({
     id,
     leadId: "l",
@@ -186,7 +194,7 @@ test("timeline: newest first, who did it, notes shown, hostile note escaped", ()
   const html = renderToStaticMarkup(
     <TimelineCard events={[ev("1", 0, "LEAD_CREATED", "BUYER"), ev("2", 5, "NOTE_ADDED", "FOUNDER", { note: "<b>bold</b> call back" })]} />,
   );
-  assert.ok(html.indexOf("Note added") < html.indexOf("Lead created"), "most recent first");
+  assert.ok(html.indexOf("Lead created") < html.indexOf("Note added"), "oldest first: the history reads in the order it happened");
   assert.ok(html.includes("Buyer") && html.includes("You"));
   assert.ok(html.includes("&lt;b&gt;bold&lt;/b&gt; call back") && !html.includes("<b>bold"));
 });

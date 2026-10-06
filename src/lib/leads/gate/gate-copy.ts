@@ -31,6 +31,8 @@ export interface GateCopy {
   preferenceWhatsAppHint: string;
   preferencePhone: string;
   consent: string;
+  /** The commercial relationship, stated where the buyer decides to share details. Same wording as About/Disclaimer/FAQ. */
+  commercialDisclosure: string;
   reassurance: string;
   privacyLinkLabel: string;
   submit: string;
@@ -51,6 +53,14 @@ export interface GateCopy {
   successClose: string;
 }
 
+/**
+ * The approved commercial disclosure (identical to the sentence on the About, Disclaimer and FAQ pages).
+ * It states the relationship as it is — no claim about fees, independence or licensing is made or implied.
+ */
+export const COMMERCIAL_DISCLOSURE =
+  "Developer Connects may receive payment from developers or others in connection with property transactions. " +
+  "This has no effect on whether a developer's website is verified.";
+
 export function gateCopy(developerName: string, preference: GateContactPreference = "WHATSAPP"): GateCopy {
   const channelWords = preference === "WHATSAPP" ? "on WhatsApp" : "by phone call";
   return {
@@ -70,6 +80,7 @@ export function gateCopy(developerName: string, preference: GateContactPreferenc
     preferenceWhatsAppHint: "Recommended",
     preferencePhone: "Phone call",
     consent: consentTextFor(preference),
+    commercialDisclosure: COMMERCIAL_DISCLOSURE,
     reassurance: "Your details are used to help with your property enquiry. You can choose your preferred contact method.",
     privacyLinkLabel: "Privacy Policy",
     submit: "Request a connection",

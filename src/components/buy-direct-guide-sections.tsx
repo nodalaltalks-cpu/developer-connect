@@ -1,6 +1,6 @@
 import { BUY_DIRECT_STEPS, type FaqItem } from "@/lib/developer-connect/buy-direct-guides";
 
-/** The shared five-step "how to buy directly from a developer" list. */
+/** The shared five-step "how to research a developer" list. */
 export function BuyDirectSteps() {
   return (
     <ol className="mt-4 space-y-4">

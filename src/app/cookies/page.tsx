@@ -31,7 +31,7 @@ export default function CookiePolicyPage() {
 
       <LegalSection title="3. Strictly necessary — session cookie">
         <p>
-          We set one cookie ourselves: <code className="rounded bg-muted px-1 py-0.5 text-sm">dc_session</code>,
+          The cookie we set on every visit is <code className="rounded bg-muted px-1 py-0.5 text-sm">dc_session</code>,
           an httpOnly, randomly generated identifier with no personal information in it. It lets features like
           zero-result search tracking and &ldquo;recently viewed developers&rdquo; work consistently across
           pages in the same browsing session, whether or not you&apos;re signed in. It&apos;s valid for up to a
@@ -39,13 +39,60 @@ export default function CookiePolicyPage() {
         </p>
       </LegalSection>
 
+      <LegalSection title="3A. Enquiry cookie — only if you send a request">
+        <p>
+          If you ask to connect with a developer, we may set a second cookie after your request is saved, called{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-sm">dc_lead</code>. It is not set just by browsing.
+        </p>
+        <ul>
+          <li>
+            <strong>Purpose:</strong> so that, on this browser, the next time you open the request form we can offer to
+            continue with the number you shared before (shown only with most of its digits hidden) instead of asking
+            you to type it again.
+          </li>
+          <li>
+            <strong>Duration:</strong> 30 days from the request. Sending another request on this browser starts the 30
+            days again. After that, or if you clear it, you simply see the normal form.
+          </li>
+          <li>
+            <strong>Protection:</strong> it is an httpOnly cookie (page scripts cannot read it), it uses the SameSite
+            &ldquo;Lax&rdquo; setting (browsers do not send it with most cross-site requests), and on the live site it is
+            marked secure so it is sent only over HTTPS. Its contents are digitally signed so that a changed or invented
+            value is ignored.
+          </li>
+          <li>
+            <strong>What it contains:</strong> a version marker, an internal reference number for your enquiry record
+            (a random identifier that means nothing outside our systems), an expiry time and the signature. It does{" "}
+            <em>not</em> contain your name, phone number or email address. Because the reference number points to your
+            enquiry record on our servers, we treat it as linked to your enquiry details.
+          </li>
+          <li>
+            <strong>What it is not used for:</strong> advertising, cross-site tracking or analytics. If we cannot sign it
+            (a configuration we control), we do not set it and the form is always shown in full.
+          </li>
+        </ul>
+      </LegalSection>
+
       <LegalSection title="4. Local/session browser storage">
         <p>
-          We use a small amount of local browser storage (not a cookie, and never sent to our servers) for
-          purely cosmetic, per-device convenience — for example, remembering that you&apos;ve already dismissed
-          a sign-in prompt this browsing session, so we don&apos;t show it again immediately. If you make a
-          choice on our cookie banner, that choice is stored the same way so we can remember it on this
-          device.
+          We use a small amount of local browser storage (not a cookie) in two ways.
+        </p>
+        <p>
+          <strong>Convenience, kept on your device:</strong> for example, remembering that you&apos;ve already
+          dismissed a sign-in prompt this browsing session, so we don&apos;t show it again immediately. If you make
+          a choice on our cookie banner, that choice is stored the same way so we can remember it on this device.
+          These values are not sent to our servers.
+        </p>
+        <p>
+          <strong>How you found us:</strong> when you arrive on the site, your browser keeps a short record of how you
+          got here for that visit — the page you landed on, the address (without any query string) of the external
+          site you came from, if any, and campaign tags in the link such as{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-sm">utm_source</code> or an advertising click
+          identifier. This stays in your browser&apos;s session storage and is cleared when you close the tab. If you
+          have accepted analytics cookies, a copy of the first arrival is also kept in local storage so it can
+          survive across visits. This record is <em>not</em> sent to us as you browse. It is sent to our servers only
+          if you send a request to connect with a developer, so that we know which page or campaign led to your
+          enquiry. It contains no name, phone number or email address.
         </p>
       </LegalSection>
 
@@ -77,7 +124,8 @@ export default function CookiePolicyPage() {
       <LegalSection title="7. Consent">
         <p>
           The cookies in sections 2 and 3 are strictly necessary for core functionality (sign-in and consistent
-          browsing-session behavior), so they don&apos;t depend on a choice. Analytics cookies are optional and
+          browsing-session behavior), so they don&apos;t depend on a choice. The enquiry cookie in section 3A is set
+          only as a result of something you do (sending a request), never merely by visiting. Analytics cookies are optional and
           stay off until you choose. Our cookie banner offers two choices, shown with equal prominence:
           &ldquo;Accept&rdquo; (essential cookies plus Google Analytics) and &ldquo;Accept only
           essentials&rdquo;. Your choice is remembered on this device in local browser storage (see section 4).
@@ -91,7 +139,8 @@ export default function CookiePolicyPage() {
           You can change your analytics choice at any time using &ldquo;Cookie settings&rdquo; in the site
           footer. You can also clear or block cookies through your browser&apos;s own settings. Blocking the
           authentication or session cookie will likely prevent sign-in and some personalization features from
-          working correctly.
+          working correctly. Clearing or blocking the enquiry cookie only means the request form always asks for your
+          number again.
         </p>
       </LegalSection>
 

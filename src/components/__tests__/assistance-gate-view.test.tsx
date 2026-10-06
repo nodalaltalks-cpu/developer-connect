@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AssistanceGateView, type AssistanceGateViewProps } from "../assistance-gate-view.tsx";
-import { gateCopy } from "../../lib/leads/gate/gate-copy.ts";
+import { COMMERCIAL_DISCLOSURE, gateCopy } from "../../lib/leads/gate/gate-copy.ts";
 import { gatePreference, gateReducer, initialGateState, type GateAction, type GateState } from "../../lib/leads/gate/gate-flow.ts";
 
 /**
@@ -153,7 +153,7 @@ test("render: the returning card still shows the transparency note and the conse
 test("render: while saving, the form is disabled and the button says so (no double submit)", () => {
   const out = html(STATES.submitting);
   assert.match(out, /Saving your details…/);
-  assert.match(out, /<button type="submit" disabled=""/);
+  assert.match(out, /<button type="submit"[^>]*disabled=""/);
   assert.match(out, /aria-busy="true"/);
   assert.ok((out.match(/disabled=""/g) ?? []).length >= 5, "inputs and button are disabled");
 });
@@ -234,6 +234,31 @@ test("mobile: from the sm breakpoint it becomes a centred dialog instead", () =>
 
 test("mobile: it respects the iPhone home indicator (safe-area padding)", () => {
   assert.match(html(STATES.form), /padding-bottom:max\(env\(safe-area-inset-bottom\), ?1\.25rem\)/);
+});
+
+test("mobile: the primary button is pinned to the bottom of the scrolling sheet, with safe-area padding, so it is always reachable", () => {
+  const out = html(STATES.form);
+  const footer = out.match(/<div class="([^"]*sticky[^"]*)">/);
+  assert.ok(footer, "a sticky footer wraps the submit button");
+  assert.match(footer[1], /bottom-0/);
+  assert.match(footer[1], /bg-background/, "content scrolling underneath must not show through");
+  assert.match(footer[1], /env\(safe-area-inset-bottom\)/, "clears the iPhone home indicator");
+  assert.match(out, /sticky[^>]*>\s*<button type="submit"[^>]*>Request a connection<\/button>/);
+});
+
+test("mobile: the pinned button still submits the form (it is linked by the form attribute, not nested in it)", () => {
+  const out = html(STATES.form);
+  const formId = out.match(/<form id="([^"]+)"/)?.[1];
+  assert.ok(formId, "the form has an id");
+  assert.match(out, new RegExp(`<button type="submit" form="${formId}"`));
+  assert.equal((out.match(/type="submit"/g) ?? []).length, 1, "exactly one submit button");
+});
+
+test("mobile: the pinned footer shows in the form states only — not while loading, on success, or on the returning card", () => {
+  for (const key of ["loading", "returning"] as const) {
+    assert.doesNotMatch(html(STATES[key]), /sticky/, key);
+  }
+  assert.match(html(STATES.failure), /sticky[^>]*>\s*<button type="submit"[^>]*>Try again/, "retry stays reachable after an error");
 });
 
 test("mobile: the phone field opens the NUMERIC keyboard and autofills (type=tel, inputmode=tel, autocomplete)", () => {
@@ -329,5 +354,44 @@ test("privacy: no state's markup ever contains a full phone number it was not gi
   for (const name of ["loading", "form", "returning", "submitting", "failure", "success", "successPhone"] as const) {
     const out = html(STATES[name]);
     assert.doesNotMatch(out, /\+91\s?\d{5}\s?\d{5}|\b\d{10}\b/, `${name} contains a full number`);
+  }
+});
+
+// =================================================================================================
+// COMMERCIAL DISCLOSURE — stated where the buyer decides to share details
+// =================================================================================================
+
+const decode = (markup: string) => markup.replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
+
+test("disclosure: the approved commercial sentence is shown beside the consent in every state that asks the buyer to share details", () => {
+  for (const key of ["form", "formTyped", "submitting", "failure", "returning", "returningSubmitting"] as const) {
+    const out = decode(html(STATES[key]));
+    assert.ok(out.includes(COMMERCIAL_DISCLOSURE), `${key}: the disclosure is shown`);
+    assert.equal(out.split(COMMERCIAL_DISCLOSURE).length - 1, 1, `${key}: shown exactly once`);
+  }
+});
+
+test("disclosure: it is not shown while loading or after success (nothing is being asked of the buyer)", () => {
+  assert.ok(!decode(html(STATES.loading)).includes(COMMERCIAL_DISCLOSURE));
+});
+
+test("disclosure: it sits with the consent text in the scrolling area, and the pinned button footer is unchanged", () => {
+  const out = decode(html(STATES.form));
+  const footerStart = out.search(/<div class="[^"]*sticky[^"]*">/);
+  assert.ok(footerStart !== -1, "the sticky footer still exists");
+  assert.ok(out.indexOf(COMMERCIAL_DISCLOSURE) < footerStart, "the disclosure is above the pinned footer, so it never hides behind it");
+  const footer = out.slice(footerStart, out.indexOf("</div>", footerStart));
+  assert.ok(!footer.includes(COMMERCIAL_DISCLOSURE), "the footer holds only the button and its hint");
+  assert.match(footer, /<button type="submit" form="assistance-gate-form"/);
+  // Consent comes first, then the disclosure.
+  assert.ok(out.indexOf(gateCopy(DEV, "WHATSAPP").consent.slice(0, 30)) < out.indexOf(COMMERCIAL_DISCLOSURE));
+});
+
+test("disclosure: it states the relationship only — no fee, independence, licence or non-broker claim", () => {
+  const out = decode(html(STATES.form));
+  assert.match(out, /may receive payment from developers or others in connection with property transactions/);
+  assert.match(out, /no effect on whether a developer&#x27;s website is verified|no effect on whether a developer's website is verified/);
+  for (const pattern of [/commission[- ]free/i, /zero[- ](commission|brokerage)/i, /independent/i, /not (a|an) (broker|agent)/i, /licen[cs]ed/i, /\bfree\b/i]) {
+    assert.doesNotMatch(out, pattern, `markup matches ${pattern}`);
   }
 });

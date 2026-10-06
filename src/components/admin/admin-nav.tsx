@@ -8,6 +8,12 @@ const NAV_ITEMS = [
   { href: "/admin/platform-health", label: "Platform Health" },
   { href: "/admin/developers", label: "Developers" },
   { href: "/admin/leads", label: "Leads" },
+  { href: "/admin/missed-leads", label: "Missed Leads" },
+  { href: "/admin/returned-leads", label: "Returned Leads" },
+  { href: "/admin/call-activity", label: "Call Activity" },
+  { href: "/admin/employee-insights", label: "Employee Insights" },
+  { href: "/admin/leads/import", label: "Import Leads" },
+  { href: "/admin/staff", label: "Team" },
   { href: "/admin/verification", label: "Verification" },
   { href: "/admin/search", label: "Search Intelligence" },
   { href: "/admin/users", label: "Users & Profiles" },
@@ -53,7 +59,7 @@ function getActiveHref(pathname: string): string | null {
  * pathname, which only usePathname() can give without prop-drilling it
  * through every nested layout.
  */
-export function AdminNav() {
+export function AdminNav({ badges = {} }: { badges?: Record<string, number> }) {
   const pathname = usePathname();
   const activeHref = getActiveHref(pathname);
 
@@ -73,6 +79,11 @@ export function AdminNav() {
               }`}
             >
               {item.label}
+              {badges[item.href] ? (
+                <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700" aria-label={`${badges[item.href]} need attention`}>
+                  {badges[item.href]}
+                </span>
+              ) : null}
             </Link>
           </li>
         );

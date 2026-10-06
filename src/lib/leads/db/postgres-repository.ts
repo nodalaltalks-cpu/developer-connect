@@ -1,23 +1,54 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lt, notInArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "../../developer-connect/db/client.ts";
 import * as schema from "../../developer-connect/db/schema.ts";
-import { bookings, developers, leadConsents, leadEvents, leads, marketingTouches } from "../../developer-connect/db/schema.ts";
-import { LeadNotFoundError } from "../errors.ts";
+import {
+  bookings,
+  developers,
+  leadCallEvents,
+  leadCalls,
+  leadConsents,
+  leadEvents,
+  leadFollowUps,
+  leadImportBatches,
+  leadRequirementLocations,
+  leadRequirements,
+  leads,
+  marketingTouches,
+} from "../../developer-connect/db/schema.ts";
+import { assertSafeTimeZone } from "../call-buckets.ts";
+import { LeadNotFoundError, LeadStateError } from "../errors.ts";
 import { QUEUE_EXCLUDED_STATUSES } from "../queue-config.ts";
 import { CLOSED_OUT_STATUSES, type LeadCounts, type LeadListQuery } from "../lead-views.ts";
 import type {
   BookingPatch,
+  CallAggregateQuery,
+  CallAggregateRow,
+  CallFilter,
+  CallPatch,
+  CallWithLead,
+  FollowUpPatch,
+  FollowUpScope,
+  FollowUpWithLead,
   LeadPatch,
   LeadRepositories,
+  MissedFollowUpQuery,
   NewBooking,
+  NewCall,
+  NewCallEvent,
   NewConsent,
+  NewFollowUp,
+  NewImportBatch,
   NewLeadEvent,
   NewLeadInput,
+  NewRequirement,
   NewTouch,
+  RequirementLocation,
+  RequirementPatch,
+  StoredCallEvent,
 } from "../repository.ts";
-import type { Booking, Lead, LeadActivitySummary, LeadConsent, LeadEvent, MarketingTouch } from "../types.ts";
+import type { Booking, Lead, LeadActivitySummary, LeadCall, LeadConsent, LeadEvent, LeadFollowUp, LeadImportBatch, LeadRequirement, MarketingTouch } from "../types.ts";
 
 /**
  * PostgreSQL adapter for the lead repositories. Lives in the same database
@@ -35,6 +66,33 @@ type DbOrTx = NodePgDatabase<typeof schema>;
 
 const toLead = (row: typeof leads.$inferSelect): Lead => ({ ...row });
 const toBooking = (row: typeof bookings.$inferSelect): Booking => ({ ...row });
+
+/** Unique-violation detection that survives Drizzle wrapping the driver error. */
+function isUniqueViolation(error: unknown): boolean {
+  const code = (error as { code?: string })?.code ?? (error as { cause?: { code?: string } })?.cause?.code;
+  return code === "23505";
+}
+
+const toFollowUp = (row: typeof leadFollowUps.$inferSelect): LeadFollowUp => ({ ...row });
+const toCall = (row: typeof leadCalls.$inferSelect): LeadCall => ({ ...row, direction: "OUTBOUND", source: "INTERNAL_DIALER" });
+const toCallEvent = (row: typeof leadCallEvents.$inferSelect): StoredCallEvent => ({ ...row, payload: row.payload as Record<string, unknown> });
+const toBatch = (row: typeof leadImportBatches.$inferSelect): LeadImportBatch => ({ ...row });
+
+/** The filters shared by listRecent and aggregate. */
+function callWhere(f: Pick<CallFilter, "staffUserId" | "leadId" | "from" | "to" | "connected" | "statuses" | "disposition" | "sourceType">): SQL | undefined {
+  return and(
+    f.staffUserId !== undefined ? eq(leadCalls.staffUserId, f.staffUserId) : undefined,
+    f.leadId !== undefined ? eq(leadCalls.leadId, f.leadId) : undefined,
+    f.from ? gte(leadCalls.initiatedAt, f.from) : undefined,
+    f.to ? lt(leadCalls.initiatedAt, f.to) : undefined,
+    f.connected === true ? isNotNull(leadCalls.answeredAt) : f.connected === false ? isNull(leadCalls.answeredAt) : undefined,
+    f.statuses && f.statuses.length > 0 ? inArray(leadCalls.status, f.statuses) : undefined,
+    f.disposition !== undefined ? eq(leadCalls.disposition, f.disposition) : undefined,
+    f.sourceType !== undefined ? eq(leads.sourceType, f.sourceType) : undefined,
+  );
+}
+
+const toRequirement = (row: typeof leadRequirements.$inferSelect, locations: string[]): LeadRequirement => ({ ...row, locations });
 const toTouch = (row: typeof marketingTouches.$inferSelect): MarketingTouch => ({ ...row });
 const toConsent = (row: typeof leadConsents.$inferSelect): LeadConsent => ({ ...row });
 const toEvent = (row: typeof leadEvents.$inferSelect): LeadEvent => ({
@@ -58,7 +116,13 @@ function uuidList(ids: string[]) {
 }
 
 /** SQL twin of matchesView() in lead-views.ts — an integration test asserts they agree. */
-function viewPredicate(query: Pick<LeadListQuery, "view" | "now" | "endOfToday">): SQL | undefined {
+function viewPredicate(query: Pick<LeadListQuery, "view" | "now" | "endOfToday" | "ownerId">): SQL | undefined {
+  const rules = viewRules(query);
+  // An owner scope is ANDed onto whatever the view says: a scoped query can never return another owner's lead.
+  return query.ownerId === undefined ? rules : and(eq(leads.ownerId, query.ownerId), rules);
+}
+
+function viewRules(query: Pick<LeadListQuery, "view" | "now" | "endOfToday">): SQL | undefined {
   const notErased = isNull(leads.erasedAt);
   const open = notInArray(leads.status, [...CLOSED_OUT_STATUSES]);
   switch (query.view) {
@@ -76,9 +140,31 @@ function viewPredicate(query: Pick<LeadListQuery, "view" | "now" | "endOfToday">
       return and(notErased, open, isNotNull(leads.nextFollowUpAt), lt(leads.nextFollowUpAt, query.now));
     case "due_today":
       return and(notErased, open, gte(leads.nextFollowUpAt, query.now), lt(leads.nextFollowUpAt, query.endOfToday));
+    case "follow_up_due":
+      return and(notErased, open, isNotNull(leads.nextFollowUpAt), lt(leads.nextFollowUpAt, query.endOfToday));
     case "qualified":
       return and(notErased, eq(leads.status, "QUALIFIED"));
   }
+}
+
+async function insertLocations(db: DbOrTx, requirementId: string, locations: RequirementLocation[]): Promise<void> {
+  if (locations.length === 0) return;
+  await db
+    .insert(leadRequirementLocations)
+    .values(locations.map((l, position) => ({ id: randomUUID(), requirementId, name: l.name, nameKey: l.key, position })));
+}
+
+/** Location names per requirement, in the order they were listed — one query for the whole batch. */
+async function locationsFor(db: DbOrTx, requirementIds: string[]): Promise<Map<string, string[]>> {
+  const byRequirement = new Map<string, string[]>();
+  if (requirementIds.length === 0) return byRequirement;
+  const rows = await db
+    .select()
+    .from(leadRequirementLocations)
+    .where(inArray(leadRequirementLocations.requirementId, requirementIds))
+    .orderBy(asc(leadRequirementLocations.position), asc(leadRequirementLocations.id));
+  for (const row of rows) byRequirement.set(row.requirementId, [...(byRequirement.get(row.requirementId) ?? []), row.name]);
+  return byRequirement;
 }
 
 function build(db: DbOrTx): LeadRepositories {
@@ -102,6 +188,15 @@ function build(db: DbOrTx): LeadRepositories {
             sourceCta: input.sourceCta,
             sessionId: input.sessionId,
             userId: input.userId,
+            ...(input.source
+              ? {
+                  sourceType: input.source.sourceType,
+                  sourceDetail: input.source.sourceDetail,
+                  creationMethod: input.source.creationMethod,
+                  importBatchId: input.source.importBatchId,
+                  createdBy: input.source.createdBy,
+                }
+              : {}),
             lastActivityAt: input.now,
             createdAt: input.now,
             updatedAt: input.now,
@@ -145,7 +240,7 @@ function build(db: DbOrTx): LeadRepositories {
 
       async list(query) {
         const where = viewPredicate(query);
-        const followUpOrder = query.view === "overdue" || query.view === "due_today";
+        const followUpOrder = query.view === "overdue" || query.view === "due_today" || query.view === "follow_up_due";
         const rows = await db
           .select()
           .from(leads)
@@ -183,9 +278,50 @@ function build(db: DbOrTx): LeadRepositories {
         const rows = await db.select({ id: developers.id, name: developers.displayName }).from(developers).where(inArray(developers.id, ids));
         return Object.fromEntries(rows.map((row) => [row.id, row.name]));
       },
+
+      async ownerSummary() {
+        const rows = await db
+          .select({
+            ownerId: leads.ownerId,
+            qualified: sql<number>`(count(*) filter (where ${leads.status} = 'QUALIFIED'))::int`,
+            siteVisit: sql<number>`(count(*) filter (where ${leads.status} = 'SITE_VISIT_SCHEDULED'))::int`,
+            booked: sql<number>`(count(*) filter (where ${leads.status} = 'BOOKED'))::int`,
+          })
+          .from(leads)
+          .where(and(isNotNull(leads.ownerId), isNull(leads.erasedAt)))
+          .groupBy(leads.ownerId);
+        return Object.fromEntries(rows.flatMap((row) => (row.ownerId ? [[row.ownerId, { qualified: row.qualified, siteVisit: row.siteVisit, booked: row.booked }]] : [])));
+      },
+
+      async listReturned(limit) {
+        const rows = await db
+          .select()
+          .from(leads)
+          .where(and(isNotNull(leads.returnedAt), isNull(leads.ownerId), isNull(leads.erasedAt)))
+          .orderBy(desc(leads.returnedAt), asc(leads.id))
+          .limit(limit);
+        return rows.map(toLead);
+      },
+
+      async countByOwner() {
+        const rows = await db
+          .select({ ownerId: leads.ownerId, total: count() })
+          .from(leads)
+          .where(and(isNotNull(leads.ownerId), isNull(leads.erasedAt)))
+          .groupBy(leads.ownerId);
+        return Object.fromEntries(rows.flatMap((row) => (row.ownerId ? [[row.ownerId, Number(row.total)]] : [])));
+      },
     },
 
     events: {
+      async countByTypeAndActor(eventType, from, to) {
+        const rows = await db
+          .select({ actorId: leadEvents.actorId, total: sql<number>`count(*)::int` })
+          .from(leadEvents)
+          .where(and(eq(leadEvents.eventType, eventType), isNotNull(leadEvents.actorId), gte(leadEvents.createdAt, from), lt(leadEvents.createdAt, to)))
+          .groupBy(leadEvents.actorId);
+        return Object.fromEntries(rows.flatMap((row) => (row.actorId ? [[row.actorId, row.total]] : [])));
+      },
       async append(event: NewLeadEvent) {
         const [row] = await db
           .insert(leadEvents)
@@ -328,6 +464,15 @@ function build(db: DbOrTx): LeadRepositories {
     },
 
     bookings: {
+      async revenueByOwner() {
+        const rows = await db
+          .select({ ownerId: leads.ownerId, currency: bookings.currency, total: sql<string>`sum(${bookings.bookingValue})::text`, count: sql<number>`count(*)::int` })
+          .from(bookings)
+          .innerJoin(leads, eq(leads.id, bookings.leadId))
+          .where(and(eq(bookings.status, "BOOKED"), isNotNull(leads.ownerId)))
+          .groupBy(leads.ownerId, bookings.currency);
+        return rows.flatMap((row) => (row.ownerId ? [{ ownerId: row.ownerId, currency: row.currency, total: Number(row.total), count: row.count }] : []));
+      },
       async create(booking: NewBooking) {
         const [row] = await db
           .insert(bookings)
@@ -363,6 +508,366 @@ function build(db: DbOrTx): LeadRepositories {
       async listByLead(leadId) {
         const rows = await db.select().from(bookings).where(eq(bookings.leadId, leadId)).orderBy(desc(bookings.bookedAt));
         return rows.map(toBooking);
+      },
+    },
+
+    requirements: {
+      async create(input: NewRequirement) {
+        let row: typeof leadRequirements.$inferSelect;
+        try {
+          [row] = await db
+            .insert(leadRequirements)
+            .values({
+              id: randomUUID(),
+              leadId: input.leadId,
+              status: "ACTIVE",
+              propertyType: input.propertyType,
+              configuration: input.configuration,
+              budgetMin: input.budgetMin,
+              budgetMax: input.budgetMax,
+              budgetCurrency: input.budgetCurrency,
+              purpose: input.purpose,
+              timeline: input.timeline,
+              notes: input.notes,
+              createdBy: input.createdBy,
+              updatedBy: input.createdBy,
+              createdAt: input.now,
+              updatedAt: input.now,
+            })
+            .returning();
+        } catch (error) {
+          if (isUniqueViolation(error)) throw new LeadStateError("This lead already has an active requirement.");
+          throw error;
+        }
+        await insertLocations(db, row.id, input.locations);
+        return toRequirement(row, input.locations.map((l) => l.name));
+      },
+      async getById(id) {
+        const [row] = await db.select().from(leadRequirements).where(eq(leadRequirements.id, id));
+        if (!row) return null;
+        return toRequirement(row, (await locationsFor(db, [id])).get(id) ?? []);
+      },
+      async getActiveByLead(leadId) {
+        const [row] = await db
+          .select()
+          .from(leadRequirements)
+          .where(and(eq(leadRequirements.leadId, leadId), eq(leadRequirements.status, "ACTIVE")));
+        if (!row) return null;
+        return toRequirement(row, (await locationsFor(db, [row.id])).get(row.id) ?? []);
+      },
+      async listByLead(leadId) {
+        const rows = await db
+          .select()
+          .from(leadRequirements)
+          .where(eq(leadRequirements.leadId, leadId))
+          .orderBy(desc(leadRequirements.createdAt), desc(leadRequirements.id));
+        const byRequirement = await locationsFor(db, rows.map((row) => row.id));
+        return rows.map((row) => toRequirement(row, byRequirement.get(row.id) ?? []));
+      },
+      async update(id: string, patch: RequirementPatch, at: Date, locations?: RequirementLocation[]) {
+        let row: typeof leadRequirements.$inferSelect | undefined;
+        try {
+          [row] = await db.update(leadRequirements).set({ ...patch, updatedAt: at }).where(eq(leadRequirements.id, id)).returning();
+        } catch (error) {
+          if (isUniqueViolation(error)) throw new LeadStateError("This lead already has an active requirement.");
+          throw error;
+        }
+        if (!row) throw new LeadNotFoundError("Requirement not found.");
+        if (locations) {
+          await db.delete(leadRequirementLocations).where(eq(leadRequirementLocations.requirementId, id));
+          await insertLocations(db, id, locations);
+        }
+        return toRequirement(row, (await locationsFor(db, [id])).get(id) ?? []);
+      },
+      async eraseForLead(leadId) {
+        await db.update(leadRequirements).set({ notes: null }).where(eq(leadRequirements.leadId, leadId));
+        await db
+          .delete(leadRequirementLocations)
+          .where(inArray(leadRequirementLocations.requirementId, db.select({ id: leadRequirements.id }).from(leadRequirements).where(eq(leadRequirements.leadId, leadId))));
+      },
+    },
+
+    followUps: {
+      async create(input: NewFollowUp) {
+        try {
+          const [row] = await db
+            .insert(leadFollowUps)
+            .values({
+              id: randomUUID(),
+              leadId: input.leadId,
+              type: input.type,
+              status: "SCHEDULED",
+              scheduledAt: input.scheduledAt,
+              originalScheduledAt: input.scheduledAt,
+              ownerId: input.ownerId,
+              note: input.note,
+              createdBy: input.createdBy,
+              createdAt: input.now,
+              updatedAt: input.now,
+            })
+            .returning();
+          return toFollowUp(row);
+        } catch (error) {
+          if (isUniqueViolation(error)) throw new LeadStateError("This lead already has an open follow-up.");
+          throw error;
+        }
+      },
+      async getById(id) {
+        const [row] = await db.select().from(leadFollowUps).where(eq(leadFollowUps.id, id));
+        return row ? toFollowUp(row) : null;
+      },
+      async getOpenByLead(leadId) {
+        const [row] = await db
+          .select()
+          .from(leadFollowUps)
+          .where(and(eq(leadFollowUps.leadId, leadId), inArray(leadFollowUps.status, ["SCHEDULED", "MISSED"])));
+        return row ? toFollowUp(row) : null;
+      },
+      async listByLead(leadId) {
+        const rows = await db
+          .select()
+          .from(leadFollowUps)
+          .where(eq(leadFollowUps.leadId, leadId))
+          .orderBy(desc(leadFollowUps.createdAt), desc(leadFollowUps.id));
+        return rows.map(toFollowUp);
+      },
+      async update(id: string, patch: FollowUpPatch, at: Date) {
+        try {
+          const [row] = await db.update(leadFollowUps).set({ ...patch, updatedAt: at }).where(eq(leadFollowUps.id, id)).returning();
+          if (!row) throw new LeadNotFoundError("Follow-up not found.");
+          return toFollowUp(row);
+        } catch (error) {
+          if (isUniqueViolation(error)) throw new LeadStateError("This lead already has an open follow-up.");
+          throw error;
+        }
+      },
+      async markMissed(scope: FollowUpScope, now: Date) {
+        // One atomic statement: only the caller whose UPDATE flips a row gets it back, so a missed event is written once.
+        const rows = await db
+          .update(leadFollowUps)
+          .set({ status: "MISSED", missedCount: sql`${leadFollowUps.missedCount} + 1`, lastMissedAt: now, updatedAt: now })
+          .where(
+            and(
+              eq(leadFollowUps.status, "SCHEDULED"),
+              lt(leadFollowUps.scheduledAt, now),
+              inArray(leadFollowUps.leadId, db.select({ id: leads.id }).from(leads).where(isNull(leads.erasedAt))),
+              scope.ownerId !== undefined ? eq(leadFollowUps.ownerId, scope.ownerId) : undefined,
+              scope.leadId !== undefined ? eq(leadFollowUps.leadId, scope.leadId) : undefined,
+            ),
+          )
+          .returning();
+        return rows.map(toFollowUp).sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+      },
+      async listUnresolvedMissed(query: MissedFollowUpQuery): Promise<FollowUpWithLead[]> {
+        const rows = await db
+          .select({ followUp: leadFollowUps, lead: leads })
+          .from(leadFollowUps)
+          .innerJoin(leads, eq(leads.id, leadFollowUps.leadId))
+          .where(
+            and(
+              isNull(leads.erasedAt),
+              or(eq(leadFollowUps.status, "MISSED"), and(eq(leadFollowUps.status, "SCHEDULED"), lt(leadFollowUps.scheduledAt, query.now))),
+              query.ownerId !== undefined ? eq(leadFollowUps.ownerId, query.ownerId) : undefined,
+              query.leadId !== undefined ? eq(leadFollowUps.leadId, query.leadId) : undefined,
+              query.temperature !== undefined ? eq(leads.temperature, query.temperature) : undefined,
+              query.status !== undefined ? eq(leads.status, query.status) : undefined,
+              query.scheduledFrom ? gte(leadFollowUps.scheduledAt, query.scheduledFrom) : undefined,
+              query.scheduledTo ? lt(leadFollowUps.scheduledAt, query.scheduledTo) : undefined,
+              query.overdueForAtLeastMs !== undefined ? lte(leadFollowUps.scheduledAt, new Date(query.now.getTime() - query.overdueForAtLeastMs)) : undefined,
+            ),
+          )
+          .orderBy(asc(leadFollowUps.scheduledAt), asc(leadFollowUps.id))
+          .limit(query.limit);
+        return rows.map((row) => ({ followUp: toFollowUp(row.followUp), lead: toLead(row.lead) }));
+      },
+      async listScheduled(query): Promise<FollowUpWithLead[]> {
+        const rows = await db
+          .select({ followUp: leadFollowUps, lead: leads })
+          .from(leadFollowUps)
+          .innerJoin(leads, eq(leads.id, leadFollowUps.leadId))
+          .where(
+            and(
+              isNull(leads.erasedAt),
+              eq(leadFollowUps.status, "SCHEDULED"),
+              gte(leadFollowUps.scheduledAt, query.from),
+              lt(leadFollowUps.scheduledAt, query.to),
+              query.ownerId !== undefined ? eq(leadFollowUps.ownerId, query.ownerId) : undefined,
+              query.leadId !== undefined ? eq(leadFollowUps.leadId, query.leadId) : undefined,
+            ),
+          )
+          .orderBy(asc(leadFollowUps.scheduledAt), asc(leadFollowUps.id))
+          .limit(query.limit);
+        return rows.map((row) => ({ followUp: toFollowUp(row.followUp), lead: toLead(row.lead) }));
+      },
+      async claimDueNotifications(scope: FollowUpScope, upTo: Date, now: Date) {
+        const rows = await db
+          .update(leadFollowUps)
+          .set({ dueNotifiedAt: now })
+          .where(
+            and(
+              eq(leadFollowUps.status, "SCHEDULED"),
+              isNull(leadFollowUps.dueNotifiedAt),
+              isNotNull(leadFollowUps.ownerId),
+              lte(leadFollowUps.scheduledAt, upTo),
+              inArray(leadFollowUps.leadId, db.select({ id: leads.id }).from(leads).where(isNull(leads.erasedAt))),
+              scope.ownerId !== undefined ? eq(leadFollowUps.ownerId, scope.ownerId) : undefined,
+              scope.leadId !== undefined ? eq(leadFollowUps.leadId, scope.leadId) : undefined,
+            ),
+          )
+          .returning();
+        return rows.map(toFollowUp);
+      },
+      async statsByStaff(from, to, now) {
+        const out: Record<string, { created: number; completed: number; missedNow: number }> = {};
+        const row = (id: string) => (out[id] ??= { created: 0, completed: 0, missedNow: 0 });
+        const created = await db
+          .select({ id: leadFollowUps.createdBy, total: sql<number>`count(*)::int` })
+          .from(leadFollowUps)
+          .where(and(gte(leadFollowUps.createdAt, from), lt(leadFollowUps.createdAt, to)))
+          .groupBy(leadFollowUps.createdBy);
+        for (const r of created) row(r.id).created = r.total;
+        const completed = await db
+          .select({ id: leadFollowUps.completedBy, total: sql<number>`count(*)::int` })
+          .from(leadFollowUps)
+          .where(and(isNotNull(leadFollowUps.completedBy), gte(leadFollowUps.completedAt, from), lt(leadFollowUps.completedAt, to)))
+          .groupBy(leadFollowUps.completedBy);
+        for (const r of completed) if (r.id) row(r.id).completed = r.total;
+        const missed = await db
+          .select({ id: leadFollowUps.ownerId, total: sql<number>`count(*)::int` })
+          .from(leadFollowUps)
+          .innerJoin(leads, eq(leads.id, leadFollowUps.leadId))
+          .where(
+            and(
+              isNotNull(leadFollowUps.ownerId),
+              isNull(leads.erasedAt),
+              or(eq(leadFollowUps.status, "MISSED"), and(eq(leadFollowUps.status, "SCHEDULED"), lt(leadFollowUps.scheduledAt, now))),
+            ),
+          )
+          .groupBy(leadFollowUps.ownerId);
+        for (const r of missed) if (r.id) row(r.id).missedNow = r.total;
+        return out;
+      },
+      async eraseForLead(leadId) {
+        await db.update(leadFollowUps).set({ note: null, cancelNote: null }).where(eq(leadFollowUps.leadId, leadId));
+      },
+    },
+
+    calls: {
+      async create(input: NewCall) {
+        const [row] = await db
+          .insert(leadCalls)
+          .values({ id: randomUUID(), leadId: input.leadId, staffUserId: input.staffUserId, provider: input.provider, phoneLast4: input.phoneLast4, initiatedAt: input.now, createdAt: input.now, updatedAt: input.now })
+          .returning();
+        return toCall(row);
+      },
+      async getById(id) {
+        const [row] = await db.select().from(leadCalls).where(eq(leadCalls.id, id));
+        return row ? toCall(row) : null;
+      },
+      async getByProviderCallId(provider, providerCallId) {
+        const [row] = await db.select().from(leadCalls).where(and(eq(leadCalls.provider, provider), eq(leadCalls.providerCallId, providerCallId)));
+        return row ? toCall(row) : null;
+      },
+      async update(id: string, patch: CallPatch, at: Date) {
+        try {
+          const [row] = await db.update(leadCalls).set({ ...patch, updatedAt: at }).where(eq(leadCalls.id, id)).returning();
+          if (!row) throw new LeadNotFoundError("Call not found.");
+          return toCall(row);
+        } catch (error) {
+          if (isUniqueViolation(error)) throw new LeadStateError("That provider call id is already recorded.");
+          throw error;
+        }
+      },
+      async appendEvent(event: NewCallEvent) {
+        const [inserted] = await db
+          .insert(leadCallEvents)
+          .values({ id: randomUUID(), ...event })
+          .onConflictDoNothing({ target: [leadCallEvents.provider, leadCallEvents.providerEventId] })
+          .returning();
+        if (inserted) return { event: toCallEvent(inserted), duplicate: false };
+        const [existing] = await db
+          .select()
+          .from(leadCallEvents)
+          .where(and(eq(leadCallEvents.provider, event.provider), eq(leadCallEvents.providerEventId, event.providerEventId)));
+        return { event: toCallEvent(existing), duplicate: true };
+      },
+      async listEvents(callId) {
+        const rows = await db.select().from(leadCallEvents).where(eq(leadCallEvents.callId, callId)).orderBy(asc(leadCallEvents.occurredAt), asc(leadCallEvents.id));
+        return rows.map(toCallEvent);
+      },
+      async listByLead(leadId) {
+        const rows = await db.select().from(leadCalls).where(eq(leadCalls.leadId, leadId)).orderBy(desc(leadCalls.initiatedAt), desc(leadCalls.id));
+        return rows.map(toCall);
+      },
+      async listRecent(filter: CallFilter): Promise<CallWithLead[]> {
+        const rows = await db
+          .select({ call: leadCalls, leadId: leads.id, name: leads.name, sourceType: leads.sourceType, creationMethod: leads.creationMethod, erasedAt: leads.erasedAt })
+          .from(leadCalls)
+          .innerJoin(leads, eq(leads.id, leadCalls.leadId))
+          .where(callWhere(filter))
+          .orderBy(desc(leadCalls.initiatedAt), desc(leadCalls.id))
+          .limit(filter.limit);
+        return rows.map((row) => ({ call: toCall(row.call), lead: { id: row.leadId, name: row.name, sourceType: row.sourceType, creationMethod: row.creationMethod, erasedAt: row.erasedAt } }));
+      },
+      async aggregate(query: CallAggregateQuery): Promise<CallAggregateRow[]> {
+        // The zone is validated and written as a literal so every use of the bucket expression is the SAME expression
+        // (a bound parameter would make SELECT and GROUP BY look different to PostgreSQL).
+        const tz = assertSafeTimeZone(query.timeZone);
+        const local = sql.raw(`(lead_calls.initiated_at AT TIME ZONE '${tz}')`);
+        const key =
+          query.groupBy === "EMPLOYEE"
+            ? sql`${leadCalls.staffUserId}`
+            : query.groupBy === "HOUR_OF_DAY"
+              ? sql`to_char(${local}, 'HH24')`
+              : query.groupBy === "HOUR"
+                ? sql`to_char(${local}, 'YYYY-MM-DD"T"HH24')`
+                : query.groupBy === "DAY"
+                  ? sql`to_char(${local}, 'YYYY-MM-DD')`
+                  : query.groupBy === "WEEK"
+                    ? sql`to_char(date_trunc('week', ${local}), 'YYYY-MM-DD')`
+                    : query.groupBy === "MONTH"
+                      ? sql`to_char(${local}, 'YYYY-MM')`
+                      : query.groupBy === "QUARTER"
+                        ? sql`(to_char(${local}, 'YYYY') || '-Q' || to_char(${local}, 'Q'))`
+                        : sql`to_char(${local}, 'YYYY')`;
+        const rows = await db
+          .select({
+            key: sql<string>`${key}`,
+            dialed: sql<number>`count(*)::int`,
+            connected: sql<number>`(count(*) filter (where ${leadCalls.answeredAt} is not null))::int`,
+            noAnswer: sql<number>`(count(*) filter (where ${leadCalls.status} = 'NO_ANSWER'))::int`,
+            busy: sql<number>`(count(*) filter (where ${leadCalls.status} = 'BUSY'))::int`,
+            failed: sql<number>`(count(*) filter (where ${leadCalls.status} = 'FAILED'))::int`,
+            rejected: sql<number>`(count(*) filter (where ${leadCalls.status} = 'REJECTED'))::int`,
+            talkSeconds: sql<number>`coalesce(sum(${leadCalls.durationSeconds}) filter (where ${leadCalls.answeredAt} is not null), 0)::int`,
+            leadsCalled: sql<number>`count(distinct ${leadCalls.leadId})::int`,
+          })
+          .from(leadCalls)
+          .innerJoin(leads, eq(leads.id, leadCalls.leadId))
+          .where(callWhere(query))
+          .groupBy(key)
+          .orderBy(key);
+        return rows;
+      },
+    },
+
+    importBatches: {
+      async create(input: NewImportBatch) {
+        const [row] = await db.insert(leadImportBatches).values({ id: randomUUID(), ...input }).returning();
+        return toBatch(row);
+      },
+      async finish(id, counts) {
+        const [row] = await db.update(leadImportBatches).set(counts).where(eq(leadImportBatches.id, id)).returning();
+        if (!row) throw new LeadNotFoundError("Import batch not found.");
+        return toBatch(row);
+      },
+      async list(limit) {
+        const rows = await db.select().from(leadImportBatches).orderBy(desc(leadImportBatches.importedAt)).limit(limit);
+        return rows.map(toBatch);
+      },
+      async getById(id) {
+        const [row] = await db.select().from(leadImportBatches).where(eq(leadImportBatches.id, id));
+        return row ? toBatch(row) : null;
       },
     },
 

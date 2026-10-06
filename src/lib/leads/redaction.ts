@@ -21,23 +21,34 @@ const SAFE_PAYLOAD_KEYS: Record<LeadEventType, readonly string[]> = {
   OFFICIAL_WEBSITE_CLICKED: ["developerSlug", "developerName", "websiteDomain", "websiteUrl", "verifiedAt", "sourceCta", "clickedAt"],
   DEVELOPER_WEBSITE_REDIRECTED: ["developerSlug", "websiteDomain", "websiteUrl"],
   // Requirement changes are structured values (budget band, configuration...), but `location` is free text.
-  REQUIREMENT_UPDATED: ["fields"],
+  REQUIREMENT_UPDATED: ["fields", "requirementId"],
+  REQUIREMENT_CREATED: ["requirementId", "supersededRequirementId"],
+  REQUIREMENT_STATUS_CHANGED: ["requirementId", "from", "to", "reason"],
   STATUS_CHANGED: ["reasonCode"],
   // Free text a person typed (notes, a lost-reason sentence) is NEVER kept.
   NOTE_ADDED: [],
   CONTACT_LOGGED: ["channel", "outcome"],
-  FOLLOW_UP_SET: ["cleared"],
+  FOLLOW_UP_SET: ["cleared", "followUpId", "followUpType"],
   BOOKING_CREATED: ["bookingId", "currency", "bookingValue", "commissionExpected"],
   BOOKING_UPDATED: ["bookingId", "currency"],
   LEAD_ERASED: ["via"],
   TEMPERATURE_CHANGED: ["from", "to"],
   OWNER_CHANGED: ["from", "to"],
-  FOLLOW_UP_COMPLETED: [],
+  FOLLOW_UP_COMPLETED: ["followUpId", "followUpType", "late"],
+  // Follow-up lifecycle and returns: ids, enums and flags only. Times are not personal, but the notes are, and are dropped.
+  FOLLOW_UP_MISSED: ["followUpId", "followUpType", "dueAt", "detectedAt"],
+  FOLLOW_UP_RESCHEDULED: ["followUpId", "followUpType", "from", "to", "wasMissed"],
+  FOLLOW_UP_CANCELLED: ["followUpId", "reason"],
+  RETURNED_TO_FOUNDER: ["reason", "previousOwnerId"],
   DEVELOPER_CONNECT_REQUESTED: ["developerSlug", "developerName", "sourceCta", "requestedAt"],
+  // Calls: ids, the provider-reported status and the duration only. Nothing a person typed.
+  CALL_PLACED: ["callId"],
+  CALL_ENDED: ["callId", "status", "durationSeconds", "connected"],
+  CALL_DISPOSITION_SET: ["callId", "disposition"],
 };
 
 /** Requirement fields whose values are free text and so are dropped from a REQUIREMENT_UPDATED payload. */
-const FREE_TEXT_REQUIREMENT_FIELDS = new Set(["location"]);
+const FREE_TEXT_REQUIREMENT_FIELDS = new Set(["location", "locations", "notes"]);
 
 export const REDACTED_MARKER = "redacted";
 

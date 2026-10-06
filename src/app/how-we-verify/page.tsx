@@ -44,7 +44,7 @@ export default function HowWeVerifyPage() {
                 <p className="mt-2 text-muted-foreground">
                   Developer Connects has reviewed the developer and approved the specific website
                   URL stored on that developer&apos;s profile as the developer&apos;s official
-                  website. The website shown, and the link to it, are the ones we approved.
+                  website. We keep that website as verification data; it is not published or linked on the public page.
                 </p>
               </section>
 

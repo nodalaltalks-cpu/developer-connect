@@ -1,0 +1,18 @@
+import { CallButton } from "@/components/leads/call-button";
+import { getMyCallStatusAction, placeMyCallAction, setMyCallDispositionAction } from "@/app/team/_actions/team-actions";
+import { telHref } from "@/lib/leads/contact-links";
+import { getTelephonyProvider } from "@/lib/leads/telephony";
+
+/** The team member's Call control for one lead: tracked through the internal dialer when it is connected, honestly labelled when it is not. */
+export function TeamCallButton({ leadId, phoneE164, compact = false }: { leadId: string; phoneE164: string | null; compact?: boolean }) {
+  return (
+    <CallButton
+      compact={compact}
+      configured={getTelephonyProvider().configured}
+      telHref={telHref(phoneE164)}
+      onPlace={placeMyCallAction.bind(null, leadId)}
+      onStatus={getMyCallStatusAction}
+      onDisposition={setMyCallDispositionAction}
+    />
+  );
+}

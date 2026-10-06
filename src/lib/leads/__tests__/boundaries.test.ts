@@ -86,7 +86,14 @@ test("isolation: analytics and verification code never import the lead system", 
 
 test("isolation: public pages and components never import the lead storage adapters directly", () => {
   const publicFiles = listFiles(path.join(srcRoot, "components"), (file) => /\.tsx?$/.test(file)).concat(
-    listFiles(path.join(srcRoot, "app"), (file) => /(page|layout)\.tsx$/.test(file) && !file.includes(`${path.sep}admin${path.sep}`)),
+    // app/admin and app/team are the two PRIVATE, session-gated areas (Founder and team member); see lib/team/__tests__/team-security.test.ts.
+    listFiles(
+      path.join(srcRoot, "app"),
+      (file) =>
+        /(page|layout)\.tsx$/.test(file) &&
+        !file.includes(`${path.sep}admin${path.sep}`) &&
+        !file.includes(`${path.sep}app${path.sep}team${path.sep}`),
+    ),
   );
   for (const file of publicFiles) {
     const source = read(file);
@@ -114,14 +121,19 @@ function methodNames(block: string): string[] {
 
 test("immutability: the repository contract offers NO update or delete on events, touches or consents", () => {
   const source = read(path.join(leadsRoot, "repository.ts"));
-  assert.deepEqual(methodNames(interfaceBlock(source, "LeadEventRepository")), ["append", "listByLead", "summarise", "redactPayloads"]);
+  assert.deepEqual(methodNames(interfaceBlock(source, "LeadEventRepository")), ["append", "listByLead", "summarise", "redactPayloads", "countByTypeAndActor"]);
   assert.deepEqual(methodNames(interfaceBlock(source, "TouchRepository")), ["create", "getById", "countBySessionSince"]);
   assert.deepEqual(methodNames(interfaceBlock(source, "ConsentRepository")), ["create", "listByLead", "withdrawActive"]);
 });
 
-test("immutability: the PostgreSQL adapter never issues a DELETE, and rewrites an event only inside redactPayloads", () => {
+test("immutability: the PostgreSQL adapter only ever deletes requirement LOCATIONS, and rewrites an event only inside redactPayloads", () => {
   const source = code(read(path.join(leadsRoot, "db/postgres-repository.ts")));
-  assert.doesNotMatch(source, /\.delete\(/, "no row is ever deleted");
+  // History tables (events, touches, consents, leads, bookings, requirements) are never deleted from. The single
+  // exception is the child rows that list a requirement's preferred locations: they are replaced on edit and
+  // cleared on erasure (the requirement row itself stays as history).
+  const deletes = source.match(/\.delete\(\w+\)/g) ?? [];
+  assert.ok(deletes.length > 0 && deletes.every((call) => call === ".delete(leadRequirementLocations)"), `unexpected delete: ${deletes.join(", ")}`);
+  assert.equal(deletes.length, 2, "exactly two places: replacing locations on edit, and erasure");
   assert.doesNotMatch(source, /\bdelete\s+from\b/i);
   assert.doesNotMatch(source, /update\(marketingTouches\)/, "touches are never updated");
   assert.equal((source.match(/update\(leadEvents\)/g) ?? []).length, 1, "exactly one place may rewrite an event");
@@ -150,13 +162,43 @@ function functionBody(source: string, name: string): string {
 
 test("authorization: every founder-only service operation calls assertFounder before doing anything", () => {
   const source = read(path.join(leadsRoot, "lead-service.ts"));
-  for (const name of ["changeLeadStatus", "addNote", "setFollowUp", "logContact", "createBooking", "updateBooking", "eraseLead"]) {
+  for (const name of ["changeLeadStatus", "setTemperature", "assignOwner", "assignLead", "createBooking", "updateBooking", "eraseLead"]) {
     const body = functionBody(source, name);
     const guard = body.indexOf("assertFounder(");
     const firstWrite = body.search(/repos\.transaction|tx\./);
     assert.ok(guard !== -1, `${name} has no founder guard`);
     assert.ok(firstWrite === -1 || guard < firstWrite, `${name} must check the actor before touching data`);
   }
+});
+
+test("authorization: every activity operation a team member may do checks the actor's identity first, then ownership (and the missed-follow-up rule) inside the transaction", () => {
+  const operations: Array<[string, string, string]> = [
+    ["lead-service.ts", "addNote", "ADD_NOTE"],
+    ["lead-service.ts", "logContact", "LOG_CONTACT"],
+    ["follow-up-service.ts", "scheduleFollowUp", "SET_FOLLOW_UP"],
+    ["follow-up-service.ts", "rescheduleFollowUp", "SET_FOLLOW_UP"],
+    ["follow-up-service.ts", "completeLeadFollowUp", "COMPLETE_FOLLOW_UP"],
+    ["follow-up-service.ts", "cancelLeadFollowUp", "SET_FOLLOW_UP"],
+    ["follow-up-service.ts", "returnLeadToFounder", "RETURN_LEAD"],
+  ];
+  for (const [file, name, capability] of operations) {
+    const source = read(path.join(leadsRoot, file));
+    const body = functionBody(source, name);
+    const identity = body.indexOf("assertWorkingActor(");
+    const firstRead = body.search(/repos\.transaction|tx\./);
+    // guardLeadAction = assertMayAct (ownership; foreign lead = not found) + the missed-follow-up block, in the transaction.
+    const ownership = body.indexOf(`guardLeadAction(tx, actor, lead, "${capability}", now)`);
+    assert.ok(identity !== -1, `${name} must run the identity gate`);
+    assert.ok(identity < firstRead, `${name} must check who is acting BEFORE reading any data`);
+    assert.ok(ownership !== -1, `${name} must check this actor may act on THIS lead`);
+    assert.ok(ownership > firstRead, `${name}: the ownership check needs the lead, so it runs inside the transaction`);
+    assert.doesNotMatch(body, /assertFounder\(/, `${name} is intentionally not founder-only any more`);
+  }
+});
+
+test("authorization: updateRequirement refuses a team member explicitly (the buyer path must not be reachable by an EMPLOYEE actor)", () => {
+  const body = functionBody(read(path.join(leadsRoot, "lead-service.ts")), "updateRequirement");
+  assert.match(body, /actor\.actorType === "EMPLOYEE"\) throw new UnauthorizedLeadActionError/);
 });
 
 test("authorization: the buyer-facing operations never require a founder (and cannot claim to be one)", () => {

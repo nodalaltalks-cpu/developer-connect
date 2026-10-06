@@ -2,9 +2,12 @@ import Link from "next/link";
 import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { StatGrid, StatTile } from "@/components/admin/stat-tile";
+import { FounderCallButton } from "@/components/admin/leads/founder-call-button";
 import { LeadCard } from "@/components/admin/leads/lead-card";
 import { LeadsViewTabs, VIEW_LABELS } from "@/components/admin/leads/leads-view-tabs";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
+import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
+import { staffNameMap } from "@/lib/staff/staff-service";
 import { getAttentionItems, getLeadCounts, getLeadsPage, type LeadListItem } from "@/lib/leads/lead-reads";
 import { LEAD_VIEWS, type LeadView } from "@/lib/leads/lead-views";
 
@@ -49,6 +52,7 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
   const repos = createPostgresLeadRepositories();
   const now = new Date();
 
+  const owners = staffNameMap(await createPostgresStaffRepository().list());
   const counts = await getLeadCounts(repos, now);
   let items: LeadListItem[];
   let pagination: { page: number; pageCount: number; total: number } | null = null;
@@ -98,7 +102,7 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
       ) : (
         <ul className="mt-3 grid gap-3 lg:grid-cols-2">
           {items.map((item) => (
-            <LeadCard key={item.lead.id} item={item} now={now} />
+            <LeadCard key={item.lead.id} item={item} now={now} ownerName={item.lead.ownerId ? owners[item.lead.ownerId] : undefined} callSlot={<FounderCallButton compact leadId={item.lead.id} phoneE164={item.lead.phoneE164} />} />
           ))}
         </ul>
       )}

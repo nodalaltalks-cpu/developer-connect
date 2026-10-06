@@ -14,7 +14,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * intentionally untouched: public discovery must keep working with zero
  * authentication.
  */
-const isProtectedRoute = createRouteMatcher(["/profile(.*)", "/admin(.*)"]);
+const isProtectedRoute = createRouteMatcher(["/profile(.*)", "/admin(.*)", "/team(.*)"]);
 const isAuthFlowRoute = createRouteMatcher(["/post-sign-in(.*)"]);
 
 const clerk = clerkMiddleware(async (auth, req) => {

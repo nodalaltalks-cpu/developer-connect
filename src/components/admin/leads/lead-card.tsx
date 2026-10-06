@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { telHref, whatsappHref } from "@/lib/leads/contact-links";
 import { formatBudget, formatDateTime, formatDuration, formatEnumLabel } from "@/lib/leads/format";
 import type { LeadListItem } from "@/lib/leads/lead-reads";
+import { leadSourceLabel } from "@/lib/leads/lead-source";
 import { StatusBadge, TemperatureBadge } from "./lead-badges";
 
 const ACTION =
@@ -27,7 +29,23 @@ const TONE_CLASS = { alert: "text-red-700", soon: "text-amber-700", plain: "text
  * one link to the lead's page; the buttons are separate so a tap on Call can
  * never open the lead by accident. Pure — `now` is passed in.
  */
-export function LeadCard({ item, now }: { item: LeadListItem; now: Date }) {
+export function LeadCard({
+  item,
+  now,
+  ownerName,
+  basePath = "/admin/leads",
+  showOwner = true,
+  callSlot,
+}: {
+  item: LeadListItem;
+  now: Date;
+  ownerName?: string;
+  /** Where the card links to: the Founder's CRM by default, /team/leads for a team member's own workspace. */
+  basePath?: string;
+  showOwner?: boolean;
+  /** The tracked Call control; replaces the plain Call link when given. */
+  callSlot?: ReactNode;
+}) {
   const { lead, developerName, summary } = item;
   const next = nextActionLine(item);
   const tel = telHref(lead.phoneE164);
@@ -41,7 +59,7 @@ export function LeadCard({ item, now }: { item: LeadListItem; now: Date }) {
   return (
     <li className="rounded-lg border border-border p-4">
       <Link
-        href={`/admin/leads/${lead.id}`}
+        href={`${basePath}/${lead.id}`}
         className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="flex items-start justify-between gap-3">
@@ -50,9 +68,12 @@ export function LeadCard({ item, now }: { item: LeadListItem; now: Date }) {
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <StatusBadge status={lead.status} />
-          <span className="text-xs text-muted-foreground">{lead.ownerId ? "Assigned" : "Founder"}</span>
+          {showOwner && (
+            <span className="text-xs text-muted-foreground">Owner: {lead.ownerId ? (ownerName ?? "Team member") : "Founder"}</span>
+          )}
         </div>
-        <p className={`mt-2 text-sm font-medium ${TONE_CLASS[next.tone]}`}>{next.text}</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">{leadSourceLabel(lead)}</p>
+        <p className={`mt-1.5 text-sm font-medium ${TONE_CLASS[next.tone]}`}>{next.text}</p>
         {details.length > 0 && <p className="mt-1 text-sm text-muted-foreground">{details.join(" · ")}</p>}
         <p className="mt-1 text-xs text-muted-foreground">
           Last activity {lastActivity} ago
@@ -66,7 +87,7 @@ export function LeadCard({ item, now }: { item: LeadListItem; now: Date }) {
             WhatsApp
           </a>
         ) : null}
-        {tel ? (
+        {callSlot ? callSlot : tel ? (
           <a href={tel} className={prefersWhatsApp ? ACTION : ACTION_PRIMARY}>
             Call
           </a>

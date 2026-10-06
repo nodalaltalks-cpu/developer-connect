@@ -1,0 +1,161 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireEmployeeForAction } from "@/lib/team/session";
+import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
+import { LeadNotFoundError, LeadStateError, LeadValidationError, UnauthorizedLeadActionError } from "@/lib/leads/errors";
+import { addNote, logContact, type ContactChannel, type ContactOutcome } from "@/lib/leads/lead-service";
+import { cancelLeadFollowUp, completeLeadFollowUp, rescheduleFollowUp, returnLeadToFounder, scheduleFollowUp } from "@/lib/leads/follow-up-service";
+import { getCallForActor, placeCall, setCallDisposition } from "@/lib/leads/call-service";
+import { toCallView, type CallView } from "@/lib/leads/call-view";
+import { createLeadNotifier } from "@/lib/leads/lead-notifier";
+import { getTelephonyProvider, TelephonyNotConfiguredError } from "@/lib/leads/telephony";
+import { businessLocalToInstant } from "@/lib/leads/format";
+import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
+import { createRequirement, setRequirementStatus, updateRequirementDetails } from "@/lib/leads/requirement-service";
+import type { CallDisposition, CancelReason, FollowUpType, LeadActor, RequirementInput, RequirementStatus, ReturnReason } from "@/lib/leads/types";
+
+/**
+ * Team-member lead actions. Every function resolves the signed-in user to an ACTIVE staff member FIRST
+ * (requireEmployeeForAction — a Server Action is its own network-callable endpoint), then the lead service checks,
+ * inside its transaction, that this actor OWNS this lead. The actor is built on the server from the session: the
+ * browser sends only the lead id and the content, never who is acting or who owns what. A lead that is not theirs
+ * gets the same "not found" as a lead that does not exist.
+ *
+ * Deliberately only the activity operations (note, contact outcome, follow-up schedule/reschedule/complete/cancel),
+ * returning a lead the member owns, and the buyer-requirement workflow (create, update, change status) — there is no lead status, temperature, booking, assignment or erasure action here, and none can be
+ * reached by passing different arguments. A requirement id is checked to belong to THIS lead, and the lead to the
+ * signed-in team member.
+ */
+
+export type TeamActionResult = { ok: true } | { ok: false; error: string };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const GENERIC_ERROR = "Something went wrong. Please try again.";
+const NOT_FOUND = "That lead could not be found.";
+
+async function run(leadId: string, work: (actor: LeadActor, notifier: ReturnType<typeof createLeadNotifier>) => Promise<unknown>): Promise<TeamActionResult> {
+  // Authorization first, before anything else — including input checks.
+  const { actor } = await requireEmployeeForAction();
+  if (typeof leadId !== "string" || !UUID.test(leadId)) return { ok: false, error: NOT_FOUND };
+
+  try {
+    await work(actor, createLeadNotifier(createPostgresNotificationRepository()));
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: NOT_FOUND };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(`/team/leads/${leadId}`);
+  revalidatePath("/team");
+  revalidatePath("/team/missed");
+  return { ok: true };
+}
+
+export async function addMyLeadNoteAction(leadId: string, text: string): Promise<TeamActionResult> {
+  return run(leadId, (actor) => addNote(createPostgresLeadRepositories(), leadId, text, actor));
+}
+
+/** Logs the OUTCOME of a call or WhatsApp the team member made — never a guess that one happened. */
+export async function logMyLeadContactAction(
+  leadId: string,
+  channel: ContactChannel,
+  outcome: ContactOutcome,
+  note?: string,
+): Promise<TeamActionResult> {
+  return run(leadId, (actor) => logContact(createPostgresLeadRepositories(), leadId, { channel, outcome, note }, actor));
+}
+
+/**
+ * Schedules a follow-up at an EXACT date and time. The browser sends the wall-clock value of its date-time input; the
+ * server interprets it in the business time zone (India time) — never in whatever zone the browser is set to — and
+ * rejects anything that is not a full date-time in the future. If the lead already has an open follow-up it is
+ * rescheduled instead.
+ */
+export async function setMyLeadFollowUpAction(leadId: string, scheduledAtLocal: string, type?: FollowUpType, note?: string): Promise<TeamActionResult> {
+  return run(leadId, (actor) => {
+    const scheduledAt = businessLocalToInstant(scheduledAtLocal);
+    if (!scheduledAt) throw new LeadValidationError("scheduledAt", "Choose the exact date and time for the follow-up.");
+    return scheduleFollowUp(createPostgresLeadRepositories(), leadId, { scheduledAt, type, note }, actor);
+  });
+}
+
+export async function rescheduleMyLeadFollowUpAction(leadId: string, followUpId: string, scheduledAtLocal: string, type?: FollowUpType): Promise<TeamActionResult> {
+  return run(leadId, (actor) => {
+    const scheduledAt = businessLocalToInstant(scheduledAtLocal);
+    if (!scheduledAt) throw new LeadValidationError("scheduledAt", "Choose the exact date and time for the follow-up.");
+    return rescheduleFollowUp(createPostgresLeadRepositories(), leadId, followUpId, { scheduledAt, type }, actor);
+  });
+}
+
+export async function completeMyLeadFollowUpAction(leadId: string, followUpId?: string, note?: string): Promise<TeamActionResult> {
+  return run(leadId, (actor) => completeLeadFollowUp(createPostgresLeadRepositories(), leadId, { followUpId, note }, actor));
+}
+
+/** Cancels a follow-up with a structured reason (mandatory). */
+export async function cancelMyLeadFollowUpAction(leadId: string, followUpId: string, reason: CancelReason, note?: string): Promise<TeamActionResult> {
+  return run(leadId, (actor) => cancelLeadFollowUp(createPostgresLeadRepositories(), leadId, followUpId, reason, note, actor));
+}
+
+/** Sends a lead the signed-in team member owns back to the Founder queue. The reason is mandatory. */
+export async function returnMyLeadAction(leadId: string, reason: ReturnReason, note?: string): Promise<TeamActionResult> {
+  return run(leadId, (actor, notifier) => returnLeadToFounder(createPostgresLeadRepositories(), leadId, reason, note, actor, new Date(), notifier));
+}
+
+export async function createMyRequirementAction(leadId: string, input: RequirementInput): Promise<TeamActionResult> {
+  return run(leadId, (actor) => createRequirement(createPostgresLeadRepositories(), leadId, input, actor));
+}
+
+export async function updateMyRequirementAction(leadId: string, requirementId: string, input: RequirementInput): Promise<TeamActionResult> {
+  return run(leadId, (actor) => updateRequirementDetails(createPostgresLeadRepositories(), leadId, requirementId, input, actor));
+}
+
+export async function setMyRequirementStatusAction(leadId: string, requirementId: string, status: RequirementStatus): Promise<TeamActionResult> {
+  return run(leadId, (actor) => setRequirementStatus(createPostgresLeadRepositories(), leadId, requirementId, status, actor));
+}
+
+// --- the internal dialer ---------------------------------------------------------------------------
+
+export type PlaceCallResult = { ok: true; callId: string } | { ok: false; error: string; notConfigured?: true };
+
+/**
+ * Places a call through the internal dialer. Refused — recording nothing — when no telephony provider is configured.
+ * The browser says only WHICH lead; who is calling, the number, the status and every timestamp are the server's.
+ */
+export async function placeMyCallAction(leadId: string): Promise<PlaceCallResult> {
+  const { actor } = await requireEmployeeForAction();
+  if (typeof leadId !== "string" || !UUID.test(leadId)) return { ok: false, error: NOT_FOUND };
+  try {
+    const call = await placeCall(createPostgresLeadRepositories(), getTelephonyProvider(), leadId, actor);
+    revalidatePath(`/team/leads/${leadId}`);
+    revalidatePath("/team/calls");
+    return { ok: true, callId: call.id };
+  } catch (error) {
+    if (error instanceof TelephonyNotConfiguredError) return { ok: false, error: error.message, notConfigured: true };
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: NOT_FOUND };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+/** The current state of a call THIS member made on a lead they own — null for anything else (same as a missing call). */
+export async function getMyCallStatusAction(callId: string): Promise<CallView | null> {
+  const { actor } = await requireEmployeeForAction();
+  const call = await getCallForActor(createPostgresLeadRepositories(), actor, callId);
+  return call ? toCallView(call) : null;
+}
+
+/** What the conversation led to — once, after the call has finished, consistent with what the provider reported. */
+export async function setMyCallDispositionAction(callId: string, disposition: CallDisposition): Promise<TeamActionResult> {
+  const { actor } = await requireEmployeeForAction();
+  try {
+    const call = await setCallDisposition(createPostgresLeadRepositories(), callId, disposition, actor);
+    revalidatePath(`/team/leads/${call.leadId}`);
+    revalidatePath("/team/calls");
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: NOT_FOUND };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}

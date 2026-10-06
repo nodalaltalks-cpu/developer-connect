@@ -32,7 +32,7 @@ const PAGE_SIZE = 100;
 
 const TITLE = "All verified developers | Developer Connects";
 const DESCRIPTION =
-  "Browse every real estate developer verified by Developer Connects, with a direct link to each one's verified official website.";
+  "Browse every real estate developer verified by Developer Connects, and request a connection with the one you want.";
 
 function parsePage(raw: string | string[] | undefined): number {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -176,8 +176,8 @@ export default async function DevelopersIndexPage({
           <p className="mt-2 text-sm">
             <Link href={buyDirectPath(buyDirectGuide)} className="text-accent-hover hover:underline">
               {buyDirectGuide
-                ? `How to buy property directly from developers in ${buyDirectGuide.name} →`
-                : "How to buy property directly from the developer →"}
+                ? `How to research developers in ${buyDirectGuide.name} →`
+                : "How to research a developer before you buy →"}
             </Link>
           </p>
 

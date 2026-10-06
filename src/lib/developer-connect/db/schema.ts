@@ -11,7 +11,10 @@ import {
   jsonb,
   boolean,
   bigint,
+  smallint,
+  integer,
   check,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -285,6 +288,10 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "FOUNDER_MESSAGE",
   "CONTACT_STATUS_UPDATE",
   "LEAD_NEW",
+  "FOLLOW_UP_MISSED",
+  "FOLLOW_UP_DUE",
+  "LEAD_RETURNED",
+  "LEAD_ASSIGNED",
 ]);
 
 export const inaccuracyReportCategoryEnum = pgEnum("inaccuracy_report_category", [
@@ -515,6 +522,9 @@ export const leadTimelineEnum = pgEnum("lead_timeline", [
 
 export const leadPurposeEnum = pgEnum("lead_purpose", ["SELF_USE", "INVESTMENT"]);
 
+/** Where a lead came from — never mixed up with how it was contacted. */
+export const leadSourceTypeEnum = pgEnum("lead_source_type", ["DIGITAL", "SELF_GENERATED"]);
+
 /** Budgets and booking values are whole units of one currency; totals are never summed across currencies. */
 export const leadCurrencyEnum = pgEnum("lead_currency", ["INR", "AED"]);
 
@@ -540,13 +550,24 @@ export const leadEventTypeEnum = pgEnum("lead_event_type", [
   "FOLLOW_UP_COMPLETED",
   // Stage 5 (migration 0017): the buyer asked Developer Connects to connect them with a developer.
   "DEVELOPER_CONNECT_REQUESTED",
+  "REQUIREMENT_CREATED",
+  "REQUIREMENT_STATUS_CHANGED",
+  "FOLLOW_UP_MISSED",
+  "FOLLOW_UP_RESCHEDULED",
+  "FOLLOW_UP_CANCELLED",
+  "RETURNED_TO_FOUNDER",
+  "CALL_PLACED",
+  "CALL_ENDED",
+  "CALL_DISPOSITION_SET",
 ]);
 
 /** How warm the buyer is. A separate concept from pipeline status; null on the lead = not yet rated. */
 export const leadTemperatureEnum = pgEnum("lead_temperature", ["HOT", "WARM", "COLD"]);
 
 /** Who performed a lead action. Separate from actor_type: a BUYER is not a founder/agent, and STAFF arrives in a later phase. */
-export const leadActorTypeEnum = pgEnum("lead_actor_type", ["BUYER", "FOUNDER", "SYSTEM"]);
+// EMPLOYEE (Phase 2): a signed-in team member who is an ACTIVE row in staff_members. The founder is never a
+// staff row — founder authority is the Clerk privateMetadata flag, unchanged.
+export const leadActorTypeEnum = pgEnum("lead_actor_type", ["BUYER", "FOUNDER", "SYSTEM", "EMPLOYEE"]);
 
 export const bookingStatusEnum = pgEnum("booking_status", ["BOOKED", "CANCELLED"]);
 
@@ -591,13 +612,28 @@ export const leads = pgTable(
     contactPreference: contactPreferenceEnum("contact_preference").notNull().default("WHATSAPP"),
     status: leadStatusEnum("status").notNull().default("NEW"),
     temperature: leadTemperatureEnum("temperature"),
-    // Null = unassigned = the Founder's own queue (Phase 1 is founder-only).
+    // The Clerk user id of the ACTIVE team member who owns the lead (staff_members.user_id), or null = the
+    // Founder's own queue. Deliberately not a foreign key: every ownership change is also an immutable
+    // OWNER_CHANGED lead event, so history survives even if a team member is later deactivated.
     ownerId: text("owner_id"),
     // The developer the buyer was first researching; any later developers
     // they click live in lead_events.developer_id, never overwriting this.
     developerId: uuid("developer_id").references(() => developers.id, { onDelete: "restrict" }),
     // Which public surface generated the lead (developer page, directory card, ...).
     sourceCta: text("source_cta"),
+    // Set when a team member returns the lead to the Founder queue; cleared when the Founder assigns it to someone
+    // again. The full story lives in the lead's events; these three make "Returned leads" a plain indexed query.
+    // WHERE THE LEAD CAME FROM — a separate concept from the calls made to it. DIGITAL (website, ads, referral...) or
+    // SELF_GENERATED (Excel/CSV import, cold calling, created by hand). creation_method says how it entered the
+    // system; import_batch_id keeps the Excel batch so batch -> leads -> calls -> bookings can always be traced.
+    sourceType: leadSourceTypeEnum("source_type").notNull().default("DIGITAL"),
+    sourceDetail: text("source_detail"),
+    creationMethod: text("creation_method").notNull().default("WEBSITE_GATE"),
+    importBatchId: uuid("import_batch_id").references((): AnyPgColumn => leadImportBatches.id, { onDelete: "restrict" }),
+    createdBy: text("created_by"),
+    returnedAt: timestamp("returned_at", { withTimezone: true }),
+    returnedFrom: text("returned_from"),
+    returnReason: text("return_reason"),
     location: text("location"),
     budgetMin: bigint("budget_min", { mode: "number" }),
     budgetMax: bigint("budget_max", { mode: "number" }),
@@ -631,6 +667,10 @@ export const leads = pgTable(
     index("leads_last_activity_idx").on(table.lastActivityAt),
     index("leads_developer_idx").on(table.developerId),
     index("leads_session_idx").on(table.sessionId),
+    index("leads_owner_idx").on(table.ownerId),
+    index("leads_source_idx").on(table.sourceType, table.creationMethod),
+    index("leads_import_batch_idx").on(table.importBatchId).where(sql`${table.importBatchId} is not null`),
+    index("leads_returned_idx").on(table.returnedAt).where(sql`${table.returnedAt} is not null`),
     check("leads_phone_present_ck", sql`${table.phoneE164} is not null or ${table.erasedAt} is not null`),
     check(
       "leads_budget_range_ck",
@@ -734,5 +774,277 @@ export const bookings = pgTable(
       "bookings_amounts_nonneg_ck",
       sql`${table.bookingValue} >= 0 and ${table.commissionExpected} >= 0 and ${table.commissionReceived} >= 0`,
     ),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------------------------
+// PHASE 2 — SALES OPERATING SYSTEM: team members
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * Roles a NON-founder team member can hold. The Founder is not a role here: founder authority stays the Clerk
+ * privateMetadata flag (see lib/authorization.ts) so there is exactly one source of truth for it. MANAGER and
+ * SALES_MANAGER are reserved for later team-visibility work; only EMPLOYEE is created today.
+ */
+export const staffRoleEnum = pgEnum("staff_role", ["EMPLOYEE", "SALES_MANAGER", "MANAGER"]);
+
+/**
+ * A person on the sales team. `userId` is the Clerk user id (Clerk stays the identity provider; this table holds
+ * only what sales operations need — no HR data). A member is never deleted: they are deactivated, so the owner
+ * recorded in old lead history always still resolves to a name. An inactive member can receive no new leads and
+ * has no access (enforced in the service layer, not by the interface).
+ */
+export const staffMembers = pgTable(
+  "staff_members",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    displayName: text("display_name").notNull(),
+    email: text("email"),
+    role: staffRoleEnum("role").notNull().default("EMPLOYEE"),
+    active: boolean("active").notNull().default(true),
+    // Clerk user id of the founder who added / deactivated the member.
+    createdBy: text("created_by").notNull(),
+    deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
+    deactivatedBy: text("deactivated_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("staff_members_user_id_key").on(table.userId),
+    index("staff_members_active_idx").on(table.active),
+    check("staff_members_name_present_ck", sql`length(btrim(${table.displayName})) > 0`),
+    check("staff_members_deactivation_ck", sql`${table.active} or ${table.deactivatedAt} is not null`),
+  ],
+);
+
+/**
+ * Buyer requirements (Phase 2, Step 3). A lead has a HISTORY of requirements; at most one is ACTIVE at a time
+ * (partial unique index below). A requirement is never deleted or overwritten by a new one: starting a new
+ * requirement CLOSES the previous active one. The leads table keeps a mirror of the active requirement's summary
+ * so the lead card, Today queue and Founder CRM keep reading the same columns they always have.
+ *
+ * Vocabulary is the lead system's own (lead_purpose, lead_timeline, lead_currency). `configuration` and
+ * `property_type` stay text so new configurations never need a migration. Budget is explicit about its currency.
+ * Preferred locations are rows in lead_requirement_locations, not a delimited string, so they can be matched.
+ */
+export const requirementStatusEnum = pgEnum("requirement_status", ["ACTIVE", "FULFILLED", "ON_HOLD", "CLOSED"]);
+
+export const leadRequirements = pgTable(
+  "lead_requirements",
+  {
+    id: uuid("id").primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    status: requirementStatusEnum("status").notNull().default("ACTIVE"),
+    propertyType: text("property_type"),
+    configuration: text("configuration"),
+    budgetMin: bigint("budget_min", { mode: "number" }),
+    budgetMax: bigint("budget_max", { mode: "number" }),
+    budgetCurrency: leadCurrencyEnum("budget_currency"),
+    purpose: leadPurposeEnum("purpose"),
+    timeline: leadTimelineEnum("timeline"),
+    // Free-text context a person typed. Personal data: cleared on erasure.
+    notes: text("notes"),
+    createdBy: text("created_by").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("lead_requirements_lead_idx").on(table.leadId, table.createdAt),
+    // The database itself guarantees one current requirement per lead.
+    uniqueIndex("lead_requirements_one_active_key").on(table.leadId).where(sql`${table.status} = 'ACTIVE'`),
+    check(
+      "lead_requirements_budget_range_ck",
+      sql`${table.budgetMin} is null or ${table.budgetMax} is null or ${table.budgetMin} <= ${table.budgetMax}`,
+    ),
+    check("lead_requirements_budget_nonneg_ck", sql`coalesce(${table.budgetMin}, 0) >= 0 and coalesce(${table.budgetMax}, 0) >= 0`),
+    check(
+      "lead_requirements_budget_currency_ck",
+      sql`(${table.budgetMin} is null and ${table.budgetMax} is null) or ${table.budgetCurrency} is not null`,
+    ),
+  ],
+);
+
+export const leadRequirementLocations = pgTable(
+  "lead_requirement_locations",
+  {
+    id: uuid("id").primaryKey(),
+    requirementId: uuid("requirement_id")
+      .notNull()
+      .references(() => leadRequirements.id, { onDelete: "cascade" }),
+    // As the team member wrote it ("Thane West").
+    name: text("name").notNull(),
+    // Normalised form used for matching and to stop duplicates (lower-case, single spaces, Bengaluru = Bangalore).
+    nameKey: text("name_key").notNull(),
+    position: smallint("position").notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex("lead_requirement_locations_unique_key").on(table.requirementId, table.nameKey),
+    index("lead_requirement_locations_key_idx").on(table.nameKey),
+    check("lead_requirement_locations_name_ck", sql`length(btrim(${table.name})) > 0 and length(btrim(${table.nameKey})) > 0`),
+  ],
+);
+
+/**
+ * Follow-ups (Phase 2, follow-up discipline). Every follow-up has a stable id, a TYPE, an EXACT scheduled time
+ * (timestamptz — never just a date) and a lifecycle: SCHEDULED, COMPLETED, MISSED, CANCELLED. A lead has at most
+ * one OPEN (SCHEDULED or MISSED) follow-up at a time; rescheduling edits it in place (same id, counted) and every
+ * change is an immutable lead event. MISSED is derived by the server from `scheduled_at < now` while still
+ * SCHEDULED; an idempotent sweep records it (once) as a FOLLOW_UP_MISSED event. leads.next_follow_up_at is kept as a
+ * mirror of the open follow-up's time so the existing lists, queue and Founder CRM keep reading what they always did.
+ */
+export const followUpTypeEnum = pgEnum("follow_up_type", [
+  "CALL_BACK",
+  "WHATSAPP_FOLLOW_UP",
+  "SITE_VISIT_FOLLOW_UP",
+  "PAYMENT_FOLLOW_UP",
+  "DOCUMENT_FOLLOW_UP",
+  "GENERAL_FOLLOW_UP",
+]);
+
+export const followUpStatusEnum = pgEnum("follow_up_status", ["SCHEDULED", "COMPLETED", "MISSED", "CANCELLED"]);
+
+export const leadFollowUps = pgTable(
+  "lead_follow_ups",
+  {
+    id: uuid("id").primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    type: followUpTypeEnum("type").notNull().default("GENERAL_FOLLOW_UP"),
+    status: followUpStatusEnum("status").notNull().default("SCHEDULED"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    originalScheduledAt: timestamp("original_scheduled_at", { withTimezone: true }).notNull(),
+    // Who was responsible when it was scheduled: the lead's owner then (null = the Founder's own queue).
+    ownerId: text("owner_id"),
+    // Free text a person typed. Personal data: cleared on erasure.
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedBy: text("completed_by"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    cancelledBy: text("cancelled_by"),
+    cancelReason: text("cancel_reason"),
+    cancelNote: text("cancel_note"),
+    missedCount: integer("missed_count").notNull().default(0),
+    lastMissedAt: timestamp("last_missed_at", { withTimezone: true }),
+    rescheduleCount: integer("reschedule_count").notNull().default(0),
+    // Set once when the "due soon" notification is sent, so it is never sent twice for one scheduled time.
+    dueNotifiedAt: timestamp("due_notified_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("lead_follow_ups_lead_idx").on(table.leadId, table.createdAt),
+    index("lead_follow_ups_status_due_idx").on(table.status, table.scheduledAt),
+    index("lead_follow_ups_owner_idx").on(table.ownerId, table.status),
+    // The database itself guarantees one open follow-up per lead.
+    uniqueIndex("lead_follow_ups_one_open_key").on(table.leadId).where(sql`${table.status} in ('SCHEDULED', 'MISSED')`),
+    check("lead_follow_ups_counts_ck", sql`${table.missedCount} >= 0 and ${table.rescheduleCount} >= 0`),
+  ],
+);
+
+/**
+ * One Excel/CSV import: who, when, from which file and campaign. Every lead it created points back here
+ * (leads.import_batch_id), so the Founder can follow batch -> leads -> calls -> connected -> follow-ups -> bookings.
+ */
+export const leadImportBatches = pgTable("lead_import_batches", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  originalFilename: text("original_filename"),
+  campaign: text("campaign"),
+  importedBy: text("imported_by").notNull(),
+  importedAt: timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  rowCount: integer("row_count").notNull().default(0),
+  createdCount: integer("created_count").notNull().default(0),
+  duplicateCount: integer("duplicate_count").notNull().default(0),
+  rejectedCount: integer("rejected_count").notNull().default(0),
+});
+
+/**
+ * Calls placed through the INTERNAL DIALER. A row exists only because the server placed the call through the
+ * telephony provider — never because a button was clicked and never from the browser. Its status, answered/ended
+ * times and duration come from the provider's own events (lead_call_events); employees can set only a disposition
+ * (what the conversation led to), once. Nothing is ever deleted; the database refuses to rewrite identity columns,
+ * a finished call's outcome, or a disposition once set.
+ *
+ * "Connected" means the provider reported the call answered (answered_at is set) — status CONNECTED or COMPLETED.
+ * `source` is the CALL source (the internal dialer) and is unrelated to the LEAD source on the leads table.
+ */
+export const callStatusEnum = pgEnum("call_status", ["INITIATED", "RINGING", "CONNECTED", "COMPLETED", "NO_ANSWER", "BUSY", "FAILED", "REJECTED"]);
+
+export const callDispositionEnum = pgEnum("call_disposition", [
+  "INTERESTED",
+  "NOT_INTERESTED",
+  "FOLLOW_UP_REQUIRED",
+  "CALLBACK_REQUESTED",
+  "SWITCHED_OFF",
+  "INVALID_NUMBER",
+  "OTHER",
+]);
+
+export const leadCalls = pgTable(
+  "lead_calls",
+  {
+    id: uuid("id").primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    // The authenticated internal user (Clerk id) who placed it: a team member or the Founder.
+    staffUserId: text("staff_user_id").notNull(),
+    direction: text("direction").notNull().default("OUTBOUND"),
+    status: callStatusEnum("status").notNull().default("INITIATED"),
+    source: text("source").notNull().default("INTERNAL_DIALER"),
+    provider: text("provider").notNull(),
+    providerCallId: text("provider_call_id"),
+    // Only the last four digits: enough to tell calls apart; the full number lives on the lead and is erasable.
+    phoneLast4: text("phone_last4"),
+    initiatedAt: timestamp("initiated_at", { withTimezone: true }).notNull(),
+    ringingAt: timestamp("ringing_at", { withTimezone: true }),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    durationSeconds: integer("duration_seconds"),
+    endReason: text("end_reason"),
+    disposition: callDispositionEnum("disposition"),
+    dispositionBy: text("disposition_by"),
+    dispositionAt: timestamp("disposition_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("lead_calls_lead_idx").on(table.leadId, table.initiatedAt),
+    index("lead_calls_staff_idx").on(table.staffUserId, table.initiatedAt),
+    index("lead_calls_initiated_idx").on(table.initiatedAt),
+    uniqueIndex("lead_calls_provider_call_key").on(table.provider, table.providerCallId).where(sql`${table.providerCallId} is not null`),
+    check("lead_calls_duration_ck", sql`${table.durationSeconds} is null or ${table.durationSeconds} >= 0`),
+  ],
+);
+
+/**
+ * The provider's own events, exactly as received — the raw evidence a call record is built from. Append-only (trigger
+ * in migration 0021). The unique (provider, provider_event_id) is the idempotency key: a webhook delivered five times
+ * is stored, and applied, once.
+ */
+export const leadCallEvents = pgTable(
+  "lead_call_events",
+  {
+    id: uuid("id").primaryKey(),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => leadCalls.id, { onDelete: "restrict" }),
+    provider: text("provider").notNull(),
+    providerEventId: text("provider_event_id").notNull(),
+    eventType: text("event_type").notNull(),
+    status: callStatusEnum("status"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    payload: jsonb("payload").notNull().default({}),
+  },
+  (table) => [
+    uniqueIndex("lead_call_events_idempotency_key").on(table.provider, table.providerEventId),
+    index("lead_call_events_call_idx").on(table.callId, table.occurredAt),
   ],
 );

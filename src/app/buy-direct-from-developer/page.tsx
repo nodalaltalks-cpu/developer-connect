@@ -12,9 +12,9 @@ import {
 import { BUY_DIRECT_PATH, buyDirectFaq, buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
-const TITLE = "How to Buy Property Directly from the Developer | Developer Connects";
+const TITLE = "How to Research a Property Developer Before You Buy | Developer Connects";
 const DESCRIPTION =
-  "How to buy a home directly from the developer in India and the UAE: find the developer's verified official website, check the project with the regulator, and deal with the developer's own sales team.";
+  "How to research a real estate developer in India and the UAE before you buy: make sure you are dealing with the real developer, check the project with the regulator, and ask for the terms in writing.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -33,7 +33,7 @@ export default function BuyDirectHubPage() {
   const structuredData = [
     breadcrumbStructuredData([
       { name: "Home", path: "/" },
-      { name: "Buy direct from developer", path: BUY_DIRECT_PATH },
+      { name: "Developer research guides", path: BUY_DIRECT_PATH },
     ]),
     faqStructuredData(faq),
   ];
@@ -55,24 +55,26 @@ export default function BuyDirectHubPage() {
                 </li>
                 <li aria-hidden="true">/</li>
                 <li aria-current="page" className="text-foreground">
-                  Buy direct from developer
+                  Developer research guides
                 </li>
               </ol>
             </nav>
 
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              How to buy property directly from the developer
+              How to research a developer before you buy
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
-              Developers sell new homes directly through their own sales teams — the hard part is making
+              Developers sell new homes through their own sales teams — the hard part is making
               sure you are dealing with the real developer. This guide shows you how, step by step.
             </p>
 
             <div className="mt-6 rounded-lg border border-accent-soft bg-accent-soft/40 p-5">
-              <p className="font-medium text-foreground">Start with a verified official website</p>
+              <p className="font-medium text-foreground">Start with a verified developer</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Developer Connects lists real estate developers in India and the UAE with the official
-                website we have verified as theirs — so you can go straight to the source.
+                Developer Connects lists real estate developers in India and the UAE and confirms the official
+                website that belongs to each one — so you know you are dealing with the real developer. When you
+                are ready, connect with the developer through Developer Connects and our property team will help
+                with your enquiry.
               </p>
               <Link
                 href="/developers"
@@ -83,34 +85,19 @@ export default function BuyDirectHubPage() {
             </div>
 
             <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
-              Buying directly from the developer, step by step
+              Researching a developer, step by step
             </h2>
             <BuyDirectSteps />
 
             <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
-              Buying direct vs. through an agent
+              Whoever helps you, check the basics
             </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-lg border border-border p-5">
-                <h3 className="font-medium text-foreground">Going direct</h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  <li>Prices, offers and payment plans straight from the source</li>
-                  <li>Contact the developer&apos;s own sales team</li>
-                  <li>Confirm all terms and any fees with the developer in writing</li>
-                </ul>
-              </div>
-              <div className="rounded-lg border border-border p-5">
-                <h3 className="font-medium text-foreground">Using a broker</h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  <li>Can compare several developers&apos; projects for you</li>
-                  <li>May help with paperwork and resale property</li>
-                  <li>Check how they are paid and whether a fee applies</li>
-                </ul>
-              </div>
-            </div>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Either way, verify the developer and the project yourself before you pay anything.
-            </p>
+            <ul className="mt-4 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
+              <li>Ask the developer&apos;s sales team for prices, offers and payment plans in writing.</li>
+              <li>Confirm all terms and any fees before you commit.</li>
+              <li>Ask anyone who helps you how they are paid and whether a fee applies.</li>
+              <li>Verify the developer and the project yourself before you pay anything.</li>
+            </ul>
 
             <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">Guides by location</h2>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -128,7 +115,7 @@ export default function BuyDirectHubPage() {
                   {group.items.map((market) => (
                     <li key={market.slug}>
                       <Link href={buyDirectPath(market)} className="text-accent-hover hover:underline">
-                        Buy directly from developers in {market.name}
+                        Researching developers in {market.name}
                       </Link>
                     </li>
                   ))}
@@ -142,8 +129,8 @@ export default function BuyDirectHubPage() {
             <BuyDirectFaq items={faq} />
 
             <p className="mt-8 text-xs text-muted-foreground">
-              This guide is general information, not legal or financial advice. Developer Connects is an
-              a directory of verified developer websites that also offers optional property assistance.{" "}
+              This guide is general information, not legal or financial advice. Developer Connects is a
+              directory of verified developers that also offers optional property assistance.{" "}
               <Link href="/how-we-verify" className="text-accent-hover hover:underline">
                 How we verify official websites
               </Link>

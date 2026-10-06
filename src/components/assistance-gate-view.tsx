@@ -134,6 +134,7 @@ export function AssistanceGateView({
 
             {showForm && (
               <form
+                id="assistance-gate-form"
                 className="mt-4 space-y-4"
                 noValidate
                 onSubmit={(event) => {
@@ -231,19 +232,32 @@ export function AssistanceGateView({
                 </div>
 
                 <p className="text-xs text-muted-foreground">{copy.consent}</p>
-
-                <div>
-                  <button type="submit" disabled={submitting} className={buttonClassName("primary", "w-full min-h-12 text-base")}>
-                    {submitting ? copy.submitting : state.phase === "error" ? copy.retry : copy.submit}
-                  </button>
-                  <p className="mt-1.5 text-center text-xs text-muted-foreground">{copy.submitHint}</p>
-                </div>
+                <p className="text-xs text-muted-foreground">{copy.commercialDisclosure}</p>
               </form>
+            )}
+
+            {/* The primary action is pinned to the bottom of the scrolling sheet so a buyer on a small phone never
+                has to scroll to find it. It sits OUTSIDE the <form> (linked by the form attribute) so its sticky
+                range is the whole sheet content, not just the form. Once the buyer scrolls to its natural place it
+                releases, so it never hides the text below it. */}
+            {showForm && (
+              <div className="sticky bottom-0 z-10 -mx-5 mt-4 border-t border-border bg-background px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 sm:-mx-6 sm:px-6">
+                <button
+                  type="submit"
+                  form="assistance-gate-form"
+                  disabled={submitting}
+                  className={buttonClassName("primary", "w-full min-h-12 text-base")}
+                >
+                  {submitting ? copy.submitting : state.phase === "error" ? copy.retry : copy.submit}
+                </button>
+                <p className="mt-1.5 text-center text-xs text-muted-foreground">{copy.submitHint}</p>
+              </div>
             )}
 
             {showReturning && (
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-muted-foreground">{copy.consent}</p>
+                <p className="text-xs text-muted-foreground">{copy.commercialDisclosure}</p>
                 <button
                   type="button"
                   disabled={submitting}

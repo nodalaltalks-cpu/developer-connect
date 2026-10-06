@@ -137,21 +137,21 @@ const METADATA: Array<{ country: string; city?: string; title: string; h1: strin
     title: "India Real Estate Developers – Verified Official Websites | Developer Connects",
     h1: "Verified real estate developers in India",
     description:
-      "Explore verified real estate developers in India and go straight to each developer’s official website, as verified by Developer Connects.",
+      "Explore verified real estate developers in India. Developer Connects has verified each developer’s official website and can help you connect with the developer.",
   },
   {
     country: UAE,
     title: "UAE Real Estate Developers – Verified Official Websites | Developer Connects",
     h1: "Verified real estate developers in the UAE",
     description:
-      "Explore verified real estate developers in the UAE and go straight to each developer’s official website, as verified by Developer Connects.",
+      "Explore verified real estate developers in the UAE. Developer Connects has verified each developer’s official website and can help you connect with the developer.",
   },
   ...["Mumbai", "Hyderabad", "Pune", "Navi Mumbai"].map((city) => ({
     country: INDIA,
     city,
     title: `${city} Real Estate Developers – Verified Official Websites | Developer Connects`,
     h1: `Verified real estate developers in ${city}`,
-    description: `Explore verified real estate developers in ${city} and go straight to each developer’s official website, as verified by Developer Connects.`,
+    description: `Explore verified real estate developers in ${city}. Developer Connects has verified each developer’s official website and can help you connect with the developer.`,
   })),
   {
     country: UAE,
@@ -159,7 +159,7 @@ const METADATA: Array<{ country: string; city?: string; title: string; h1: strin
     title: "Dubai Real Estate Developers – Verified Official Websites | Developer Connects",
     h1: "Verified real estate developers in Dubai",
     description:
-      "Explore verified real estate developers in Dubai and go straight to each developer’s official website, as verified by Developer Connects.",
+      "Explore verified real estate developers in Dubai. Developer Connects has verified each developer’s official website and can help you connect with the developer.",
   },
 ];
 

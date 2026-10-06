@@ -1,10 +1,36 @@
 import { randomUUID } from "node:crypto";
 import { summariseEvents } from "./activity-summary.ts";
-import { LeadNotFoundError } from "./errors.ts";
+import { bucketKey } from "./call-buckets.ts";
+import { LeadNotFoundError, LeadStateError } from "./errors.ts";
 import { QUEUE_EXCLUDED_STATUSES } from "./queue-config.ts";
 import { compareForView, countLeads, matchesView } from "./lead-views.ts";
-import type { BookingPatch, LeadPatch, LeadRepositories, NewBooking, NewConsent, NewLeadEvent, NewLeadInput, NewTouch } from "./repository.ts";
-import type { Booking, Lead, LeadConsent, LeadEvent, MarketingTouch } from "./types.ts";
+import type {
+  BookingPatch,
+  LeadPatch,
+  LeadRepositories,
+  NewBooking,
+  FollowUpPatch,
+  CallAggregateQuery,
+  CallAggregateRow,
+  CallFilter,
+  CallPatch,
+  CallWithLead,
+  FollowUpScope,
+  FollowUpWithLead,
+  MissedFollowUpQuery,
+  NewCall,
+  NewCallEvent,
+  NewConsent,
+  NewFollowUp,
+  NewImportBatch,
+  NewLeadEvent,
+  NewLeadInput,
+  NewRequirement,
+  NewTouch,
+  RequirementLocation,
+  StoredCallEvent,
+} from "./repository.ts";
+import { TERMINAL_CALL_STATUSES, type Booking, type Lead, type LeadCall, type LeadConsent, type LeadEvent, type LeadFollowUp, type LeadImportBatch, type LeadRequirement, type MarketingTouch } from "./types.ts";
 
 /**
  * In-memory implementation of the lead repositories, for unit tests. It
@@ -12,6 +38,23 @@ import type { Booking, Lead, LeadConsent, LeadEvent, MarketingTouch } from "./ty
  * provide — unique phone, immutable events/touches/consents, atomic
  * transactions — so the service layer can be tested without a database.
  */
+/** The filters shared by listRecent and aggregate, applied the same way the SQL adapter applies them. */
+function callMatches(call: LeadCall, lead: Lead, f: Pick<CallFilter, "staffUserId" | "leadId" | "from" | "to" | "connected" | "statuses" | "disposition" | "sourceType">): boolean {
+  if (f.staffUserId !== undefined && call.staffUserId !== f.staffUserId) return false;
+  if (f.leadId !== undefined && call.leadId !== f.leadId) return false;
+  if (f.from && call.initiatedAt.getTime() < f.from.getTime()) return false;
+  if (f.to && call.initiatedAt.getTime() >= f.to.getTime()) return false;
+  if (f.connected !== undefined && (call.answeredAt !== null) !== f.connected) return false;
+  if (f.statuses && !f.statuses.includes(call.status)) return false;
+  if (f.disposition !== undefined && call.disposition !== f.disposition) return false;
+  if (f.sourceType !== undefined && lead.sourceType !== f.sourceType) return false;
+  return true;
+}
+
+type StoredRequirement = Omit<LeadRequirement, "locations"> & { locations: RequirementLocation[] };
+
+const toRequirement = (stored: StoredRequirement): LeadRequirement => ({ ...stored, locations: stored.locations.map((l) => l.name) });
+
 export function createInMemoryLeadRepositories(
   developerNames: Record<string, string> = {},
 ): LeadRepositories & { snapshot(): { leads: Lead[]; events: LeadEvent[] } } {
@@ -21,6 +64,11 @@ export function createInMemoryLeadRepositories(
     touches: new Map<string, MarketingTouch>(),
     consents: [] as LeadConsent[],
     bookings: new Map<string, Booking>(),
+    requirements: new Map<string, StoredRequirement>(),
+    followUps: new Map<string, LeadFollowUp>(),
+    calls: new Map<string, LeadCall>(),
+    callEvents: [] as StoredCallEvent[],
+    batches: new Map<string, LeadImportBatch>(),
   };
 
   const cloneState = () => ({
@@ -29,6 +77,11 @@ export function createInMemoryLeadRepositories(
     touches: new Map(state.touches),
     consents: state.consents.map((consent) => ({ ...consent })),
     bookings: new Map([...state.bookings].map(([id, booking]) => [id, { ...booking }])),
+    requirements: new Map([...state.requirements].map(([id, r]) => [id, { ...r, locations: r.locations.map((l) => ({ ...l })) }])),
+    followUps: new Map([...state.followUps].map(([id, f]) => [id, { ...f }])),
+    calls: new Map([...state.calls].map(([id, c]) => [id, { ...c }])),
+    callEvents: state.callEvents.map((e) => ({ ...e, payload: structuredClone(e.payload) })),
+    batches: new Map([...state.batches].map(([id, b]) => [id, { ...b }])),
   });
 
   // A promise-chain mutex so concurrent transactions run one at a time, like row locks would serialise them.
@@ -48,6 +101,14 @@ export function createInMemoryLeadRepositories(
           status: "NEW",
           temperature: null,
           ownerId: null,
+          sourceType: input.source?.sourceType ?? "DIGITAL",
+          sourceDetail: input.source?.sourceDetail ?? null,
+          creationMethod: input.source?.creationMethod ?? "WEBSITE_GATE",
+          importBatchId: input.source?.importBatchId ?? null,
+          createdBy: input.source?.createdBy ?? null,
+          returnedAt: null,
+          returnedFrom: null,
+          returnReason: null,
           developerId: input.developerId,
           sourceCta: input.sourceCta,
           location: null,
@@ -94,6 +155,7 @@ export function createInMemoryLeadRepositories(
       },
       async list(query) {
         const matching = [...state.leads.values()]
+          .filter((lead) => query.ownerId === undefined || lead.ownerId === query.ownerId)
           .filter((lead) => matchesView(lead, query.view, query.now, query.endOfToday))
           .sort(compareForView(query.view));
         return { total: matching.length, leads: matching.slice(query.offset, query.offset + query.limit).map((lead) => ({ ...lead })) };
@@ -104,9 +166,43 @@ export function createInMemoryLeadRepositories(
       async developerNames(ids) {
         return Object.fromEntries(ids.filter((id) => id in developerNames).map((id) => [id, developerNames[id]]));
       },
+      async ownerSummary() {
+        const out: Record<string, { qualified: number; siteVisit: number; booked: number }> = {};
+        for (const lead of state.leads.values()) {
+          if (!lead.ownerId || lead.erasedAt) continue;
+          const row = (out[lead.ownerId] ??= { qualified: 0, siteVisit: 0, booked: 0 });
+          if (lead.status === "QUALIFIED") row.qualified += 1;
+          if (lead.status === "SITE_VISIT_SCHEDULED") row.siteVisit += 1;
+          if (lead.status === "BOOKED") row.booked += 1;
+        }
+        return out;
+      },
+      async listReturned(limit) {
+        return [...state.leads.values()]
+          .filter((lead) => lead.returnedAt !== null && lead.ownerId === null && lead.erasedAt === null)
+          .sort((a, b) => b.returnedAt!.getTime() - a.returnedAt!.getTime() || a.id.localeCompare(b.id))
+          .slice(0, limit)
+          .map((lead) => ({ ...lead }));
+      },
+      async countByOwner() {
+        const counts: Record<string, number> = {};
+        for (const lead of state.leads.values()) {
+          if (lead.ownerId && lead.erasedAt === null) counts[lead.ownerId] = (counts[lead.ownerId] ?? 0) + 1;
+        }
+        return counts;
+      },
     },
 
     events: {
+      async countByTypeAndActor(eventType, from, to) {
+        const counts: Record<string, number> = {};
+        for (const event of state.events) {
+          if (event.eventType !== eventType || !event.actorId) continue;
+          if (event.createdAt.getTime() < from.getTime() || event.createdAt.getTime() >= to.getTime()) continue;
+          counts[event.actorId] = (counts[event.actorId] ?? 0) + 1;
+        }
+        return counts;
+      },
       async append(event: NewLeadEvent) {
         const stored: LeadEvent = { id: randomUUID(), ...event, payload: structuredClone(event.payload) };
         state.events.push(stored);
@@ -185,6 +281,20 @@ export function createInMemoryLeadRepositories(
     },
 
     bookings: {
+      async revenueByOwner() {
+        const rows = new Map<string, { ownerId: string; currency: string; total: number; count: number }>();
+        for (const booking of state.bookings.values()) {
+          if (booking.status !== "BOOKED") continue;
+          const owner = state.leads.get(booking.leadId)?.ownerId;
+          if (!owner) continue;
+          const key = `${owner}|${booking.currency}`;
+          const row = rows.get(key) ?? { ownerId: owner, currency: booking.currency, total: 0, count: 0 };
+          row.total += booking.bookingValue;
+          row.count += 1;
+          rows.set(key, row);
+        }
+        return [...rows.values()];
+      },
       async create(booking: NewBooking) {
         const stored: Booking = {
           id: randomUUID(),
@@ -220,6 +330,323 @@ export function createInMemoryLeadRepositories(
       },
     },
 
+    requirements: {
+      async create(input: NewRequirement) {
+        const active = [...state.requirements.values()].find((r) => r.leadId === input.leadId && r.status === "ACTIVE");
+        if (active) throw new LeadStateError("This lead already has an active requirement.");
+        const stored: StoredRequirement = {
+          id: randomUUID(),
+          leadId: input.leadId,
+          status: "ACTIVE",
+          locations: input.locations.map((l) => ({ ...l })),
+          propertyType: input.propertyType,
+          configuration: input.configuration,
+          budgetMin: input.budgetMin,
+          budgetMax: input.budgetMax,
+          budgetCurrency: input.budgetCurrency,
+          purpose: input.purpose,
+          timeline: input.timeline,
+          notes: input.notes,
+          createdBy: input.createdBy,
+          updatedBy: input.createdBy,
+          createdAt: input.now,
+          updatedAt: input.now,
+        };
+        state.requirements.set(stored.id, stored);
+        return toRequirement(stored);
+      },
+      async getById(id) {
+        const found = state.requirements.get(id);
+        return found ? toRequirement(found) : null;
+      },
+      async getActiveByLead(leadId) {
+        const found = [...state.requirements.values()].find((r) => r.leadId === leadId && r.status === "ACTIVE");
+        return found ? toRequirement(found) : null;
+      },
+      async listByLead(leadId) {
+        return [...state.requirements.values()]
+          .filter((r) => r.leadId === leadId)
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id))
+          .map(toRequirement);
+      },
+      async update(id, patch, at, locations) {
+        const found = state.requirements.get(id);
+        if (!found) throw new LeadNotFoundError("Requirement not found.");
+        if (patch.status === "ACTIVE" && found.status !== "ACTIVE") {
+          const other = [...state.requirements.values()].find((r) => r.leadId === found.leadId && r.status === "ACTIVE" && r.id !== id);
+          if (other) throw new LeadStateError("This lead already has an active requirement.");
+        }
+        Object.assign(found, patch, { updatedAt: at });
+        if (locations) found.locations = locations.map((l) => ({ ...l }));
+        return toRequirement(found);
+      },
+      async eraseForLead(leadId) {
+        for (const r of state.requirements.values()) {
+          if (r.leadId === leadId) {
+            r.notes = null;
+            r.locations = [];
+          }
+        }
+      },
+    },
+
+    followUps: {
+      async create(input: NewFollowUp) {
+        const open = [...state.followUps.values()].find((f) => f.leadId === input.leadId && (f.status === "SCHEDULED" || f.status === "MISSED"));
+        if (open) throw new LeadStateError("This lead already has an open follow-up.");
+        const stored: LeadFollowUp = {
+          id: randomUUID(),
+          leadId: input.leadId,
+          type: input.type,
+          status: "SCHEDULED",
+          scheduledAt: input.scheduledAt,
+          originalScheduledAt: input.scheduledAt,
+          ownerId: input.ownerId,
+          note: input.note,
+          createdBy: input.createdBy,
+          createdAt: input.now,
+          updatedAt: input.now,
+          completedAt: null,
+          completedBy: null,
+          cancelledAt: null,
+          cancelledBy: null,
+          cancelReason: null,
+          cancelNote: null,
+          missedCount: 0,
+          lastMissedAt: null,
+          rescheduleCount: 0,
+          dueNotifiedAt: null,
+        };
+        state.followUps.set(stored.id, stored);
+        return { ...stored };
+      },
+      async getById(id) {
+        const found = state.followUps.get(id);
+        return found ? { ...found } : null;
+      },
+      async getOpenByLead(leadId) {
+        const found = [...state.followUps.values()].find((f) => f.leadId === leadId && (f.status === "SCHEDULED" || f.status === "MISSED"));
+        return found ? { ...found } : null;
+      },
+      async listByLead(leadId) {
+        return [...state.followUps.values()]
+          .filter((f) => f.leadId === leadId)
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id.localeCompare(a.id))
+          .map((f) => ({ ...f }));
+      },
+      async update(id, patch: FollowUpPatch, at) {
+        const found = state.followUps.get(id);
+        if (!found) throw new LeadNotFoundError("Follow-up not found.");
+        const becomesOpen = (patch.status === "SCHEDULED" || patch.status === "MISSED") && found.status !== "SCHEDULED" && found.status !== "MISSED";
+        if (becomesOpen && [...state.followUps.values()].some((f) => f.id !== id && f.leadId === found.leadId && (f.status === "SCHEDULED" || f.status === "MISSED"))) {
+          throw new LeadStateError("This lead already has an open follow-up.");
+        }
+        Object.assign(found, patch, { updatedAt: at });
+        return { ...found };
+      },
+      async markMissed(scope: FollowUpScope, now) {
+        const changed: LeadFollowUp[] = [];
+        for (const f of state.followUps.values()) {
+          if (f.status !== "SCHEDULED" || f.scheduledAt.getTime() >= now.getTime()) continue;
+          if (scope.ownerId !== undefined && f.ownerId !== scope.ownerId) continue;
+          if (scope.leadId !== undefined && f.leadId !== scope.leadId) continue;
+          const lead = state.leads.get(f.leadId);
+          if (!lead || lead.erasedAt) continue;
+          f.status = "MISSED";
+          f.missedCount += 1;
+          f.lastMissedAt = now;
+          f.updatedAt = now;
+          changed.push({ ...f });
+        }
+        return changed.sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+      },
+      async listUnresolvedMissed(query: MissedFollowUpQuery) {
+        const out: FollowUpWithLead[] = [];
+        for (const f of state.followUps.values()) {
+          const unresolved = f.status === "MISSED" || (f.status === "SCHEDULED" && f.scheduledAt.getTime() < query.now.getTime());
+          if (!unresolved) continue;
+          if (query.ownerId !== undefined && f.ownerId !== query.ownerId) continue;
+          if (query.leadId !== undefined && f.leadId !== query.leadId) continue;
+          if (query.scheduledFrom && f.scheduledAt.getTime() < query.scheduledFrom.getTime()) continue;
+          if (query.scheduledTo && f.scheduledAt.getTime() >= query.scheduledTo.getTime()) continue;
+          if (query.overdueForAtLeastMs !== undefined && query.now.getTime() - f.scheduledAt.getTime() < query.overdueForAtLeastMs) continue;
+          const lead = state.leads.get(f.leadId);
+          if (!lead || lead.erasedAt) continue;
+          if (query.temperature !== undefined && lead.temperature !== query.temperature) continue;
+          if (query.status !== undefined && lead.status !== query.status) continue;
+          out.push({ followUp: { ...f }, lead: { ...lead } });
+        }
+        return out.sort((a, b) => a.followUp.scheduledAt.getTime() - b.followUp.scheduledAt.getTime() || a.followUp.id.localeCompare(b.followUp.id)).slice(0, query.limit);
+      },
+      async listScheduled(query) {
+        const out: FollowUpWithLead[] = [];
+        for (const f of state.followUps.values()) {
+          if (f.status !== "SCHEDULED") continue;
+          if (f.scheduledAt.getTime() < query.from.getTime() || f.scheduledAt.getTime() >= query.to.getTime()) continue;
+          if (query.ownerId !== undefined && f.ownerId !== query.ownerId) continue;
+          if (query.leadId !== undefined && f.leadId !== query.leadId) continue;
+          const lead = state.leads.get(f.leadId);
+          if (!lead || lead.erasedAt) continue;
+          out.push({ followUp: { ...f }, lead: { ...lead } });
+        }
+        return out.sort((a, b) => a.followUp.scheduledAt.getTime() - b.followUp.scheduledAt.getTime() || a.followUp.id.localeCompare(b.followUp.id)).slice(0, query.limit);
+      },
+      async claimDueNotifications(scope: FollowUpScope, upTo, now) {
+        const changed: LeadFollowUp[] = [];
+        for (const f of state.followUps.values()) {
+          if (f.status !== "SCHEDULED" || f.dueNotifiedAt !== null || f.ownerId === null) continue;
+          if (f.scheduledAt.getTime() > upTo.getTime()) continue;
+          if (scope.ownerId !== undefined && f.ownerId !== scope.ownerId) continue;
+          if (scope.leadId !== undefined && f.leadId !== scope.leadId) continue;
+          const lead = state.leads.get(f.leadId);
+          if (!lead || lead.erasedAt) continue;
+          f.dueNotifiedAt = now;
+          changed.push({ ...f });
+        }
+        return changed;
+      },
+      async statsByStaff(from, to, now) {
+        const out: Record<string, { created: number; completed: number; missedNow: number }> = {};
+        const row = (id: string) => (out[id] ??= { created: 0, completed: 0, missedNow: 0 });
+        for (const f of state.followUps.values()) {
+          const inRange = (d: Date | null) => d !== null && d.getTime() >= from.getTime() && d.getTime() < to.getTime();
+          if (inRange(f.createdAt)) row(f.createdBy).created += 1;
+          if (f.completedBy && inRange(f.completedAt)) row(f.completedBy).completed += 1;
+          const open = f.status === "MISSED" || (f.status === "SCHEDULED" && f.scheduledAt.getTime() < now.getTime());
+          if (open && f.ownerId && !state.leads.get(f.leadId)?.erasedAt) row(f.ownerId).missedNow += 1;
+        }
+        return out;
+      },
+      async eraseForLead(leadId) {
+        for (const f of state.followUps.values()) {
+          if (f.leadId === leadId) {
+            f.note = null;
+            f.cancelNote = null;
+          }
+        }
+      },
+    },
+
+    calls: {
+      async create(input: NewCall) {
+        const stored: LeadCall = {
+          id: randomUUID(),
+          leadId: input.leadId,
+          staffUserId: input.staffUserId,
+          direction: "OUTBOUND",
+          status: "INITIATED",
+          source: "INTERNAL_DIALER",
+          provider: input.provider,
+          providerCallId: null,
+          phoneLast4: input.phoneLast4,
+          initiatedAt: input.now,
+          ringingAt: null,
+          answeredAt: null,
+          endedAt: null,
+          durationSeconds: null,
+          endReason: null,
+          disposition: null,
+          dispositionBy: null,
+          dispositionAt: null,
+          createdAt: input.now,
+          updatedAt: input.now,
+        };
+        state.calls.set(stored.id, stored);
+        return { ...stored };
+      },
+      async getById(id) {
+        const found = state.calls.get(id);
+        return found ? { ...found } : null;
+      },
+      async getByProviderCallId(provider, providerCallId) {
+        const found = [...state.calls.values()].find((c) => c.provider === provider && c.providerCallId === providerCallId);
+        return found ? { ...found } : null;
+      },
+      async update(id, patch: CallPatch, at) {
+        const found = state.calls.get(id);
+        if (!found) throw new LeadNotFoundError("Call not found.");
+        // The same rules migration 0021's trigger enforces, so a test cannot pass where the database would refuse.
+        if (found.providerCallId !== null && patch.providerCallId !== undefined && patch.providerCallId !== found.providerCallId) throw new LeadStateError("A call's provider id cannot change.");
+        if (TERMINAL_CALL_STATUSES.includes(found.status)) {
+          const changes = (patch.status !== undefined && patch.status !== found.status) || (patch.answeredAt !== undefined && patch.answeredAt?.getTime() !== found.answeredAt?.getTime()) || (patch.endedAt !== undefined && patch.endedAt?.getTime() !== found.endedAt?.getTime()) || (patch.durationSeconds !== undefined && patch.durationSeconds !== found.durationSeconds);
+          if (changes) throw new LeadStateError("A finished call cannot be changed.");
+        }
+        if (found.disposition !== null && patch.disposition !== undefined && patch.disposition !== found.disposition) throw new LeadStateError("A call outcome cannot be changed once set.");
+        if (patch.providerCallId !== undefined && patch.providerCallId !== null) {
+          const clash = [...state.calls.values()].find((c) => c.id !== id && c.provider === found.provider && c.providerCallId === patch.providerCallId);
+          if (clash) throw new LeadStateError("That provider call id is already recorded.");
+        }
+        Object.assign(found, patch, { updatedAt: at });
+        return { ...found };
+      },
+      async appendEvent(event: NewCallEvent) {
+        const existing = state.callEvents.find((e) => e.provider === event.provider && e.providerEventId === event.providerEventId);
+        if (existing) return { event: { ...existing, payload: structuredClone(existing.payload) }, duplicate: true };
+        const stored: StoredCallEvent = { id: randomUUID(), ...event, payload: structuredClone(event.payload) };
+        state.callEvents.push(stored);
+        return { event: { ...stored, payload: structuredClone(stored.payload) }, duplicate: false };
+      },
+      async listEvents(callId) {
+        return state.callEvents.filter((e) => e.callId === callId).sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime()).map((e) => ({ ...e, payload: structuredClone(e.payload) }));
+      },
+      async listByLead(leadId) {
+        return [...state.calls.values()].filter((c) => c.leadId === leadId).sort((a, b) => b.initiatedAt.getTime() - a.initiatedAt.getTime() || b.id.localeCompare(a.id)).map((c) => ({ ...c }));
+      },
+      async listRecent(filter: CallFilter) {
+        const out: CallWithLead[] = [];
+        for (const call of state.calls.values()) {
+          const lead = state.leads.get(call.leadId);
+          if (!lead || !callMatches(call, lead, filter)) continue;
+          out.push({ call: { ...call }, lead: { id: lead.id, name: lead.name, sourceType: lead.sourceType, creationMethod: lead.creationMethod, erasedAt: lead.erasedAt } });
+        }
+        return out.sort((a, b) => b.call.initiatedAt.getTime() - a.call.initiatedAt.getTime() || b.call.id.localeCompare(a.call.id)).slice(0, filter.limit);
+      },
+      async aggregate(query: CallAggregateQuery) {
+        const rows = new Map<string, CallAggregateRow & { leads: Set<string> }>();
+        for (const call of state.calls.values()) {
+          const lead = state.leads.get(call.leadId);
+          if (!lead || !callMatches(call, lead, query)) continue;
+          const key = query.groupBy === "EMPLOYEE" ? call.staffUserId : bucketKey(call.initiatedAt, query.groupBy, query.timeZone);
+          const row = rows.get(key) ?? { key, dialed: 0, connected: 0, noAnswer: 0, busy: 0, failed: 0, rejected: 0, talkSeconds: 0, leadsCalled: 0, leads: new Set<string>() };
+          row.dialed += 1;
+          if (call.answeredAt !== null) {
+            row.connected += 1;
+            row.talkSeconds += call.durationSeconds ?? 0;
+          }
+          if (call.status === "NO_ANSWER") row.noAnswer += 1;
+          if (call.status === "BUSY") row.busy += 1;
+          if (call.status === "FAILED") row.failed += 1;
+          if (call.status === "REJECTED") row.rejected += 1;
+          row.leads.add(call.leadId);
+          rows.set(key, row);
+        }
+        return [...rows.values()]
+          .map(({ leads, ...row }) => ({ ...row, leadsCalled: leads.size }))
+          .sort((a, b) => a.key.localeCompare(b.key));
+      },
+    },
+
+    importBatches: {
+      async create(input: NewImportBatch) {
+        const stored: LeadImportBatch = { id: randomUUID(), ...input, rowCount: 0, createdCount: 0, duplicateCount: 0, rejectedCount: 0 };
+        state.batches.set(stored.id, stored);
+        return { ...stored };
+      },
+      async finish(id, counts) {
+        const found = state.batches.get(id);
+        if (!found) throw new LeadNotFoundError("Import batch not found.");
+        Object.assign(found, counts);
+        return { ...found };
+      },
+      async list(limit) {
+        return [...state.batches.values()].sort((a, b) => b.importedAt.getTime() - a.importedAt.getTime()).slice(0, limit).map((b) => ({ ...b }));
+      },
+      async getById(id) {
+        const found = state.batches.get(id);
+        return found ? { ...found } : null;
+      },
+    },
+
     async transaction<T>(work: (inner: LeadRepositories) => Promise<T>): Promise<T> {
       const run = async () => {
         const before = cloneState();
@@ -231,6 +658,11 @@ export function createInMemoryLeadRepositories(
           state.touches = before.touches;
           state.consents = before.consents;
           state.bookings = before.bookings;
+          state.requirements = before.requirements;
+          state.followUps = before.followUps;
+          state.calls = before.calls;
+          state.callEvents = before.callEvents;
+          state.batches = before.batches;
           throw error;
         }
       };

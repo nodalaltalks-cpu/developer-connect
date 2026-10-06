@@ -48,8 +48,8 @@ export async function generateMetadata({ params }: PageProps<"/buy-direct-from-d
 
   const { market, total } = data;
   const path = buyDirectPath(market);
-  const title = `Buy Property Directly from Developers in ${market.titleName}  | Developer Connects`;
-  const description = `Buy directly from ${total} verified real estate developers in ${market.name}. Go to each developer's verified official website, check the project with ${market.regulator.name.split(" (")[0]}, and skip the broker.`;
+  const title = `How to Research Developers in ${market.titleName} | Developer Connects`;
+  const description = `Research ${total} verified real estate developers in ${market.name}: check the project with ${market.regulator.name.split(" (")[0]}, ask for terms in writing, and request a connection through Developer Connects.`;
 
   return {
     title,
@@ -78,7 +78,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
   const structuredData = [
     breadcrumbStructuredData([
       { name: "Home", path: "/" },
-      { name: "Buy direct from developer", path: BUY_DIRECT_PATH },
+      { name: "Developer research guides", path: BUY_DIRECT_PATH },
       { name: market.titleName, path },
     ]),
     faqStructuredData(faq),
@@ -114,7 +114,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
                 <li aria-hidden="true">/</li>
                 <li>
                   <Link href={BUY_DIRECT_PATH} className="hover:text-accent-hover hover:underline">
-                    Buy direct from developer
+                    Developer research guides
                   </Link>
                 </li>
                 <li aria-hidden="true">/</li>
@@ -125,11 +125,11 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
             </nav>
 
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Buy property directly from developers in {market.name}
+              Researching developers in {market.name}
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
               {total > 0
-                ? `${total} real estate developer${total === 1 ? "" : "s"} in ${market.name} with an official website verified by Developer Connects. Go to the developer's verified official website or ask for property assistance.`
+                ? `${total} real estate developer${total === 1 ? "" : "s"} in ${market.name} with an official website verified by Developer Connects. Connect with a developer through Developer Connects and our property team will help with your enquiry.`
                 : `Developer Connects is verifying developers in ${market.name}. Check back soon.`}
             </p>
 
@@ -160,7 +160,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
             )}
 
             <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
-              How to buy directly from a developer in {market.name}
+              How to research a developer in {market.name}
             </h2>
             <BuyDirectSteps />
 
@@ -194,18 +194,18 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
 
             {related.length > 0 && (
               <>
-                <h2 className="mt-12 text-lg font-semibold text-foreground">Other buy-direct guides</h2>
+                <h2 className="mt-12 text-lg font-semibold text-foreground">Other developer research guides</h2>
                 <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                   {related.map((other) => (
                     <li key={other.slug}>
                       <Link href={buyDirectPath(other)} className="text-sm text-accent-hover hover:underline">
-                        Buy directly from developers in {other.name}
+                        Researching developers in {other.name}
                       </Link>
                     </li>
                   ))}
                   <li>
                     <Link href={BUY_DIRECT_PATH} className="text-sm text-accent-hover hover:underline">
-                      How to buy directly from a developer (full guide)
+                      How to research a developer (full guide)
                     </Link>
                   </li>
                 </ul>
@@ -213,8 +213,8 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
             )}
 
             <p className="mt-8 text-xs text-muted-foreground">
-              This guide is general information, not legal or financial advice. Developer Connects is an
-              a directory of verified developer websites that also offers optional property assistance.{" "}
+              This guide is general information, not legal or financial advice. Developer Connects is a
+              directory of verified developers that also offers optional property assistance.{" "}
               <Link href="/how-we-verify" className="text-accent-hover hover:underline">
                 How we verify official websites
               </Link>

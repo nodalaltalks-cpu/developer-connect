@@ -6,7 +6,7 @@ const BASE_URL = "https://developerconnects.com";
 /**
  * /llms.txt — a plain-Markdown summary of the site for AI assistants and
  * AI search engines (the llms.txt convention), so a model answering "how do
- * I buy directly from a developer in Dubai?" or "what is X developer's
+ * I research a developer in Dubai?" or "what is X developer's
  * official website?" can find and cite the right pages. Built from the same
  * allowlists as the sitemap, so it never lists a page that doesn't exist.
  */
@@ -15,7 +15,7 @@ export function GET() {
     .map((location) => `- [Verified real estate developers in ${location.phrase}](${BASE_URL}${locationPath(location)})`)
     .join("\n");
   const guides = buyDirectMarkets()
-    .map((market) => `- [Buy property directly from developers in ${market.name}](${BASE_URL}${buyDirectPath(market)})`)
+    .map((market) => `- [Developer research guide: ${market.name}](${BASE_URL}${buyDirectPath(market)})`)
     .join("\n");
 
   const body = `# Developer Connects
@@ -28,7 +28,7 @@ Each developer page is at ${BASE_URL}/developers/{developer-slug} and states the
 
 - [Home and search](${BASE_URL}/)
 - [All verified developers (A–Z)](${BASE_URL}/developers)
-- [How to buy property directly from the developer](${BASE_URL}${BUY_DIRECT_PATH})
+- [How to research a developer before you buy](${BASE_URL}${BUY_DIRECT_PATH})
 - [How Developer Connects verifies official websites](${BASE_URL}/how-we-verify)
 - [FAQ](${BASE_URL}/faq)
 - [About](${BASE_URL}/about)
@@ -37,7 +37,7 @@ Each developer page is at ${BASE_URL}/developers/{developer-slug} and states the
 
 ${locations}
 
-## Buy-direct guides by location
+## Developer research guides by location
 
 ${guides}
 

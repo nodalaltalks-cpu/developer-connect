@@ -138,7 +138,8 @@ test("postgres: list and counts agree exactly with the reference view rules on t
   await service.setTemperature(repos, cold.id, "COLD", FOUNDER);
   await service.setTemperature(repos, lostHot.id, "HOT", FOUNDER);
   await service.changeLeadStatus(repos, lostHot.id, "LOST", FOUNDER, { reasonCode: "PRICE" });
-  await service.setFollowUp(repos, overdue.id, new Date(now.getTime() - 3 * HOUR), FOUNDER);
+  // Scheduled in the past relative to the service clock we pass in (a fixture: the service refuses past times against its own now).
+  await service.setFollowUp(repos, overdue.id, new Date(now.getTime() - 3 * HOUR), FOUNDER, new Date(now.getTime() - 4 * HOUR));
   await service.setFollowUp(repos, today.id, new Date(Math.min(now.getTime() + 60_000, endOfToday.getTime() - 1)), FOUNDER);
   await service.changeLeadStatus(repos, qualified.id, "QUALIFIED", FOUNDER);
   await service.setTemperature(repos, erased.id, "HOT", FOUNDER);

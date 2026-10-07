@@ -124,6 +124,50 @@ export function PeriodTable({ periods, label }: { periods: PeriodBucket[]; label
  * One row per employee, activity and outcomes side by side — deliberately NOT sorted by calls and with no score, so
  * volume is never mistaken for effectiveness.
  */
+/** What each person did in the range, beside the denominators that make it fair to compare. No score, no rank. */
+export function ContributionTable({ rows }: { rows: EmployeeInsightRow[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[44rem] text-left text-sm">
+        <caption className="sr-only">Employee contribution in the selected range</caption>
+        <thead className="text-xs text-muted-foreground">
+          <tr>
+            <th className="py-1.5 pr-3 font-medium">Employee</th>
+            <th className="px-2 font-medium">Leads owned</th>
+            <th className="px-2 font-medium">Reached</th>
+            <th className="px-2 font-medium">Requirements</th>
+            <th className="px-2 font-medium">Shortlisted</th>
+            <th className="px-2 font-medium">Visits set</th>
+            <th className="px-2 font-medium">Visits per connected call</th>
+            <th className="px-2 font-medium">Visits done / no-show</th>
+            <th className="pl-2 font-medium">Visit completion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.userId} className="border-t border-border align-top">
+              <th scope="row" className="py-1.5 pr-3 font-medium text-foreground">{r.name}</th>
+              <td className="px-2">{r.contribution.ownedLeads}</td>
+              <td className="px-2">{formatRate(r.contribution.leadsReachedShare)}</td>
+              <td className="px-2">{r.contribution.requirementsCreated}</td>
+              <td className="px-2">{r.contribution.projectsShortlisted}</td>
+              <td className="px-2">{r.contribution.siteVisitsScheduled}</td>
+              <td className="px-2">{r.contribution.visitsPerConnectedCall === null ? "—" : r.contribution.visitsPerConnectedCall.toFixed(2)}</td>
+              <td className="px-2">
+                {r.contribution.siteVisitsCompleted} / {r.contribution.siteVisitsNoShow}
+              </td>
+              <td className="pl-2">{formatRate(r.contribution.visitCompletionRate)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Ratios are shown with what they are measured against and are blank when there is nothing to measure against. A team member with fewer leads is not marked down for it; compare the ratios, not the totals.
+      </p>
+    </div>
+  );
+}
+
 export function EmployeeTable({ rows }: { rows: EmployeeInsightRow[] }) {
   return (
     <div className="overflow-x-auto">

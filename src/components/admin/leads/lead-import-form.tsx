@@ -11,10 +11,11 @@ import { importLeadsAction, type ImportLeadsResult } from "@/app/admin/_actions/
 const FIELD =
   "min-h-11 w-full rounded-md border border-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-export function LeadImportForm() {
+export function LeadImportForm({ team = [] }: { team?: Array<{ id: string; name: string }> }) {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [campaign, setCampaign] = useState("");
+  const [assignee, setAssignee] = useState("");
   const [result, setResult] = useState<ImportLeadsResult | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -23,7 +24,7 @@ export function LeadImportForm() {
     setResult(null);
     startTransition(async () => {
       const text = await file.text();
-      setResult(await importLeadsAction(text, name, campaign, file.name));
+      setResult(await importLeadsAction(text, name, campaign, file.name, assignee || undefined));
     });
   }
 
@@ -43,7 +44,7 @@ export function LeadImportForm() {
           }}
           className={`${FIELD} mt-1.5 py-2`}
         />
-        <p className="mt-1 text-xs text-muted-foreground">First row = headers. Needs a phone column (phone, mobile…); name and email are optional. Up to 500 rows.</p>
+        <p className="mt-1 text-xs text-muted-foreground">First row = headers. Needs a phone column (phone, mobile…); name, email, source, campaign and notes are optional. Up to 500 rows. Existing numbers are never overwritten.</p>
       </div>
       <div>
         <label htmlFor="import-name" className="block text-sm font-medium text-foreground">
@@ -57,6 +58,23 @@ export function LeadImportForm() {
         </label>
         <input id="import-campaign" value={campaign} onChange={(e) => setCampaign(e.target.value)} maxLength={120} className={`${FIELD} mt-1.5`} />
       </div>
+
+      {team.length > 0 && (
+        <div>
+          <label htmlFor="import-assignee" className="block text-sm font-medium text-foreground">
+            Give this list to (optional)
+          </label>
+          <select id="import-assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)} className={`${FIELD} mt-1.5`}>
+            <option value="">Nobody yet — just import</option>
+            {team.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">Creates a calling batch in their queue. Leads another team member already owns are left with that member.</p>
+        </div>
+      )}
 
       <button
         type="button"
@@ -74,12 +92,16 @@ export function LeadImportForm() {
       )}
       {result && result.ok && (
         <div role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-800">
-          <p className="font-medium">
-            {result.created} {result.created === 1 ? "lead" : "leads"} imported into “{result.batchName}”.
-          </p>
+          <p className="font-medium">Import finished for “{result.batchName}”.</p>
           <p>
-            {result.duplicates} duplicate{result.duplicates === 1 ? "" : "s"} skipped · {result.rejected} row{result.rejected === 1 ? "" : "s"} rejected.
+            Imported {result.totalRows - result.rejected} of {result.totalRows} rows · New {result.created} · Existing {result.duplicates} (left unchanged) · Invalid {result.rejected}
           </p>
+          {result.callingBatch && (
+            <p className="mt-1">
+              Calling batch created: {result.callingBatch.included} {result.callingBatch.included === 1 ? "lead" : "leads"} in the queue
+              {result.callingBatch.ownedByOthers > 0 ? ` (${result.callingBatch.ownedByOthers} left out — owned by another team member)` : ""}.
+            </p>
+          )}
           {result.rejectedRows.length > 0 && (
             <ul className="mt-2 list-disc pl-5">
               {result.rejectedRows.map((r) => (

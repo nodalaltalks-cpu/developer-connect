@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { NotificationBell } from "@/components/notification-bell";
+import { DeviceCallSync } from "@/components/team/device-call-sync";
 import { requireEmployee } from "@/lib/team/session";
 import { Logo } from "@/components/logo";
 
@@ -33,12 +34,19 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
         </div>
       </header>
       <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:px-6">
-        <nav aria-label="Team workspace" className="mb-4 flex gap-4">
+        <DeviceCallSync />
+        <nav aria-label="Team workspace" className="mb-4 flex flex-wrap gap-x-4">
           <Link href="/team" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
             My Leads
           </Link>
           <Link href="/team/missed" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
             Missed follow-ups
+          </Link>
+          <Link href="/team/queue" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
+            Calling queue
+          </Link>
+          <Link href="/team/visits" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
+            Site visits
           </Link>
           <Link href="/team/calls" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
             My calls

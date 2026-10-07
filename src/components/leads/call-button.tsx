@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { formatCallDuration } from "@/lib/leads/call-analytics";
 import { isFinished, wasConnected, type CallView } from "@/lib/leads/call-view";
+import { CALL_REPORTED_EVENT, getNativeDialer } from "@/lib/leads/native-bridge";
 import { formatEnumLabel } from "@/lib/leads/format";
 import { CALL_DISPOSITIONS, type CallDisposition } from "@/lib/leads/types";
 
@@ -12,6 +13,9 @@ import { CALL_DISPOSITIONS, type CallDisposition } from "@/lib/leads/types";
  *  - Dialer connected: Call places the call through the server (the browser sends only the lead). The panel then SHOWS
  *    what the server reports — it refreshes the status every few seconds, but the status, times and duration are the
  *    telephony provider's, never decided here. When the call has finished the person picks what it led to (once).
+ *  - Android app (the phone's own SIM): Call asks the server for an attempt (onPrepare), hands the number to the app
+ *    (DCDialer.startCall) and waits. The app reports the phone's call-log duration afterwards (DeviceCallSync) and the
+ *    SERVER classifies it: more than 10 seconds is CONNECTED, otherwise DIALED. Nothing here decides that.
  *  - Dialer NOT connected (today): there is no tracked call to place. Call opens the phone's own dialer as before, and
  *    says plainly that such a call is not tracked or counted. Nothing pretends to be a dialer.
  *
@@ -20,6 +24,7 @@ import { CALL_DISPOSITIONS, type CallDisposition } from "@/lib/leads/types";
  */
 
 export type PlaceCall = () => Promise<{ ok: true; callId: string } | { ok: false; error: string; notConfigured?: true }>;
+export type PrepareCall = () => Promise<{ ok: true; callId: string; phone: string } | { ok: false; error: string }>;
 export type CallStatusOf = (callId: string) => Promise<CallView | null>;
 export type SetCallDisposition = (callId: string, disposition: CallDisposition) => Promise<{ ok: true } | { ok: false; error: string }>;
 
@@ -41,10 +46,14 @@ const STATUS_TEXT: Record<CallView["status"], string> = {
 
 const POLL_MS = 3000;
 
+// The bridge is injected before the page loads and never changes, so there is nothing to subscribe to.
+const subscribeNever = () => () => {};
+
 export function CallButton({
   telHref,
   configured,
   onPlace,
+  onPrepare,
   onStatus,
   onDisposition,
   compact = false,
@@ -55,6 +64,8 @@ export function CallButton({
   /** Whether the internal dialer is connected to a telephony provider (decided on the server). */
   configured: boolean;
   onPlace: PlaceCall;
+  /** Starts an Android SIM call (team members only). Without it the button never uses the app. */
+  onPrepare?: PrepareCall;
   onStatus: CallStatusOf;
   onDisposition: SetCallDisposition;
 }) {
@@ -63,6 +74,20 @@ export function CallButton({
   const [call, setCall] = useState<CallView | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Whether the Android app is present is only known in the browser, after mount.
+  const hasBridge = useSyncExternalStore(subscribeNever, () => getNativeDialer() !== null, () => false);
+  const native = hasBridge && onPrepare !== undefined;
+
+  // The sync component announces a report the server accepted: show it at once instead of waiting for the next poll.
+  useEffect(() => {
+    if (!callId) return;
+    const onReported = (event: Event) => {
+      const view = (event as CustomEvent<CallView>).detail;
+      if (view && view.id === callId) setCall(view);
+    };
+    window.addEventListener(CALL_REPORTED_EVENT, onReported);
+    return () => window.removeEventListener(CALL_REPORTED_EVENT, onReported);
+  }, [callId]);
 
   // Display refresh only: the server is the source of truth for the call's state.
   useEffect(() => {
@@ -86,7 +111,7 @@ export function CallButton({
     };
   }, [callId, onStatus]);
 
-  if (!configured) {
+  if (!configured && !native) {
     if (!telHref) return null;
     return (
       <div className="w-full">
@@ -100,6 +125,26 @@ export function CallButton({
 
   function place() {
     setMessage(null);
+    const bridge = native ? getNativeDialer() : null;
+    if (bridge && onPrepare) {
+      if (bridge.hasPermissions() !== "true") {
+        bridge.requestPermissions();
+        setMessage({ tone: "error", text: "Allow phone and call-log access in the app, then tap Call again." });
+        return;
+      }
+      startTransition(async () => {
+        const prepared = await onPrepare();
+        if (!prepared.ok) {
+          setMessage({ tone: "error", text: prepared.error });
+          return;
+        }
+        setCall(null);
+        setCallId(prepared.callId);
+        // The phone dials; Android shows its SIM chooser if there is more than one SIM.
+        bridge.startCall(prepared.callId, prepared.phone);
+      });
+      return;
+    }
     startTransition(async () => {
       const result = await onPlace();
       if (result.ok) {
@@ -126,9 +171,7 @@ export function CallButton({
 
   const finished = call ? isFinished(call.status) : false;
   const connected = call ? wasConnected(call) : false;
-  const offered = CALL_DISPOSITIONS.filter((d) =>
-    connected ? d !== "SWITCHED_OFF" && d !== "INVALID_NUMBER" : d === "SWITCHED_OFF" || d === "INVALID_NUMBER" || d === "OTHER",
-  );
+  const offered = CALL_DISPOSITIONS.filter((d) => (connected ? d !== "SWITCHED_OFF" && d !== "INVALID_NUMBER" && d !== "NO_ANSWER" && d !== "BUSY" : d === "SWITCHED_OFF" || d === "INVALID_NUMBER" || d === "NO_ANSWER" || d === "BUSY" || d === "OTHER"));
 
   return (
     <div className="w-full">
@@ -145,8 +188,9 @@ export function CallButton({
       {callId && (
         <div className="mt-2 rounded-md bg-muted p-3" aria-live="polite">
           <p className="text-sm font-medium text-foreground">
-            {call ? STATUS_TEXT[call.status] : "Connecting…"}
+            {call && !(call.method === "ANDROID_SIM" && call.status === "INITIATED") ? STATUS_TEXT[call.status] : native ? "On a call from your phone… the result appears when the call ends." : "Connecting…"}
             {call && connected && call.durationSeconds !== null ? ` · ${formatCallDuration(call.durationSeconds)}` : ""}
+            {call && call.classification === "DIALED" ? " · Dialed (10 seconds or less)" : ""}
           </p>
           {finished && !call?.disposition && (
             <>

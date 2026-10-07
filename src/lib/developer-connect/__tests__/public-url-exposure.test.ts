@@ -76,10 +76,10 @@ test("boundary: an unverified developer has no website object at all", () => {
   assert.equal(toPublicDeveloperProfile(developer, null).officialWebsite, null);
 });
 
-test("seo: page title keeps its established pattern; description and intro say 'verified' without naming the site", () => {
+test("seo: page title is a research-first profile title; description and intro say 'verified' without naming the site", () => {
   const profile = toPublicDeveloperProfile(developer, verified);
   const { title, description } = buildDeveloperMetadataText(profile);
-  assert.equal(title, "Acme Realty Official Website in Mumbai | Developer Connects");
+  assert.equal(title, "Acme Realty in Mumbai: Developer Profile | Developer Connects");
   assert.match(description, /has verified its official website/);
   const intro = developerIntroText(profile, () => "2 February 2026");
   assert.equal(intro, "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website has been verified by Developer Connects on 2 February 2026.");
@@ -158,7 +158,7 @@ test("mobile: the admin header wraps on a phone (brand + avatar on one row, date
   const layout = read("app/admin/layout.tsx");
   assert.match(layout, /flex max-w-6xl flex-wrap items-center/);
   assert.match(layout, /px-4 py-3 sm:h-16 sm:gap-x-4 sm:px-6 sm:py-0/);
-  assert.match(layout, /order-2 shrink-0 sm:order-3/, "the avatar stays on the first row on a phone");
+  assert.match(layout, /order-2 flex shrink-0 items-center gap-2 sm:order-3/, "the avatar (and bell) stay on the first row on a phone");
   assert.match(layout, /order-3 flex w-full justify-end sm:order-2 sm:w-auto/, "the date filter drops to its own full-width row on a phone");
   assert.match(layout, /mr-auto flex min-w-0 items-center/);
   assert.doesNotMatch(layout, /flex h-16 max-w-6xl items-center justify-between px-6/, "the old fixed single-row header is gone");

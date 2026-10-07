@@ -36,11 +36,11 @@ export function buildDeveloperMetadataText(developer: PublicDeveloperProfile): D
   // description states the verification but never names the site: the domain is internal data.
   return {
     title: city
-      ? `${name} Official Website in ${city} | ${SITE_NAME}`
-      : `${name} Official Website | ${SITE_NAME}`,
+      ? `${name} in ${city}: Developer Profile | ${SITE_NAME}`
+      : `${name}: Developer Profile | ${SITE_NAME}`,
     description: city
-      ? `${name} is a real estate developer in ${city}. ${SITE_NAME} has verified its official website. Share your requirement and we'll help connect you.`
-      : `${name} is a real estate developer. ${SITE_NAME} has verified its official website. Share your requirement and we'll help connect you.`,
+      ? `${name} is a real estate developer in ${city}. Research the developer on ${SITE_NAME}, which has verified its official website, and get expert help when you are ready.`
+      : `${name} is a real estate developer. Research the developer on ${SITE_NAME}, which has verified its official website, and get expert help when you are ready.`,
   };
 }
 

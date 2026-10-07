@@ -155,6 +155,41 @@
       "when": 1791321691720,
       "tag": "0021_phase2_dialer_and_lead_source",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791327703176,
+      "tag": "0022_phase2a_mobile_sim_calling",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791338315232,
+      "tag": "0023_phase4_projects_site_visits",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791341402975,
+      "tag": "0024_phase5_campaigns",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791341924608,
+      "tag": "0025_phase6_marketing_spend",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791344292434,
+      "tag": "0026_phase8_automation",
+      "breakpoints": true
     }
   ]
 }

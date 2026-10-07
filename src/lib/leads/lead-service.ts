@@ -6,6 +6,7 @@ import { redactPayload } from "./redaction.ts";
 import { DEFAULT_QUEUE_LIMIT } from "./queue-config.ts";
 import { assertWorkingActor } from "./lead-access.ts";
 import { classifyDigitalSource } from "./lead-source.ts";
+import { advanceLeadStatus } from "./pipeline.ts";
 import {
   cancelLeadFollowUp,
   closeOpenFollowUpForLead,
@@ -668,6 +669,8 @@ export interface CreateBookingInput {
   bookingValue: number;
   commissionExpected?: number;
   projectName?: string | null;
+  /** A project the Founder has recorded; its name is used when no project name is typed. */
+  projectId?: string | null;
   developerId?: string | null;
   bookedAt?: Date;
 }
@@ -684,15 +687,25 @@ export async function createBooking(
   const bookingValue = validateAmount("bookingValue", input.bookingValue);
   if (bookingValue === null) throw new LeadValidationError("bookingValue", "Enter the booking value.");
   const commissionExpected = validateAmount("commissionExpected", input.commissionExpected ?? 0) ?? 0;
-  const projectName = optionalText("projectName", input.projectName, MAX_LOCATION);
+  let projectName = optionalText("projectName", input.projectName, MAX_LOCATION);
 
   return repos.transaction(async (tx) => {
     const lead = await requireLead(tx, leadId);
     requireNotErased(lead);
+    let projectId: string | null = null;
+    let developerId = input.developerId ?? lead.developerId;
+    if (input.projectId) {
+      const project = await tx.projects.getById(input.projectId);
+      if (!project) throw new LeadValidationError("project", "Choose a project from the list.");
+      projectId = project.id;
+      projectName = projectName ?? project.name;
+      developerId = input.developerId ?? project.developerId;
+    }
     const booking = await tx.bookings.create({
       leadId,
-      developerId: input.developerId ?? lead.developerId,
+      developerId,
       projectName,
+      projectId,
       currency,
       bookingValue,
       commissionExpected,
@@ -705,6 +718,8 @@ export async function createBooking(
       payload: { bookingId: booking.id, currency, bookingValue, commissionExpected },
     });
     await tx.leads.update(leadId, { lastActivityAt: now }, now);
+    // A booking is the strongest evidence the buyer is booked: move the lead forward (never backwards, never out of a secondary state).
+    await advanceLeadStatus(tx, (await tx.leads.getById(leadId))!, "BOOKED", "BOOKING_CREATED", now);
     return booking;
   });
 }
@@ -809,6 +824,7 @@ export async function eraseLead(
     //    Requirement free text (notes) and preferred locations go too; the structured requirement rows stay as history.
     await tx.requirements.eraseForLead(leadId);
     await tx.followUps.eraseForLead(leadId);
+    await tx.siteVisits.eraseForLead(leadId);
 
     // 3. Strip personal data from the lead itself.
     const erased = await tx.leads.update(

@@ -60,7 +60,7 @@ No Phone,,
 Mail Wrong,90000 00001,not-an-email
 Fresh Lead,90000 00002,`;
 
-test("import: leads are created as SELF_GENERATED / EXCEL_IMPORT with the batch, who and when; duplicates and bad rows are counted, not created", async () => {
+test("import: leads are created as SELF_GENERATED / CSV_IMPORT with the batch, who and when; duplicates and bad rows are counted, not created", async () => {
   const repos = createInMemoryLeadRepositories();
   const result = await importLeadsFromCsv(repos, CSV, { name: "Thane list Oct", originalFilename: "thane.csv", campaign: "Thane cold list" }, FOUNDER, minutes(10));
   assert.equal(result.created, 3);
@@ -75,13 +75,13 @@ test("import: leads are created as SELF_GENERATED / EXCEL_IMPORT with the batch,
   assert.equal(leads.length, 3);
   for (const lead of leads) {
     assert.equal(lead.sourceType, "SELF_GENERATED");
-    assert.equal(lead.creationMethod, "EXCEL_IMPORT");
+    assert.equal(lead.creationMethod, "CSV_IMPORT");
     assert.equal(lead.sourceDetail, "Thane cold list");
     assert.equal(lead.importBatchId, result.batch.id, "the batch is preserved on every lead");
     assert.equal(lead.createdBy, FOUNDER.actorId);
     assert.equal(lead.ownerId, null, "imported leads wait in the Founder queue");
     assert.equal(lead.contactPreference, "PHONE_CALL");
-    assert.equal(leadSourceLabel(lead), "Self-generated · Excel import");
+    assert.equal(leadSourceLabel(lead), "Self-generated · CSV import");
     const [created] = (await getLeadTimeline(repos, lead.id)).filter((e) => e.eventType === "LEAD_CREATED");
     assert.deepEqual(created.payload, { via: "IMPORT", batchId: result.batch.id });
     assert.equal(created.actorId, FOUNDER.actorId);

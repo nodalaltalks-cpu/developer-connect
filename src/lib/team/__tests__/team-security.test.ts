@@ -39,10 +39,10 @@ const ACTIVITY_ACTIONS = [
   "cancelMyLeadFollowUpAction",
   "returnMyLeadAction",
 ];
-const REQUIREMENT_ACTIONS = ["createMyRequirementAction", "updateMyRequirementAction", "setMyRequirementStatusAction"];
+const REQUIREMENT_ACTIONS = ["createMyRequirementAction", "updateMyRequirementAction", "setMyRequirementStatusAction", "shortlistMyProjectAction", "removeMyShortlistAction", "scheduleMySiteVisitAction", "changeMySiteVisitAction"];
 // The dialer actions return richer results than run() can (a call id, a call view), so they resolve the employee
 // THEMSELVES as their first statement.
-const DIALER_ACTIONS = ["placeMyCallAction", "getMyCallStatusAction", "setMyCallDispositionAction"];
+const DIALER_ACTIONS = ["placeMyCallAction", "prepareMyDeviceCallAction", "reportMyDeviceCallAction", "getMyCallStatusAction", "setMyCallDispositionAction"];
 const TEAM_ACTIONS = [...ACTIVITY_ACTIONS, ...REQUIREMENT_ACTIONS, ...DIALER_ACTIONS];
 
 test("team security: every team action resolves the signed-in employee FIRST (through run()), and run() does so before any input or data", () => {
@@ -146,9 +146,11 @@ test("team security: the owner-scoped list ANDs the owner onto every view in SQL
   assert.match(body, /actor\.actorType !== "EMPLOYEE"/);
 });
 
-test("team security: the team workspace itself added no migration — 0018 is still the staff foundation; later Phase 2 steps add 0019, 0020 and 0021 only", () => {
+test("team security: the team workspace itself added no migration — 0018 is still the staff foundation; later Phase 2 steps add 0019, 0020, 0021, 0022 and 0023 only", () => {
   const dir = path.join(root, "src/lib/developer-connect/db/migrations");
   const sql = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
   assert.ok(sql.includes("0018_phase2_staff_foundation.sql"));
-  assert.deepEqual(sql.slice(-4), ["0018_phase2_staff_foundation.sql", "0019_phase2_buyer_requirements.sql", "0020_phase2_follow_up_discipline.sql", "0021_phase2_dialer_and_lead_source.sql"]);
+  const from = sql.indexOf("0018_phase2_staff_foundation.sql");
+  // Later phases add migrations after these; the Phase 2 chain itself must stay exactly this and in order.
+  assert.deepEqual(sql.slice(from, from + 6), ["0018_phase2_staff_foundation.sql", "0019_phase2_buyer_requirements.sql", "0020_phase2_follow_up_discipline.sql", "0021_phase2_dialer_and_lead_source.sql", "0022_phase2a_mobile_sim_calling.sql", "0023_phase4_projects_site_visits.sql"]);
 });

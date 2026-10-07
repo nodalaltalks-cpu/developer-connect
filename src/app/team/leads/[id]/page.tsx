@@ -18,6 +18,7 @@ import { toFollowUpView } from "@/lib/leads/follow-up-view";
 import { leadSourceLabel } from "@/lib/leads/lead-source";
 import { getTelephonyProvider } from "@/lib/leads/telephony";
 import { getMyLeadDetail } from "@/lib/leads/lead-reads";
+import { TeamLeadProjectsAndVisits } from "@/app/team/_components/lead-projects-visits";
 import { prefillFromLead, toRequirementView } from "@/lib/leads/requirement-view";
 import {
   cancelMyLeadFollowUpAction,
@@ -131,6 +132,7 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
           onUpdate={updateMyRequirementAction.bind(null, lead.id)}
           onSetStatus={setMyRequirementStatusAction.bind(null, lead.id)}
         />
+        <TeamLeadProjectsAndVisits leadId={lead.id} actor={actor} />
         <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} />
         <TimelineCard events={detail.events} names={{ [member.userId]: member.displayName }} />
         <ReturnLeadCard onReturn={returnMyLeadAction.bind(null, lead.id)} />

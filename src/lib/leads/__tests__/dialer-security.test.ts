@@ -105,7 +105,8 @@ test("analytics: metrics come ONLY from call records — never from clicks, page
   const aggregate = pg.slice(pg.indexOf("async aggregate(query: CallAggregateQuery)"), pg.indexOf("importBatches: {"));
   assert.match(aggregate, /\.from\(leadCalls\)/);
   assert.doesNotMatch(aggregate, /leadEvents|leadFollowUps|contact_logged/i, "the aggregate reads the call table only");
-  assert.match(aggregate, /answeredAt\} is not null/, "connected = the provider reported it answered");
+  assert.match(aggregate, /classification\} = 'CONNECTED'/, "connected = the server classified the call as lasting more than 10 seconds");
+  assert.doesNotMatch(aggregate, /answeredAt/, "no figure depends on a timestamp the device or provider could shade");
   assert.match(aggregate, /assertSafeTimeZone\(query\.timeZone\)/, "the zone is validated before it is written into SQL");
   // One aggregation serves every period — there is no per-period copy of the logic.
   assert.equal((read("src/lib/leads/call-analytics.ts").match(/repos\.calls\.aggregate\(/g) ?? []).length, 4, "employee grouping, hours, periods and the personal dashboard all use the one aggregate");
@@ -120,7 +121,9 @@ test("analytics: Founder screens are founder-gated and noindex; the employee's o
   }
   const mine = read("src/app/team/calls/page.tsx");
   assert.ok(mine.indexOf("await requireEmployee()") !== -1);
-  assert.doesNotMatch(mine, /searchParams/);
+  // The page may read ONLY the date range from the URL - never whose calls to show (that is the session's own id).
+  assert.doesNotMatch(mine, /params\.(employee|staff|user)|searchParams\.(employee|staff|user)/);
+  assert.doesNotMatch(mine, /employee: first|staffUserId|actorId: first/);
   const analytics = read("src/lib/leads/call-analytics.ts");
   assert.match(functionBody(analytics, "getEmployeeInsights"), /assertFounder\(actor\)/);
   assert.match(functionBody(analytics, "getCallActivity"), /assertFounder\(actor\)/);

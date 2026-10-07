@@ -8,6 +8,10 @@ import { LeadNotFoundError, LeadStateError, LeadValidationError } from "@/lib/le
 import { cancelLeadFollowUp, completeLeadFollowUp, rescheduleFollowUp, scheduleFollowUp } from "@/lib/leads/follow-up-service";
 import { getCallForActor, placeCall, setCallDisposition } from "@/lib/leads/call-service";
 import { toCallView, type CallView } from "@/lib/leads/call-view";
+import { createCallingBatch } from "@/lib/leads/calling-batch-service";
+import { createProject, removeFromShortlist, shortlistProject, updateProject, type ProjectInput } from "@/lib/leads/project-service";
+import { changeSiteVisit, scheduleSiteVisit } from "@/lib/leads/site-visit-service";
+import type { VisitChange as VisitChangeInput } from "@/components/leads/site-visits-section";
 import { importLeadsFromCsv } from "@/lib/leads/lead-import-service";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
 import { getTelephonyProvider, TelephonyNotConfiguredError } from "@/lib/leads/telephony";
@@ -201,20 +205,136 @@ export async function setLeadCallDispositionAction(callId: string, disposition: 
   }
 }
 
+
+/** Builds a service change from what the browser sent. The browser proposes; the server validates every value. */
+function toVisitChange(change: VisitChangeInput): Parameters<typeof changeSiteVisit>[2] {
+  switch (change?.kind) {
+    case "CONFIRM":
+      return { kind: "CONFIRM" };
+    case "COMPLETE":
+      return { kind: "COMPLETE", outcome: change.outcome, notes: change.notes, nextAction: change.nextAction };
+    case "NO_SHOW":
+      return { kind: "NO_SHOW" };
+    case "CANCEL":
+      return { kind: "CANCEL", reason: change.reason };
+    case "RESCHEDULE": {
+      const scheduledAt = businessLocalToInstant(change.whenLocal);
+      if (!scheduledAt) throw new LeadValidationError("scheduledAt", "Choose the exact date and time for the visit.");
+      return { kind: "RESCHEDULE", scheduledAt };
+    }
+    default:
+      throw new LeadValidationError("change", "That is not a valid site visit change.");
+  }
+}
+
+export async function shortlistLeadProjectAction(leadId: string, projectId: string): Promise<LeadActionResult> {
+  return run(leadId, (actor) => shortlistProject(createPostgresLeadRepositories(), leadId, projectId, actor));
+}
+
+export async function removeLeadShortlistAction(leadId: string, entryId: string): Promise<LeadActionResult> {
+  return run(leadId, (actor) => removeFromShortlist(createPostgresLeadRepositories(), leadId, entryId, actor));
+}
+
+export async function scheduleLeadSiteVisitAction(leadId: string, whenLocal: string, projectId: string, notes: string): Promise<LeadActionResult> {
+  return run(leadId, (actor) => {
+    const scheduledAt = businessLocalToInstant(whenLocal);
+    if (!scheduledAt) throw new LeadValidationError("scheduledAt", "Choose the exact date and time for the visit.");
+    return scheduleSiteVisit(createPostgresLeadRepositories(), leadId, { scheduledAt, projectId: projectId || null, notes }, actor);
+  });
+}
+
+export async function changeLeadSiteVisitAction(leadId: string, visitId: string, change: VisitChangeInput): Promise<LeadActionResult> {
+  return run(leadId, (actor) => changeSiteVisit(createPostgresLeadRepositories(), visitId, toVisitChange(change), actor, new Date(), leadId));
+}
+
+export type ProjectActionResult = { ok: true; projectId?: string } | { ok: false; error: string };
+
+/** Founder-only: adds a project to the inventory the matcher reads. */
+export async function createProjectAction(input: ProjectInput): Promise<ProjectActionResult> {
+  const founderId = await requireFounderForAction();
+  try {
+    const project = await createProject(createPostgresLeadRepositories(), input, { actorType: "FOUNDER", actorId: founderId });
+    revalidatePath("/admin/projects");
+    return { ok: true, projectId: project.id };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+export async function setProjectStatusAction(projectId: string, status: "ACTIVE" | "INACTIVE"): Promise<ProjectActionResult> {
+  const founderId = await requireFounderForAction();
+  if (typeof projectId !== "string" || !UUID.test(projectId)) return { ok: false, error: "That project could not be found." };
+  try {
+    await updateProject(createPostgresLeadRepositories(), projectId, { status }, { actorType: "FOUNDER", actorId: founderId });
+    revalidatePath("/admin/projects");
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    if (error instanceof LeadNotFoundError) return { ok: false, error: "That project could not be found." };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+export type CrmBatchResult = { ok: true; batchId: string; included: number; ownedByOthers: number; notCallable: number } | { ok: false; error: string };
+
+/**
+ * Creates a calling batch for one team member from the next unowned leads in the Founder queue (oldest first). The
+ * leads are referenced, never copied, and become the member's. Founder only.
+ */
+export async function createCrmCallingBatchAction(name: string, assigneeStaffId: string, count: number): Promise<CrmBatchResult> {
+  const founderId = await requireFounderForAction();
+  try {
+    const wanted = Number.isInteger(count) ? Math.min(Math.max(count, 1), 500) : 0;
+    if (wanted === 0) return { ok: false, error: "Enter how many leads, from 1 to 500." };
+    const repos = createPostgresLeadRepositories();
+    const now = new Date();
+    const { leads } = await repos.leads.list({ view: "all", limit: 500, offset: 0, now, endOfToday: now });
+    const pool = leads.filter((l) => l.ownerId === null && l.phoneE164 && !l.erasedAt).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).slice(0, wanted);
+    if (pool.length === 0) return { ok: false, error: "There are no unassigned leads with a phone number to put in a batch." };
+    const made = await createCallingBatch(repos, createPostgresStaffRepository(), { name, assigneeStaffId, leadIds: pool.map((l) => l.id) }, { actorType: "FOUNDER", actorId: founderId, });
+    revalidatePath("/admin/calling-batches");
+    return { ok: true, batchId: made.batch.id, included: made.included, ownedByOthers: made.ownedByOthers, notCallable: made.notCallable };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
 export type ImportLeadsResult =
-  | { ok: true; created: number; duplicates: number; rejected: number; rejectedRows: Array<{ row: number; reason: string }>; batchName: string }
+  | {
+      ok: true;
+      created: number;
+      duplicates: number;
+      rejected: number;
+      rejectedRows: Array<{ row: number; reason: string }>;
+      batchName: string;
+      totalRows: number;
+      /** Present when a calling batch was created for a team member from the import. */
+      callingBatch: { id: string; name: string; included: number; ownedByOthers: number } | null;
+    }
   | { ok: false; error: string };
 
 /**
  * Imports leads from CSV text (an Excel sheet saved as CSV). Founder only. The leads are SELF_GENERATED, tied to an
  * import batch (who, when, which file and campaign) so the batch can be followed through calls and bookings.
  */
-export async function importLeadsAction(csvText: string, batchName: string, campaign: string, originalFilename: string): Promise<ImportLeadsResult> {
+export async function importLeadsAction(csvText: string, batchName: string, campaign: string, originalFilename: string, assigneeStaffId?: string): Promise<ImportLeadsResult> {
   const founderId = await requireFounderForAction();
   try {
-    const result = await importLeadsFromCsv(createPostgresLeadRepositories(), csvText, { name: batchName, campaign, originalFilename }, { actorType: "FOUNDER", actorId: founderId });
+    const repos = createPostgresLeadRepositories();
+    const actor: LeadActor = { actorType: "FOUNDER", actorId: founderId };
+    const result = await importLeadsFromCsv(repos, csvText, { name: batchName, campaign, originalFilename }, actor);
+    // Optionally hand the whole list to one employee as a calling batch. The leads are referenced, never copied; an
+    // existing lead another team member owns is left out and counted, never reassigned.
+    let callingBatch: { id: string; name: string; included: number; ownedByOthers: number } | null = null;
+    if (assigneeStaffId && result.leadIds.length > 0) {
+      const made = await createCallingBatch(repos, createPostgresStaffRepository(), { name: result.batch.name, assigneeStaffId, leadIds: result.leadIds, importBatchId: result.batch.id }, actor);
+      callingBatch = { id: made.batch.id, name: made.batch.name, included: made.included, ownedByOthers: made.ownedByOthers };
+    }
     revalidatePath("/admin/leads");
-    return { ok: true, created: result.created, duplicates: result.duplicates.length, rejected: result.rejected.length, rejectedRows: result.rejected.slice(0, 20), batchName: result.batch.name };
+    revalidatePath("/admin/calling-batches");
+    return { ok: true, created: result.created, duplicates: result.duplicates.length, rejected: result.rejected.length, rejectedRows: result.rejected.slice(0, 20), batchName: result.batch.name, totalRows: result.totalRows, callingBatch };
   } catch (error) {
     if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
     return { ok: false, error: GENERIC_ERROR };

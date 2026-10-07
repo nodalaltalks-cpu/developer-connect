@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 const SITE_NAME = "Developer Connects";
 const SITE_DESCRIPTION =
-  "Developer Connects verifies real-estate developers' official websites, so you can tell the real developer from a look-alike, with optional property assistance to help you connect.";
+  "Research real-estate developers in India and the UAE with Developer Connects, which verifies each listed developer's official website, and get expert property help when you are ready.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://developerconnects.com"),

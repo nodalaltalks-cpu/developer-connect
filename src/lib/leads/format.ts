@@ -19,6 +19,13 @@ export function formatMoney(amount: number, currency: LeadCurrency): string {
   return `AED ${amount}`;
 }
 
+/** The exact amount with no abbreviation ("₹7,77,777", "AED 1,234"): for finance, where a rounded figure would hide money. */
+export function formatMoneyExact(amount: number, currency: LeadCurrency): string {
+  const sign = amount < 0 ? "-" : "";
+  const abs = Math.abs(amount);
+  return currency === "INR" ? `${sign}₹${new Intl.NumberFormat("en-IN").format(abs)}` : `${sign}AED ${new Intl.NumberFormat("en-US").format(abs)}`;
+}
+
 /** "₹2 Cr budget", "₹2 Cr+ budget" (minimum only) or "₹1.5 Cr–₹2 Cr budget"; null when no budget is known. */
 export function formatBudget(
   budgetMin: number | null,

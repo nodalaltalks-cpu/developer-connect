@@ -1,6 +1,6 @@
 import { formatCallDuration } from "@/lib/leads/call-analytics";
 import type { CallView } from "@/lib/leads/call-view";
-import { wasConnected } from "@/lib/leads/call-view";
+import { describeCall, wasConnected } from "@/lib/leads/call-view";
 import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
 
 /**
@@ -8,17 +8,6 @@ import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
  * was, whether the client was ever reached, how long they talked, and the last outcome. Pure and server-rendered; every
  * value is the provider's or the person's recorded outcome — nothing here is typed in.
  */
-
-const STATUS_WORD: Record<CallView["status"], string> = {
-  INITIATED: "Dialing",
-  RINGING: "Ringing",
-  CONNECTED: "Connected",
-  COMPLETED: "Connected",
-  NO_ANSWER: "No answer",
-  BUSY: "Busy",
-  FAILED: "Failed",
-  REJECTED: "Rejected",
-};
 
 export function CallHistoryCard({ calls, names }: { calls: CallView[]; names?: Record<string, string> }) {
   const chronological = [...calls].sort((a, b) => a.initiatedAt.localeCompare(b.initiatedAt));
@@ -41,7 +30,7 @@ export function CallHistoryCard({ calls, names }: { calls: CallView[]; names?: R
           </p>
           {last && (
             <p className="text-xs text-muted-foreground">
-              Last call {formatDateTimeFull(new Date(last.initiatedAt))} — {STATUS_WORD[last.status]}
+              Last call {formatDateTimeFull(new Date(last.initiatedAt))} — {describeCall(last)}
               {last.disposition ? ` · ${formatEnumLabel(last.disposition)}` : ""}
             </p>
           )}
@@ -49,7 +38,7 @@ export function CallHistoryCard({ calls, names }: { calls: CallView[]; names?: R
             {chronological.map((call) => (
               <li key={call.id} className="border-l-2 border-border pl-3 text-sm">
                 <p className="text-foreground">
-                  {STATUS_WORD[call.status]}
+                  {describeCall(call)}
                   {wasConnected(call) && call.durationSeconds !== null ? ` · ${formatCallDuration(call.durationSeconds)}` : ""}
                   {call.disposition ? ` · ${formatEnumLabel(call.disposition)}` : ""}
                 </p>

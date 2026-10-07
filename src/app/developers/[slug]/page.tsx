@@ -205,8 +205,8 @@ export default async function DeveloperPage({
               <div className="mt-6 rounded-lg border border-border bg-muted p-6">
                 <OfficialWebsiteVerifiedBadge full />
                 <p className="mt-4 text-sm text-foreground">
-                  Interested in {developer.displayName}? Share your requirement with Developer Connects and we&apos;ll help
-                  connect you.
+                  Researching {developer.displayName}? When you are ready, tell Developer Connects what you need and a property specialist will
+                  get in touch.
                 </p>
                 <div className="mt-5">
                   <ConnectWithDeveloperButton

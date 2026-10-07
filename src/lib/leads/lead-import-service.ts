@@ -26,6 +26,10 @@ export interface ImportRowIssue {
 
 export interface ImportResult {
   batch: LeadImportBatch;
+  /** Data rows in the file. */
+  totalRows: number;
+  /** Every valid, distinct lead in the file in file order - new AND already-existing - for building a calling batch. */
+  leadIds: string[];
   created: number;
   duplicates: ImportRowIssue[];
   rejected: ImportRowIssue[];
@@ -64,7 +68,10 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-const HEADER_ALIASES: Record<"name" | "phone" | "email", string[]> = {
+const HEADER_ALIASES: Record<"name" | "phone" | "email" | "source" | "campaign" | "notes", string[]> = {
+  source: ["source", "lead source"],
+  campaign: ["campaign", "campaign name"],
+  notes: ["notes", "note", "remarks", "comment", "comments"],
   name: ["name", "full name", "fullname", "lead name", "customer name", "client name"],
   phone: ["phone", "phone number", "mobile", "mobile number", "contact", "contact number", "whatsapp", "number"],
   email: ["email", "email address", "e-mail"],
@@ -100,6 +107,9 @@ export async function importLeadsFromCsv(
   const nameCol = columnIndex(header, "name");
   const phoneCol = columnIndex(header, "phone");
   const emailCol = columnIndex(header, "email");
+  const sourceCol = columnIndex(header, "source");
+  const campaignCol = columnIndex(header, "campaign");
+  const notesCol = columnIndex(header, "notes");
   if (phoneCol === -1) throw new LeadValidationError("file", 'The first row must have headers, including a "phone" (or "mobile") column.');
   const dataRows = rows.slice(1);
   if (dataRows.length === 0) throw new LeadValidationError("file", "The file has a header but no leads.");
@@ -113,6 +123,7 @@ export async function importLeadsFromCsv(
     const duplicates: ImportRowIssue[] = [];
     const rejected: ImportRowIssue[] = [];
     const seen = new Set<string>();
+    const leadIds: string[] = [];
     let created = 0;
 
     for (const [index, cells] of dataRows.entries()) {
@@ -142,12 +153,25 @@ export async function importLeadsFromCsv(
         sourceCta: null,
         sessionId: null,
         userId: null,
-        source: { sourceType: "SELF_GENERATED", sourceDetail: campaign ?? batchName, creationMethod: "EXCEL_IMPORT", importBatchId: batch.id, createdBy: actor.actorId },
+        // The lead SOURCE (where it came from) is kept apart from how it is called. A per-row source/campaign wins over the batch one.
+        source: {
+          sourceType: "SELF_GENERATED",
+          sourceDetail: cleanOptional(sourceCol === -1 ? undefined : cells[sourceCol], 120) ?? cleanOptional(campaignCol === -1 ? undefined : cells[campaignCol], 120) ?? campaign ?? batchName,
+          creationMethod: "CSV_IMPORT",
+          importBatchId: batch.id,
+          createdBy: actor.actorId,
+        },
         now,
       });
+      leadIds.push(lead.id);
       if (!isNew) {
+        // Never overwritten: the existing lead is left exactly as it was.
         duplicates.push({ row, reason: "Already in the system" });
         continue;
+      }
+      const note = cleanOptional(notesCol === -1 ? undefined : cells[notesCol], 2000);
+      if (note) {
+        await tx.events.append({ leadId: lead.id, eventType: "NOTE_ADDED", actorType: "FOUNDER", actorId: actor.actorId, developerId: null, fromStatus: null, toStatus: null, payload: { note, via: "IMPORT" }, createdAt: now });
       }
       await tx.events.append({
         leadId: lead.id,
@@ -164,7 +188,7 @@ export async function importLeadsFromCsv(
     }
 
     const finished = await tx.importBatches.finish(batch.id, { rowCount: dataRows.length, createdCount: created, duplicateCount: duplicates.length, rejectedCount: rejected.length });
-    return { batch: finished, created, duplicates, rejected };
+    return { batch: finished, totalRows: dataRows.length, leadIds, created, duplicates, rejected };
   });
 }
 

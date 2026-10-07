@@ -8,6 +8,8 @@ import { FounderCallButton } from "@/components/admin/leads/founder-call-button"
 import { CallHistoryCard } from "@/components/leads/call-history";
 import { FollowUpSection } from "@/components/leads/follow-up-section";
 import { RequirementSection } from "@/components/leads/requirement-section";
+import { FounderLeadProjectsAndVisits } from "@/app/admin/leads/_components/lead-projects-visits";
+import { FounderLeadBookings } from "@/app/admin/leads/_components/lead-bookings";
 import { StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
 import {
   AttributionCard,
@@ -106,7 +108,7 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
         )}
       </header>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_24rem]">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
         {/* On a phone the actions come first (DOM order); on desktop they sit in the right column. */}
         {!erased && (
           <div className="lg:order-2">
@@ -155,9 +157,10 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
               onSetStatus={setRequirementStatusAction.bind(null, lead.id)}
             />
           )}
+          {!erased && <FounderLeadProjectsAndVisits leadId={lead.id} />}
           <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} developerWebsite={developerWebsite} />
           <AttributionCard firstTouch={detail.firstTouch} lastTouch={detail.lastTouch} sourceCta={lead.sourceCta} />
-          <BookingsCard bookings={detail.bookings} />
+          {erased ? <BookingsCard bookings={detail.bookings} /> : <FounderLeadBookings leadId={lead.id} bookings={detail.bookings} />}
           <TimelineCard events={detail.events} names={names} />
           <ConsentCard consents={detail.consents} />
           <AuditCard lead={lead} ownerName={ownerName} />

@@ -31,7 +31,7 @@ test("lead actions: every exported action goes through run(), and run() authoriz
   assert.ok(exported.length >= 7, "the CRM actions exist");
   // The dialer and import actions return richer results than run() can (a call id, counts), so they authorize the
   // Founder THEMSELVES — as their very first statement, before any argument is looked at.
-  const DIRECT = ["placeLeadCallAction", "getLeadCallStatusAction", "setLeadCallDispositionAction", "importLeadsAction"];
+  const DIRECT = ["placeLeadCallAction", "getLeadCallStatusAction", "setLeadCallDispositionAction", "importLeadsAction", "createCrmCallingBatchAction", "createProjectAction", "setProjectStatusAction"];
   for (const name of exported) {
     const body = code(actions).slice(code(actions).indexOf(`export async function ${name}(`));
     const end = body.indexOf("\nexport async function", 10);

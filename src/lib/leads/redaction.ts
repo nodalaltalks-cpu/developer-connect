@@ -45,6 +45,11 @@ const SAFE_PAYLOAD_KEYS: Record<LeadEventType, readonly string[]> = {
   CALL_PLACED: ["callId"],
   CALL_ENDED: ["callId", "status", "durationSeconds", "connected"],
   CALL_DISPOSITION_SET: ["callId", "disposition"],
+  // Shortlist and site visits: ids and enums only. Visit notes and next actions are free text and never ride on an event.
+  PROJECT_SHORTLISTED: ["projectId", "requirementId"],
+  PROJECT_SHORTLIST_REMOVED: ["projectId"],
+  SITE_VISIT_SCHEDULED: ["visitId", "projectId", "scheduledAt"],
+  SITE_VISIT_UPDATED: ["visitId", "projectId", "status", "scheduledAt", "outcome", "reason", "rescheduledTo"],
 };
 
 /** Requirement fields whose values are free text and so are dropped from a REQUIREMENT_UPDATED payload. */

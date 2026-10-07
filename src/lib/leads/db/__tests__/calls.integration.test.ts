@@ -213,7 +213,7 @@ test("integration: source filtering and separation — a SELF_GENERATED lead's c
   const repos = leadPg.createPostgresLeadRepositories();
   const digital = await newLead("digital", "gclid-abc");
   const self = await newLead("self");
-  await db.update(schema.leads).set({ sourceType: "SELF_GENERATED", creationMethod: "EXCEL_IMPORT" }).where(eq(schema.leads.id, self.id));
+  await db.update(schema.leads).set({ sourceType: "SELF_GENERATED", creationMethod: "CSV_IMPORT" }).where(eq(schema.leads.id, self.id));
   assert.equal(digital.sourceType, "DIGITAL");
   assert.equal(digital.sourceDetail, "GOOGLE", "classified from the first touch at capture");
   assert.equal(digital.creationMethod, "WEBSITE_GATE");
@@ -221,9 +221,14 @@ test("integration: source filtering and separation — a SELF_GENERATED lead's c
   const who = founderOf(`user_it_${randomUUID().slice(0, 12)}`);
   const p = provider();
   const at = new Date("2031-05-05T05:00:00Z");
-  await calls.placeCall(repos, p, digital.id, who, at);
-  await calls.placeCall(repos, p, self.id, who, new Date(at.getTime() + HOUR));
-  await calls.placeCall(repos, p, self.id, who, new Date(at.getTime() + 2 * HOUR));
+  // A call counts once it has reached the other end (is classified), so each one is finished with a synthetic NO_ANSWER.
+  const placeAndFinish = async (leadId: string, when: Date) => {
+    const call = await calls.placeCall(repos, p, leadId, who, when);
+    await calls.ingestProviderEvent(repos, { provider: p.name, providerEventId: randomUUID(), providerCallId: call.providerCallId!, eventType: "no_answer", status: "NO_ANSWER", occurredAt: new Date(when.getTime() + 20_000), payload: { synthetic: true } }, when);
+  };
+  await placeAndFinish(digital.id, at);
+  await placeAndFinish(self.id, new Date(at.getTime() + HOUR));
+  await placeAndFinish(self.id, new Date(at.getTime() + 2 * HOUR));
   const q = { from: new Date("2031-05-01T00:00:00Z"), to: new Date("2031-06-01T00:00:00Z"), groupBy: "EMPLOYEE" as const, timeZone: "Asia/Kolkata", staffUserId: who.actorId };
   assert.equal((await repos.calls.aggregate({ ...q, sourceType: "DIGITAL" }))[0].dialed, 1);
   assert.equal((await repos.calls.aggregate({ ...q, sourceType: "SELF_GENERATED" }))[0].dialed, 2);
@@ -252,7 +257,7 @@ test("integration: a CSV import creates SELF_GENERATED leads tied to the batch (
   }));
   for (const lead of created) {
     assert.equal(lead.sourceType, "SELF_GENERATED");
-    assert.equal(lead.creationMethod, "EXCEL_IMPORT");
+    assert.equal(lead.creationMethod, "CSV_IMPORT");
     assert.equal(lead.importBatchId, result.batch.id);
     assert.equal(lead.createdBy, founder.actorId);
     assert.equal((await repos.consents.listByLead(lead.id)).length, 0);

@@ -77,6 +77,10 @@ export const LEAD_EVENT_TYPES = [
   "CALL_PLACED",
   "CALL_ENDED",
   "CALL_DISPOSITION_SET",
+  "PROJECT_SHORTLISTED",
+  "PROJECT_SHORTLIST_REMOVED",
+  "SITE_VISIT_SCHEDULED",
+  "SITE_VISIT_UPDATED",
 ] as const;
 export type LeadEventType = (typeof LEAD_EVENT_TYPES)[number];
 
@@ -184,6 +188,8 @@ export interface Booking {
   leadId: string;
   developerId: string | null;
   projectName: string | null;
+  /** The recorded project this booking was for, when there is one. */
+  projectId: string | null;
   status: BookingStatus;
   bookedAt: Date;
   currency: LeadCurrency;
@@ -212,7 +218,7 @@ export const LEAD_SOURCE_TYPES = ["DIGITAL", "SELF_GENERATED"] as const;
 export type LeadSourceType = (typeof LEAD_SOURCE_TYPES)[number];
 
 /** How a lead entered the system. Independent of how it is later contacted. */
-export const CREATION_METHODS = ["WEBSITE_GATE", "EXCEL_IMPORT", "COLD_CALLING", "EMPLOYEE_CREATED", "FOUNDER_CREATED", "DIALER_GENERATED"] as const;
+export const CREATION_METHODS = ["WEBSITE_GATE", "CSV_IMPORT", "EXCEL_IMPORT", "COLD_CALLING", "EMPLOYEE_CREATED", "FOUNDER_CREATED", "DIALER_GENERATED"] as const;
 export type CreationMethod = (typeof CREATION_METHODS)[number];
 
 /** Digital source detail. */
@@ -227,8 +233,15 @@ export const TERMINAL_CALL_STATUSES: readonly CallStatus[] = ["COMPLETED", "NO_A
 export const CONNECTED_CALL_STATUSES: readonly CallStatus[] = ["CONNECTED", "COMPLETED"];
 
 /** What the conversation led to — chosen by the person who made the call, once. NOT what the network did (that is the status). */
-export const CALL_DISPOSITIONS = ["INTERESTED", "NOT_INTERESTED", "FOLLOW_UP_REQUIRED", "CALLBACK_REQUESTED", "SWITCHED_OFF", "INVALID_NUMBER", "OTHER"] as const;
+export const CALL_DISPOSITIONS = ["INTERESTED", "NOT_INTERESTED", "FOLLOW_UP_REQUIRED", "CALLBACK_REQUESTED", "SWITCHED_OFF", "INVALID_NUMBER", "NO_ANSWER", "BUSY", "OTHER"] as const;
 export type CallDisposition = (typeof CALL_DISPOSITIONS)[number];
+
+/** DIALED = 10 seconds or less (or never connected); CONNECTED = strictly more than 10 seconds. Set by the server only. */
+export const CALL_CLASSIFICATIONS = ["DIALED", "CONNECTED"] as const;
+export type CallClassification = (typeof CALL_CLASSIFICATIONS)[number];
+
+/** How the call was made. PROVIDER = a telephony vendor's events; ANDROID_SIM = the employee's own phone and SIM via the Android bridge. */
+export type CallMethod = "PROVIDER" | "ANDROID_SIM";
 
 /** A call placed through the internal dialer. See the lead_calls schema comment for what makes a call "official". */
 export interface LeadCall {
@@ -247,6 +260,17 @@ export interface LeadCall {
   endedAt: Date | null;
   durationSeconds: number | null;
   endReason: string | null;
+  /** Server-decided from the reported duration (see classifyCallDuration); null until the call has finished. */
+  classification: CallClassification | null;
+  method: CallMethod;
+  batchId: string | null;
+  /** ANDROID_SIM: the device's own dial time. */
+  startedAt: Date | null;
+  deviceRef: string | null;
+  simRef: string | null;
+  callLogRef: string | null;
+  /** When the SERVER received the device's report. */
+  reportedAt: Date | null;
   disposition: CallDisposition | null;
   dispositionBy: string | null;
   dispositionAt: Date | null;
@@ -382,4 +406,139 @@ export interface LeadActivitySummary {
   lastBuyerActivityDeveloperName: string | null;
   /** The developer named on the FIRST website click — the one the buyer originally researched. */
   firstDeveloperName: string | null;
+}
+
+// --- Phase 4: projects, shortlist, site visits ------------------------------------------------------
+
+export type ProjectStatus = "ACTIVE" | "INACTIVE";
+
+/** A project a developer is selling. Unknown fields are null - the matcher reports UNKNOWN for them. */
+export interface Project {
+  id: string;
+  developerId: string;
+  name: string;
+  city: string;
+  locality: string | null;
+  propertyType: string | null;
+  configurations: string[];
+  priceMin: number | null;
+  priceMax: number | null;
+  currency: LeadCurrency | null;
+  status: ProjectStatus;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ShortlistEntry {
+  id: string;
+  leadId: string;
+  requirementId: string | null;
+  projectId: string;
+  shortlistedBy: string;
+  shortlistedAt: Date;
+  removedBy: string | null;
+  removedAt: Date | null;
+}
+
+export const SITE_VISIT_STATUSES = ["SCHEDULED", "CONFIRMED", "COMPLETED", "NO_SHOW", "RESCHEDULED", "CANCELLED"] as const;
+export type SiteVisitStatus = (typeof SITE_VISIT_STATUSES)[number];
+export const OPEN_SITE_VISIT_STATUSES: readonly SiteVisitStatus[] = ["SCHEDULED", "CONFIRMED"];
+
+export const SITE_VISIT_OUTCOMES = ["INTERESTED", "NEEDS_ANOTHER_VISIT", "NEGOTIATING", "NOT_INTERESTED", "OTHER"] as const;
+export type SiteVisitOutcome = (typeof SITE_VISIT_OUTCOMES)[number];
+
+export interface SiteVisit {
+  id: string;
+  leadId: string;
+  requirementId: string | null;
+  projectId: string | null;
+  staffUserId: string;
+  scheduledAt: Date;
+  status: SiteVisitStatus;
+  confirmedAt: Date | null;
+  completedAt: Date | null;
+  outcome: SiteVisitOutcome | null;
+  nextAction: string | null;
+  /** Free text a person typed: personal data, cleared on erasure. */
+  notes: string | null;
+  rescheduledFrom: string | null;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SiteVisitEvent {
+  id: string;
+  visitId: string;
+  eventType: string;
+  actorType: LeadActorType;
+  actorId: string | null;
+  fromStatus: SiteVisitStatus | null;
+  toStatus: SiteVisitStatus | null;
+  payload: Record<string, unknown>;
+  createdAt: Date;
+}
+
+// --- Phase 5: campaigns ------------------------------------------------------------------------------
+
+export type CampaignStatus = "ACTIVE" | "PAUSED" | "ENDED";
+
+export interface Campaign {
+  id: string;
+  name: string;
+  /** The utm_campaign tag that attributes leads to this campaign (unique, case-insensitive, never changed). */
+  utmCampaign: string;
+  utmSource: string | null;
+  utmMedium: string | null;
+  /** A path on this site, e.g. /developers/acme. */
+  landingPage: string | null;
+  /** YYYY-MM-DD */
+  startDate: string | null;
+  endDate: string | null;
+  status: CampaignStatus;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// --- Phase 6: marketing spend -------------------------------------------------------------------------
+
+export interface MarketingSpend {
+  id: string;
+  /** An AcquisitionChannel key. */
+  channel: string;
+  campaignId: string | null;
+  /** YYYY-MM-DD */
+  spentOn: string;
+  currency: LeadCurrency;
+  /** Whole units of `currency`, always greater than zero. */
+  amount: number;
+  /** Free text a person typed. */
+  note: string | null;
+  createdBy: string;
+  createdAt: Date;
+  voidedAt: Date | null;
+  voidedBy: string | null;
+  voidReason: string | null;
+}
+
+// --- Phase 8: automation -----------------------------------------------------------------------------
+
+export type AutomationStatus = "PENDING" | "DONE" | "FAILED" | "SKIPPED";
+
+export interface AutomationAction {
+  id: string;
+  /** Which rule produced it (see automation-rules.ts). */
+  rule: string;
+  subjectType: string;
+  subjectId: string;
+  dedupeKey: string;
+  status: AutomationStatus;
+  attempts: number;
+  /** Ids and enums only - never buyer data. */
+  detail: Record<string, unknown>;
+  claimedAt: Date;
+  completedAt: Date | null;
+  createdAt: Date;
 }

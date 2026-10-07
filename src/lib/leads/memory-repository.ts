@@ -1,3 +1,5 @@
+import { CLOSED_OUT_STATUSES } from "./lead-views.ts";
+import type { TouchEvidence } from "./acquisition.ts";
 import { randomUUID } from "node:crypto";
 import { summariseEvents } from "./activity-summary.ts";
 import { bucketKey } from "./call-buckets.ts";
@@ -11,15 +13,20 @@ import type {
   NewBooking,
   FollowUpPatch,
   CallAggregateQuery,
+  BatchLeadProgress,
   CallAggregateRow,
   CallFilter,
   CallPatch,
   CallWithLead,
+  CallingBatch,
   FollowUpScope,
   FollowUpWithLead,
   MissedFollowUpQuery,
   NewCall,
   NewCallEvent,
+  NewCallingBatch,
+  NewProject,
+  SiteVisitStats,
   NewConsent,
   NewFollowUp,
   NewImportBatch,
@@ -30,7 +37,7 @@ import type {
   RequirementLocation,
   StoredCallEvent,
 } from "./repository.ts";
-import { TERMINAL_CALL_STATUSES, type Booking, type Lead, type LeadCall, type LeadConsent, type LeadEvent, type LeadFollowUp, type LeadImportBatch, type LeadRequirement, type MarketingTouch } from "./types.ts";
+import { OPEN_SITE_VISIT_STATUSES, TERMINAL_CALL_STATUSES, type Booking, type Lead, type LeadCall, type LeadConsent, type LeadEvent, type LeadFollowUp, type LeadImportBatch, type LeadRequirement, type AutomationAction, type Campaign, type LeadStatus, type MarketingSpend, type MarketingTouch, type Project, type ShortlistEntry, type SiteVisit, type SiteVisitEvent } from "./types.ts";
 
 /**
  * In-memory implementation of the lead repositories, for unit tests. It
@@ -39,12 +46,14 @@ import { TERMINAL_CALL_STATUSES, type Booking, type Lead, type LeadCall, type Le
  * transactions — so the service layer can be tested without a database.
  */
 /** The filters shared by listRecent and aggregate, applied the same way the SQL adapter applies them. */
-function callMatches(call: LeadCall, lead: Lead, f: Pick<CallFilter, "staffUserId" | "leadId" | "from" | "to" | "connected" | "statuses" | "disposition" | "sourceType">): boolean {
+function callMatches(call: LeadCall, lead: Lead, f: Pick<CallFilter, "staffUserId" | "leadId" | "from" | "to" | "connected" | "statuses" | "disposition" | "sourceType" | "batchId">): boolean {
+  if (f.batchId !== undefined && call.batchId !== f.batchId) return false;
   if (f.staffUserId !== undefined && call.staffUserId !== f.staffUserId) return false;
   if (f.leadId !== undefined && call.leadId !== f.leadId) return false;
   if (f.from && call.initiatedAt.getTime() < f.from.getTime()) return false;
   if (f.to && call.initiatedAt.getTime() >= f.to.getTime()) return false;
-  if (f.connected !== undefined && (call.answeredAt !== null) !== f.connected) return false;
+  if (f.connected === true && call.classification !== "CONNECTED") return false;
+  if (f.connected === false && call.classification !== "DIALED") return false;
   if (f.statuses && !f.statuses.includes(call.status)) return false;
   if (f.disposition !== undefined && call.disposition !== f.disposition) return false;
   if (f.sourceType !== undefined && lead.sourceType !== f.sourceType) return false;
@@ -69,6 +78,16 @@ export function createInMemoryLeadRepositories(
     calls: new Map<string, LeadCall>(),
     callEvents: [] as StoredCallEvent[],
     batches: new Map<string, LeadImportBatch>(),
+    callingBatches: new Map<string, Omit<CallingBatch, "itemCount">>(),
+    callingItems: [] as Array<{ batchId: string; leadId: string; position: number }>,
+    projects: new Map<string, Project>(),
+    shortlist: new Map<string, ShortlistEntry>(),
+    siteVisits: new Map<string, SiteVisit>(),
+    siteVisitEvents: [] as SiteVisitEvent[],
+    campaigns: new Map<string, Campaign>(),
+    spend: new Map<string, MarketingSpend>(),
+    automation: new Map<string, AutomationAction>(),
+    automationSettings: new Map<string, boolean>(),
   };
 
   const cloneState = () => ({
@@ -82,6 +101,16 @@ export function createInMemoryLeadRepositories(
     calls: new Map([...state.calls].map(([id, c]) => [id, { ...c }])),
     callEvents: state.callEvents.map((e) => ({ ...e, payload: structuredClone(e.payload) })),
     batches: new Map([...state.batches].map(([id, b]) => [id, { ...b }])),
+    callingBatches: new Map([...state.callingBatches].map(([id, b]) => [id, { ...b }])),
+    callingItems: state.callingItems.map((i) => ({ ...i })),
+    projects: new Map([...state.projects].map(([id, p]) => [id, { ...p, configurations: [...p.configurations] }])),
+    shortlist: new Map([...state.shortlist].map(([id, e]) => [id, { ...e }])),
+    siteVisits: new Map([...state.siteVisits].map(([id, v]) => [id, { ...v }])),
+    siteVisitEvents: state.siteVisitEvents.map((e) => ({ ...e, payload: { ...e.payload } })),
+    campaigns: new Map([...state.campaigns].map(([id, c]) => [id, { ...c }])),
+    spend: new Map([...state.spend].map(([id, s]) => [id, { ...s }])),
+    automation: new Map([...state.automation].map(([id, a]) => [id, { ...a, detail: { ...a.detail } }])),
+    automationSettings: new Map(state.automationSettings),
   });
 
   // A promise-chain mutex so concurrent transactions run one at a time, like row locks would serialise them.
@@ -191,6 +220,178 @@ export function createInMemoryLeadRepositories(
         }
         return counts;
       },
+      async stageHistory() {
+        const order: LeadStatus[] = ["QUALIFIED", "SHORTLISTED", "SITE_VISIT_SCHEDULED", "SITE_VISIT_DONE", "NEGOTIATION"];
+        const forward = ["QUALIFIED", "SHORTLISTED", "SITE_VISIT_SCHEDULED", "SITE_VISIT_DONE", "NEGOTIATION", "BOOKED", "CLOSED"];
+        const reachedStage = (leadId: string, current: string): number => {
+          let best = forward.indexOf(current);
+          for (const e of state.events) if (e.leadId === leadId && e.eventType === "STATUS_CHANGED" && e.toStatus) best = Math.max(best, forward.indexOf(e.toStatus));
+          return best;
+        };
+        return order.map((stage) => {
+          let reached = 0;
+          let booked = 0;
+          for (const l of state.leads.values()) {
+            if (l.erasedAt !== null) continue;
+            if (reachedStage(l.id, l.status) >= forward.indexOf(stage)) {
+              reached += 1;
+              if ([...state.bookings.values()].some((b) => b.leadId === l.id && b.status === "BOOKED")) booked += 1;
+            }
+          }
+          return { stage, reached, booked };
+        });
+      },
+      async listStale({ staleBefore, limit }) {
+        return [...state.leads.values()]
+          .filter((l) => l.erasedAt === null && !CLOSED_OUT_STATUSES.includes(l.status) && l.ownerId !== null && l.lastActivityAt < staleBefore)
+          .sort((a, b) => a.lastActivityAt.getTime() - b.lastActivityAt.getTime())
+          .slice(0, limit)
+          .map((l) => ({ ...l }));
+      },
+      async listUnassignedOpen(limit) {
+        return [...state.leads.values()]
+          .filter((l) => l.erasedAt === null && !CLOSED_OUT_STATUSES.includes(l.status) && l.ownerId === null && l.returnedAt === null)
+          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+          .slice(0, limit)
+          .map((l) => ({ ...l }));
+      },
+      async countOpenByOwner() {
+        const out: Record<string, number> = {};
+        for (const l of state.leads.values()) if (l.erasedAt === null && l.ownerId !== null && !CLOSED_OUT_STATUSES.includes(l.status)) out[l.ownerId] = (out[l.ownerId] ?? 0) + 1;
+        return out;
+      },
+      async statusCounts() {
+        const out: Partial<Record<LeadStatus, number>> = {};
+        for (const l of state.leads.values()) if (l.erasedAt === null) out[l.status] = (out[l.status] ?? 0) + 1;
+        return out;
+      },
+      async exceptionCounts({ unassignedOlderThan, staleBefore }) {
+        const open = (l: Lead) => l.erasedAt === null && !CLOSED_OUT_STATUSES.includes(l.status);
+        let unassignedOpen = 0;
+        let unassignedOld = 0;
+        let staleOpen = 0;
+        for (const l of state.leads.values()) {
+          if (!open(l)) continue;
+          if (l.ownerId === null) {
+            unassignedOpen += 1;
+            if (l.createdAt < unassignedOlderThan) unassignedOld += 1;
+          } else if (l.lastActivityAt < staleBefore) staleOpen += 1;
+        }
+        return { unassignedOpen, unassignedOld, staleOpen };
+      },
+      async acquisitionRows(query) {
+        const QUALIFIED_OR_LATER: readonly string[] = ["QUALIFIED", "SHORTLISTED", "SITE_VISIT_SCHEDULED", "SITE_VISIT_DONE", "NEGOTIATION", "BOOKED", "CLOSED"];
+        const evidence = (id: string | null): TouchEvidence | null => {
+          const t = id ? state.touches.get(id) : null;
+          return t ? { utmSource: t.utmSource, utmMedium: t.utmMedium, utmCampaign: t.utmCampaign, gclid: t.gclid, fbclid: t.fbclid, referrer: t.referrer, landingPath: t.landingPath } : null;
+        };
+        return [...state.leads.values()]
+          .filter((l) => l.createdAt >= query.from && l.createdAt < query.to)
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, query.limit)
+          .map((l) => ({
+            leadId: l.id,
+            createdAt: l.createdAt,
+            sourceType: l.sourceType,
+            creationMethod: l.creationMethod,
+            first: evidence(l.firstTouchId),
+            latest: evidence(l.lastTouchId),
+            reachedQualified: QUALIFIED_OR_LATER.includes(l.status) || state.events.some((e) => e.leadId === l.id && e.eventType === "STATUS_CHANGED" && e.toStatus !== null && QUALIFIED_OR_LATER.includes(e.toStatus)),
+            hasSiteVisit: [...state.siteVisits.values()].some((v) => v.leadId === l.id && v.rescheduledFrom === null),
+            booked: [...state.bookings.values()].some((b) => b.leadId === l.id && b.status === "BOOKED"),
+            bookings: [...state.bookings.values()]
+              .filter((b) => b.leadId === l.id && b.status === "BOOKED")
+              .map((b) => ({ currency: b.currency, bookingValue: b.bookingValue, commissionExpected: b.commissionExpected, commissionReceived: b.commissionReceived, projectId: b.projectId, projectName: b.projectName })),
+          }));
+      },
+    },
+
+    automationActions: {
+      async claim(input, options) {
+        const existing = [...state.automation.values()].find((a) => a.dedupeKey === input.dedupeKey);
+        if (!existing) {
+          const action: AutomationAction = { id: randomUUID(), rule: input.rule, subjectType: input.subjectType, subjectId: input.subjectId, dedupeKey: input.dedupeKey, status: "PENDING", attempts: 1, detail: {}, claimedAt: input.now, completedAt: null, createdAt: input.now };
+          state.automation.set(action.id, action);
+          return { ...action };
+        }
+        const abandoned = existing.status === "PENDING" && input.now.getTime() - existing.claimedAt.getTime() > options.staleAfterMs;
+        if ((existing.status === "FAILED" || abandoned) && existing.attempts < options.maxAttempts) {
+          Object.assign(existing, { status: "PENDING", attempts: existing.attempts + 1, claimedAt: input.now, completedAt: null });
+          return { ...existing };
+        }
+        return null;
+      },
+      async complete(id, status, detail, at) {
+        const a = state.automation.get(id);
+        if (!a) throw new LeadNotFoundError("Automation action not found.");
+        Object.assign(a, { status, detail, completedAt: at });
+      },
+      async fail(id, errorCode, at) {
+        const a = state.automation.get(id);
+        if (!a) throw new LeadNotFoundError("Automation action not found.");
+        Object.assign(a, { status: "FAILED", detail: { errorCode }, completedAt: at });
+      },
+      async listRecent(limit) {
+        return [...state.automation.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit).map((a) => ({ ...a, detail: { ...a.detail } }));
+      },
+    },
+
+    automationSettings: {
+      async getAll() {
+        return Object.fromEntries(state.automationSettings);
+      },
+      async set(key, enabled) {
+        state.automationSettings.set(key, enabled);
+      },
+    },
+
+    spend: {
+      async create(input) {
+        const entry: MarketingSpend = { id: randomUUID(), channel: input.channel, campaignId: input.campaignId, spentOn: input.spentOn, currency: input.currency, amount: input.amount, note: input.note, createdBy: input.createdBy, createdAt: input.now, voidedAt: null, voidedBy: null, voidReason: null };
+        state.spend.set(entry.id, entry);
+        return { ...entry };
+      },
+      async getById(id) {
+        const e = state.spend.get(id);
+        return e ? { ...e } : null;
+      },
+      async void(id, by, reason, at) {
+        const e = state.spend.get(id);
+        if (!e) throw new LeadNotFoundError("Spend entry not found.");
+        if (e.voidedAt !== null) throw new LeadStateError("That spend entry was already voided.");
+        Object.assign(e, { voidedAt: at, voidedBy: by, voidReason: reason });
+        return { ...e };
+      },
+      async list(query) {
+        return [...state.spend.values()]
+          .filter((e) => e.spentOn >= query.fromDate && e.spentOn <= query.toDate)
+          .sort((a, b) => b.spentOn.localeCompare(a.spentOn) || b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, query.limit)
+          .map((e) => ({ ...e }));
+      },
+    },
+
+    campaigns: {
+      async create(input) {
+        const key = input.utmCampaign.trim().toLowerCase();
+        if ([...state.campaigns.values()].some((c) => c.utmCampaign.toLowerCase() === key)) throw new LeadStateError("Another campaign already uses that tag.");
+        const campaign: Campaign = { id: randomUUID(), name: input.name, utmCampaign: input.utmCampaign, utmSource: input.utmSource, utmMedium: input.utmMedium, landingPage: input.landingPage, startDate: input.startDate, endDate: input.endDate, status: input.status, createdBy: input.createdBy, createdAt: input.now, updatedAt: input.now };
+        state.campaigns.set(campaign.id, campaign);
+        return { ...campaign };
+      },
+      async getById(id) {
+        const c = state.campaigns.get(id);
+        return c ? { ...c } : null;
+      },
+      async update(id, patch, at) {
+        const c = state.campaigns.get(id);
+        if (!c) throw new LeadNotFoundError("Campaign not found.");
+        Object.assign(c, patch, { updatedAt: at });
+        return { ...c };
+      },
+      async list(limit) {
+        return [...state.campaigns.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit).map((c) => ({ ...c }));
+      },
     },
 
     events: {
@@ -295,12 +496,20 @@ export function createInMemoryLeadRepositories(
         }
         return [...rows.values()];
       },
+      async listOutstanding(limit) {
+        return [...state.bookings.values()]
+          .filter((b) => b.status === "BOOKED" && b.commissionExpected > b.commissionReceived)
+          .sort((a, b) => a.bookedAt.getTime() - b.bookedAt.getTime())
+          .slice(0, limit)
+          .map((b) => ({ ...b }));
+      },
       async create(booking: NewBooking) {
         const stored: Booking = {
           id: randomUUID(),
           leadId: booking.leadId,
           developerId: booking.developerId,
           projectName: booking.projectName,
+          projectId: booking.projectId ?? null,
           status: "BOOKED",
           bookedAt: booking.bookedAt,
           currency: booking.currency,
@@ -545,6 +754,14 @@ export function createInMemoryLeadRepositories(
           endedAt: null,
           durationSeconds: null,
           endReason: null,
+          classification: null,
+          method: input.method ?? "PROVIDER",
+          batchId: input.batchId ?? null,
+          startedAt: null,
+          deviceRef: input.deviceRef ?? null,
+          simRef: null,
+          callLogRef: null,
+          reportedAt: null,
           disposition: null,
           dispositionBy: null,
           dispositionAt: null,
@@ -570,6 +787,11 @@ export function createInMemoryLeadRepositories(
         if (TERMINAL_CALL_STATUSES.includes(found.status)) {
           const changes = (patch.status !== undefined && patch.status !== found.status) || (patch.answeredAt !== undefined && patch.answeredAt?.getTime() !== found.answeredAt?.getTime()) || (patch.endedAt !== undefined && patch.endedAt?.getTime() !== found.endedAt?.getTime()) || (patch.durationSeconds !== undefined && patch.durationSeconds !== found.durationSeconds);
           if (changes) throw new LeadStateError("A finished call cannot be changed.");
+        }
+        if (found.classification !== null && patch.classification !== undefined && patch.classification !== found.classification) throw new LeadStateError("A call's classification cannot be changed once set.");
+        if (found.reportedAt !== null) {
+          const changesReport = (patch.startedAt !== undefined && patch.startedAt?.getTime() !== found.startedAt?.getTime()) || (patch.deviceRef !== undefined && patch.deviceRef !== found.deviceRef) || (patch.simRef !== undefined && patch.simRef !== found.simRef) || (patch.callLogRef !== undefined && patch.callLogRef !== found.callLogRef) || (patch.reportedAt !== undefined && patch.reportedAt?.getTime() !== found.reportedAt.getTime());
+          if (changesReport) throw new LeadStateError("A device report cannot be changed once received.");
         }
         if (found.disposition !== null && patch.disposition !== undefined && patch.disposition !== found.disposition) throw new LeadStateError("A call outcome cannot be changed once set.");
         if (patch.providerCallId !== undefined && patch.providerCallId !== null) {
@@ -606,23 +828,191 @@ export function createInMemoryLeadRepositories(
         for (const call of state.calls.values()) {
           const lead = state.leads.get(call.leadId);
           if (!lead || !callMatches(call, lead, query)) continue;
+          // Unfinished attempts (no classification yet) and anything that is not a failure are not activity.
+          if (call.classification === null && call.status !== "FAILED") continue;
           const key = query.groupBy === "EMPLOYEE" ? call.staffUserId : bucketKey(call.initiatedAt, query.groupBy, query.timeZone);
           const row = rows.get(key) ?? { key, dialed: 0, connected: 0, noAnswer: 0, busy: 0, failed: 0, rejected: 0, talkSeconds: 0, leadsCalled: 0, leads: new Set<string>() };
-          row.dialed += 1;
-          if (call.answeredAt !== null) {
+          // Only calls that reached the other end are DIALED/CONNECTED; a call that could not be placed is a failure, not a dial.
+          if (call.classification !== null) {
+            row.dialed += 1;
+            row.leads.add(call.leadId);
+          }
+          if (call.classification === "CONNECTED") {
             row.connected += 1;
             row.talkSeconds += call.durationSeconds ?? 0;
           }
-          if (call.status === "NO_ANSWER") row.noAnswer += 1;
-          if (call.status === "BUSY") row.busy += 1;
+          if (call.status === "NO_ANSWER" || call.disposition === "NO_ANSWER") row.noAnswer += 1;
+          if (call.status === "BUSY" || call.disposition === "BUSY") row.busy += 1;
           if (call.status === "FAILED") row.failed += 1;
           if (call.status === "REJECTED") row.rejected += 1;
-          row.leads.add(call.leadId);
           rows.set(key, row);
         }
         return [...rows.values()]
           .map(({ leads, ...row }) => ({ ...row, leadsCalled: leads.size }))
           .sort((a, b) => a.key.localeCompare(b.key));
+      },
+    },
+
+    projects: {
+      async create(input: NewProject) {
+        const key = input.name.trim().toLowerCase();
+        if ([...state.projects.values()].some((p) => p.developerId === input.developerId && p.name.toLowerCase() === key)) throw new LeadStateError("This developer already has a project with that name.");
+        const project: Project = { id: randomUUID(), developerId: input.developerId, name: input.name, city: input.city, locality: input.locality, propertyType: input.propertyType, configurations: [...input.configurations], priceMin: input.priceMin, priceMax: input.priceMax, currency: input.currency, status: "ACTIVE", createdBy: input.createdBy, createdAt: input.now, updatedAt: input.now };
+        state.projects.set(project.id, project);
+        return { ...project, configurations: [...project.configurations] };
+      },
+      async getById(id) {
+        const p = state.projects.get(id);
+        return p ? { ...p, configurations: [...p.configurations] } : null;
+      },
+      async update(id, patch, at) {
+        const p = state.projects.get(id);
+        if (!p) throw new LeadNotFoundError("Project not found.");
+        if (patch.name !== undefined && [...state.projects.values()].some((o) => o.id !== id && o.developerId === p.developerId && o.name.toLowerCase() === patch.name!.trim().toLowerCase())) throw new LeadStateError("This developer already has a project with that name.");
+        Object.assign(p, patch, { updatedAt: at });
+        return { ...p, configurations: [...p.configurations] };
+      },
+      async list(query) {
+        return [...state.projects.values()]
+          .filter((p) => !query.activeOnly || p.status === "ACTIVE")
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, query.limit)
+          .map((p) => ({ ...p, configurations: [...p.configurations] }));
+      },
+    },
+
+    shortlist: {
+      async add(input) {
+        if ([...state.shortlist.values()].some((e) => e.leadId === input.leadId && e.projectId === input.projectId && e.removedAt === null)) throw new LeadStateError("That project is already on this buyer's shortlist.");
+        const entry: ShortlistEntry = { id: randomUUID(), leadId: input.leadId, requirementId: input.requirementId, projectId: input.projectId, shortlistedBy: input.shortlistedBy, shortlistedAt: input.now, removedBy: null, removedAt: null };
+        state.shortlist.set(entry.id, entry);
+        return { ...entry };
+      },
+      async getById(id) {
+        const e = state.shortlist.get(id);
+        return e ? { ...e } : null;
+      },
+      async listByLead(leadId) {
+        return [...state.shortlist.values()].filter((e) => e.leadId === leadId).sort((a, b) => a.shortlistedAt.getTime() - b.shortlistedAt.getTime()).map((e) => ({ ...e }));
+      },
+      async countActiveByProject() {
+        const out: Record<string, number> = {};
+        for (const e of state.shortlist.values()) if (e.removedAt === null) out[e.projectId] = (out[e.projectId] ?? 0) + 1;
+        return out;
+      },
+      async remove(id, removedBy, at) {
+        const e = state.shortlist.get(id);
+        if (!e) throw new LeadNotFoundError("Shortlist entry not found.");
+        if (e.removedAt !== null) throw new LeadStateError("That project was already removed from the shortlist.");
+        e.removedBy = removedBy;
+        e.removedAt = at;
+        return { ...e };
+      },
+    },
+
+    siteVisits: {
+      async create(input) {
+        if ([...state.siteVisits.values()].some((v) => v.leadId === input.leadId && v.projectId === input.projectId && OPEN_SITE_VISIT_STATUSES.includes(v.status))) throw new LeadStateError("This buyer already has an open site visit for that project. Reschedule it instead.");
+        const visit: SiteVisit = { id: randomUUID(), leadId: input.leadId, requirementId: input.requirementId, projectId: input.projectId, staffUserId: input.staffUserId, scheduledAt: input.scheduledAt, status: "SCHEDULED", confirmedAt: null, completedAt: null, outcome: null, nextAction: null, notes: input.notes, rescheduledFrom: input.rescheduledFrom, createdBy: input.createdBy, createdAt: input.now, updatedAt: input.now };
+        state.siteVisits.set(visit.id, visit);
+        return { ...visit };
+      },
+      async getById(id) {
+        const v = state.siteVisits.get(id);
+        return v ? { ...v } : null;
+      },
+      async update(id, patch, at) {
+        const v = state.siteVisits.get(id);
+        if (!v) throw new LeadNotFoundError("Site visit not found.");
+        if (!OPEN_SITE_VISIT_STATUSES.includes(v.status)) throw new LeadStateError("A finished site visit cannot be changed.");
+        Object.assign(v, patch, { updatedAt: at });
+        return { ...v };
+      },
+      async listByLead(leadId) {
+        return [...state.siteVisits.values()].filter((v) => v.leadId === leadId).sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime()).map((v) => ({ ...v }));
+      },
+      async list(query) {
+        return [...state.siteVisits.values()]
+          .filter((v) => (query.staffUserId === undefined || v.staffUserId === query.staffUserId) && (!query.statuses || query.statuses.includes(v.status)) && (!query.from || v.scheduledAt >= query.from) && (!query.to || v.scheduledAt < query.to))
+          .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
+          .slice(0, query.limit)
+          .map((v) => ({ ...v }));
+      },
+      async appendEvent(input) {
+        const event: SiteVisitEvent = { ...input, id: randomUUID(), payload: { ...input.payload } };
+        state.siteVisitEvents.push(event);
+        return { ...event };
+      },
+      async listEvents(visitId) {
+        return state.siteVisitEvents.filter((e) => e.visitId === visitId).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map((e) => ({ ...e }));
+      },
+      async eraseForLead(leadId) {
+        for (const v of state.siteVisits.values()) if (v.leadId === leadId) Object.assign(v, { notes: null, nextAction: null });
+      },
+      async countByProject(from, to) {
+        const out: Record<string, number> = {};
+        for (const v of state.siteVisits.values()) if (v.projectId && v.rescheduledFrom === null && v.createdAt >= from && v.createdAt < to) out[v.projectId] = (out[v.projectId] ?? 0) + 1;
+        return out;
+      },
+      async statsByStaff(from, to) {
+        const out: Record<string, SiteVisitStats> = {};
+        const row = (id: string) => (out[id] ??= { scheduled: 0, completed: 0, noShow: 0 });
+        for (const v of state.siteVisits.values()) {
+          if (v.rescheduledFrom === null && v.createdAt >= from && v.createdAt < to) row(v.staffUserId).scheduled += 1;
+          if (v.status === "COMPLETED" && v.completedAt && v.completedAt >= from && v.completedAt < to) row(v.staffUserId).completed += 1;
+          if (v.status === "NO_SHOW" && v.completedAt && v.completedAt >= from && v.completedAt < to) row(v.staffUserId).noShow += 1;
+        }
+        return out;
+      },
+    },
+
+    callingBatches: {
+      async create(input: NewCallingBatch) {
+        const id = randomUUID();
+        state.callingBatches.set(id, { id, name: input.name, createdBy: input.createdBy, assignedTo: input.assignedTo, importBatchId: input.importBatchId, status: "ACTIVE", createdAt: input.now });
+        input.leadIds.forEach((leadId, position) => state.callingItems.push({ batchId: id, leadId, position }));
+        return { ...state.callingBatches.get(id)!, itemCount: input.leadIds.length };
+      },
+      async getById(id) {
+        const b = state.callingBatches.get(id);
+        return b ? { ...b, itemCount: state.callingItems.filter((i) => i.batchId === id).length } : null;
+      },
+      async listForAssignee(staffUserId) {
+        return [...state.callingBatches.values()]
+          .filter((b) => b.assignedTo === staffUserId)
+          .sort((a, b) => (a.status === b.status ? 0 : a.status === "ACTIVE" ? -1 : 1) || b.createdAt.getTime() - a.createdAt.getTime())
+          .map((b) => ({ ...b, itemCount: state.callingItems.filter((i) => i.batchId === b.id).length }));
+      },
+      async listAll(limit) {
+        return [...state.callingBatches.values()]
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, limit)
+          .map((b) => ({ ...b, itemCount: state.callingItems.filter((i) => i.batchId === b.id).length }));
+      },
+      async progress(batchId) {
+        const out: BatchLeadProgress[] = [];
+        for (const item of state.callingItems.filter((i) => i.batchId === batchId).sort((a, b) => a.position - b.position)) {
+          const lead = state.leads.get(item.leadId);
+          if (!lead) continue;
+          const calls = [...state.calls.values()].filter((c) => c.batchId === batchId && c.leadId === item.leadId);
+          const classified = calls.filter((c) => c.classification !== null).sort((a, b) => (b.startedAt ?? b.initiatedAt).getTime() - (a.startedAt ?? a.initiatedAt).getTime());
+          out.push({
+            lead: { ...lead },
+            position: item.position,
+            calls: classified.length,
+            connectedCalls: classified.filter((c) => c.classification === "CONNECTED").length,
+            failedCalls: calls.filter((c) => c.status === "FAILED").length,
+            lastCallAt: classified[0] ? (classified[0].startedAt ?? classified[0].initiatedAt) : null,
+            lastClassification: classified[0]?.classification ?? null,
+          });
+        }
+        return out;
+      },
+      async close(id) {
+        const b = state.callingBatches.get(id);
+        if (!b) throw new LeadNotFoundError("Calling batch not found.");
+        b.status = "CLOSED";
+        return { ...b, itemCount: state.callingItems.filter((i) => i.batchId === id).length };
       },
     },
 
@@ -663,6 +1053,16 @@ export function createInMemoryLeadRepositories(
           state.calls = before.calls;
           state.callEvents = before.callEvents;
           state.batches = before.batches;
+          state.callingBatches = before.callingBatches;
+          state.callingItems = before.callingItems;
+          state.projects = before.projects;
+          state.shortlist = before.shortlist;
+          state.siteVisits = before.siteVisits;
+          state.siteVisitEvents = before.siteVisitEvents;
+          state.campaigns = before.campaigns;
+          state.spend = before.spend;
+          state.automation = before.automation;
+          state.automationSettings = before.automationSettings;
           throw error;
         }
       };

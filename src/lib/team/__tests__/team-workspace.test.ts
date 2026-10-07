@@ -183,5 +183,5 @@ test("founder CRM: the founder's lists and detail are unchanged — every lead, 
   await createBooking(repos, l3.id, { projectName: "Tower B", bookingValue: 5_000_000, currency: "INR", commissionRate: 2 } as never, FOUNDER, minutes(12));
   const detail = await getLeadDetail(repos, l3.id, NOW);
   assert.equal(detail?.bookings.length, 1);
-  assert.ok((await getLeadsPage(repos, "new", 1, NOW)).total >= 4, "founder views take no owner scope");
+  assert.ok((await getLeadsPage(repos, "new", 1, NOW)).total >= 3, "founder views take no owner scope (the booked lead has moved on to BOOKED)");
 });

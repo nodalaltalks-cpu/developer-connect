@@ -172,22 +172,30 @@ function assertFounder(actor: LeadActor): void {
 // --- the employee's own dashboard -----------------------------------------------------------------
 
 export interface MyCallDashboard {
+  /** The range the figures cover (Today by default; Yesterday, 7 days, 30 days or custom). */
+  range: DateRange;
   metrics: CallMetrics;
   followUps: { created: number; completed: number; missed: number };
   recent: CallWithLead[];
 }
 
 /** "My calls — today": the signed-in member's own real call records. Scope is the actor's id, never an argument. */
-export async function getMyCallDashboard(repos: LeadRepositories, actor: LeadActor, now: Date = new Date()): Promise<MyCallDashboard> {
+export async function getMyCallDashboard(
+  repos: LeadRepositories,
+  actor: LeadActor,
+  now: Date = new Date(),
+  rangeInput: { range?: string; from?: string; to?: string } = {},
+): Promise<MyCallDashboard> {
   if (!actor.actorId || (actor.actorType !== "EMPLOYEE" && actor.actorType !== "FOUNDER")) throw new UnauthorizedLeadActionError("A signed-in team member is required.");
-  const range = resolveRange("today", now);
+  // Only the date range comes from the caller; whose calls they are is always the actor's own id.
+  const range = parseInsightFilters({ range: rangeInput.range ?? "today", from: rangeInput.from, to: rangeInput.to }, now).range;
   const [rows, stats, recent] = await Promise.all([
     repos.calls.aggregate({ from: range.from, to: range.to, groupBy: "EMPLOYEE", timeZone: BUSINESS_TIME_ZONE, staffUserId: actor.actorId }),
     repos.followUps.statsByStaff(range.from, range.to, now),
-    repos.calls.listRecent({ staffUserId: actor.actorId, limit: 20 }),
+    repos.calls.listRecent({ staffUserId: actor.actorId, from: range.from, to: range.to, limit: 50 }),
   ]);
   const mine = stats[actor.actorId] ?? { created: 0, completed: 0, missedNow: 0 };
-  return { metrics: toMetrics(rows[0]), followUps: { created: mine.created, completed: mine.completed, missed: mine.missedNow }, recent };
+  return { range, metrics: toMetrics(rows[0]), followUps: { created: mine.created, completed: mine.completed, missed: mine.missedNow }, recent };
 }
 
 // --- Founder: employee insights -------------------------------------------------------------------
@@ -203,6 +211,40 @@ export interface EmployeeInsightRow {
   currentLeads: { qualified: number; siteVisit: number; booked: number };
   /** Booking value on their current leads, per currency (never summed across currencies). */
   revenue: Array<{ currency: string; total: number; count: number }>;
+  /**
+   * What this person DID in the selected range, with the denominators needed to read it fairly. A ratio is null when its
+   * denominator is zero (never a made-up 0%), and nothing here is a score or a rank.
+   */
+  contribution: {
+    /** Live leads they own today (the denominator for "how much was there to work"). */
+    ownedLeads: number;
+    requirementsCreated: number;
+    projectsShortlisted: number;
+    siteVisitsScheduled: number;
+    siteVisitsCompleted: number;
+    siteVisitsNoShow: number;
+    /** Distinct leads they reached by phone (more than 10 seconds) / leads they own. */
+    leadsReachedShare: number | null;
+    /** Site visits scheduled per connected call. */
+    visitsPerConnectedCall: number | null;
+    /** Completed / (completed + no-show): of the visits whose outcome is known, how many happened. */
+    visitCompletionRate: number | null;
+  };
+}
+
+function contributionOf(ownedLeads: number, requirementsCreated: number, projectsShortlisted: number, visits: { scheduled: number; completed: number; noShow: number }, calls: CallMetrics): EmployeeInsightRow["contribution"] {
+  const known = visits.completed + visits.noShow;
+  return {
+    ownedLeads,
+    requirementsCreated,
+    projectsShortlisted,
+    siteVisitsScheduled: visits.scheduled,
+    siteVisitsCompleted: visits.completed,
+    siteVisitsNoShow: visits.noShow,
+    leadsReachedShare: ownedLeads > 0 ? Math.min(1, calls.leadsCalled / ownedLeads) : null,
+    visitsPerConnectedCall: calls.connected > 0 ? visits.scheduled / calls.connected : null,
+    visitCompletionRate: known > 0 ? visits.completed / known : null,
+  };
 }
 
 export interface HourlyBucket {
@@ -229,7 +271,7 @@ export interface EmployeeInsights {
 /** The Founder's view of real sales activity, per employee, by hour and by period. Founder only. */
 export async function getEmployeeInsights(repos: LeadRepositories, staff: StaffRepository, actor: LeadActor, filters: InsightFilters, now: Date = new Date()): Promise<EmployeeInsights> {
   assertFounder(actor);
-  const [members, perEmployee, hourlyRows, periodRows, followUps, returned, owned, revenue] = await Promise.all([
+  const [members, perEmployee, hourlyRows, periodRows, followUps, returned, owned, revenue, visitStats, requirementsMade, shortlisted, ownedCounts] = await Promise.all([
     staff.list(),
     repos.calls.aggregate(aggregateQuery({ ...filters, employeeId: undefined }, "EMPLOYEE")),
     repos.calls.aggregate(aggregateQuery(filters, "HOUR_OF_DAY")),
@@ -238,6 +280,10 @@ export async function getEmployeeInsights(repos: LeadRepositories, staff: StaffR
     repos.events.countByTypeAndActor("RETURNED_TO_FOUNDER", filters.range.from, filters.range.to),
     repos.leads.ownerSummary(),
     repos.bookings.revenueByOwner(),
+    repos.siteVisits.statsByStaff(filters.range.from, filters.range.to),
+    repos.events.countByTypeAndActor("REQUIREMENT_CREATED", filters.range.from, filters.range.to),
+    repos.events.countByTypeAndActor("PROJECT_SHORTLISTED", filters.range.from, filters.range.to),
+    repos.leads.countByOwner(),
   ]);
 
   const names = new Map(members.map((m) => [m.userId, { name: m.displayName, active: m.active }]));
@@ -253,6 +299,7 @@ export async function getEmployeeInsights(repos: LeadRepositories, staff: StaffR
     leadsReturned: returned[userId] ?? 0,
     currentLeads: owned[userId] ?? { qualified: 0, siteVisit: 0, booked: 0 },
     revenue: revenue.filter((r) => r.ownerId === userId).map(({ currency, total, count }) => ({ currency, total, count })),
+    contribution: contributionOf(ownedCounts[userId] ?? 0, requirementsMade[userId] ?? 0, shortlisted[userId] ?? 0, visitStats[userId] ?? { scheduled: 0, completed: 0, noShow: 0 }, toMetrics(callRows.get(userId))),
   }));
   if (filters.employeeId) rows = rows.filter((row) => row.userId === filters.employeeId);
   rows.sort((a, b) => a.name.localeCompare(b.name));

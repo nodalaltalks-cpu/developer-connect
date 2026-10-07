@@ -292,6 +292,9 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "FOLLOW_UP_DUE",
   "LEAD_RETURNED",
   "LEAD_ASSIGNED",
+  // Phase 8 (migration 0026): automated, deterministic reminders for team members.
+  "SITE_VISIT_DUE",
+  "LEAD_STALE",
 ]);
 
 export const inaccuracyReportCategoryEnum = pgEnum("inaccuracy_report_category", [
@@ -559,6 +562,11 @@ export const leadEventTypeEnum = pgEnum("lead_event_type", [
   "CALL_PLACED",
   "CALL_ENDED",
   "CALL_DISPOSITION_SET",
+  // Phase 4 (migration 0023): project shortlist and site visits.
+  "PROJECT_SHORTLISTED",
+  "PROJECT_SHORTLIST_REMOVED",
+  "SITE_VISIT_SCHEDULED",
+  "SITE_VISIT_UPDATED",
 ]);
 
 /** How warm the buyer is. A separate concept from pipeline status; null on the lead = not yet rated. */
@@ -755,6 +763,9 @@ export const bookings = pgTable(
       .references(() => leads.id, { onDelete: "restrict" }),
     developerId: uuid("developer_id").references(() => developers.id, { onDelete: "restrict" }),
     projectName: text("project_name"),
+    // The project this booking was for, when it is one the Founder has recorded (migration 0025). The free-text project
+    // name above stays for bookings that predate the inventory.
+    projectId: uuid("project_id").references((): AnyPgColumn => projects.id, { onDelete: "restrict" }),
     status: bookingStatusEnum("status").notNull().default("BOOKED"),
     bookedAt: timestamp("booked_at", { withTimezone: true }).notNull().defaultNow(),
     currency: leadCurrencyEnum("currency").notNull(),
@@ -965,6 +976,43 @@ export const leadImportBatches = pgTable("lead_import_batches", {
 });
 
 /**
+ * A CALLING BATCH: a list of existing leads given to one employee to call (for example 100–500 numbers from a CSV
+ * import). It REFERENCES leads — nothing is copied — and everything about progress (completed, connected, dialed,
+ * pending, failed, returned) is derived from the call records and the leads themselves, never typed in.
+ */
+export const callingBatches = pgTable(
+  "calling_batches",
+  {
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    // The Founder (Clerk id) who created it, and the team member it is assigned to.
+    createdBy: text("created_by").notNull(),
+    assignedTo: text("assigned_to").notNull(),
+    // The CSV import it came from, if any (the lead SOURCE stays on the leads and the import batch).
+    importBatchId: uuid("import_batch_id").references((): AnyPgColumn => leadImportBatches.id, { onDelete: "restrict" }),
+    status: text("status").notNull().default("ACTIVE"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("calling_batches_assignee_idx").on(table.assignedTo, table.status), check("calling_batches_status_ck", sql`${table.status} in ('ACTIVE', 'CLOSED')`)],
+);
+
+export const callingBatchItems = pgTable(
+  "calling_batch_items",
+  {
+    id: uuid("id").primaryKey(),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => callingBatches.id, { onDelete: "restrict" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    // The order the lead is offered in ("next call" follows this order).
+    position: integer("position").notNull(),
+  },
+  (table) => [uniqueIndex("calling_batch_items_batch_lead_key").on(table.batchId, table.leadId), index("calling_batch_items_order_idx").on(table.batchId, table.position)],
+);
+
+/**
  * Calls placed through the INTERNAL DIALER. A row exists only because the server placed the call through the
  * telephony provider — never because a button was clicked and never from the browser. Its status, answered/ended
  * times and duration come from the provider's own events (lead_call_events); employees can set only a disposition
@@ -984,7 +1032,16 @@ export const callDispositionEnum = pgEnum("call_disposition", [
   "SWITCHED_OFF",
   "INVALID_NUMBER",
   "OTHER",
+  "NO_ANSWER",
+  "BUSY",
 ]);
+
+/**
+ * The business rule for a call: actual duration of 10 seconds or less is DIALED; strictly more than 10 seconds is
+ * CONNECTED. Decided by the SERVER from the duration the authoritative source reported — never by the client.
+ * NULL until the call has finished (and for calls that were never placed).
+ */
+export const callClassificationEnum = pgEnum("call_classification", ["DIALED", "CONNECTED"]);
 
 export const leadCalls = pgTable(
   "lead_calls",
@@ -1008,6 +1065,19 @@ export const leadCalls = pgTable(
     endedAt: timestamp("ended_at", { withTimezone: true }),
     durationSeconds: integer("duration_seconds"),
     endReason: text("end_reason"),
+    classification: callClassificationEnum("classification"),
+    // HOW the call was made — separate from the lead source. PROVIDER (a telephony vendor's events) or ANDROID_SIM
+    // (the employee's own phone and SIM, reported by the Android bridge from the device's call log).
+    method: text("method").notNull().default("PROVIDER"),
+    // The calling batch (queue) this call was made from, if any.
+    batchId: uuid("batch_id").references((): AnyPgColumn => callingBatches.id, { onDelete: "restrict" }),
+    // For ANDROID_SIM calls: when the device dialed (its call log's own start time), which SIM, and a reference to the
+    // call-log entry — all reported by the device once, then immutable. `reported_at` is the SERVER's receive time.
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    deviceRef: text("device_ref"),
+    simRef: text("sim_ref"),
+    callLogRef: text("call_log_ref"),
+    reportedAt: timestamp("reported_at", { withTimezone: true }),
     disposition: callDispositionEnum("disposition"),
     dispositionBy: text("disposition_by"),
     dispositionAt: timestamp("disposition_at", { withTimezone: true }),
@@ -1018,6 +1088,8 @@ export const leadCalls = pgTable(
     index("lead_calls_lead_idx").on(table.leadId, table.initiatedAt),
     index("lead_calls_staff_idx").on(table.staffUserId, table.initiatedAt),
     index("lead_calls_initiated_idx").on(table.initiatedAt),
+    index("lead_calls_batch_idx").on(table.batchId).where(sql`${table.batchId} is not null`),
+    index("lead_calls_classification_idx").on(table.staffUserId, table.classification, table.initiatedAt),
     uniqueIndex("lead_calls_provider_call_key").on(table.provider, table.providerCallId).where(sql`${table.providerCallId} is not null`),
     check("lead_calls_duration_ck", sql`${table.durationSeconds} is null or ${table.durationSeconds} >= 0`),
   ],
@@ -1046,5 +1118,237 @@ export const leadCallEvents = pgTable(
   (table) => [
     uniqueIndex("lead_call_events_idempotency_key").on(table.provider, table.providerEventId),
     index("lead_call_events_call_idx").on(table.callId, table.occurredAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------------------------
+// PHASE 4 - SALES OPERATING SYSTEM: projects, shortlist, site visits
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * A PROJECT a developer is selling that the sales team can match buyers to. Founder-maintained inventory: nothing here
+ * is scraped or guessed, and a field the Founder does not know stays NULL - the matcher then reports UNKNOWN for that
+ * criterion instead of pretending. Money is stored with its currency (INR or AED) and never converted.
+ */
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey(),
+    developerId: uuid("developer_id")
+      .notNull()
+      .references(() => developers.id, { onDelete: "restrict" }),
+    name: text("name").notNull(),
+    city: text("city").notNull(),
+    locality: text("locality"),
+    propertyType: text("property_type"),
+    configurations: text("configurations").array().notNull().default(sql`'{}'::text[]`),
+    priceMin: bigint("price_min", { mode: "number" }),
+    priceMax: bigint("price_max", { mode: "number" }),
+    currency: leadCurrencyEnum("currency"),
+    status: text("status").notNull().default("ACTIVE"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("projects_developer_name_key").on(table.developerId, sql`lower(${table.name})`),
+    index("projects_city_idx").on(table.city),
+    check("projects_status_ck", sql`${table.status} in ('ACTIVE', 'INACTIVE')`),
+    check("projects_price_ck", sql`(${table.priceMin} is null or ${table.priceMin} >= 0) and (${table.priceMax} is null or ${table.priceMax} >= 0) and (${table.priceMin} is null or ${table.priceMax} is null or ${table.priceMin} <= ${table.priceMax})`),
+    check("projects_currency_ck", sql`(${table.priceMin} is null and ${table.priceMax} is null) or ${table.currency} is not null`),
+  ],
+);
+
+/**
+ * A project put on a buyer's shortlist. History is kept: removing sets removed_at/removed_by, the row stays, and the
+ * buyer can be shortlisted for the same project again later (a new row). At most ONE active row per lead+project.
+ */
+export const leadProjectShortlist = pgTable(
+  "lead_project_shortlist",
+  {
+    id: uuid("id").primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    requirementId: uuid("requirement_id").references(() => leadRequirements.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "restrict" }),
+    shortlistedBy: text("shortlisted_by").notNull(),
+    shortlistedAt: timestamp("shortlisted_at", { withTimezone: true }).notNull().defaultNow(),
+    removedBy: text("removed_by"),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("lead_project_shortlist_active_key").on(table.leadId, table.projectId).where(sql`${table.removedAt} is null`),
+    index("lead_project_shortlist_lead_idx").on(table.leadId),
+    index("lead_project_shortlist_project_idx").on(table.projectId),
+    check("lead_project_shortlist_removed_ck", sql`(${table.removedAt} is null) = (${table.removedBy} is null)`),
+  ],
+);
+
+export const siteVisitStatusEnum = pgEnum("site_visit_status", ["SCHEDULED", "CONFIRMED", "COMPLETED", "NO_SHOW", "RESCHEDULED", "CANCELLED"]);
+
+/**
+ * A SITE VISIT: a buyer going to see a project. A reschedule never edits the old row - it closes it as RESCHEDULED and
+ * creates a new row pointing back (rescheduled_from), so the chain of what happened is kept. Every change appends to
+ * site_visit_events (immutable, trigger in migration 0023) and to the lead's own timeline. `staff_user_id` is the team
+ * member responsible (the lead's owner when it was scheduled, or the Founder).
+ */
+export const siteVisits = pgTable(
+  "site_visits",
+  {
+    id: uuid("id").primaryKey(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "restrict" }),
+    requirementId: uuid("requirement_id").references(() => leadRequirements.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "restrict" }),
+    staffUserId: text("staff_user_id").notNull(),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    status: siteVisitStatusEnum("status").notNull().default("SCHEDULED"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    outcome: text("outcome"),
+    nextAction: text("next_action"),
+    notes: text("notes"),
+    rescheduledFrom: uuid("rescheduled_from").references((): AnyPgColumn => siteVisits.id, { onDelete: "restrict" }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("site_visits_lead_idx").on(table.leadId, table.scheduledAt),
+    index("site_visits_staff_idx").on(table.staffUserId, table.scheduledAt),
+    index("site_visits_status_idx").on(table.status, table.scheduledAt),
+    uniqueIndex("site_visits_open_key").on(table.leadId, sql`coalesce(${table.projectId}, '00000000-0000-0000-0000-000000000000'::uuid)`).where(sql`${table.status} in ('SCHEDULED', 'CONFIRMED')`),
+    check("site_visits_outcome_ck", sql`${table.outcome} is null or ${table.outcome} in ('INTERESTED', 'NEEDS_ANOTHER_VISIT', 'NEGOTIATING', 'NOT_INTERESTED', 'OTHER')`),
+  ],
+);
+
+/** The visit's own audit trail: who changed it, from what to what, when. Append-only (trigger in migration 0023). */
+export const siteVisitEvents = pgTable(
+  "site_visit_events",
+  {
+    id: uuid("id").primaryKey(),
+    visitId: uuid("visit_id")
+      .notNull()
+      .references(() => siteVisits.id, { onDelete: "restrict" }),
+    eventType: text("event_type").notNull(),
+    actorType: leadActorTypeEnum("actor_type").notNull(),
+    actorId: text("actor_id"),
+    fromStatus: siteVisitStatusEnum("from_status"),
+    toStatus: siteVisitStatusEnum("to_status"),
+    payload: jsonb("payload").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("site_visit_events_visit_idx").on(table.visitId, table.createdAt)],
+);
+
+// ---------------------------------------------------------------------------------------------------------------
+// PHASE 5 - ACQUISITION ENGINE: campaigns
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * A marketing campaign tied to ONE utm_campaign tag. The unique index on lower(utm_campaign) is what guarantees a lead
+ * is attributed to at most one campaign (no double counting). The tag is the attribution key and is never edited.
+ * Spend is deliberately not here yet (finance phase) - nothing is estimated.
+ */
+export const campaigns = pgTable(
+  "campaigns",
+  {
+    id: uuid("id").primaryKey(),
+    name: text("name").notNull(),
+    utmCampaign: text("utm_campaign").notNull(),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    landingPage: text("landing_page"),
+    startDate: text("start_date"),
+    endDate: text("end_date"),
+    status: text("status").notNull().default("ACTIVE"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("campaigns_utm_campaign_key").on(sql`lower(${table.utmCampaign})`),
+    check("campaigns_status_ck", sql`${table.status} in ('ACTIVE', 'PAUSED', 'ENDED')`),
+    check("campaigns_dates_ck", sql`${table.startDate} is null or ${table.endDate} is null or ${table.endDate} >= ${table.startDate}`),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------------------------
+// PHASE 6 - MARKETING + FINANCE INTELLIGENCE: marketing spend
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * Money the Founder actually spent on acquisition. Every entry has a CHANNEL (so channel profitability is possible
+ * without guessing) and optionally the campaign it was for. The currency is stored with the amount (INR or AED) and is
+ * never converted or summed across currencies. Entries are never edited or deleted: a mistake is VOIDED (voided_at /
+ * voided_by / reason), and voided entries stay as history but count for nothing.
+ */
+export const marketingSpend = pgTable(
+  "marketing_spend",
+  {
+    id: uuid("id").primaryKey(),
+    channel: text("channel").notNull(),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "restrict" }),
+    // The day the money was spent (a plain date, India calendar day - see the business time zone).
+    spentOn: text("spent_on").notNull(),
+    currency: leadCurrencyEnum("currency").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedBy: text("voided_by"),
+    voidReason: text("void_reason"),
+  },
+  (table) => [
+    index("marketing_spend_spent_on_idx").on(table.spentOn),
+    index("marketing_spend_campaign_idx").on(table.campaignId),
+    check("marketing_spend_amount_ck", sql`${table.amount} > 0`),
+    check("marketing_spend_void_ck", sql`(${table.voidedAt} is null) = (${table.voidedBy} is null)`),
+    check("marketing_spend_channel_ck", sql`${table.channel} in ('GOOGLE_ADS', 'META', 'INSTAGRAM', 'WHATSAPP', 'REFERRAL', 'ORGANIC_SEARCH', 'OTHER_DIGITAL', 'DIRECT_OR_UNKNOWN', 'CSV_IMPORT', 'COLD_CALLING', 'SELF_GENERATED_OTHER')`),
+  ],
+);
+
+// ---------------------------------------------------------------------------------------------------------------
+// PHASE 8 - AUTOMATION ENGINE: settings and the action log
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Founder switches for each automation. A key with no row uses the default in code (reminders on, auto-routing OFF). */
+export const automationSettings = pgTable("automation_settings", {
+  key: text("key").primaryKey(),
+  enabled: boolean("enabled").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Every automated action, once. `dedupe_key` is unique: it names exactly the thing the action is about (for example
+ * "this follow-up at this time"), so running the engine twice - or two runs at once - can never send the same reminder
+ * or make the same assignment twice. A row is CLAIMED (PENDING) before the work, then marked DONE or FAILED; a FAILED
+ * (or abandoned) claim can be retried a few times. Never deleted. `detail` holds ids and enums only - no buyer data.
+ */
+export const automationActions = pgTable(
+  "automation_actions",
+  {
+    id: uuid("id").primaryKey(),
+    rule: text("rule").notNull(),
+    subjectType: text("subject_type").notNull(),
+    subjectId: text("subject_id").notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    status: text("status").notNull().default("PENDING"),
+    attempts: integer("attempts").notNull().default(1),
+    detail: jsonb("detail").notNull().default({}),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("automation_actions_dedupe_key").on(table.dedupeKey),
+    index("automation_actions_created_idx").on(table.createdAt),
+    check("automation_actions_status_ck", sql`${table.status} in ('PENDING', 'DONE', 'FAILED', 'SKIPPED')`),
   ],
 );

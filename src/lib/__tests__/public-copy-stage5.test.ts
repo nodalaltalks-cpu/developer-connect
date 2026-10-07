@@ -71,13 +71,13 @@ test("public copy: nothing tells a buyer to go to a developer's website or promi
 
 test("homepage: the headline and sub-line match the new journey (connect, with optional property assistance)", () => {
   const home = plain(read("app/(marketing)/page.tsx"));
-  assert.match(home, /Find the developer\. Connect with confidence\./);
-  assert.match(home, /Developers with verified official websites, plus optional property assistance to help you connect\./);
+  assert.match(home, /Research first\. Get expert help when you('|&apos;)re ready\./);
+  assert.match(home, /Explore developers across India and the UAE, see who you are dealing with, and talk to a property specialist only when you choose to\./);
 });
 
 test("site description (default meta description): says the verification is what it is, and offers help connecting", () => {
   const layout = plain(read("app/layout.tsx"));
-  assert.match(layout, /so you can tell the real developer from a look-alike, with optional property assistance to help you connect/);
+  assert.match(layout, /which verifies each listed developer's official website, and get expert property help when you are ready/);
 });
 
 test("buy-direct guides: still teach the useful steps (verify the developer, check the regulator, get terms in writing) without sending anyone to a website", () => {
@@ -136,8 +136,8 @@ test("public copy: the verification and trust wording the SEO and the badge rely
   const badge = read("components/official-website-verified-badge.tsx");
   assert.match(badge, /Official website verified by Developer Connects/);
   const devPage = read("lib/developer-connect/developer-page-content.ts");
-  assert.match(devPage, /Official Website in \$\{city\}/, "the developer page title keeps its 'Official Website in {city}' keyword pattern");
-  assert.match(devPage, /has verified its official website\. Share your requirement and we'll help connect you\./);
+  assert.match(devPage, /Developer Profile \| \$\{SITE_NAME\}/, "the developer page title is a research-first profile title (it no longer promises a website the page does not link)");
+  assert.match(devPage, /which has verified its official website, and get expert help when you are ready\./);
 });
 
 // =================================================================================================

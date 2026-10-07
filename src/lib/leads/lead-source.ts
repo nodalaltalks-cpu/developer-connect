@@ -30,6 +30,7 @@ const SOURCE_TYPE_LABEL: Record<LeadSourceType, string> = { DIGITAL: "Digital", 
 
 const CREATION_LABEL: Record<CreationMethod, string> = {
   WEBSITE_GATE: "Website",
+  CSV_IMPORT: "CSV import",
   EXCEL_IMPORT: "Excel import",
   COLD_CALLING: "Cold calling",
   EMPLOYEE_CREATED: "Added by employee",

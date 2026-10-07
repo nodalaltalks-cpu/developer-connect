@@ -170,7 +170,7 @@ test("lifecycle: INITIATED → RINGING → CONNECTED → COMPLETED — times and
   assert.equal(call.durationSeconds, 222);
   const ends = (await getLeadTimeline(w.repos, w.a.id)).filter((e) => e.eventType === "CALL_ENDED");
   assert.equal(ends.length, 1);
-  assert.deepEqual(ends[0].payload, { callId: call.id, status: "COMPLETED", connected: true, durationSeconds: 222 });
+  assert.deepEqual(ends[0].payload, { callId: call.id, status: "COMPLETED", connected: true, classification: "CONNECTED", durationSeconds: 222 });
   assert.equal(ends[0].actorType, "SYSTEM");
   assert.equal((await w.repos.leads.getById(w.a.id))?.lastActivityAt.getTime(), minutes(13).getTime(), "the lead's last activity moved when the call ended");
   assert.equal((await w.repos.calls.listEvents(call.id)).length, 3, "the raw provider events are kept as evidence");

@@ -1,7 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
-import { CallMetricTiles, EmployeeTable, HourlyChart, PeriodTable } from "@/components/leads/call-metrics";
+import { CallMetricTiles, ContributionTable, EmployeeTable, HourlyChart, PeriodTable } from "@/components/leads/call-metrics";
 import { getEmployeeInsights, parseInsightFilters, PERIODS, RANGE_PRESETS } from "@/lib/leads/call-analytics";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { formatEnumLabel } from "@/lib/leads/format";
@@ -142,6 +142,10 @@ export default async function EmployeeInsightsPage({ searchParams }: PageProps<"
       <h2 className="mt-8 text-sm font-semibold text-foreground">Employees</h2>
       <div className="mt-3">
         <EmployeeTable rows={insights.rows} />
+        <h3 className="mt-6 text-sm font-medium text-foreground">Contribution in this range</h3>
+        <div className="mt-2">
+          <ContributionTable rows={insights.rows} />
+        </div>
       </div>
     </div>
   );

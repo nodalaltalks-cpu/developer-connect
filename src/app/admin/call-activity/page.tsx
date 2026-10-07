@@ -4,6 +4,7 @@ import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { formatCallDuration, getCallActivity, parseInsightFilters } from "@/lib/leads/call-analytics";
+import { describeCall } from "@/lib/leads/call-view";
 import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
 import { leadSourceLabel } from "@/lib/leads/lead-source";
 import { getTelephonyProvider } from "@/lib/leads/telephony";
@@ -18,7 +19,6 @@ export const metadata = {
 // Private, live data: never cached or prerendered.
 export const dynamic = "force-dynamic";
 
-const STATUS_WORD = { INITIATED: "Dialing", RINGING: "Ringing", CONNECTED: "Connected", COMPLETED: "Connected", NO_ANSWER: "No answer", BUSY: "Busy", FAILED: "Failed", REJECTED: "Rejected" } as const;
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
 export default async function CallActivityPage({ searchParams }: PageProps<"/admin/call-activity">) {
@@ -77,8 +77,8 @@ export default async function CallActivityPage({ searchParams }: PageProps<"/adm
                   </span>
                 </span>
                 <span className="shrink-0 text-right text-xs text-foreground">
-                  {STATUS_WORD[call.status]}
-                  {call.answeredAt && call.durationSeconds !== null ? ` · ${formatCallDuration(call.durationSeconds)}` : ""}
+                  {describeCall(call)}
+                  {call.classification === "CONNECTED" && call.durationSeconds !== null ? ` · ${formatCallDuration(call.durationSeconds)}` : ""}
                   {call.disposition ? <span className="block text-muted-foreground">{formatEnumLabel(call.disposition)}</span> : null}
                 </span>
               </Link>

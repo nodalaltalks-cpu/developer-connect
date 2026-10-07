@@ -75,7 +75,7 @@ test("sitemap lastmod comes only from verifiedAt and is omitted when null", () =
 // D/E. P2 — metadata
 test("verified metadata states official-website intent, with the city when present", () => {
   const { title, description } = buildDeveloperMetadataText(profile());
-  assert.equal(title, "Acme Realty Official Website in Mumbai | Developer Connects");
+  assert.equal(title, "Acme Realty in Mumbai: Developer Profile | Developer Connects");
   assert.doesNotMatch(description, /acme\.example|https?:|\.com\b/, "the developer's website is never named in public metadata");
   assert.match(description, /verified its official website/);
   assert.match(description, /Mumbai/);
@@ -84,7 +84,7 @@ test("verified metadata states official-website intent, with the city when prese
 
 test("verified metadata omits the city when it is blank", () => {
   const { title, description } = buildDeveloperMetadataText(profile({ city: "  " }));
-  assert.equal(title, "Acme Realty Official Website | Developer Connects");
+  assert.equal(title, "Acme Realty: Developer Profile | Developer Connects");
   assert.doesNotMatch(description, / in \s*\./);
 });
 

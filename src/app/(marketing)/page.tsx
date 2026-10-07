@@ -12,6 +12,7 @@ import { StatCounter } from "@/components/stat-counter";
 import { CountriesCoveredCard } from "@/components/countries-covered-card";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { ContinueResearch } from "@/components/continue-research";
+import { BuyerJourney } from "@/components/buyer-journey";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { DIRECTORY_PAGE_SIZE, getPublicHomepageData } from "@/lib/developer-connect/search-service";
 import { getRecentlyViewedDevelopers } from "@/lib/developer-connect/recently-viewed";
@@ -26,9 +27,9 @@ function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-const TITLE = "Developer Connects | Verified Official Websites of Real Estate Developers";
+const TITLE = "Developer Connects | Research Real Estate Developers in India and the UAE";
 const DESCRIPTION =
-  "Find the verified official websites of real estate developers across India and the UAE, including Mumbai, Bangalore and Dubai.";
+  "Research real estate developers across India and the UAE, including Mumbai, Bangalore and Dubai, and get expert property help when you are ready.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -107,13 +108,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <SiteHeader />
 
       <main className="flex-1">
-        <Container className="py-12 sm:py-16">
+        <Container className="py-12 sm:py-20">
           <div className="mx-auto max-w-2xl">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Find the developer. Connect with confidence.
+            <h1 className="text-balance text-3xl font-semibold tracking-tight text-foreground sm:text-5xl">
+              Research first. Get expert help when you&apos;re ready.
             </h1>
-            <p className="mt-3 text-lg text-muted-foreground">
-              Developers with verified official websites, plus optional property assistance to help you connect.
+            <p className="mt-4 text-lg leading-8 text-muted-foreground">
+              Explore developers across India and the UAE, see who you are dealing with, and talk to a property specialist only when you
+              choose to.
             </p>
 
             <div className="mt-8">
@@ -142,10 +144,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold tracking-tight text-foreground">
-                  Verified developers
+                  Developers to research
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Every developer listed here has an official website verified by Developer
+                  Every developer listed here has had its official website verified by Developer
                   Connects.{" "}
                   <Link href="/how-we-verify" className="text-accent-hover hover:underline">
                     How Developer Connects verifies official websites
@@ -226,6 +228,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </section>
           )}
         </Container>
+        {!hasActiveFilter && <BuyerJourney />}
       </main>
 
       <SiteFooter />

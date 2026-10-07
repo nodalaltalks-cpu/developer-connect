@@ -4,12 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
+  { href: "/admin/command-centre", label: "Command centre" },
   { href: "/admin", label: "Overview" },
   { href: "/admin/platform-health", label: "Platform Health" },
   { href: "/admin/developers", label: "Developers" },
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/missed-leads", label: "Missed Leads" },
   { href: "/admin/returned-leads", label: "Returned Leads" },
+  { href: "/admin/calling-batches", label: "Calling batches" },
+  { href: "/admin/intelligence", label: "Intelligence" },
+  { href: "/admin/acquisition", label: "Acquisition" },
+  { href: "/admin/finance", label: "Finance" },
+  { href: "/admin/spend", label: "Marketing spend" },
+  { href: "/admin/campaigns", label: "Campaigns" },
+  { href: "/admin/sales-automation", label: "Sales automation" },
+  { href: "/admin/projects", label: "Projects" },
+  { href: "/admin/site-visits", label: "Site visits" },
   { href: "/admin/call-activity", label: "Call Activity" },
   { href: "/admin/employee-insights", label: "Employee Insights" },
   { href: "/admin/leads/import", label: "Import Leads" },

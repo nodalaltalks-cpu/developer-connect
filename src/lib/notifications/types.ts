@@ -22,7 +22,9 @@ export type NotificationType =
   | "FOLLOW_UP_MISSED"
   | "FOLLOW_UP_DUE"
   | "LEAD_RETURNED"
-  | "LEAD_ASSIGNED";
+  | "LEAD_ASSIGNED"
+  | "SITE_VISIT_DUE"
+  | "LEAD_STALE";
 
 export interface Notification {
   id: string;

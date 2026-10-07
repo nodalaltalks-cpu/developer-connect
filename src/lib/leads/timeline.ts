@@ -109,6 +109,14 @@ function headlineFor(event: LeadEvent, names?: Record<string, string>): { headli
     }
     case "CALL_DISPOSITION_SET":
       return { headline: `Call outcome — ${sentence(label(p.disposition))}`, detail: null };
+    case "PROJECT_SHORTLISTED":
+      return { headline: "Project shortlisted", detail: null };
+    case "PROJECT_SHORTLIST_REMOVED":
+      return { headline: "Project removed from shortlist", detail: null };
+    case "SITE_VISIT_SCHEDULED":
+      return { headline: `Site visit scheduled for ${when(p.scheduledAt)}`, detail: null };
+    case "SITE_VISIT_UPDATED":
+      return { headline: `Site visit ${sentence(label(p.status)).toLowerCase()}${p.status === "RESCHEDULED" && p.rescheduledTo ? ` - moved to ${when(p.rescheduledTo)}` : ""}${p.outcome ? ` - ${sentence(label(p.outcome)).toLowerCase()}` : ""}`, detail: null };
     case "FOLLOW_UP_MISSED":
       return { headline: `Follow-up missed — was due ${when(p.dueAt)}${typeSuffix(p.followUpType)}`, detail: null };
     case "FOLLOW_UP_RESCHEDULED":

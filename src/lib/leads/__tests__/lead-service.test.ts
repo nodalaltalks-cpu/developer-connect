@@ -505,6 +505,9 @@ test("authorization: every founder-only operation refuses a BUYER, a SYSTEM acto
   const repos = createInMemoryLeadRepositories();
   const { lead } = await captureAssistanceLead(repos, captureInput(), T0);
   const booking = await createBooking(repos, lead.id, { currency: "INR", bookingValue: 1 }, FOUNDER, minutes(1));
+  // A real booking moves the lead forward to BOOKED by itself; the refused attempts below must change nothing further.
+  const statusBefore = (await repos.leads.getById(lead.id))!.status;
+  assert.equal(statusBefore, "BOOKED");
 
   const notFounders = [BUYER, SYSTEM, { actorType: "FOUNDER" as const }];
   for (const actor of notFounders) {
@@ -523,7 +526,7 @@ test("authorization: every founder-only operation refuses a BUYER, a SYSTEM acto
     }
   }
   // Nothing the refused calls attempted took effect.
-  assert.equal((await repos.leads.getById(lead.id))!.status, "NEW");
+  assert.equal((await repos.leads.getById(lead.id))!.status, statusBefore);
   assert.equal((await repos.leads.getById(lead.id))!.erasedAt, null);
 });
 

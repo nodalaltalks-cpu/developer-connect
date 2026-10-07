@@ -1,25 +1,38 @@
 import type {
   Booking,
   BookingStatus,
+  CallClassification,
+  CallDisposition,
+  CallMethod,
+  CallStatus,
   ContactPreference,
   Lead,
   LeadActivitySummary,
   LeadActorType,
-  LeadConsent,
-  LeadEvent,
-  CallDisposition,
-  CallStatus,
   LeadCall,
+  LeadConsent,
+  LeadCurrency,
+  LeadEvent,
   LeadEventType,
   LeadFollowUp,
   LeadImportBatch,
-  LeadSourceType,
   LeadRequirement,
+  LeadSourceType,
   LeadStatus,
   LeadTemperature,
   MarketingTouch,
+  AutomationAction,
+  Campaign,
+  CampaignStatus,
+  MarketingSpend,
+  Project,
+  ShortlistEntry,
+  SiteVisit,
+  SiteVisitEvent,
+  SiteVisitStatus,
 } from "./types.ts";
 import type { CleanTouch } from "./attribution.ts";
+import type { AcquisitionRow } from "./acquisition.ts";
 import type { LeadCounts, LeadListQuery } from "./lead-views.ts";
 
 /**
@@ -83,6 +96,30 @@ export interface LeadRepository {
   listReturned(limit: number): Promise<Lead[]>;
   /** How many live (not erased) leads each owner holds, keyed by owner id. Founder-queue leads (no owner) are not counted. */
   countByOwner(): Promise<Record<string, number>>;
+  /**
+   * Leads CREATED in [from, to), newest first, as the acquisition report reads them: source, both touches' evidence and
+   * how far each got - never a name, phone or email. Bounded by `limit`.
+   */
+  acquisitionRows(query: { from: Date; to: Date; limit: number }): Promise<AcquisitionRow[]>;
+  /**
+   * For each forward stage from QUALIFIED to NEGOTIATION: how many live leads EVER reached it (from their history and their
+   * current status) and how many of those have a booking. History, not today's snapshot, so a later loss does not erase it.
+   */
+  stageHistory(): Promise<Array<{ stage: LeadStatus; reached: number; booked: number }>>;
+  /** OPEN, owned leads with no activity since `staleBefore`, quietest first. */
+  listStale(query: { staleBefore: Date; limit: number }): Promise<Lead[]>;
+  /** OPEN leads nobody owns that were never returned by a team member, oldest first. */
+  listUnassignedOpen(limit: number): Promise<Lead[]>;
+  /** OPEN leads each owner holds right now (the workload), keyed by owner id. */
+  countOpenByOwner(): Promise<Record<string, number>>;
+  /** Live (not erased) leads per pipeline status right now. Statuses with no leads are absent. */
+  statusCounts(): Promise<Partial<Record<LeadStatus, number>>>;
+  /**
+   * Exceptions the Founder should look at, counted in the database: OPEN leads (not booked, closed, lost, parked or
+   * invalid) that nobody owns - and how many of those have waited longer than `unassignedOlderThan` - and OPEN owned leads
+   * with no activity since `staleBefore`.
+   */
+  exceptionCounts(input: { unassignedOlderThan: Date; staleBefore: Date }): Promise<{ unassignedOpen: number; unassignedOld: number; staleOpen: number }>;
 }
 
 export interface NewLeadEvent {
@@ -143,6 +180,7 @@ export interface NewBooking {
   leadId: string;
   developerId: string | null;
   projectName: string | null;
+  projectId?: string | null;
   currency: Booking["currency"];
   bookingValue: number;
   commissionExpected: number;
@@ -152,7 +190,7 @@ export interface NewBooking {
 }
 
 export type BookingPatch = Partial<
-  Pick<Booking, "projectName" | "status" | "bookingValue" | "commissionExpected" | "commissionReceived" | "commissionReceivedAt">
+  Pick<Booking, "projectName" | "projectId" | "status" | "bookingValue" | "commissionExpected" | "commissionReceived" | "commissionReceivedAt">
 >;
 
 /** A preferred location as stored: the text as written plus its normalised matching key (see requirement-locations.ts). */
@@ -285,12 +323,35 @@ export interface NewCall {
   staffUserId: string;
   provider: string;
   phoneLast4: string | null;
+  /** How the call is made. Omitted = PROVIDER (a telephony vendor's events). */
+  method?: CallMethod;
+  /** The calling batch (queue) it is made from, if any. Fixed at creation. */
+  batchId?: string | null;
+  deviceRef?: string | null;
   now: Date;
 }
 
 /** What a call record may change after creation. Only the dialer service writes these — never an employee, never the browser. */
 export type CallPatch = Partial<
-  Pick<LeadCall, "status" | "providerCallId" | "ringingAt" | "answeredAt" | "endedAt" | "durationSeconds" | "endReason" | "disposition" | "dispositionBy" | "dispositionAt">
+  Pick<
+    LeadCall,
+    | "status"
+    | "providerCallId"
+    | "ringingAt"
+    | "answeredAt"
+    | "endedAt"
+    | "durationSeconds"
+    | "endReason"
+    | "classification"
+    | "startedAt"
+    | "deviceRef"
+    | "simRef"
+    | "callLogRef"
+    | "reportedAt"
+    | "disposition"
+    | "dispositionBy"
+    | "dispositionAt"
+  >
 >;
 
 export interface NewCallEvent {
@@ -313,8 +374,9 @@ export interface CallFilter {
   leadId?: string;
   from?: Date;
   to?: Date;
-  /** Only calls the provider reported answered (CONNECTED or COMPLETED). */
+  /** true = classified CONNECTED (more than 10 seconds); false = classified DIALED (10 seconds or less). Unfinished and unplaced calls match neither. */
   connected?: boolean;
+  batchId?: string;
   statuses?: CallStatus[];
   disposition?: CallDisposition;
   sourceType?: LeadSourceType;
@@ -339,6 +401,7 @@ export interface CallAggregateQuery {
   sourceType?: LeadSourceType;
   statuses?: CallStatus[];
   connected?: boolean;
+  batchId?: string;
   disposition?: CallDisposition;
 }
 
@@ -391,6 +454,229 @@ export interface ImportBatchRepository {
   getById(id: string): Promise<LeadImportBatch | null>;
 }
 
+/** A list of existing leads given to one employee to call. See the calling_batches schema comment. */
+export interface CallingBatch {
+  id: string;
+  name: string;
+  createdBy: string;
+  assignedTo: string;
+  importBatchId: string | null;
+  status: "ACTIVE" | "CLOSED";
+  createdAt: Date;
+  /** How many leads it holds. */
+  itemCount: number;
+}
+
+export interface NewCallingBatch {
+  name: string;
+  createdBy: string;
+  assignedTo: string;
+  importBatchId: string | null;
+  leadIds: string[];
+  now: Date;
+}
+
+/** One lead in a batch, with what the call records say about it — derived, never typed in. */
+export interface BatchLeadProgress {
+  lead: Lead;
+  position: number;
+  /** Calls that reached the other end (classified DIALED or CONNECTED) from THIS batch. */
+  calls: number;
+  connectedCalls: number;
+  /** Attempts that never placed a call. */
+  failedCalls: number;
+  lastCallAt: Date | null;
+  lastClassification: CallClassification | null;
+}
+
+export interface CallingBatchRepository {
+  /** Creates the batch and its items (in the given order). The leads are referenced, never copied. */
+  create(input: NewCallingBatch): Promise<CallingBatch>;
+  getById(id: string): Promise<CallingBatch | null>;
+  /** One employee's batches, active first, newest first. */
+  listForAssignee(staffUserId: string): Promise<CallingBatch[]>;
+  /** Every batch, newest first (Founder). */
+  listAll(limit: number): Promise<CallingBatch[]>;
+  /** Every item in order with its lead and call-derived progress. */
+  progress(batchId: string): Promise<BatchLeadProgress[]>;
+  close(id: string): Promise<CallingBatch>;
+}
+
+// --- Phase 8: automation ---------------------------------------------------------------------------
+
+export interface NewAutomationClaim {
+  rule: string;
+  subjectType: string;
+  subjectId: string;
+  dedupeKey: string;
+  now: Date;
+}
+
+export interface AutomationActionRepository {
+  /**
+   * Atomically claims the work named by `dedupeKey`. Returns the claimed action when THIS caller should do the work -
+   * a brand-new key, a FAILED one with attempts left, or a PENDING one abandoned longer than `staleAfterMs` - and null
+   * when it is already done, skipped, exhausted or in flight elsewhere. Safe under concurrency: one caller wins.
+   */
+  claim(input: NewAutomationClaim, options: { maxAttempts: number; staleAfterMs: number }): Promise<AutomationAction | null>;
+  complete(id: string, status: "DONE" | "SKIPPED", detail: Record<string, unknown>, at: Date): Promise<void>;
+  fail(id: string, errorCode: string, at: Date): Promise<void>;
+  /** Newest first. */
+  listRecent(limit: number): Promise<AutomationAction[]>;
+}
+
+export interface AutomationSettingsRepository {
+  getAll(): Promise<Record<string, boolean>>;
+  set(key: string, enabled: boolean, by: string, at: Date): Promise<void>;
+}
+
+// --- Phase 6: marketing spend -------------------------------------------------------------------------
+
+export interface NewMarketingSpend {
+  channel: string;
+  campaignId: string | null;
+  spentOn: string;
+  currency: LeadCurrency;
+  amount: number;
+  note: string | null;
+  createdBy: string;
+  now: Date;
+}
+
+export interface SpendRepository {
+  create(input: NewMarketingSpend): Promise<MarketingSpend>;
+  getById(id: string): Promise<MarketingSpend | null>;
+  /** Sets the void columns once. Throws LeadStateError when already voided. */
+  void(id: string, by: string, reason: string, at: Date): Promise<MarketingSpend>;
+  /** Entries (voided ones included, flagged) with spent_on in [fromDate, toDate], newest first. */
+  list(query: { fromDate: string; toDate: string; limit: number }): Promise<MarketingSpend[]>;
+}
+
+// --- Phase 5: campaigns and the acquisition read ------------------------------------------------------
+
+export interface NewCampaign {
+  name: string;
+  utmCampaign: string;
+  utmSource: string | null;
+  utmMedium: string | null;
+  landingPage: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  status: CampaignStatus;
+  createdBy: string;
+  now: Date;
+}
+
+export type CampaignPatch = Partial<Pick<Campaign, "name" | "utmSource" | "utmMedium" | "landingPage" | "startDate" | "endDate" | "status">>;
+
+export interface CampaignRepository {
+  /** Throws LeadStateError when another campaign already uses that tag (case-insensitive). */
+  create(input: NewCampaign): Promise<Campaign>;
+  getById(id: string): Promise<Campaign | null>;
+  update(id: string, patch: CampaignPatch, at: Date): Promise<Campaign>;
+  /** Newest first. */
+  list(limit: number): Promise<Campaign[]>;
+}
+
+// --- Phase 4: projects, shortlist, site visits ------------------------------------------------------
+
+export interface NewProject {
+  developerId: string;
+  name: string;
+  city: string;
+  locality: string | null;
+  propertyType: string | null;
+  configurations: string[];
+  priceMin: number | null;
+  priceMax: number | null;
+  currency: LeadCurrency | null;
+  createdBy: string;
+  now: Date;
+}
+
+export type ProjectPatch = Partial<Pick<Project, "name" | "city" | "locality" | "propertyType" | "configurations" | "priceMin" | "priceMax" | "currency" | "status">>;
+
+export interface ProjectRepository {
+  /** Throws LeadStateError when the developer already has a project with that name. */
+  create(input: NewProject): Promise<Project>;
+  getById(id: string): Promise<Project | null>;
+  update(id: string, patch: ProjectPatch, at: Date): Promise<Project>;
+  /** Newest first. */
+  list(query: { activeOnly: boolean; limit: number }): Promise<Project[]>;
+}
+
+export interface NewShortlistEntry {
+  leadId: string;
+  requirementId: string | null;
+  projectId: string;
+  shortlistedBy: string;
+  now: Date;
+}
+
+export interface ShortlistRepository {
+  /** Throws LeadStateError when the project is already actively shortlisted for this lead. */
+  add(input: NewShortlistEntry): Promise<ShortlistEntry>;
+  getById(id: string): Promise<ShortlistEntry | null>;
+  /** Every entry for the lead - active and removed - oldest first. */
+  listByLead(leadId: string): Promise<ShortlistEntry[]>;
+  /** Active shortlist entries per project (how many buyers currently have it shortlisted). */
+  countActiveByProject(): Promise<Record<string, number>>;
+  /** Sets the removal columns once. Throws LeadStateError if it was already removed. */
+  remove(id: string, removedBy: string, at: Date): Promise<ShortlistEntry>;
+}
+
+export interface NewSiteVisit {
+  leadId: string;
+  requirementId: string | null;
+  projectId: string | null;
+  staffUserId: string;
+  scheduledAt: Date;
+  notes: string | null;
+  rescheduledFrom: string | null;
+  createdBy: string;
+  now: Date;
+}
+
+export type SiteVisitPatch = Partial<Pick<SiteVisit, "status" | "confirmedAt" | "completedAt" | "outcome" | "nextAction" | "notes">>;
+
+export interface SiteVisitQuery {
+  /** Only this member's visits. */
+  staffUserId?: string;
+  statuses?: SiteVisitStatus[];
+  /** scheduled_at within [from, to). */
+  from?: Date;
+  to?: Date;
+  limit: number;
+}
+
+export interface SiteVisitStats {
+  /** Visits created in the range that were NOT reschedules of an earlier visit (a reschedule is not a new visit). */
+  scheduled: number;
+  /** Visits marked COMPLETED in the range. */
+  completed: number;
+  /** Visits marked NO_SHOW in the range. */
+  noShow: number;
+}
+
+export interface SiteVisitRepository {
+  /** Throws LeadStateError when the lead already has an open visit for the same project. */
+  create(input: NewSiteVisit): Promise<SiteVisit>;
+  getById(id: string): Promise<SiteVisit | null>;
+  /** Throws LeadStateError when the visit is already finished. */
+  update(id: string, patch: SiteVisitPatch, at: Date): Promise<SiteVisit>;
+  /** Every visit for the lead, oldest scheduled first. */
+  listByLead(leadId: string): Promise<SiteVisit[]>;
+  list(query: SiteVisitQuery): Promise<SiteVisit[]>;
+  appendEvent(input: Omit<SiteVisitEvent, "id">): Promise<SiteVisitEvent>;
+  listEvents(visitId: string): Promise<SiteVisitEvent[]>;
+  /** Visits scheduled (not reschedules) in [from, to) per project; visits with no project are not counted. */
+  countByProject(from: Date, to: Date): Promise<Record<string, number>>;
+  /** Per team member, derived from the visits themselves. */
+  statsByStaff(from: Date, to: Date): Promise<Record<string, SiteVisitStats>>;
+  /** Erasure: clears the free text (notes, next action) on every visit of the lead; the visits themselves stay as history. */
+  eraseForLead(leadId: string): Promise<void>;
+}
+
 export interface BookingRepository {
   create(booking: NewBooking): Promise<Booking>;
   getById(id: string): Promise<Booking | null>;
@@ -398,6 +684,8 @@ export interface BookingRepository {
   listByLead(leadId: string): Promise<Booking[]>;
   /** Booking value per CURRENT lead owner and currency (never summed across currencies). Founder-queue leads are not included. */
   revenueByOwner(): Promise<Array<{ ownerId: string; currency: string; total: number; count: number }>>;
+  /** BOOKED bookings whose commission is not fully received yet, oldest first. Carries no buyer data - only the lead id to open. */
+  listOutstanding(limit: number): Promise<Booking[]>;
 }
 
 export interface LeadRepositories {
@@ -409,6 +697,14 @@ export interface LeadRepositories {
   requirements: RequirementRepository;
   followUps: FollowUpRepository;
   calls: CallRepository;
+  callingBatches: CallingBatchRepository;
+  projects: ProjectRepository;
+  shortlist: ShortlistRepository;
+  siteVisits: SiteVisitRepository;
+  campaigns: CampaignRepository;
+  spend: SpendRepository;
+  automationActions: AutomationActionRepository;
+  automationSettings: AutomationSettingsRepository;
   importBatches: ImportBatchRepository;
   /**
    * Runs `work` atomically: either every write inside it happens or none

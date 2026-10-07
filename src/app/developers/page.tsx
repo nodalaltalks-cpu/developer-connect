@@ -171,7 +171,7 @@ export default async function DevelopersIndexPage({
           <p className="mt-2 text-muted-foreground">
             {location
               ? locationIntro(location, total)
-              : `${total} real estate developer${total === 1 ? "" : "s"} with an official website verified by Developer Connects.`}
+              : `${total} real estate developer${total === 1 ? "" : "s"} to research, each with an official website verified by Developer Connects.`}
           </p>
           <p className="mt-2 text-sm">
             <Link href={buyDirectPath(buyDirectGuide)} className="text-accent-hover hover:underline">

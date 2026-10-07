@@ -49,9 +49,9 @@ test("call button, dialer connected: a real button that places the call through 
 });
 
 const calls: CallView[] = [
-  { id: "c1", status: "NO_ANSWER", initiatedAt: "2026-10-10T04:32:00.000Z", answeredAt: null, endedAt: "2026-10-10T04:32:30.000Z", durationSeconds: null, disposition: "SWITCHED_OFF", staffUserId: "u1" },
-  { id: "c2", status: "COMPLETED", initiatedAt: "2026-10-10T04:48:00.000Z", answeredAt: "2026-10-10T04:48:05.000Z", endedAt: "2026-10-10T04:51:00.000Z", durationSeconds: 222, disposition: "FOLLOW_UP_REQUIRED", staffUserId: "u1" },
-  { id: "c3", status: "BUSY", initiatedAt: "2026-10-10T10:15:00.000Z", answeredAt: null, endedAt: null, durationSeconds: null, disposition: null, staffUserId: "u2" },
+  { id: "c1", status: "NO_ANSWER", initiatedAt: "2026-10-10T04:32:00.000Z", answeredAt: null, endedAt: "2026-10-10T04:32:30.000Z", durationSeconds: null, classification: "DIALED", method: "PROVIDER", disposition: "SWITCHED_OFF", staffUserId: "u1" },
+  { id: "c2", status: "COMPLETED", initiatedAt: "2026-10-10T04:48:00.000Z", answeredAt: "2026-10-10T04:48:05.000Z", endedAt: "2026-10-10T04:51:00.000Z", durationSeconds: 222, classification: "CONNECTED", method: "PROVIDER", disposition: "FOLLOW_UP_REQUIRED", staffUserId: "u1" },
+  { id: "c3", status: "BUSY", initiatedAt: "2026-10-10T10:15:00.000Z", answeredAt: null, endedAt: null, durationSeconds: null, classification: "DIALED", method: "PROVIDER", disposition: null, staffUserId: "u2" },
 ];
 
 test("call history: attempts, connected count, talk time, the last call and its outcome — and every call in order with who, when, status, duration", () => {
@@ -110,6 +110,7 @@ const ROW = (name: string, dialed: number, connected: number): EmployeeInsightRo
   followUps: { created: 3, completed: 2, missedNow: 1 },
   leadsReturned: 1,
   currentLeads: { qualified: 2, siteVisit: 1, booked: 1 },
+  contribution: { ownedLeads: 10, requirementsCreated: 2, projectsShortlisted: 3, siteVisitsScheduled: 2, siteVisitsCompleted: 1, siteVisitsNoShow: 1, leadsReachedShare: 0.5, visitsPerConnectedCall: 0.25, visitCompletionRate: 0.5 },
   revenue: [{ currency: "INR", total: 9_000_000, count: 1 }],
 });
 

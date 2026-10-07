@@ -16,7 +16,8 @@ export function ContinueResearch({ developers }: { developers: PublicDeveloperPr
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Continue your research
       </h2>
-      <ul className="mt-3 flex gap-3 overflow-x-auto pb-1">
+      {/* relative: the cards contain visually-hidden (absolutely positioned) labels; without a positioned scroller they escape its clipping and widen the whole page on phones. */}
+      <ul className="relative mt-3 flex gap-3 overflow-x-auto pb-1">
         {developers.map((developer) => (
           <li key={developer.id} className="shrink-0">
             <Link

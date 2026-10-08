@@ -96,17 +96,19 @@ test("team page: shows status and lead counts, offers deactivate/reactivate, fla
   const html = renderToStaticMarkup(
     <StaffManager
       rows={[
-        { id: "a", displayName: "Priya Nair", email: "priya@example.com", role: "EMPLOYEE", active: true, leadCount: 3 },
-        { id: "b", displayName: "Rohan Das", email: null, role: "SALES_MANAGER", active: false, leadCount: 2 },
+        { id: "a", employeeId: "DC2", displayName: "Priya Nair", email: "priya@example.com", role: "EMPLOYEE", status: "ACTIVE", approvedAt: null, joinedAt: null, exitedAt: null, leadCount: 3 },
+        { id: "b", employeeId: "DC3", displayName: "Rohan Das", email: null, role: "SALES_MANAGER", status: "INACTIVE", approvedAt: null, joinedAt: null, exitedAt: null, leadCount: 2 },
       ]}
+      query=""
     />,
   );
   assert.match(html, /Priya Nair/);
-  assert.match(html, /3 leads/);
+  assert.match(html, /DC2/);
+  assert.match(html, /3 open leads/);
   assert.match(html, /Deactivate/);
-  assert.match(html, /Reactivate/);
+  assert.match(html, /Activate/);
   assert.match(html, /Sales manager/);
-  assert.match(html, /reassign their leads/);
+  assert.match(html, /DC1/);
 });
 
 test("detail sections: the Record card and timeline show names; an unknown owner never shows an id", () => {

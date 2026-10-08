@@ -83,6 +83,12 @@ export interface LeadRepository {
   /** Applies `patch` and sets `updatedAt` to `at`. Throws if the lead does not exist. */
   update(id: string, patch: LeadPatch, at: Date): Promise<Lead>;
   /** Leads that could belong on the Founder's Today queue (not erased, not in a closed-out state), newest activity first. */
+  /**
+   * The candidates for the Today queue: every open lead with a PENDING follow-up (up to `limit`, soonest first) UNION the
+   * `limit` most recently active open leads, without duplicates. Recent activity alone is the wrong pool: a lead whose
+   * follow-up is overdue, or that has gone quiet, has OLD activity by definition and would be dropped once there are more
+   * than `limit` open leads.
+   */
   listForQueue(limit: number): Promise<Lead[]>;
   /** One page of the founder's Leads list for a view (see lead-views.ts), plus how many leads match in total. Erased leads are never returned. */
   list(query: LeadListQuery): Promise<{ leads: Lead[]; total: number }>;
@@ -108,6 +114,12 @@ export interface LeadRepository {
   stageHistory(): Promise<Array<{ stage: LeadStatus; reached: number; booked: number }>>;
   /** OPEN, owned leads with no activity since `staleBefore`, quietest first. */
   listStale(query: { staleBefore: Date; limit: number }): Promise<Lead[]>;
+  /**
+   * OPEN, owned, live leads whose buyer (the signed-in user the lead was captured for) viewed a page since `since`, at
+   * least `minLeadAgeMs` after the lead was created. One row per lead: the buyer's latest view. Reads analytics_events
+   * by user id only - nothing the buyer typed - and only events that were recorded with the visitor's consent.
+   */
+  listReturnVisits(query: { since: Date; minLeadAgeMs: number; limit: number }): Promise<Array<{ lead: Lead; viewedAt: Date }>>;
   /** OPEN leads nobody owns that were never returned by a team member, oldest first. */
   listUnassignedOpen(limit: number): Promise<Lead[]>;
   /** OPEN leads each owner holds right now (the workload), keyed by owner id. */
@@ -149,6 +161,13 @@ export interface LeadEventRepository {
   redactPayloads(leadId: string, redact: (event: LeadEvent) => Record<string, unknown>): Promise<number>;
   /** How many events of `eventType` each actor (Clerk id) caused in [from, to). */
   countByTypeAndActor(eventType: LeadEventType, from: Date, to: Date): Promise<Record<string, number>>;
+  /**
+   * What one person did, newest first, one bounded page at a time (pass the last event's time as `before` for the next
+   * page). Reads the (actor, time) index - it never loads a person's whole history.
+   */
+  listByActor(actorId: string, query: { limit: number; before?: Date }): Promise<LeadEvent[]>;
+  /** In how many distinct leads this person appears as the actor, and how many distinct leads were ever assigned TO them. */
+  actorLeadCounts(actorId: string): Promise<{ leadsActedOn: number; leadsAssignedTo: number }>;
 }
 
 export type NewTouch = CleanTouch & { id?: string };

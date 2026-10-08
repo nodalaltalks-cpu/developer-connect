@@ -1,11 +1,11 @@
 import { cache } from "react";
+import { SHARE_IMAGES } from "@/lib/share-image";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
-import { OfficialWebsiteVerifiedBadge } from "@/components/official-website-verified-badge";
 import { ConnectWithDeveloperButton } from "@/components/connect-with-developer-button";
 import { DeveloperPageViewTracker } from "@/components/developer-page-view-tracker";
 import { ShareDeveloper } from "@/components/share-developer";
@@ -111,10 +111,10 @@ export async function generateMetadata({
       title,
       description,
       url: `/developers/${developer.slug}`,
-      siteName: "Developer Connects",
+      siteName: "Developer Connects", images: SHARE_IMAGES,
       type: "website",
     },
-    twitter: { card: "summary", title, description },
+    twitter: { card: "summary_large_image", images: SHARE_IMAGES, title, description },
     alternates: { canonical: `/developers/${developer.slug}` },
     ...(developer.officialWebsite ? {} : { robots: { index: false, follow: true } }),
   };
@@ -169,13 +169,13 @@ export default async function DeveloperPage({
             <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
               <ol className="flex items-center gap-1">
                 <li>
-                  <Link href="/" className="hover:text-accent-hover hover:underline">
+                  <Link href="/" className="inline-flex min-h-11 items-center hover:text-accent-hover hover:underline">
                     Home
                   </Link>
                 </li>
                 <li aria-hidden="true">/</li>
                 <li>
-                  <Link href="/developers" className="hover:text-accent-hover hover:underline">
+                  <Link href="/developers" className="inline-flex min-h-11 items-center hover:text-accent-hover hover:underline">
                     Developers
                   </Link>
                 </li>
@@ -203,8 +203,7 @@ export default async function DeveloperPage({
 
             {developer.officialWebsite ? (
               <div className="mt-6 rounded-lg border border-border bg-muted p-6">
-                <OfficialWebsiteVerifiedBadge full />
-                <p className="mt-4 text-sm text-foreground">
+                <p className="text-sm text-foreground">
                   Researching {developer.displayName}? When you are ready, tell Developer Connects what you need and a property specialist will
                   get in touch.
                 </p>
@@ -215,26 +214,16 @@ export default async function DeveloperPage({
                     sourceCta="developer_page"
                   />
                 </div>
-                {developer.officialWebsite.verifiedAt && (
-                  <p className="mt-4 text-xs text-muted-foreground">
-                    Last verified {formatDate(developer.officialWebsite.verifiedAt)}
-                  </p>
-                )}
-                <p className="mt-3 text-xs text-muted-foreground">
-                  This confirms only that Developer Connects approved this website as the one
-                  belonging to this developer. It is not a certification of the developer, its
-                  projects or its regulatory status.{" "}
-                  <Link href="/how-we-verify" className="text-accent-hover hover:underline">
-                    How Developer Connects verifies official websites
-                  </Link>
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Developer Connects is not the developer. Confirm prices, approvals and terms with the developer
+                  and the regulator before you pay anything.
                 </p>
               </div>
             ) : (
               <div className="mt-8 rounded-lg border border-border bg-muted p-6">
-                <p className="font-medium text-foreground">Official website not yet verified.</p>
+                <p className="font-medium text-foreground">This profile is being prepared.</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Developer Connects hasn&apos;t confirmed {developer.displayName}&apos;s official
-                  website yet. Check back soon.
+                  We are still preparing the page for {developer.displayName}. Check back soon.
                 </p>
               </div>
             )}
@@ -277,17 +266,17 @@ export default async function DeveloperPage({
             <div className="mx-auto mt-16 max-w-2xl border-t border-border pt-10">
               <h2 className="text-lg font-semibold text-foreground">
                 {relatedAllInCity ? (
-                  <>Other verified developers in {developer.city}</>
+                  <>Other developers in {developer.city}</>
                 ) : (
-                  <>Other verified developers in {developer.country}</>
+                  <>Other developers in {developer.country}</>
                 )}
               </h2>
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+              <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {relatedDevelopers.map((other) => (
                   <li key={other.id} className="min-w-0">
                     <Link
                       href={`/developers/${other.slug}`}
-                      className="block truncate text-foreground hover:text-accent-hover hover:underline"
+                      className="block truncate py-2.5 text-foreground hover:text-accent-hover hover:underline"
                     >
                       {other.displayName}
                     </Link>

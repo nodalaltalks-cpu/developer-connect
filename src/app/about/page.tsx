@@ -6,7 +6,7 @@ import { SiteFooter } from "@/components/site-footer";
 export const metadata: Metadata = {
   title: "About Us | Developer Connects",
   description:
-    "Why Developer Connects exists, how verification works, and what we deliberately don't do.",
+    "Developer Connects is a property advisory platform for buyers in Mumbai, Dubai and across India and the UAE: clear information, expert guidance, and a calmer way to buy.",
   alternates: { canonical: "/about" },
 };
 
@@ -21,55 +21,45 @@ export default function AboutPage() {
             <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               About Developer Connects
             </h1>
+            <p className="mt-4 text-lg leading-8 text-muted-foreground">
+              We are building a better way to buy property in Mumbai, Dubai and across India and the UAE.
+            </p>
 
             <div className="mt-8 space-y-8 text-foreground">
               <section>
-                <h2 className="text-lg font-semibold">The problem</h2>
+                <h2 className="text-lg font-semibold">Why we exist</h2>
                 <p className="mt-2 text-muted-foreground">
-                  Real-estate research is scattered across many different websites and listings,
-                  and it&apos;s not always obvious which result actually belongs to the developer
-                  themselves. Developer Connects is built to make that first step simpler.
+                  Buying a home is the largest decision most families make, yet the process is still scattered,
+                  rushed and hard to read. Prices are unclear, information sits across many websites, and it is
+                  rarely obvious who is genuinely helping you. Developer Connects exists to replace that noise with
+                  clarity.
                 </p>
               </section>
 
               <section>
                 <h2 className="text-lg font-semibold">What we do</h2>
                 <p className="mt-2 text-muted-foreground">
-                  Developer Connects is a directory of verified real-estate developers. We review each
-                  developer&apos;s official website and approve it as the developer&apos;s own, and we
-                  offer property assistance: when you ask to connect with a developer, you share your
-                  WhatsApp number or phone with Developer Connects so our property team can help
-                  connect you based on your requirement.
+                  Developer Connects is a property advisory platform. We help you compare leading developers and
+                  projects, understand the location, the price and the terms, and talk to a property specialist
+                  when you choose to. When you ask to connect with a developer, you share your WhatsApp number or
+                  phone with Developer Connects so our advisory team can help based on your requirement.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-lg font-semibold">How verification works</h2>
-                <p className="mt-2 text-muted-foreground">
-                  We review developer websites and approve the website we identify as the
-                  developer&rsquo;s official website. Every verified listing shows the date it was
-                  verified by Developer Connects.{" "}
-                  <a href="/how-we-verify" className="text-accent-hover hover:underline">
-                    How Developer Connects verifies official websites
-                  </a>
-                </p>
-              </section>
-
-              <section>
-                <h2 className="text-lg font-semibold">How property assistance works</h2>
+                <h2 className="text-lg font-semibold">How property advisory works</h2>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
                   <li>
-                    Developer Connects is not the developer, and the developer does not require your
-                    phone number through this flow.
+                    Developer Connects is not the developer, and the developer does not require your phone number
+                    through this flow.
                   </li>
                   <li>
-                    The details you share are given to Developer Connects, to help with your property
-                    enquiry through the contact method you choose.
+                    The details you share are given to Developer Connects, to help with your property enquiry
+                    through the contact method you choose.
                   </li>
                   <li>
-                    Developer Connects may receive payment from developers or others in connection with
-                    property transactions. This has no effect on whether a developer&apos;s website is
-                    verified.
+                    Developer Connects may receive payment from developers or others in connection with property
+                    transactions. This has no effect on how we present any developer.
                   </li>
                 </ul>
               </section>
@@ -77,20 +67,21 @@ export default function AboutPage() {
               <section>
                 <h2 className="text-lg font-semibold">Transparency</h2>
                 <p className="mt-2 text-muted-foreground">
-                  If something on a developer&apos;s listing looks wrong, you can{" "}
+                  If something on a developer&apos;s page looks wrong, you can{" "}
                   <a href="/contact" className="text-accent-hover hover:underline">
                     report it
                   </a>{" "}
-                  directly from that developer&apos;s page, and we&apos;ll review it. Covering
-                  verified developers across India and the UAE, including Mumbai and Dubai.
+                  directly from that developer&apos;s page, and we&apos;ll review it. We cover developers across
+                  India and the UAE, including Mumbai and Dubai. Always confirm prices, approvals and terms with
+                  the developer and the regulator before you pay anything.
                 </p>
               </section>
 
               <section>
                 <h2 className="text-lg font-semibold">Part of NoDalalTalks</h2>
                 <p className="mt-2 text-muted-foreground">
-                  Developer Connects is part of the NoDalalTalks ecosystem, which focuses on
-                  building simple, trustworthy tools for people to research real estate directly.
+                  Developer Connects is part of the NoDalalTalks ecosystem, which focuses on building simple,
+                  trustworthy tools for people to research real estate directly.
                 </p>
               </section>
             </div>

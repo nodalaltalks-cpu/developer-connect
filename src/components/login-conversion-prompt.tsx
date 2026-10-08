@@ -134,7 +134,7 @@ export function LoginConversionPrompt() {
           </button>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sign in to explore the complete verified developer directory — every published developer,
+          Sign in to explore the complete developer directory — every published developer,
           searchable and filterable, with nothing held back.
         </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

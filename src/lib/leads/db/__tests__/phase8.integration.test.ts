@@ -106,3 +106,50 @@ test("integration: listStale, listUnassignedOpen and countOpenByOwner are databa
   assert.ok(!unassignedIds.includes(returned.id), "a returned lead is the Founder's call, never auto-routed");
   assert.equal((await repos.leads.countOpenByOwner())[owner], 1, "only the open one counts as workload");
 });
+
+test("integration: listReturnVisits joins a buyer's page views to their open, owned lead - only later than the enquiry, one row per lead, never closed or consent-less", { skip }, async () => {
+  const { leadPg, schema, db } = await modules();
+  const repos = leadPg.createPostgresLeadRepositories();
+  const service = await import("../../lead-service.ts");
+  const phone = await import("../../phone.ts");
+  const mk = async (userId: string) => {
+    const dev = randomUUID();
+    await db.insert(schema.developers).values({ id: dev, displayName: "TEST — Return Co", slug: `test-rv-${randomUUID()}`, city: "Thane", state: "Maharashtra", country: "India" });
+    const sessionId = `rv-${randomUUID()}`;
+    let e164 = "";
+    for (let i = 0; i < 50 && !e164; i++) {
+      const r = phone.normalizePhone(`+91 9${String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, "0")}`);
+      if (r.ok) e164 = r.e164;
+    }
+    const lead = (await service.captureAssistanceLead(repos, { phone: e164, name: "TEST rv", email: null, contactPreference: "PHONE_CALL", developer: { id: dev, slug: `s-${dev}`, displayName: "TEST — Return Co" }, sourceCta: "developer_page", sessionId, currentTouch: { sessionId, landingPath: "/developers/x" } })).lead;
+    await repos.leads.update(lead.id, { userId, ownerId: `user_it_${randomUUID().slice(0, 8)}` }, new Date());
+    return lead;
+  };
+  const view = (userId: string, at: Date, eventName: "page_viewed" | "page_engagement" = "page_viewed") =>
+    db.insert(schema.analyticsEvents).values({ id: randomUUID(), eventName, occurredAt: at, sessionId: `s-${randomUUID()}`, userId, payload: {} });
+  const HOUR = 3_600_000;
+
+  const buyer = `user_rv_${randomUUID().slice(0, 8)}`;
+  const returning = await mk(buyer);
+  const enquiryOnly = await mk(`user_rv_${randomUUID().slice(0, 8)}`);
+  const closed = await mk(`user_rv_${randomUUID().slice(0, 8)}`);
+  await repos.leads.update(closed.id, { status: "LOST" }, new Date());
+  const t = (h: number) => new Date(returning.createdAt.getTime() + h * HOUR);
+
+  await view(buyer, t(0.5)); // the enquiry session
+  await view(buyer, t(5));
+  await view(buyer, t(9)); // latest
+  await view(buyer, t(20), "page_engagement"); // not a page view
+  await view(`${enquiryOnly.userId}`, new Date(enquiryOnly.createdAt.getTime() + 0.5 * HOUR));
+  await view(`${closed.userId}`, new Date(closed.createdAt.getTime() + 5 * HOUR));
+
+  const since = new Date(returning.createdAt.getTime() - HOUR);
+  const rows = await repos.leads.listReturnVisits({ since, minLeadAgeMs: 2 * HOUR, limit: 5000 });
+  const mine = rows.filter((r) => r.lead.id === returning.id);
+  assert.equal(mine.length, 1, "one row per lead");
+  assert.equal(mine[0].viewedAt.getTime(), t(9).getTime(), "the buyer's latest page view");
+  assert.ok(!rows.some((r) => r.lead.id === enquiryOnly.id), "a view inside the enquiry session is not a return");
+  assert.ok(!rows.some((r) => r.lead.id === closed.id), "a closed lead is never alerted");
+  const none = await repos.leads.listReturnVisits({ since: new Date(t(10).getTime()), minLeadAgeMs: 2 * HOUR, limit: 5000 });
+  assert.ok(!none.some((r) => r.lead.id === returning.id), "since is honoured");
+});

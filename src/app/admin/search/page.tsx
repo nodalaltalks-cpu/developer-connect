@@ -66,7 +66,7 @@ export default async function AdminSearchIntelligencePage({
         </StatGrid>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <h2 className="text-base font-semibold text-foreground">Top searches</h2>
           {intel.topQueries.length === 0 ? (
@@ -123,7 +123,7 @@ export default async function AdminSearchIntelligencePage({
         </div>
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <h2 className="text-base font-semibold text-foreground">Most engaged developers</h2>
           <p className="mt-1 text-sm text-muted-foreground">

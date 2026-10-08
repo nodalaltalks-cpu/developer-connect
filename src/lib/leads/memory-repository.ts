@@ -66,10 +66,11 @@ const toRequirement = (stored: StoredRequirement): LeadRequirement => ({ ...stor
 
 export function createInMemoryLeadRepositories(
   developerNames: Record<string, string> = {},
-): LeadRepositories & { snapshot(): { leads: Lead[]; events: LeadEvent[] } } {
+): LeadRepositories & { snapshot(): { leads: Lead[]; events: LeadEvent[] }; recordPageView(userId: string, at: Date): void } {
   const state = {
     leads: new Map<string, Lead>(),
     events: [] as LeadEvent[],
+    pageViews: [] as Array<{ userId: string; at: Date }>,
     touches: new Map<string, MarketingTouch>(),
     consents: [] as LeadConsent[],
     bookings: new Map<string, Booking>(),
@@ -176,11 +177,14 @@ export function createInMemoryLeadRepositories(
         return { ...lead };
       },
       async listForQueue(limit) {
-        return [...state.leads.values()]
-          .filter((lead) => !lead.erasedAt && !QUEUE_EXCLUDED_STATUSES.includes(lead.status))
-          .sort((a, b) => b.lastActivityAt.getTime() - a.lastActivityAt.getTime())
-          .slice(0, limit)
-          .map((lead) => ({ ...lead }));
+        const open = [...state.leads.values()].filter((lead) => !lead.erasedAt && !QUEUE_EXCLUDED_STATUSES.includes(lead.status));
+        const withFollowUp = open
+          .filter((lead) => lead.nextFollowUpAt)
+          .sort((a, b) => a.nextFollowUpAt!.getTime() - b.nextFollowUpAt!.getTime())
+          .slice(0, limit);
+        const recent = [...open].sort((a, b) => b.lastActivityAt.getTime() - a.lastActivityAt.getTime()).slice(0, limit);
+        const byId = new Map([...withFollowUp, ...recent].map((lead) => [lead.id, lead]));
+        return [...byId.values()].map((lead) => ({ ...lead }));
       },
       async list(query) {
         const matching = [...state.leads.values()]
@@ -247,6 +251,15 @@ export function createInMemoryLeadRepositories(
           .sort((a, b) => a.lastActivityAt.getTime() - b.lastActivityAt.getTime())
           .slice(0, limit)
           .map((l) => ({ ...l }));
+      },
+      async listReturnVisits({ since, minLeadAgeMs, limit }) {
+        const out: Array<{ lead: Lead; viewedAt: Date }> = [];
+        for (const l of state.leads.values()) {
+          if (l.erasedAt !== null || CLOSED_OUT_STATUSES.includes(l.status) || l.ownerId === null || l.userId === null) continue;
+          const views = state.pageViews.filter((v) => v.userId === l.userId && v.at >= since && v.at.getTime() >= l.createdAt.getTime() + minLeadAgeMs);
+          if (views.length > 0) out.push({ lead: { ...l }, viewedAt: new Date(Math.max(...views.map((v) => v.at.getTime()))) });
+        }
+        return out.sort((a, b) => b.viewedAt.getTime() - a.viewedAt.getTime()).slice(0, limit);
       },
       async listUnassignedOpen(limit) {
         return [...state.leads.values()]
@@ -395,6 +408,22 @@ export function createInMemoryLeadRepositories(
     },
 
     events: {
+      async listByActor(actorId, { limit, before }) {
+        return state.events
+          .filter((e) => e.actorId === actorId && (!before || e.createdAt < before))
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, limit)
+          .map((e) => ({ ...e, payload: { ...e.payload } }));
+      },
+      async actorLeadCounts(actorId) {
+        const acted = new Set<string>();
+        const assigned = new Set<string>();
+        for (const e of state.events) {
+          if (e.actorId === actorId) acted.add(e.leadId);
+          if (e.eventType === "OWNER_CHANGED" && e.payload.to === actorId) assigned.add(e.leadId);
+        }
+        return { leadsActedOn: acted.size, leadsAssignedTo: assigned.size };
+      },
       async countByTypeAndActor(eventType, from, to) {
         const counts: Record<string, number> = {};
         for (const event of state.events) {
@@ -1073,6 +1102,9 @@ export function createInMemoryLeadRepositories(
   };
 
   return Object.assign(repos, {
+    recordPageView: (userId: string, at: Date) => {
+      state.pageViews.push({ userId, at });
+    },
     snapshot: () => ({
       leads: [...state.leads.values()].map((lead) => ({ ...lead })),
       events: state.events.map((event) => ({ ...event, payload: structuredClone(event.payload) })),

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { UserButton } from "@clerk/nextjs";
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { NotificationBell } from "@/components/notification-bell";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getFounderAttention } from "@/lib/leads/follow-up-reads";
 import { requireFounder } from "@/lib/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminBottomNav } from "@/components/admin/admin-bottom-nav";
 import { ScrollToTopButton } from "@/components/admin/scroll-to-top-button";
 import { DateRangeFilter } from "@/components/admin/date-range-filter";
 import { Logo } from "@/components/logo";
@@ -47,12 +48,12 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           <div className="mr-auto flex min-w-0 items-center gap-3">
             <Logo />
             <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-hover">
-              Founder
+              DC1 · Founder
             </span>
           </div>
           <div className="order-2 flex shrink-0 items-center gap-2 sm:order-3">
             <NotificationBell />
-            <UserButton />
+            <UserButton appearance={{ elements: { userButtonTrigger: { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" } } }} />
           </div>
           <div className="order-3 flex w-full justify-end sm:order-2 sm:w-auto">
             {/* The ONE global analytics date filter — every date-filtered
@@ -67,10 +68,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
-        <nav className="lg:w-56 lg:shrink-0" aria-label="Founder dashboard">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 pb-24 sm:px-6 lg:flex-row lg:pb-6">
+        <nav className="hidden lg:block lg:w-56 lg:shrink-0" aria-label="Founder dashboard">
           <AdminNav badges={badges} />
         </nav>
+        <AdminBottomNav badges={badges} />
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>

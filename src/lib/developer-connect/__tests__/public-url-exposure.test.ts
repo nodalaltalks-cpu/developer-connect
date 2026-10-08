@@ -76,13 +76,13 @@ test("boundary: an unverified developer has no website object at all", () => {
   assert.equal(toPublicDeveloperProfile(developer, null).officialWebsite, null);
 });
 
-test("seo: page title is a research-first profile title; description and intro say 'verified' without naming the site", () => {
+test("seo: page title is a profile title; description and intro state the advisory offer without naming the site", () => {
   const profile = toPublicDeveloperProfile(developer, verified);
   const { title, description } = buildDeveloperMetadataText(profile);
   assert.equal(title, "Acme Realty in Mumbai: Developer Profile | Developer Connects");
-  assert.match(description, /has verified its official website/);
+  assert.match(description, /one-to-one expert guidance/);
   const intro = developerIntroText(profile, () => "2 February 2026");
-  assert.equal(intro, "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website has been verified by Developer Connects on 2 February 2026.");
+  assert.equal(intro, "Acme Realty is a real estate developer in Mumbai, Maharashtra, India.");
   for (const text of [title, description, intro]) assert.doesNotMatch(text, /acme-secret-site|https?:|www\./i);
 });
 
@@ -130,7 +130,7 @@ test("source: the sitemap and llms.txt never name a developer's website", () => 
     const source = code(read(file));
     assert.doesNotMatch(source, /canonicalDomain|officialWebsite\.url|verified official website domain/, `${file} names a developer website`);
   }
-  assert.match(read("app/llms.txt/route.ts"), /that its official website has been verified/);
+  assert.match(read("app/llms.txt/route.ts"), /property advisory platform for buyers in Mumbai, Dubai/);
 });
 
 test("source: server actions that return developers return the public shape only", () => {
@@ -162,7 +162,7 @@ test("mobile: the admin header wraps on a phone (brand + avatar on one row, date
   assert.match(layout, /order-3 flex w-full justify-end sm:order-2 sm:w-auto/, "the date filter drops to its own full-width row on a phone");
   assert.match(layout, /mr-auto flex min-w-0 items-center/);
   assert.doesNotMatch(layout, /flex h-16 max-w-6xl items-center justify-between px-6/, "the old fixed single-row header is gone");
-  assert.match(layout, /px-4 py-6 sm:px-6 lg:flex-row/, "the page gutter is 16px on a phone");
+  assert.match(layout, /px-4 py-6 pb-24 sm:px-6 lg:flex-row lg:pb-6/, "the page gutter is 16px on a phone, with room for the bottom navigation");
 });
 
 // --- copy rules ----------------------------------------------------------------------------------

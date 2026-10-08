@@ -10,7 +10,7 @@ import {
 } from "@/app/admin/_actions/developer-actions";
 
 const inputClassName =
-  "mt-1.5 w-full rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "mt-1.5 w-full min-h-11 rounded-md border border-border px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const labelClassName = "block text-sm font-medium text-foreground";
 
 interface FieldsState {
@@ -183,7 +183,7 @@ export function DeveloperIntakeForm() {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
           <label className={labelClassName} htmlFor="city">
             City

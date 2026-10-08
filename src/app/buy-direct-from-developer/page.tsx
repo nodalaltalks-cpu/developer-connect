@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SHARE_IMAGES } from "@/lib/share-image";
 import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
@@ -20,8 +21,8 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: BUY_DIRECT_PATH },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: BUY_DIRECT_PATH, siteName: "Developer Connects", type: "article" },
-  twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: BUY_DIRECT_PATH, siteName: "Developer Connects", images: SHARE_IMAGES, type: "article" },
+  twitter: { card: "summary_large_image", images: SHARE_IMAGES, title: TITLE, description: DESCRIPTION },
 };
 
 export default function BuyDirectHubPage() {
@@ -49,7 +50,7 @@ export default function BuyDirectHubPage() {
             <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
               <ol className="flex flex-wrap items-center gap-1">
                 <li>
-                  <Link href="/" className="hover:text-accent-hover hover:underline">
+                  <Link href="/" className="inline-flex min-h-11 items-center hover:text-accent-hover hover:underline">
                     Home
                   </Link>
                 </li>
@@ -69,18 +70,17 @@ export default function BuyDirectHubPage() {
             </p>
 
             <div className="mt-6 rounded-lg border border-accent-soft bg-accent-soft/40 p-5">
-              <p className="font-medium text-foreground">Start with a verified developer</p>
+              <p className="font-medium text-foreground">Start with the right developer</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Developer Connects lists real estate developers in India and the UAE and confirms the official
-                website that belongs to each one — so you know you are dealing with the real developer. When you
-                are ready, connect with the developer through Developer Connects and our property team will help
-                with your enquiry.
+                Developer Connects brings together leading real estate developers in India and the UAE. When you
+                are ready, connect with a developer through Developer Connects and our advisory team will help
+                with your enquiry, from shortlisting to site visit.
               </p>
               <Link
                 href="/developers"
                 className="mt-3 inline-flex min-h-11 items-center rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover"
               >
-                Browse verified developers
+                Browse developers
               </Link>
             </div>
 
@@ -96,12 +96,12 @@ export default function BuyDirectHubPage() {
               <li>Ask the developer&apos;s sales team for prices, offers and payment plans in writing.</li>
               <li>Confirm all terms and any fees before you commit.</li>
               <li>Ask anyone who helps you how they are paid and whether a fee applies.</li>
-              <li>Verify the developer and the project yourself before you pay anything.</li>
+              <li>Check the developer and the project yourself, and with the regulator, before you pay anything.</li>
             </ul>
 
             <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">Guides by location</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Each guide covers the regulator to check and lists that location&apos;s verified developers.
+              Each guide covers the regulator to check and lists that location&apos;s developers.
             </p>
             {[
               { heading: "India", items: india },
@@ -111,7 +111,7 @@ export default function BuyDirectHubPage() {
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   {group.heading}
                 </h3>
-                <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {group.items.map((market) => (
                     <li key={market.slug}>
                       <Link href={buyDirectPath(market)} className="text-accent-hover hover:underline">
@@ -130,10 +130,7 @@ export default function BuyDirectHubPage() {
 
             <p className="mt-8 text-xs text-muted-foreground">
               This guide is general information, not legal or financial advice. Developer Connects is a
-              directory of verified developers that also offers optional property assistance.{" "}
-              <Link href="/how-we-verify" className="text-accent-hover hover:underline">
-                How we verify official websites
-              </Link>
+              property advisory platform that offers optional guidance when you are ready.
             </p>
           </article>
         </Container>

@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, max, isNotNull, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "../../developer-connect/db/client.ts";
 import * as schema from "../../developer-connect/db/schema.ts";
 import {
+  analyticsEvents,
   bookings,
   developers,
   automationActions,
@@ -253,13 +254,14 @@ function build(db: DbOrTx): LeadRepositories {
       },
 
       async listForQueue(limit) {
-        const rows = await db
-          .select()
-          .from(leads)
-          .where(and(isNull(leads.erasedAt), notInArray(leads.status, [...QUEUE_EXCLUDED_STATUSES])))
-          .orderBy(desc(leads.lastActivityAt), asc(leads.id))
-          .limit(limit);
-        return rows.map(toLead);
+        const open = and(isNull(leads.erasedAt), notInArray(leads.status, [...QUEUE_EXCLUDED_STATUSES]));
+        const [withFollowUp, recent] = await Promise.all([
+          db.select().from(leads).where(and(open, isNotNull(leads.nextFollowUpAt))).orderBy(asc(leads.nextFollowUpAt), asc(leads.id)).limit(limit),
+          db.select().from(leads).where(open).orderBy(desc(leads.lastActivityAt), asc(leads.id)).limit(limit),
+        ]);
+        const byId = new Map<string, (typeof recent)[number]>();
+        for (const row of [...withFollowUp, ...recent]) byId.set(row.id, row);
+        return [...byId.values()].map(toLead);
       },
 
       async list(query) {
@@ -360,6 +362,27 @@ function build(db: DbOrTx): LeadRepositories {
           .orderBy(asc(leads.lastActivityAt))
           .limit(limit);
         return rows.map(toLead);
+      },
+      async listReturnVisits({ since, minLeadAgeMs, limit }) {
+        const viewedAt = max(analyticsEvents.occurredAt);
+        const rows = await db
+          .select({ lead: leads, viewedAt })
+          .from(leads)
+          .innerJoin(analyticsEvents, eq(analyticsEvents.userId, leads.userId))
+          .where(
+            and(
+              isNull(leads.erasedAt),
+              notInArray(leads.status, [...CLOSED_OUT_STATUSES]),
+              isNotNull(leads.ownerId),
+              eq(analyticsEvents.eventName, "page_viewed"),
+              gte(analyticsEvents.occurredAt, since),
+              sql`${analyticsEvents.occurredAt} >= ${leads.createdAt} + (${minLeadAgeMs} * interval '1 millisecond')`,
+            ),
+          )
+          .groupBy(leads.id)
+          .orderBy(desc(viewedAt))
+          .limit(limit);
+        return rows.flatMap((r) => (r.viewedAt ? [{ lead: toLead(r.lead), viewedAt: new Date(r.viewedAt) }] : []));
       },
       async listUnassignedOpen(limit) {
         const rows = await db
@@ -515,6 +538,23 @@ function build(db: DbOrTx): LeadRepositories {
     },
 
     events: {
+      async listByActor(actorId, { limit, before }) {
+        const rows = await db
+          .select()
+          .from(leadEvents)
+          .where(and(eq(leadEvents.actorId, actorId), before ? lt(leadEvents.createdAt, before) : undefined))
+          .orderBy(desc(leadEvents.createdAt))
+          .limit(limit);
+        return rows.map(toEvent);
+      },
+      async actorLeadCounts(actorId) {
+        const [acted] = await db.select({ n: sql<number>`count(distinct ${leadEvents.leadId})::int` }).from(leadEvents).where(eq(leadEvents.actorId, actorId));
+        const [assigned] = await db
+          .select({ n: sql<number>`count(distinct ${leadEvents.leadId})::int` })
+          .from(leadEvents)
+          .where(and(eq(leadEvents.eventType, "OWNER_CHANGED"), sql`${leadEvents.payload}->>'to' = ${actorId}`));
+        return { leadsActedOn: acted?.n ?? 0, leadsAssignedTo: assigned?.n ?? 0 };
+      },
       async countByTypeAndActor(eventType, from, to) {
         const rows = await db
           .select({ actorId: leadEvents.actorId, total: sql<number>`count(*)::int` })

@@ -56,7 +56,7 @@ test("render: the form states the purpose, the transparency note and the develop
   assert.match(out, /Acme Realty does not require your phone number through this flow/);
   assert.match(out, /we are not Acme Realty/);
   assert.match(out, /You&#x27;re sharing your details with Developer Connects/);
-  assert.match(out, /Developer Connects has verified Acme Realty&#x27;s official website\./);
+  assert.match(out, /Your request goes to the Developer Connects advisory team for Acme Realty\./);
 });
 
 test("render: the submit button reads 'Request a connection' and says Developer Connects will contact the buyer", () => {
@@ -390,7 +390,7 @@ test("disclosure: it sits with the consent text in the scrolling area, and the p
 test("disclosure: it states the relationship only — no fee, independence, licence or non-broker claim", () => {
   const out = decode(html(STATES.form));
   assert.match(out, /may receive payment from developers or others in connection with property transactions/);
-  assert.match(out, /no effect on whether a developer&#x27;s website is verified|no effect on whether a developer's website is verified/);
+  assert.match(out, /no effect on how we present any developer/);
   for (const pattern of [/commission[- ]free/i, /zero[- ](commission|brokerage)/i, /independent/i, /not (a|an) (broker|agent)/i, /licen[cs]ed/i, /\bfree\b/i]) {
     assert.doesNotMatch(out, pattern, `markup matches ${pattern}`);
   }

@@ -111,8 +111,8 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection title="9. Developer/company information">
         <p>
-          We also hold information about real-estate developers themselves (company name, location, official
-          website, verification status). This is business information about companies, not personal
+          We also hold information about real-estate developers themselves (company name, location and other
+          business information). This is business information about companies, not personal
           information about you, and is described here only for completeness — see &ldquo;How developer
           information is sourced&rdquo; in our Terms of Service for detail.
         </p>
@@ -156,8 +156,7 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Our commercial relationship:</strong> Developer Connects may receive payment from developers or
-            others in connection with property transactions. This has no effect on whether a developer&apos;s website
-            is verified.
+            others in connection with property transactions. This has no effect on how we present any developer.
           </li>
           <li>
             <strong>Erasure:</strong> you can ask us to erase your enquiry details by emailing{" "}

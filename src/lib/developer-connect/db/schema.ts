@@ -84,6 +84,12 @@ export const analyticsEventNameEnum = pgEnum("analytics_event_name", [
   "assistance_form_started",
   "lead_submitted",
   "official_website_redirected",
+  // First-party visitor behaviour (collected by /api/events): a page opened, a
+  // per-page engagement summary on leave, and a tracked button click. Anonymous,
+  // session-scoped, no personal data - see lib/behaviour/events.ts.
+  "page_viewed",
+  "page_engagement",
+  "cta_clicked",
 ]);
 
 export const developers = pgTable(
@@ -260,6 +266,7 @@ export const analyticsEvents = pgTable(
     index("analytics_events_name_time_idx").on(table.eventName, table.occurredAt),
     index("analytics_events_developer_idx").on(table.developerId),
     index("analytics_events_user_idx").on(table.userId),
+    index("analytics_events_session_idx").on(table.sessionId, table.occurredAt),
   ],
 );
 
@@ -295,6 +302,8 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   // Phase 8 (migration 0026): automated, deterministic reminders for team members.
   "SITE_VISIT_DUE",
   "LEAD_STALE",
+  // Migration 0029: a buyer with an open lead came back to the site.
+  "LEAD_REVISITED",
 ]);
 
 export const inaccuracyReportCategoryEnum = pgEnum("inaccuracy_report_category", [
@@ -723,6 +732,8 @@ export const leadEvents = pgTable(
     index("lead_events_lead_created_idx").on(table.leadId, table.createdAt),
     index("lead_events_developer_type_idx").on(table.developerId, table.eventType),
     index("lead_events_type_created_idx").on(table.eventType, table.createdAt),
+    // "Everything this person did", newest first - the employee profile's history (migration 0027).
+    index("lead_events_actor_created_idx").on(table.actorId, table.createdAt),
   ],
 );
 
@@ -800,6 +811,14 @@ export const bookings = pgTable(
 export const staffRoleEnum = pgEnum("staff_role", ["EMPLOYEE", "SALES_MANAGER", "MANAGER"]);
 
 /**
+ * Where a person stands. INVITED: the Founder created the record (an approved sign-in EMAIL is recorded) - no access yet.
+ * ACTIVE: approved AND signed in once with that verified email - access allowed. INACTIVE: switched off for now, may be
+ * switched back on. EXITED: left the company; terminal, access gone for good, every record kept. `active` below is kept
+ * equal to (status = 'ACTIVE') by a check constraint, so the single flag every existing access check uses stays correct.
+ */
+export const staffStatusEnum = pgEnum("staff_status", ["INVITED", "ACTIVE", "INACTIVE", "EXITED"]);
+
+/**
  * A person on the sales team. `userId` is the Clerk user id (Clerk stays the identity provider; this table holds
  * only what sales operations need — no HR data). A member is never deleted: they are deactivated, so the owner
  * recorded in old lead history always still resolves to a name. An inactive member can receive no new leads and
@@ -814,6 +833,18 @@ export const staffMembers = pgTable(
     email: text("email"),
     role: staffRoleEnum("role").notNull().default("EMPLOYEE"),
     active: boolean("active").notNull().default(true),
+    // The permanent Developer Connects employee ID ("DC2", "DC3"...), allocated from a database sequence, immutable
+    // (trigger), never reused (a sequence never hands out a number twice, and rows are never deleted). DC1 is the Founder,
+    // who is deliberately not a staff row.
+    employeeId: text("employee_id").notNull(),
+    status: staffStatusEnum("status").notNull().default("ACTIVE"),
+    // First time they became ACTIVE (approved and signed in).
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: text("approved_by"),
+    exitedAt: timestamp("exited_at", { withTimezone: true }),
+    exitedBy: text("exited_by"),
+    exitReason: text("exit_reason"),
     // Clerk user id of the founder who added / deactivated the member.
     createdBy: text("created_by").notNull(),
     deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
@@ -823,9 +854,39 @@ export const staffMembers = pgTable(
   },
   (table) => [
     uniqueIndex("staff_members_user_id_key").on(table.userId),
+    uniqueIndex("staff_members_employee_id_key").on(table.employeeId),
+    // One live record per sign-in email: an exited person's email may be invited again as a new record.
+    uniqueIndex("staff_members_email_live_key").on(sql`lower(${table.email})`).where(sql`${table.email} is not null and ${table.status} <> 'EXITED'`),
     index("staff_members_active_idx").on(table.active),
+    index("staff_members_status_idx").on(table.status),
     check("staff_members_name_present_ck", sql`length(btrim(${table.displayName})) > 0`),
-    check("staff_members_deactivation_ck", sql`${table.active} or ${table.deactivatedAt} is not null`),
+    check("staff_members_employee_id_ck", sql`${table.employeeId} ~ '^DC[1-9][0-9]*$'`),
+    check("staff_members_active_status_ck", sql`${table.active} = (${table.status} = 'ACTIVE')`),
+    check("staff_members_exit_ck", sql`(${table.status} = 'EXITED') = (${table.exitedAt} is not null)`),
+  ],
+);
+
+/**
+ * The employee lifecycle log: who did what to which employee and when. Append-only (trigger in migration 0027).
+ * Stores the employee ID and ids/enums only - no email, no free text beyond a structured exit reason.
+ */
+export const staffEvents = pgTable(
+  "staff_events",
+  {
+    id: uuid("id").primaryKey(),
+    staffId: uuid("staff_id")
+      .notNull()
+      .references(() => staffMembers.id, { onDelete: "restrict" }),
+    employeeId: text("employee_id").notNull(),
+    eventType: text("event_type").notNull(),
+    // The Clerk user id of whoever did it (the Founder, or the person themselves on first sign-in).
+    actorId: text("actor_id"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    payload: jsonb("payload").notNull().default({}),
+  },
+  (table) => [
+    index("staff_events_staff_idx").on(table.staffId, table.occurredAt),
+    check("staff_events_type_ck", sql`${table.eventType} in ('EMPLOYEE_INVITED', 'EMPLOYEE_APPROVED', 'EMPLOYEE_ACTIVATED', 'EMPLOYEE_DEACTIVATED', 'EMPLOYEE_REACTIVATED', 'EMPLOYEE_EXITED', 'EMPLOYEE_EMAIL_CHANGED')`),
   ],
 );
 

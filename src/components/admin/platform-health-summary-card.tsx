@@ -44,7 +44,7 @@ export async function PlatformHealthSummaryCard() {
       </ul>
       <Link
         href="/admin/platform-health"
-        className="mt-3 inline-block text-sm font-medium text-accent-hover hover:underline"
+        className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline"
       >
         View Platform Health →
       </Link>

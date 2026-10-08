@@ -59,7 +59,7 @@ export interface GateCopy {
  */
 export const COMMERCIAL_DISCLOSURE =
   "Developer Connects may receive payment from developers or others in connection with property transactions. " +
-  "This has no effect on whether a developer's website is verified.";
+  "This has no effect on how we present any developer.";
 
 export function gateCopy(developerName: string, preference: GateContactPreference = "WHATSAPP"): GateCopy {
   const channelWords = preference === "WHATSAPP" ? "on WhatsApp" : "by phone call";
@@ -87,7 +87,7 @@ export function gateCopy(developerName: string, preference: GateContactPreferenc
     submitHint: `Developer Connects will contact you ${channelWords}. You won't be sent to another website.`,
     submitting: "Saving your details…",
     close: "Close",
-    verifiedNote: `Developer Connects has verified ${developerName}'s official website.`,
+    verifiedNote: `Your request goes to the Developer Connects advisory team for ${developerName}.`,
     returningTitle: "Welcome back",
     returningBody: `We'll keep helping you ${channelWords}. Send your request to connect with ${developerName} using the details you shared earlier?`,
     returningContinue: "Request a connection",

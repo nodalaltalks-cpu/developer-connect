@@ -24,7 +24,8 @@ export type NotificationType =
   | "LEAD_RETURNED"
   | "LEAD_ASSIGNED"
   | "SITE_VISIT_DUE"
-  | "LEAD_STALE";
+  | "LEAD_STALE"
+  | "LEAD_REVISITED";
 
 export interface Notification {
   id: string;

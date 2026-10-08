@@ -15,36 +15,31 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "What is Developer Connects?",
     answer:
-      "A directory of verified real-estate developers. We review each developer's official website, and our property assistance helps you connect with the developer based on your requirement.",
+      "A property advisory platform for buyers in Mumbai, Dubai and across India and the UAE. We help you compare leading developers and projects, understand the price and the terms, and speak to a property specialist when you choose to.",
   },
   {
     question: "Is Developer Connects the developer, or a party to my purchase?",
     answer:
-      "No. Developer Connects is not the developer of any project and is not a party to your agreement with a developer. We verify developers' official websites and help buyers connect with developers through property assistance. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on whether a developer's website is verified.",
-  },
-  {
-    question: "How do you verify developers?",
-    answer:
-      "Developer Connects reviews a developer and its website and approves the website when it is identified as the developer’s official website. Only websites approved through this process are shown as verified. Verification does not confirm the developer’s legal status, licences, regulatory approvals, domain ownership, or the quality of the developer or its projects.",
-  },
-  {
-    question: "What does “official website verified” mean?",
-    answer:
-      "It means Developer Connects approved a website as the developer’s official website. Every verified listing shows the date it was verified. It does not confirm the developer’s legal status, licences, regulatory approvals, domain ownership, or the quality of the developer or its projects.",
+      "No. Developer Connects is not the developer of any project and is not a party to your agreement with a developer. We help buyers research developers and connect with them through our advisory team. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on how we present any developer.",
   },
   {
     question: "Does Developer Connects sell properties itself?",
-    answer: "No. Properties are sold by the developers themselves. We verify developers' official websites and offer optional property assistance.",
+    answer: "No. Properties are sold by the developers themselves. We offer optional property advisory to help you research and decide.",
   },
   {
     question: "Why do you ask for my WhatsApp number or phone?",
     answer:
-      "You can search and browse developer pages freely. When you ask to connect with a developer, we ask for your WhatsApp number or phone so our property team can help with your enquiry. The developer does not require it — you are sharing it with Developer Connects, and you choose whether we contact you by WhatsApp or phone call.",
+      "You can search and browse developer pages freely. When you ask to connect with a developer, we ask for your WhatsApp number or phone so our advisory team can help with your enquiry. The developer does not require it — you are sharing it with Developer Connects, and you choose whether we contact you by WhatsApp or phone call.",
   },
   {
     question: "How do I get in touch with a developer?",
     answer:
-      "Open a developer's page and use the “Connect with” button. You share your WhatsApp number or phone with Developer Connects, and our property team contacts you to help connect you with the developer. Developer Connects does not send you to the developer's website.",
+      "Open a developer's page and use the “Connect with” button. You share your WhatsApp number or phone with Developer Connects, and our advisory team contacts you to help connect you with the developer. Developer Connects does not send you to the developer's website.",
+  },
+  {
+    question: "Can I buy from Mumbai or Dubai if I live somewhere else?",
+    answer:
+      "Yes. Many of our buyers are non-resident Indians and overseas investors. Our advisory team can walk you through projects, payment plans and timelines over WhatsApp or a call, so you can research and shortlist before you ever travel.",
   },
   {
     question: "What if I find incorrect information?",
@@ -59,17 +54,17 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "Which locations does Developer Connects cover?",
     answer:
-      "Covering verified developers across India and the UAE, including Mumbai, Bangalore, Hyderabad, Pune, Gurugram, Thane, Navi Mumbai, Dubai and Abu Dhabi.",
+      "Developers across India and the UAE, including Mumbai, Bangalore, Hyderabad, Pune, Gurugram, Thane, Navi Mumbai, Dubai and Abu Dhabi.",
   },
   {
     question: "What should I check before I buy a property?",
     answer:
-      "Developers sell new and off-plan homes through their own sales teams. Before you pay anything, make sure you are dealing with the genuine developer, check the project with the real estate regulator for its location, and get prices and terms in writing. You can request a connection from a developer's page, and our property team will help with your enquiry. Our research guide walks through every step.",
+      "Developers sell new and off-plan homes through their own sales teams. Before you pay anything, make sure you are dealing with the genuine developer, check the project with the real estate regulator for its location, and get prices and terms in writing. You can request a connection from a developer's page, and our advisory team will help with your enquiry. Our research guide walks through every step.",
   },
   {
     question: "How do I avoid fake developer websites?",
     answer:
-      "Don't rely on search ads or links sent to you. Developer Connects verifies each developer's official website, and our property team connects you with the real developer. Also check the project with the real estate regulator for its location before you pay anything.",
+      "Don't rely on search ads or links sent to you. Reach developers through a channel you trust, such as our advisory team, and check the project with the real estate regulator for its location before you pay anything.",
   },
 ];
 

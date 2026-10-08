@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { NotificationBell } from "@/components/notification-bell";
 import { DeviceCallSync } from "@/components/team/device-call-sync";
-import { requireEmployee } from "@/lib/team/session";
+import { notFound } from "next/navigation";
+import { isFounder } from "@/lib/authorization";
+import { TeamNav } from "@/components/team/team-nav";
+import { NotApproved } from "@/components/team/not-approved";
+import { getTeamAccess } from "@/lib/team/session";
 import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = {
@@ -18,7 +21,11 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   // The actual authorization gate. proxy.ts only confirms "signed in" — this confirms "signed in AND an active team
   // member". Anyone else (signed-out, unknown, deactivated, the Founder) gets a 404. Every /team page and Server
   // Action also checks for itself; a layout is not re-run on every client navigation.
-  const { member } = await requireEmployee();
+  const access = await getTeamAccess(isFounder);
+  if (access.kind === "hidden") notFound();
+  // Signed in with Google but not an approved, active employee: a friendly, uninformative message and no workspace.
+  if (access.kind === "not-approved") return <NotApproved />;
+  const { member } = access.session;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -26,32 +33,16 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3 sm:px-6">
           <div className="mr-auto flex min-w-0 items-center gap-3">
             <Logo />
-            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-hover">Team</span>
+            <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-hover">{member.employeeId}</span>
           </div>
-          <span className="hidden truncate text-sm text-muted-foreground sm:inline">{member.displayName}</span>
+          <span className="hidden truncate text-sm text-muted-foreground sm:inline">{member.employeeId} · {member.displayName}</span>
           <NotificationBell />
-          <UserButton />
+          <UserButton appearance={{ elements: { userButtonTrigger: { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" } } }} />
         </div>
       </header>
-      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:pb-6">
         <DeviceCallSync />
-        <nav aria-label="Team workspace" className="mb-4 flex flex-wrap gap-x-4">
-          <Link href="/team" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
-            My Leads
-          </Link>
-          <Link href="/team/missed" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
-            Missed follow-ups
-          </Link>
-          <Link href="/team/queue" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
-            Calling queue
-          </Link>
-          <Link href="/team/visits" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
-            Site visits
-          </Link>
-          <Link href="/team/calls" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
-            My calls
-          </Link>
-        </nav>
+        <TeamNav />
         <main className="min-w-0">{children}</main>
       </div>
     </div>

@@ -68,7 +68,7 @@ export function ProjectForm({ developers }: { developers: Array<{ id: string; na
         </label>
         <input id="p-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className={`${FIELD} mt-1.5`} />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="p-city" className="block text-sm font-medium text-foreground">
             City
@@ -82,7 +82,7 @@ export function ProjectForm({ developers }: { developers: Array<{ id: string; na
           <input id="p-loc" value={locality} onChange={(e) => setLocality(e.target.value)} maxLength={80} className={`${FIELD} mt-1.5`} />
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="p-type" className="block text-sm font-medium text-foreground">
             Property type (optional)
@@ -96,7 +96,7 @@ export function ProjectForm({ developers }: { developers: Array<{ id: string; na
           <input id="p-conf" value={configurations} onChange={(e) => setConfigurations(e.target.value)} placeholder="e.g. 2 BHK, 3 BHK" className={`${FIELD} mt-1.5`} />
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label htmlFor="p-min" className="block text-sm font-medium text-foreground">
             Minimum price (optional)

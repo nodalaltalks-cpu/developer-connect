@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { VerifiedBadge } from "@/components/verified-badge";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 
 /**
@@ -24,7 +23,6 @@ export function ContinueResearch({ developers }: { developers: PublicDeveloperPr
               href={`/developers/${developer.slug}`}
               className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm hover:border-accent-hover hover:bg-muted"
             >
-              <VerifiedBadge label={false} />
               <span className="font-medium text-foreground">{developer.displayName}</span>
               <span className="text-muted-foreground">{developer.city}</span>
             </Link>

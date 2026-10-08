@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { href: "/admin/command-centre", label: "Command centre" },
   { href: "/admin", label: "Overview" },
   { href: "/admin/platform-health", label: "Platform Health" },
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/admin/returned-leads", label: "Returned Leads" },
   { href: "/admin/calling-batches", label: "Calling batches" },
   { href: "/admin/intelligence", label: "Intelligence" },
+  { href: "/admin/behaviour", label: "Visitor behaviour" },
   { href: "/admin/acquisition", label: "Acquisition" },
   { href: "/admin/finance", label: "Finance" },
   { href: "/admin/spend", label: "Marketing spend" },
@@ -50,7 +51,7 @@ const NAV_ITEMS = [
  * longest-match comparison against a real section by accident, but an
  * exact check keeps that guarantee explicit rather than incidental.
  */
-function getActiveHref(pathname: string): string | null {
+export function getActiveHref(pathname: string): string | null {
   let best: string | null = null;
   for (const item of NAV_ITEMS) {
     const matches =
@@ -74,7 +75,7 @@ export function AdminNav({ badges = {} }: { badges?: Record<string, number> }) {
   const activeHref = getActiveHref(pathname);
 
   return (
-    <ul className="flex gap-1 overflow-x-auto pb-2 text-sm lg:flex-col lg:overflow-visible lg:pb-0">
+    <ul className="hidden gap-1 text-sm lg:flex lg:flex-col">
       {NAV_ITEMS.map((item) => {
         const active = item.href === activeHref;
         return (

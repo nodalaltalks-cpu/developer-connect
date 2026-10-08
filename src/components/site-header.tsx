@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { SignInButton } from "@clerk/nextjs";
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/logo";
@@ -48,13 +49,13 @@ export async function SiteHeader() {
   return (
     <header className="border-b border-border">
       <Container className="flex h-16 items-center justify-between">
-        <Link href="/">
+        <Link href="/" className="inline-flex min-h-11 min-w-0 items-center">
           <Logo />
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-4">
           <Link
             href="/buy-direct-from-developer"
-            className="hidden text-sm font-medium text-foreground hover:text-accent-hover sm:inline"
+            className="hidden min-h-11 items-center text-sm font-medium text-foreground hover:text-accent-hover sm:inline-flex"
           >
             Guides
           </Link>
@@ -63,7 +64,7 @@ export async function SiteHeader() {
               {showDashboard && (
                 <Link
                   href="/admin"
-                  className="text-sm font-medium text-foreground hover:text-accent-hover"
+                  className="inline-flex min-h-11 items-center text-sm font-medium text-foreground hover:text-accent-hover"
                 >
                   Dashboard
                 </Link>

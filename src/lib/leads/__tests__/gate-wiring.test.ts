@@ -249,12 +249,10 @@ test("modals: the sign-in prompt's click counter is fed AFTER the gate completes
 
 const PAGE = "app/developers/[slug]/page.tsx";
 
-test("page: the verification badge, the verification date and the 'how we verify' link are all still there", () => {
+test("page: no verification badge, date or claim remains; the not-the-developer note replaces them", () => {
   const page = read(PAGE);
-  assert.match(page, /<OfficialWebsiteVerifiedBadge full \/>/);
-  assert.match(page, /Last verified \{formatDate\(developer\.officialWebsite\.verifiedAt\)\}/);
-  assert.match(page, /How Developer Connects verifies official websites/);
-  assert.match(page, /This confirms only that Developer Connects approved this website/);
+  assert.doesNotMatch(page, /OfficialWebsiteVerifiedBadge|Last verified|how-we-verify|approved this website/);
+  assert.match(page, /Developer Connects is not the developer\. Confirm prices, approvals and terms with the developer/);
 });
 
 test("page: the developer's website is NOT published — no domain text, no link, no JSON-LD url — and the structured data is otherwise intact", () => {
@@ -288,10 +286,10 @@ test("page: metadata, canonical and indexing rules are untouched", () => {
   assert.match(page, /buildDeveloperMetadataText\(developer\)/);
 });
 
-test("card: the directory card opens the gate with source 'directory_card', keeps its verified badge, and shows no website", () => {
+test("card: the directory card opens the gate with source 'directory_card', shows no verification badge, and shows no website", () => {
   const card = read("components/developer-card.tsx");
   assert.match(card, /sourceCta="directory_card"/);
-  assert.match(card, /OfficialWebsiteVerifiedBadge/);
+  assert.doesNotMatch(card, /VerifiedBadge/);
   assert.match(card, /View developer/);
   assert.match(card, /<ConnectWithDeveloperButton/);
   assert.doesNotMatch(code(card), /canonicalDomain|officialWebsite\.url|domain=/);

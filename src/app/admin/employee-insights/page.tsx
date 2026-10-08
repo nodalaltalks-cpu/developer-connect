@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { CallMetricTiles, ContributionTable, EmployeeTable, HourlyChart, PeriodTable } from "@/components/leads/call-metrics";
@@ -47,7 +47,7 @@ export default async function EmployeeInsightsPage({ searchParams }: PageProps<"
         </p>
       )}
 
-      <form method="get" className="mb-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="Filter insights">
+      <form method="get" className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="Filter insights">
         <label className="text-sm text-foreground">
           Date range
           <select name="range" defaultValue={first(params.range) ?? "today"} className={`${FIELD} mt-1`}>

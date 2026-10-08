@@ -31,9 +31,9 @@ export default function HomeLoading() {
           </div>
 
           <div className="mx-auto mt-12 max-w-5xl sm:mt-16">
-            <span className="sr-only">Loading verified developers…</span>
+            <span className="sr-only">Loading developers…</span>
             <div aria-hidden="true" className="h-7 w-48 animate-pulse rounded bg-muted" />
-            <div className="mt-6 grid gap-4 sm:grid-cols-2" aria-hidden="true">
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2" aria-hidden="true">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-56 animate-pulse rounded-lg border border-border bg-muted" />
               ))}

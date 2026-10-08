@@ -59,7 +59,7 @@ test("copy: says what happens next — Developer Connects contacts them; they ar
   assert.equal(copy.submit, "Request a connection");
   assert.match(copy.submitHint, /Developer Connects will contact you on WhatsApp/);
   assert.match(copy.submitHint, /won't be sent to another website/);
-  assert.equal(copy.verifiedNote, `Developer Connects has verified ${DEV}'s official website.`);
+  assert.equal(copy.verifiedNote, `Your request goes to the Developer Connects advisory team for ${DEV}.`);
   assert.match(copy.successTitle, /we've received your request/);
   assert.match(copy.successBody, new RegExp(`will contact you on WhatsApp to help connect you with ${DEV}`));
 });

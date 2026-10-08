@@ -147,17 +147,17 @@ export interface LocationMetadataText {
 
 /** Title, description and H1 for a location page; page 2+ gets a natural " – Page N" suffix on the title. */
 export function locationMetadataText(location: LocationPage, page = 1): LocationMetadataText {
-  const baseTitle = `${location.titleName} Real Estate Developers – Verified Official Websites | Developer Connects`;
+  const baseTitle = `${location.titleName} Real Estate Developers | Developer Connects`;
   return {
     title: page > 1 ? `${baseTitle} – Page ${page}` : baseTitle,
-    description: `Explore verified real estate developers in ${location.phrase}. Developer Connects has verified each developer’s official website and can help you connect with the developer.`,
-    h1: `Verified real estate developers in ${location.phrase}`,
+    description: `Explore leading real estate developers in ${location.phrase}, compare projects, and get one-to-one expert guidance from Developer Connects.`,
+    h1: `Real estate developers in ${location.phrase}`,
   };
 }
 
 /** The introduction line. The count is always the live total passed in — never a stored number. */
 export function locationIntro(location: LocationPage, total: number): string {
-  return `${total} real estate developer${total === 1 ? "" : "s"} in ${location.phrase} with an official website verified by Developer Connects.`;
+  return `${total} real estate developer${total === 1 ? "" : "s"} in ${location.phrase} to explore and compare.`;
 }
 
 export interface BreadcrumbItem {

@@ -28,7 +28,7 @@ export function buildDeveloperMetadataText(developer: PublicDeveloperProfile): D
   if (!developer.officialWebsite) {
     return {
       title: `${name} | ${SITE_NAME}`,
-      description: `${name} on ${SITE_NAME}. Official website verification is in progress.`,
+      description: `${name} on ${SITE_NAME}. This profile is being prepared.`,
     };
   }
 
@@ -39,8 +39,8 @@ export function buildDeveloperMetadataText(developer: PublicDeveloperProfile): D
       ? `${name} in ${city}: Developer Profile | ${SITE_NAME}`
       : `${name}: Developer Profile | ${SITE_NAME}`,
     description: city
-      ? `${name} is a real estate developer in ${city}. Research the developer on ${SITE_NAME}, which has verified its official website, and get expert help when you are ready.`
-      : `${name} is a real estate developer. Research the developer on ${SITE_NAME}, which has verified its official website, and get expert help when you are ready.`,
+      ? `${name} is a real estate developer in ${city}. Explore the developer on ${SITE_NAME} and get one-to-one expert guidance when you are ready.`
+      : `${name} is a real estate developer. Explore the developer on ${SITE_NAME} and get one-to-one expert guidance when you are ready.`,
   };
 }
 
@@ -64,7 +64,7 @@ export function buildDeveloperMetadataText(developer: PublicDeveloperProfile): D
  */
 export function developerIntroText(
   developer: PublicDeveloperProfile,
-  formatDate: (date: Date) => string,
+  _formatDate?: (date: Date) => string,
 ): string {
   const location = [developer.city, developer.state, developer.country]
     .map((part) => part?.trim())
@@ -74,12 +74,6 @@ export function developerIntroText(
   const sentences: string[] = [];
   if (location) {
     sentences.push(`${developer.displayName} is a real estate developer in ${location}.`);
-  }
-
-  if (developer.officialWebsite) {
-    const { verifiedAt } = developer.officialWebsite;
-    const when = verifiedAt ? ` on ${formatDate(verifiedAt)}` : "";
-    sentences.push(`${developer.displayName}'s official website has been verified by Developer Connects${when}.`);
   }
 
   return sentences.join(" ");

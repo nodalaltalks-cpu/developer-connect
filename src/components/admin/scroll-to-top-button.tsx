@@ -39,7 +39,7 @@ export function ScrollToTopButton() {
       onClick={scrollToTop}
       aria-label="Back to top"
       title="Back to top"
-      className="fixed bottom-6 right-6 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:bottom-8 lg:right-8"
+      className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:bottom-8 lg:right-8"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"

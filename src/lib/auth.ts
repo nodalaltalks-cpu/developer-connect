@@ -1,8 +1,16 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { cache } from "react";
+import { auth, currentUser as clerkCurrentUser } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
 import { isFounder } from "./authorization.ts";
 
 export { isFounder } from "./authorization.ts";
+
+/**
+ * The signed-in user, fetched from Clerk at most ONCE per request. A Founder page used to call Clerk's backend API two to
+ * four times (layout gate, layout badges, page gate, page body) - each a network round trip. React's per-request cache
+ * makes every later call in the same request reuse the first result; nothing is shared between requests or users.
+ */
+export const currentUser = cache(() => clerkCurrentUser());
 export type { AuthorizableUser } from "./authorization.ts";
 
 /** The current request's signed-in user id, or null if signed out. */

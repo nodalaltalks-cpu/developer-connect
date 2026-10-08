@@ -86,7 +86,7 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusBadge status={lead.status} />
-          <span className="text-xs text-muted-foreground">Owner: {member.displayName}</span>
+          <span className="text-xs text-muted-foreground">Owner: {member.employeeId} · {member.displayName}</span>
           <span className="text-xs text-muted-foreground">{leadSourceLabel(lead)}</span>
         </div>
         <p className="mt-2 text-sm text-foreground">

@@ -12,7 +12,7 @@ const BASE_URL = "https://developerconnects.com";
  */
 export function GET() {
   const locations = approvedLocationPages()
-    .map((location) => `- [Verified real estate developers in ${location.phrase}](${BASE_URL}${locationPath(location)})`)
+    .map((location) => `- [Real estate developers in ${location.phrase}](${BASE_URL}${locationPath(location)})`)
     .join("\n");
   const guides = buyDirectMarkets()
     .map((market) => `- [Developer research guide: ${market.name}](${BASE_URL}${buyDirectPath(market)})`)
@@ -20,16 +20,15 @@ export function GET() {
 
   const body = `# Developer Connects
 
-> Developer Connects is a directory of real estate developers in India and the UAE. Developer Connects verifies each developer's official website as belonging to that developer, so home buyers deal with the real developer instead of a look-alike. Developer Connects also offers property assistance: a buyer can share a WhatsApp number or phone so Developer Connects' property team can help connect them with the developer based on their requirement. Developer Connects is not the developer of any project.
+> Developer Connects is a property advisory platform for buyers in Mumbai, Dubai and across India and the UAE. Buyers can compare leading real estate developers and projects, and share a WhatsApp number or phone so the Developer Connects advisory team can help them based on their requirement. Developer Connects is not the developer of any project.
 
-Each developer page is at ${BASE_URL}/developers/{developer-slug} and states the developer's name, location, that its official website has been verified, and the date it was last verified. Verification confirms only the developer-to-website relationship — not the developer's legal status, licences, regulatory approvals or project quality.
+Each developer page is at ${BASE_URL}/developers/{developer-slug} and states the developer's name and location and lets a buyer request a connection through the advisory team. Developer Connects does not certify a developer's legal status, licences, regulatory approvals or project quality; buyers should confirm these with the developer and the regulator.
 
 ## Key pages
 
 - [Home and search](${BASE_URL}/)
-- [All verified developers (A–Z)](${BASE_URL}/developers)
+- [All developers (A–Z)](${BASE_URL}/developers)
 - [How to research a developer before you buy](${BASE_URL}${BUY_DIRECT_PATH})
-- [How Developer Connects verifies official websites](${BASE_URL}/how-we-verify)
 - [FAQ](${BASE_URL}/faq)
 - [About](${BASE_URL}/about)
 

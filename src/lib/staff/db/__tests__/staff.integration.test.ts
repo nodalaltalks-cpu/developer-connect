@@ -67,7 +67,7 @@ test("integration: the team table enforces one row per sign-in identity and reje
 
   await assert.rejects(staffSvc.addStaffMember(repo, { userId, displayName: "Again" }, FOUNDER), /already on the team/);
   await assert.rejects(
-    db.insert(schema.staffMembers).values({ id: randomUUID(), userId: newUserId(), displayName: "   ", createdBy: "x" }),
+    db.insert(schema.staffMembers).values({ id: randomUUID(), employeeId: "DC999999", userId: newUserId(), displayName: "   ", createdBy: "x" }),
     "blank names are rejected by the database itself",
   );
 

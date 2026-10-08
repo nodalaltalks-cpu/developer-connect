@@ -7,7 +7,7 @@ import { updateCandidateUrlAction } from "@/app/admin/_actions/candidate-actions
 import type { WebsiteCandidate } from "@/lib/developer-connect/types";
 
 const inputClassName =
-  "w-full rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "w-full min-h-11 rounded-md border border-border px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * The official-website URL shown inside CandidateReviewPanel: a clickable

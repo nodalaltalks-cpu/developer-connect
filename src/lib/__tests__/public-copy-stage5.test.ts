@@ -69,15 +69,18 @@ test("public copy: nothing tells a buyer to go to a developer's website or promi
   assert.deepEqual(offenders, []);
 });
 
-test("homepage: the headline and sub-line match the new journey (connect, with optional property assistance)", () => {
+test("homepage: the headline and sub-line present the property advisory positioning, with a clear way to speak to an advisor", () => {
   const home = plain(read("app/(marketing)/page.tsx"));
-  assert.match(home, /Research first\. Get expert help when you('|&apos;)re ready\./);
-  assert.match(home, /Explore developers across India and the UAE, see who you are dealing with, and talk to a property specialist only when you choose to\./);
+  assert.match(home, /Find the right address\./);
+  assert.match(home, /Buy it with clarity\./);
+  assert.match(home, /property advisory platform for buyers in India and the UAE/);
+  assert.match(home, /Speak to an advisor/);
 });
 
-test("site description (default meta description): says the verification is what it is, and offers help connecting", () => {
+test("site description (default meta description): states the advisory offer for Mumbai, Dubai and the UAE", () => {
   const layout = plain(read("app/layout.tsx"));
-  assert.match(layout, /which verifies each listed developer's official website, and get expert property help when you are ready/);
+  assert.match(layout, /Buy property in Mumbai, Dubai and across India and the UAE with clarity/);
+  assert.match(layout, /one-to-one expert guidance/);
 });
 
 test("buy-direct guides: still teach the useful steps (verify the developer, check the regulator, get terms in writing) without sending anyone to a website", () => {
@@ -89,55 +92,60 @@ test("buy-direct guides: still teach the useful steps (verify the developer, che
   assert.match(titles[4], /official account/i);
 
   const body = BUY_DIRECT_STEPS.map((step) => step.title + " " + step.body).join(" ");
-  assert.match(body, /Developer Connects confirms the official website that belongs to each developer it lists/);
+  assert.match(body, /Reach the developer through a channel you trust/);
   assert.match(body, /our property team can help you reach them/);
 
   const faq = buyDirectFaq().map((item) => item.question + " " + item.answer).join(" ");
   assert.match(faq, /Developer Connects can help you connect with the developer/);
   assert.match(faq, /look-alike domains/, "the fake-website warning (useful, and SEO-relevant) is kept");
-  assert.match(faq, /we have verified its official website/);
+  assert.match(faq, /advisory team can help you reach the real developer/);
   assert.match(faq, /may receive payment from developers or others/, "the commercial disclosure stays in the guide FAQ");
 });
 
 test("location pages: the title keeps its SEO pattern; the description and intro no longer send the reader to a website", () => {
   const page = approvedLocationPages()[0];
   const text = locationMetadataText(page);
-  assert.match(text.title, /Verified Official Websites \| Developer Connects/, "established SEO title pattern is unchanged");
+  assert.match(text.title, /Real Estate Developers \| Developer Connects/, "title keeps the developer-search keywords");
   assert.equal(
     text.description,
-    `Explore verified real estate developers in ${page.phrase}. Developer Connects has verified each developer’s official website and can help you connect with the developer.`,
+    `Explore leading real estate developers in ${page.phrase}, compare projects, and get one-to-one expert guidance from Developer Connects.`,
     "a full sentence, with its stop after the place name",
   );
   assert.doesNotMatch(text.description, /go straight|visit|link/i);
-  assert.match(locationIntro(page, 3), /with an official website verified by Developer Connects\./);
+  assert.match(locationIntro(page, 3), /to explore and compare\./);
 });
 
-test("buy-direct hub and market pages: the verification message stays, the 'go to the website' call to action is gone", () => {
+test("buy-direct hub and market pages: connect through the advisory team, no 'go to the website' call to action", () => {
   const hub = plain(read("app/buy-direct-from-developer/page.tsx"));
-  assert.match(hub, /Start with a verified developer/);
-  assert.match(hub, /confirms the official website that belongs to each one/);
-  assert.match(hub, /connect with the developer through Developer Connects and our property team will help with your enquiry/);
+  assert.match(hub, /Start with the right developer/);
+  assert.match(hub, /connect with a developer through Developer Connects and our advisory team will help with your enquiry/);
 
   const market = plain(read("app/buy-direct-from-developer/[market]/page.tsx"));
-  assert.match(market, /Connect with a developer through Developer Connects and our property team will help with your enquiry\./);
+  assert.match(market, /Connect with a developer through Developer Connects and our advisory team will help with your enquiry\./);
 });
 
-test("FAQ and how-we-verify: describe connecting through Developer Connects, and say the website is verification data that is not published", () => {
+test("FAQ: describes connecting through Developer Connects; the retired how-we-verify page redirects to About", () => {
   const faq = plain(read("app/faq/page.tsx"));
   assert.match(faq, /When you ask to connect with a developer, we ask for your WhatsApp number or phone/);
-  assert.match(faq, /We verify developers' official websites and offer optional property assistance\./);
+  assert.match(faq, /We offer optional property advisory/);
   assert.match(faq, /Developer Connects does not send you to the developer's website\./, "the explicit no-redirect statement is kept");
+  assert.doesNotMatch(faq, /official website verified|How do you verify developers/i, "developer verification is no longer a public claim");
 
-  const how = plain(read("app/how-we-verify/page.tsx"));
-  assert.match(how, /We keep that website as verification data; it is not published or linked on the public page\./);
+  const config = readFileSync(path.resolve(src, "..", "next.config.ts"), "utf8");
+  assert.match(config, /source: "\/how-we-verify", destination: "\/about", permanent: true/);
 });
 
-test("public copy: the verification and trust wording the SEO and the badge rely on is still present", () => {
-  const badge = read("components/official-website-verified-badge.tsx");
-  assert.match(badge, /Official website verified by Developer Connects/);
+test("public copy: developer verification is no longer a public claim anywhere a visitor reads", () => {
   const devPage = read("lib/developer-connect/developer-page-content.ts");
-  assert.match(devPage, /Developer Profile \| \$\{SITE_NAME\}/, "the developer page title is a research-first profile title (it no longer promises a website the page does not link)");
-  assert.match(devPage, /which has verified its official website, and get expert help when you are ready\./);
+  assert.match(devPage, /Developer Profile \| \$\{SITE_NAME\}/, "the developer page keeps its profile title");
+  assert.match(devPage, /one-to-one expert guidance when you are ready\./);
+  const offenders: string[] = [];
+  for (const file of PUBLIC_FILES) {
+    const text = plain(code(read(file)));
+    const hit = text.match(/official website verified|verified (real estate |real-estate )?developers?\b|verified by Developer Connects|we (have )?verif(y|ied)\b|Developer Connects verif/i);
+    if (hit) offenders.push(`${file}: "${hit[0]}"`);
+  }
+  assert.deepEqual(offenders, []);
 });
 
 // =================================================================================================
@@ -200,7 +208,7 @@ test("positioning: the research journey wording is in place on the home page, th
   assert.match(hub, /Ask anyone who helps you how they are paid and whether a fee applies/);
   const faq = plain(read("app/faq/page.tsx"));
   assert.match(faq, /What should I check before I buy a property\?/);
-  assert.match(faq, /You can request a connection from a developer's page, and our property team will help with your enquiry/);
+  assert.match(faq, /You can request a connection from a developer's page, and our advisory team will help with your enquiry/);
 });
 
 test("terms: the clauses describe the real product — no link to a developer website, only what the service does", () => {

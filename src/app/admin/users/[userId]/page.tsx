@@ -63,7 +63,7 @@ export default async function AdminUserDetailPage({
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-border p-4">
           <h2 className="text-sm font-semibold text-foreground">Identity</h2>
           <dl className="mt-2 space-y-1.5 text-sm">

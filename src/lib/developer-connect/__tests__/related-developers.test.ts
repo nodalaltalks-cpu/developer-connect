@@ -276,14 +276,14 @@ test("developer page: uses the new selection, keeps the section's design, links 
   // Same section markup and classes as before.
   assert.match(page, /<div className="mx-auto mt-16 max-w-2xl border-t border-border pt-10">/);
   assert.match(page, /<h2 className="text-lg font-semibold text-foreground">/);
-  assert.match(page, /<ul className="mt-4 grid gap-3 sm:grid-cols-2">/);
-  assert.match(page, /<Link\s+href=\{`\/developers\/\$\{other\.slug\}`\}\s+className="block truncate text-foreground hover:text-accent-hover hover:underline"\s*>\s*\{other\.displayName\}\s*<\/Link>/);
+  assert.match(page, /<ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">/);
+  assert.match(page, /<Link\s+href=\{`\/developers\/\$\{other\.slug\}`\}\s+className="block truncate py-2.5 text-foreground hover:text-accent-hover hover:underline"\s*>\s*\{other\.displayName\}\s*<\/Link>/);
   // The related list shows the city under each name — never the developer's website domain.
   assert.match(page, /\{other\.city\}/);
   assert.doesNotMatch(page, /canonicalDomain/);
   // The heading keeps its original text when every link is in the city, and says the country otherwise.
-  assert.match(page, /Other verified developers in \{developer\.city\}/);
-  assert.match(page, /Other verified developers in \{developer\.country\}/);
+  assert.match(page, /Other developers in \{developer\.city\}/);
+  assert.match(page, /Other developers in \{developer\.country\}/);
   // Nothing keyword-stuffed: no extra anchor text or attributes on those links.
   assert.doesNotMatch(page, /\{other\.displayName\} (Official|official|Website|website)/);
 });

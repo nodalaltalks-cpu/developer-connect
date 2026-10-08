@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { AnalyticsConsentProvider } from "@/components/analytics-consent";
 import { AttributionCapture } from "@/components/attribution-capture";
+import { BehaviourTracker } from "@/components/behaviour-tracker";
 import { getGaMeasurementId } from "@/lib/analytics-config";
 import "./globals.css";
 
@@ -18,7 +19,7 @@ const geistMono = Geist_Mono({
 
 const SITE_NAME = "Developer Connects";
 const SITE_DESCRIPTION =
-  "Research real-estate developers in India and the UAE with Developer Connects, which verifies each listed developer's official website, and get expert property help when you are ready.";
+  "Buy property in Mumbai, Dubai and across India and the UAE with clarity. Compare leading developers, understand every project and price, and get one-to-one expert guidance from first search to keys in hand.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://developerconnects.com"),
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_NAME,
     description: SITE_DESCRIPTION,
   },
@@ -70,6 +71,10 @@ const organizationStructuredData = {
 
 export const viewport: Viewport = {
   colorScheme: "light",
+  width: "device-width",
+  initialScale: 1,
+  // Lets sticky bars and sheets use env(safe-area-inset-*) on notched phones. Zoom is NOT disabled (accessibility).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -104,6 +109,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         >
           <AttributionCapture />
+          <BehaviourTracker />
           <AnalyticsConsentProvider measurementId={gaMeasurementId}>{children}</AnalyticsConsentProvider>
         </ClerkProvider>
       </body>

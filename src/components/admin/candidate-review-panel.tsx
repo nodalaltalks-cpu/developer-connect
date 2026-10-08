@@ -148,7 +148,7 @@ export function CandidateReviewPanel({
         <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
           More actions (reject, request more evidence, re-verification, deactivate)
         </summary>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <VerificationActionForm
             label="Reject"
             variant="secondary"

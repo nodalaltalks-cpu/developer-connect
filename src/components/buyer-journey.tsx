@@ -8,7 +8,7 @@ import { Container } from "@/components/ui/container";
  */
 
 const STEPS = [
-  { n: "01", title: "Research", body: "Browse developers across India and the UAE and see which website we have verified as theirs." },
+  { n: "01", title: "Research", body: "Explore leading developers across Mumbai, Dubai and the rest of India and the UAE, side by side." },
   { n: "02", title: "Shortlist", body: "Compare the developers that fit where, and what, you are looking for." },
   { n: "03", title: "Connect", body: "Tell us what you need. A Developer Connects property specialist gets in touch - only because you asked." },
   { n: "04", title: "Decide", body: "Take your time. You choose whether, and when, to take the next step." },
@@ -21,7 +21,7 @@ export function BuyerJourney() {
         <h2 id="journey-heading" className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
           How it works
         </h2>
-        <ol className="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((step) => (
             <li key={step.n} className="border-t border-border pt-4">
               <span className="text-xs font-medium tabular-nums text-muted-foreground">{step.n}</span>

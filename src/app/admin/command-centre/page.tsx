@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { MetricTile } from "@/components/leads/call-metrics";
@@ -65,12 +65,10 @@ export default async function CommandCentrePage({ searchParams }: PageProps<"/ad
                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${item.severity === "HIGH" ? "bg-red-50 text-red-800" : "bg-muted text-foreground"}`}>{item.severity === "HIGH" ? "Act now" : "Look at"}</span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
-                <p className="mt-1 text-sm text-foreground">
-                  Next: {item.action}{" "}
-                  <Link href={item.href} className="font-medium text-accent-hover hover:underline">
-                    Open
-                  </Link>
-                </p>
+                <p className="mt-1 text-sm text-foreground">Next: {item.action}</p>
+                <Link href={item.href} className="mt-2 inline-flex min-h-11 items-center rounded-md border border-border px-4 text-sm font-medium text-accent-hover hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  Open
+                </Link>
               </li>
             ))}
           </ul>
@@ -103,7 +101,7 @@ export default async function CommandCentrePage({ searchParams }: PageProps<"/ad
         })}
         <p className="mt-2 text-xs text-muted-foreground">
           Recent leads have had less time to qualify or book, so rates for a short range understate where they will end up.{" "}
-          <Link href="/admin/finance" className="text-accent-hover hover:underline">
+          <Link href="/admin/finance" className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
             Full finance
           </Link>
         </p>
@@ -159,7 +157,7 @@ export default async function CommandCentrePage({ searchParams }: PageProps<"/ad
           </ul>
         )}
         <p className="mt-2 text-xs text-muted-foreground">
-          <Link href="/admin/acquisition" className="text-accent-hover hover:underline">
+          <Link href="/admin/acquisition" className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
             Acquisition detail
           </Link>
         </p>
@@ -211,7 +209,7 @@ export default async function CommandCentrePage({ searchParams }: PageProps<"/ad
         )}
         <p className="mt-2 text-xs text-muted-foreground">
           No score and no ranking: compare the ratios beside the totals, because a person with fewer leads is not doing less.{" "}
-          <Link href="/admin/employee-insights" className="text-accent-hover hover:underline">
+          <Link href="/admin/employee-insights" className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
             Employee insights
           </Link>
         </p>

@@ -18,7 +18,10 @@ export type AnalyticsEventName =
   | "assistance_gate_shown"
   | "assistance_form_started"
   | "lead_submitted"
-  | "official_website_redirected";
+  | "official_website_redirected"
+  | "page_viewed"
+  | "page_engagement"
+  | "cta_clicked";
 
 export type DeviceType = "mobile" | "desktop" | "unknown";
 
@@ -151,7 +154,47 @@ export interface OfficialWebsiteRedirectedEvent extends AnalyticsEventBase {
   targetDomain: string;
 }
 
+/**
+ * First-party visitor behaviour (see lib/behaviour/events.ts for validation). Anonymous: a path, a coarse device class and
+ * numbers - never a phone, email, name, free text or full URL.
+ */
+export interface PageViewedEvent extends AnalyticsEventBase {
+  eventName: "page_viewed";
+  path: string;
+  /** Referrer host only (never the full URL, which can carry personal data). */
+  referrerHost?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  hasGclid?: boolean;
+  hasFbclid?: boolean;
+  /** "xs" <360, "sm" <430, "md" <768, "lg" otherwise: layout class, not a fingerprint. */
+  viewport?: string;
+}
+
+/** One summary per page view, sent when the visitor leaves: how long they really engaged and how far they read. */
+export interface PageEngagementEvent extends AnalyticsEventBase {
+  eventName: "page_engagement";
+  path: string;
+  /** Seconds the page was visible AND the visitor was active (capped). */
+  engagedSeconds: number;
+  /** Deepest scroll reached, in percent of the page (0-100). */
+  maxScrollPercent: number;
+  /** Tracked clicks on this page view. */
+  clicks: number;
+}
+
+export interface CtaClickedEvent extends AnalyticsEventBase {
+  eventName: "cta_clicked";
+  path: string;
+  /** A stable id from a fixed list, for example "connect_developer" or "whatsapp_share". */
+  ctaId: string;
+}
+
 export type AnalyticsEvent =
+  | PageViewedEvent
+  | PageEngagementEvent
+  | CtaClickedEvent
   | SearchPerformedEvent
   | ZeroResultSearchEvent
   | SearchResultClickedEvent

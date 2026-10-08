@@ -14,7 +14,7 @@ const REASONS: { value: ContactReason; label: string }[] = [
 ];
 
 const inputClassName =
-  "mt-1.5 w-full rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "mt-1.5 w-full min-h-11 rounded-md border border-border px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const labelClassName = "block text-sm font-medium text-foreground";
 
 const REASON_VALUES = new Set(REASONS.map((r) => r.value));
@@ -67,7 +67,7 @@ export function ContactForm({ initialReason }: { initialReason?: string }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelClassName} htmlFor="contact-name">
             Name

@@ -1,7 +1,7 @@
 import type { LeadActor } from "../leads/types.ts";
 import { UnauthorizedStaffActionError } from "./errors.ts";
 import type { StaffRepository } from "./repository.ts";
-import { authorizeStaffActor } from "./staff-service.ts";
+import { authorizeStaffActor, claimInvitation } from "./staff-service.ts";
 import type { StaffMember } from "./types.ts";
 
 /**
@@ -22,4 +22,23 @@ export async function resolveEmployee(
     if (error instanceof UnauthorizedStaffActionError) return null;
     throw error;
   }
+}
+
+/**
+ * The same, for a person who has signed in but is not (yet) linked: if the Founder has approved the exact VERIFIED email
+ * they signed in with, this links them (their first sign-in) and returns the employee. An unknown account, an account
+ * the Founder has not approved, an unverified email, a pending or exited person - all return null, and nothing changes.
+ * Authentication proved who they are; only a Founder-approved record turns that into access.
+ */
+export async function resolveEmployeeOrClaim(
+  repo: StaffRepository,
+  clerkUserId: string | null | undefined,
+  verifiedEmails: () => Promise<readonly string[]>,
+  now: Date = new Date(),
+): Promise<{ member: StaffMember; actor: LeadActor } | null> {
+  const existing = await resolveEmployee(repo, clerkUserId);
+  if (existing) return existing;
+  const claimed = await claimInvitation(repo, clerkUserId, await verifiedEmails(), now);
+  if (!claimed) return null;
+  return resolveEmployee(repo, clerkUserId);
 }

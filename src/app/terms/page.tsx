@@ -55,8 +55,8 @@ export default function TermsOfServicePage() {
 
       <LegalSection title="6. Search and directory use">
         <p>
-          The directory shows only developers we have taken through our verification process (see
-          &ldquo;Verification and &lsquo;verified&rsquo; meaning&rdquo; below). Search results and
+          The directory lists developers we have chosen to include; a listing is not an endorsement (see
+          &ldquo;Listings are not endorsements&rdquo; below). Search results and
           recommendations are generated automatically from directory data and your own activity — see our{" "}
           <a href="/privacy" className="text-accent-hover hover:underline">
             Privacy Policy
@@ -68,27 +68,24 @@ export default function TermsOfServicePage() {
       <LegalSection title="7. Developer information">
         <p>
           Developer information shown on Developer Connects may be sourced from developers&apos; own official
-          websites, publicly available records and sources, and information supplied during our verification
-          process. Developer information can change, and we don&apos;t guarantee it is complete or
+          websites, publicly available records and sources, and information supplied to us. Developer information can change, and we don&apos;t guarantee it is complete or
           current at every moment. If you spot something wrong, you can report it using &ldquo;Report
           inaccurate information&rdquo; on that developer&apos;s page.
         </p>
       </LegalSection>
 
-      <LegalSection title="8. Verification and &ldquo;verified&rdquo; meaning">
+      <LegalSection title="8. Listings are not endorsements">
         <p>
-          When a developer&apos;s listing shows &ldquo;Official website verified by Developer Connects,&rdquo;
-          this means we have conducted our verification process to establish that the listed website is
-          associated with that developer, based on the evidence and process we use. It does <strong>not</strong>{" "}
-          mean:
+          A developer&apos;s appearance on Developer Connects, and any information we show about it, does{" "}
+          <strong>not</strong> mean:
         </p>
         <ul>
           <li>an endorsement of the developer or a recommendation to buy</li>
           <li>a guarantee of the developer&apos;s quality, project quality, or financial health</li>
           <li>a guarantee of legal compliance, project approvals, or completion/possession timelines</li>
-          <li>a guarantee that every statement made on the external website is accurate</li>
+          <li>a guarantee that every statement made on a developer&apos;s own website is accurate</li>
         </ul>
-        <p>Verification is about website identity, not investment or purchase advice.</p>
+        <p>Our content is general information, not investment, legal or purchase advice.</p>
       </LegalSection>
 
       <LegalSection title="9. External developer websites">
@@ -143,7 +140,7 @@ export default function TermsOfServicePage() {
           <li>scrape or extract data from Developer Connects at an unreasonable scale</li>
           <li>attempt to bypass access controls or launch automated attacks against the service</li>
           <li>impersonate any person or entity, or misrepresent your affiliation</li>
-          <li>submit fraudulent, misleading, or manipulative information, including attempts to manipulate verification</li>
+          <li>submit fraudulent, misleading, or manipulative information, including attempts to manipulate the information we show</li>
           <li>interfere with the normal operation of the service</li>
           <li>use the service for any unlawful purpose</li>
         </ul>

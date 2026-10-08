@@ -50,7 +50,7 @@ export function CampaignForm() {
         <input id="c-tag" value={tag} onChange={(e) => setTag(e.target.value)} maxLength={80} placeholder="e.g. thane_diwali_2026" className={`${FIELD} mt-1.5`} />
         <p className="mt-1 text-xs text-muted-foreground">Exactly as it appears as utm_campaign in the ad link. Leads are attributed by this tag, so it cannot be changed later.</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="c-source" className="block text-sm font-medium text-foreground">
             Source (optional)
@@ -70,7 +70,7 @@ export function CampaignForm() {
         </label>
         <input id="c-landing" value={landing} onChange={(e) => setLanding(e.target.value)} maxLength={120} placeholder="/developers/example" className={`${FIELD} mt-1.5`} />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="c-start" className="block text-sm font-medium text-foreground">
             Start date (optional)

@@ -129,6 +129,7 @@ export function ShareDeveloper({
           <button
             type="button"
             role="menuitem"
+            data-cta="whatsapp_share"
             onClick={handleWhatsApp}
             className="flex min-h-11 w-full items-center px-4 text-left text-sm text-foreground hover:bg-muted"
           >
@@ -137,6 +138,7 @@ export function ShareDeveloper({
           <button
             type="button"
             role="menuitem"
+            data-cta="email_share"
             onClick={handleEmail}
             className="flex min-h-11 w-full items-center px-4 text-left text-sm text-foreground hover:bg-muted"
           >
@@ -145,6 +147,7 @@ export function ShareDeveloper({
           <button
             type="button"
             role="menuitem"
+            data-cta="copy_link"
             onClick={handleCopy}
             className="flex min-h-11 w-full items-center px-4 text-left text-sm text-foreground hover:bg-muted"
           >

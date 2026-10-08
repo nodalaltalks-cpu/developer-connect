@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { SHARE_IMAGES } from "@/lib/share-image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -30,9 +31,9 @@ import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content"
  */
 const PAGE_SIZE = 100;
 
-const TITLE = "All verified developers | Developer Connects";
+const TITLE = "All developers in India and the UAE | Developer Connects";
 const DESCRIPTION =
-  "Browse every real estate developer verified by Developer Connects, and request a connection with the one you want.";
+  "Browse real estate developers across Mumbai, Dubai and the rest of India and the UAE, and request a connection with the one you want.";
 
 function parsePage(raw: string | string[] | undefined): number {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -70,8 +71,8 @@ export async function generateMetadata({
       title: TITLE,
       description: DESCRIPTION,
       alternates: { canonical },
-      openGraph: { title: TITLE, description: DESCRIPTION, url: canonical, siteName: "Developer Connects", type: "website" },
-      twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
+      openGraph: { title: TITLE, description: DESCRIPTION, url: canonical, siteName: "Developer Connects", images: SHARE_IMAGES, type: "website" },
+      twitter: { card: "summary_large_image", images: SHARE_IMAGES, title: TITLE, description: DESCRIPTION },
     };
   }
 
@@ -84,8 +85,8 @@ export async function generateMetadata({
     title: text.title,
     description: text.description,
     alternates: { canonical },
-    openGraph: { title: text.title, description: text.description, url: canonical, siteName: "Developer Connects", type: "website" },
-    twitter: { card: "summary", title: text.title, description: text.description },
+    openGraph: { title: text.title, description: text.description, url: canonical, siteName: "Developer Connects", images: SHARE_IMAGES, type: "website" },
+    twitter: { card: "summary_large_image", images: SHARE_IMAGES, title: text.title, description: text.description },
     ...(total === 0 ? { robots: { index: false, follow: true } } : {}),
   };
 }
@@ -152,7 +153,7 @@ export default async function DevelopersIndexPage({
                 <li key={`${item.label}-${index}`} className="flex items-center gap-1">
                   {index > 0 && <span aria-hidden="true">/</span>}
                   {item.href ? (
-                    <Link href={item.href} className="hover:text-accent-hover hover:underline">
+                    <Link href={item.href} className="inline-flex min-h-11 items-center hover:text-accent-hover hover:underline">
                       {item.label}
                     </Link>
                   ) : (
@@ -166,12 +167,12 @@ export default async function DevelopersIndexPage({
           </nav>
 
           <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            {location ? locationMetadataText(location).h1 : "All verified developers"}
+            {location ? locationMetadataText(location).h1 : "All developers"}
           </h1>
           <p className="mt-2 text-muted-foreground">
             {location
               ? locationIntro(location, total)
-              : `${total} real estate developer${total === 1 ? "" : "s"} to research, each with an official website verified by Developer Connects.`}
+              : `${total} real estate developer${total === 1 ? "" : "s"} to explore across India and the UAE.`}
           </p>
           <p className="mt-2 text-sm">
             <Link href={buyDirectPath(buyDirectGuide)} className="text-accent-hover hover:underline">
@@ -182,7 +183,7 @@ export default async function DevelopersIndexPage({
           </p>
 
           {groups.length === 0 ? (
-            <p className="mt-8 text-muted-foreground">No verified developers yet.</p>
+            <p className="mt-8 text-muted-foreground">No developers yet.</p>
           ) : (
             <div className="mt-8 space-y-8">
               {groups.map((group) => (
@@ -190,12 +191,12 @@ export default async function DevelopersIndexPage({
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     {group.letter}
                   </h2>
-                  <ul className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <ul className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                     {group.developers.map((developer) => (
                       <li key={developer.id} className="min-w-0">
                         <Link
                           href={`/developers/${developer.slug}`}
-                          className="block truncate text-foreground hover:text-accent-hover hover:underline"
+                          className="block truncate py-2.5 text-foreground hover:text-accent-hover hover:underline"
                         >
                           {developer.displayName}
                         </Link>
@@ -216,7 +217,7 @@ export default async function DevelopersIndexPage({
               {page > 1 ? (
                 <Link
                   href={developersPath(location, page - 1)}
-                  className="text-sm font-medium text-accent-hover hover:underline"
+                  className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline"
                 >
                   ← Previous
                 </Link>
@@ -229,7 +230,7 @@ export default async function DevelopersIndexPage({
               {page < totalPages ? (
                 <Link
                   href={developersPath(location, page + 1)}
-                  className="text-sm font-medium text-accent-hover hover:underline"
+                  className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline"
                 >
                   Next →
                 </Link>

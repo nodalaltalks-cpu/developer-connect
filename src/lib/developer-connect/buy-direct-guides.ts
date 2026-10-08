@@ -253,7 +253,7 @@ export interface FaqItem {
 export const BUY_DIRECT_STEPS: { title: string; body: string }[] = [
   {
     title: "Make sure you are dealing with the genuine developer",
-    body: "Fake and look-alike websites are common. Developer Connects confirms the official website that belongs to each developer it lists, so start from a verified listing rather than a search ad or a link someone sent you.",
+    body: "Fake and look-alike websites are common. Reach the developer through a channel you trust, such as the Developer Connects advisory team, rather than a search ad or a link someone sent you.",
   },
   {
     title: "Check the project with the regulator",
@@ -289,7 +289,7 @@ export function buyDirectFaq(market?: BuyDirectMarket | null): FaqItem[] {
     {
       question: "How do I know I am on the developer's real website?",
       answer:
-        "Look the developer up on Developer Connects: each listing states that we have verified its official website as belonging to that developer, with the date it was last verified. Be cautious of look-alike domains and of websites reached through ads or messages, and use Connect so our property team can help you reach the real developer.",
+        "Be cautious of look-alike domains and of websites reached through ads or messages. Use Connect on a developer's page so our advisory team can help you reach the real developer, and confirm the project with the regulator.",
     },
     {
       question: `How do I check a project is genuine${where}?`,
@@ -300,7 +300,7 @@ export function buyDirectFaq(market?: BuyDirectMarket | null): FaqItem[] {
     {
       question: "Does Developer Connects sell property? How does it earn money?",
       answer:
-        "Developer Connects does not sell property — developers do. We verify developers' official websites and offer optional property assistance. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on whether a developer's website is verified.",
+        "Developer Connects does not sell property — developers do. We offer optional property advisory. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on how we present any developer.",
     },
   ];
 }

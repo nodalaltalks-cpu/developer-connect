@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { FinanceTable } from "@/components/admin/finance-tables";
@@ -64,10 +64,10 @@ export default async function FinancePage({ searchParams }: PageProps<"/admin/fi
           <p className="mt-1 text-sm text-foreground">
             {CURRENCIES.filter((c) => view.outstandingTotals[c]).map((c) => `${formatMoney(view.outstandingTotals[c]!, c)}`).join(" · ")}
           </p>
-          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+          <ul className="mt-2 text-xs text-muted-foreground">
             {view.outstanding.slice(0, 10).map(({ booking, outstanding }) => (
               <li key={booking.id}>
-                <Link href={`/admin/leads/${booking.leadId}`} className="text-accent-hover hover:underline">
+                <Link href={`/admin/leads/${booking.leadId}`} className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
                   {booking.projectName ?? "Booking"}
                 </Link>{" "}
                 — {formatMoney(outstanding, booking.currency)} outstanding · booked {formatDateTimeFull(booking.bookedAt)}

@@ -1,5 +1,5 @@
 import { UnauthorizedLeadActionError, LeadValidationError } from "./errors.ts";
-import { AUTOMATION_RULES, CAPS, WINDOWS, chooseAssignee, resolveSettings, routingKey, staleLeadKey, visitReminderKey, visitWindow, type AutomationRule } from "./automation-rules.ts";
+import { AUTOMATION_RULES, CAPS, WINDOWS, chooseAssignee, resolveSettings, returnVisitKey, routingKey, staleLeadKey, visitReminderKey, visitWindow, type AutomationRule } from "./automation-rules.ts";
 import { notifyDueFollowUps, sweepMissedFollowUps, type LeadNotification, type LeadNotifier } from "./follow-up-service.ts";
 import type { LeadRepositories } from "./repository.ts";
 import type { StaffRepository } from "../staff/repository.ts";
@@ -107,6 +107,19 @@ export async function runAutomations(repos: LeadRepositories, staff: StaffReposi
         for (const c of claimed) await repos.automationActions.fail(c.id, error instanceof Error ? error.name.slice(0, 40) : "ERROR", now).catch(() => undefined);
         results.STALE_LEAD_ALERTS.failed += claimed.length;
       }
+    }
+  }
+
+  // 3b. Return visit alerts: a buyer with an open lead came back to the site - tell the owner while the buyer is warm. One
+  //     alert per lead per 12-hour bucket, to the lead's current owner only, with no buyer data in the message.
+  if (settings.RETURN_VISIT_ALERTS) {
+    const returns = await repos.leads.listReturnVisits({ since: new Date(now.getTime() - WINDOWS.RETURN_LOOKBACK_MS), minLeadAgeMs: WINDOWS.RETURN_MIN_AGE_MS, limit: CAPS.PER_RUN });
+    for (const { lead, viewedAt } of returns) {
+      await perform(repos, { rule: "RETURN_VISIT_ALERTS", subjectType: "LEAD", subjectId: lead.id, dedupeKey: returnVisitKey(lead.id, viewedAt) }, now, results.RETURN_VISIT_ALERTS, async () => {
+        if (!lead.ownerId) return "SKIPPED";
+        await notifier.notify({ userId: lead.ownerId, type: "LEAD_REVISITED", title: "A buyer is back on the site", body: "A buyer you are working with just came back to Developer Connects. A call now is well timed.", targetRoute: `/team/leads/${lead.id}` });
+        return "DONE";
+      });
     }
   }
 

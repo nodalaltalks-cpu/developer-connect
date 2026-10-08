@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { SHARE_IMAGES } from "@/lib/share-image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -49,15 +50,15 @@ export async function generateMetadata({ params }: PageProps<"/buy-direct-from-d
   const { market, total } = data;
   const path = buyDirectPath(market);
   const title = `How to Research Developers in ${market.titleName} | Developer Connects`;
-  const description = `Research ${total} verified real estate developers in ${market.name}: check the project with ${market.regulator.name.split(" (")[0]}, ask for terms in writing, and request a connection through Developer Connects.`;
+  const description = `Explore ${total} real estate developers in ${market.name}: check the project with ${market.regulator.name.split(" (")[0]}, ask for terms in writing, and request a connection through Developer Connects.`;
 
   return {
     title,
     description,
     alternates: { canonical: path },
-    openGraph: { title, description, url: path, siteName: "Developer Connects", type: "article" },
-    twitter: { card: "summary", title, description },
-    // A market with no verified developers yet is not a real guide page.
+    openGraph: { title, description, url: path, siteName: "Developer Connects", images: SHARE_IMAGES, type: "article" },
+    twitter: { card: "summary_large_image", images: SHARE_IMAGES, title, description },
+    // A market with no developers yet is not a real guide page.
     ...(total === 0 ? { robots: { index: false, follow: true } } : {}),
   };
 }
@@ -85,7 +86,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      name: `Verified real estate developers in ${market.name}`,
+      name: `Real estate developers in ${market.name}`,
       numberOfItems: developers.length,
       itemListElement: developers.map((developer, index) => ({
         "@type": "ListItem",
@@ -107,13 +108,13 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
             <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
               <ol className="flex flex-wrap items-center gap-1">
                 <li>
-                  <Link href="/" className="hover:text-accent-hover hover:underline">
+                  <Link href="/" className="inline-flex min-h-11 items-center hover:text-accent-hover hover:underline">
                     Home
                   </Link>
                 </li>
                 <li aria-hidden="true">/</li>
                 <li>
-                  <Link href={BUY_DIRECT_PATH} className="hover:text-accent-hover hover:underline">
+                  <Link href={BUY_DIRECT_PATH} className="inline-flex min-h-11 items-center hover:text-accent-hover hover:underline">
                     Developer research guides
                   </Link>
                 </li>
@@ -129,21 +130,21 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
               {total > 0
-                ? `${total} real estate developer${total === 1 ? "" : "s"} in ${market.name} with an official website verified by Developer Connects. Connect with a developer through Developer Connects and our property team will help with your enquiry.`
-                : `Developer Connects is verifying developers in ${market.name}. Check back soon.`}
+                ? `${total} real estate developer${total === 1 ? "" : "s"} in ${market.name}. Connect with a developer through Developer Connects and our advisory team will help with your enquiry.`
+                : `We are adding developers in ${market.name}. Check back soon.`}
             </p>
 
             {developers.length > 0 && (
               <>
                 <h2 className="mt-10 text-2xl font-semibold tracking-tight text-foreground">
-                  Verified developers in {market.name}
+                  Developers in {market.name}
                 </h2>
-                <ul className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
                   {developers.map((developer) => (
                     <li key={developer.id} className="min-w-0">
                       <Link
                         href={`/developers/${developer.slug}`}
-                        className="block truncate text-foreground hover:text-accent-hover hover:underline"
+                        className="block truncate py-2.5 text-foreground hover:text-accent-hover hover:underline"
                       >
                         {developer.displayName}
                       </Link>
@@ -153,7 +154,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
                 </ul>
                 {total > developers.length && (
                   <Link href={directoryHref} className="mt-4 inline-block text-sm font-medium text-accent-hover hover:underline">
-                    See all {total} verified developers in {market.name} →
+                    See all {total} developers in {market.name} →
                   </Link>
                 )}
               </>
@@ -195,7 +196,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
             {related.length > 0 && (
               <>
                 <h2 className="mt-12 text-lg font-semibold text-foreground">Other developer research guides</h2>
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {related.map((other) => (
                     <li key={other.slug}>
                       <Link href={buyDirectPath(other)} className="text-sm text-accent-hover hover:underline">
@@ -214,10 +215,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
 
             <p className="mt-8 text-xs text-muted-foreground">
               This guide is general information, not legal or financial advice. Developer Connects is a
-              directory of verified developers that also offers optional property assistance.{" "}
-              <Link href="/how-we-verify" className="text-accent-hover hover:underline">
-                How we verify official websites
-              </Link>
+              property advisory platform that offers optional guidance when you are ready.
             </p>
           </article>
         </Container>

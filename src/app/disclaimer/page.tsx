@@ -29,21 +29,20 @@ export default function DisclaimerPage() {
           developer. Property assistance offered by Developer Connects is optional — you decide whether to
           continue — and any purchase is a transaction between you and the developer. Developer Connects may
           receive payment from developers or others in connection with property transactions; this has no effect
-          on whether a developer&apos;s website is verified. Always confirm the terms, any fees, and the
+          on how we present any developer. Always confirm the terms, any fees, and the
           project&apos;s regulatory registration before you pay anything.
         </p>
       </LegalSection>
 
-      <LegalSection title="3. &ldquo;Verified&rdquo; means website identity, not endorsement">
+      <LegalSection title="3. A listing is not an endorsement">
         <p>
-          Our verification process approves a listed website as the named developer&apos;s official website. It
-          is not an endorsement, not a quality rating, and not a guarantee of the developer&apos;s legitimacy,
-          financial health, project quality, or business practices. See &ldquo;Verification and
-          &lsquo;verified&rsquo; meaning&rdquo; in our{" "}
+          A developer&apos;s appearance on Developer Connects is not an endorsement, not a quality rating, and not a
+          guarantee of the developer&apos;s legitimacy, financial health, project quality, or business practices.
+          See &ldquo;Listings are not endorsements&rdquo; in our{" "}
           <a href="/terms" className="text-accent-hover hover:underline">
             Terms of Service
           </a>{" "}
-          for the full definition.
+          for the full position.
         </p>
       </LegalSection>
 
@@ -67,7 +66,7 @@ export default function DisclaimerPage() {
       <LegalSection title="6. Accuracy of developer information">
         <p>
           Developer information is sourced from developers&apos; own official websites, publicly available
-          records, and our verification process, and can change or become outdated. Always confirm current
+          records, and information supplied to us, and can change or become outdated. Always confirm current
           details — pricing, availability, approvals, possession dates — directly with the developer before
           making any decision.
         </p>

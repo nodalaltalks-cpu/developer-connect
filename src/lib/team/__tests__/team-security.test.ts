@@ -89,7 +89,8 @@ test("team security: employee pages and components never import founder actions 
 test("team security: every /team page and the layout resolve the employee on the server, and the owner scope never comes from the URL", () => {
   for (const rel of ["src/app/team/layout.tsx", "src/app/team/page.tsx", "src/app/team/leads/[id]/page.tsx"]) {
     const text = read(rel);
-    assert.ok(text.indexOf("await requireEmployee()") !== -1, `${rel} must call requireEmployee`);
+    const gate = rel.endsWith("layout.tsx") ? "await getTeamAccess(" : "await requireEmployee()";
+    assert.ok(text.indexOf(gate) !== -1, `${rel} must call ${gate}`);
     assert.match(text, /robots: \{ index: false, follow: false \}/, `${rel} noindex`);
   }
   const page = read("src/app/team/page.tsx");
@@ -102,7 +103,7 @@ test("team security: every /team page and the layout resolve the employee on the
 test("team security: the session helper resolves from the Clerk session only, and denies unknown/inactive/founder alike", () => {
   const session = read("src/lib/team/session.ts");
   assert.match(session, /await auth\(\)/);
-  assert.match(session, /resolveEmployee\(createPostgresStaffRepository\(\), userId\)/);
+  assert.match(session, /resolveEmployeeOrClaim\(createPostgresStaffRepository\(\), userId, verifiedEmails\)/);
   assert.match(session, /if \(!employee\) notFound\(\)/);
   assert.match(session, /if \(!employee\) throw new NotATeamMemberError/);
   const access = read("src/lib/staff/employee-access.ts");

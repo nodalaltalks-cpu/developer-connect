@@ -134,32 +134,32 @@ test("the approved list contains only the eleven approved values — no other ci
 const METADATA: Array<{ country: string; city?: string; title: string; h1: string; description: string }> = [
   {
     country: INDIA,
-    title: "India Real Estate Developers – Verified Official Websites | Developer Connects",
-    h1: "Verified real estate developers in India",
+    title: "India Real Estate Developers | Developer Connects",
+    h1: "Real estate developers in India",
     description:
-      "Explore verified real estate developers in India. Developer Connects has verified each developer’s official website and can help you connect with the developer.",
+      "Explore leading real estate developers in India, compare projects, and get one-to-one expert guidance from Developer Connects.",
   },
   {
     country: UAE,
-    title: "UAE Real Estate Developers – Verified Official Websites | Developer Connects",
-    h1: "Verified real estate developers in the UAE",
+    title: "UAE Real Estate Developers | Developer Connects",
+    h1: "Real estate developers in the UAE",
     description:
-      "Explore verified real estate developers in the UAE. Developer Connects has verified each developer’s official website and can help you connect with the developer.",
+      "Explore leading real estate developers in the UAE, compare projects, and get one-to-one expert guidance from Developer Connects.",
   },
   ...["Mumbai", "Hyderabad", "Pune", "Navi Mumbai"].map((city) => ({
     country: INDIA,
     city,
-    title: `${city} Real Estate Developers – Verified Official Websites | Developer Connects`,
-    h1: `Verified real estate developers in ${city}`,
-    description: `Explore verified real estate developers in ${city}. Developer Connects has verified each developer’s official website and can help you connect with the developer.`,
+    title: `${city} Real Estate Developers | Developer Connects`,
+    h1: `Real estate developers in ${city}`,
+    description: `Explore leading real estate developers in ${city}, compare projects, and get one-to-one expert guidance from Developer Connects.`,
   })),
   {
     country: UAE,
     city: "Dubai",
-    title: "Dubai Real Estate Developers – Verified Official Websites | Developer Connects",
-    h1: "Verified real estate developers in Dubai",
+    title: "Dubai Real Estate Developers | Developer Connects",
+    h1: "Real estate developers in Dubai",
     description:
-      "Explore verified real estate developers in Dubai. Developer Connects has verified each developer’s official website and can help you connect with the developer.",
+      "Explore leading real estate developers in Dubai, compare projects, and get one-to-one expert guidance from Developer Connects.",
   },
 ];
 
@@ -184,11 +184,11 @@ test("intro: the count is always the live total passed in, with the right locati
   const dubai = resolveLocationPage(UAE, "Dubai")!;
   const india = resolveLocationPage(INDIA, undefined)!;
   const uae = resolveLocationPage(UAE, undefined)!;
-  assert.equal(locationIntro(dubai, 7), "7 real estate developers in Dubai with an official website verified by Developer Connects.");
-  assert.equal(locationIntro(dubai, 8), "8 real estate developers in Dubai with an official website verified by Developer Connects.");
-  assert.equal(locationIntro(dubai, 1), "1 real estate developer in Dubai with an official website verified by Developer Connects.");
-  assert.equal(locationIntro(india, 42), "42 real estate developers in India with an official website verified by Developer Connects.");
-  assert.equal(locationIntro(uae, 3), "3 real estate developers in the UAE with an official website verified by Developer Connects.");
+  assert.equal(locationIntro(dubai, 7), "7 real estate developers in Dubai to explore and compare.");
+  assert.equal(locationIntro(dubai, 8), "8 real estate developers in Dubai to explore and compare.");
+  assert.equal(locationIntro(dubai, 1), "1 real estate developer in Dubai to explore and compare.");
+  assert.equal(locationIntro(india, 42), "42 real estate developers in India to explore and compare.");
+  assert.equal(locationIntro(uae, 3), "3 real estate developers in the UAE to explore and compare.");
 });
 
 test("no page, helper or sitemap hard-codes a developer count in code or copy", () => {
@@ -360,9 +360,9 @@ test("page: no other query parameter can influence what is listed or indexed", (
 test("page: an approved location with no results is kept out of the index; unsupported URLs keep the original metadata", () => {
   const page = read("../../../app/developers/page.tsx");
   assert.match(page, /total === 0 \? \{ robots: \{ index: false, follow: true \} \} : \{\}/);
-  assert.match(page, /const TITLE = "All verified developers \| Developer Connects";/);
+  assert.match(page, /const TITLE = "All developers in India and the UAE \| Developer Connects";/);
   assert.match(page, /const canonical = developersPath\(null, page\);/);
-  assert.match(page, /"All verified developers"/);
+  assert.match(page, /"All developers"/);
 });
 
 test("page: developer links stay plain crawlable links and the listing UI is unchanged", () => {

@@ -50,7 +50,7 @@ export function ProfileHeaderLink({
   return (
     <Link
       href="/profile"
-      className="hidden flex-col leading-tight hover:text-accent-hover sm:flex"
+      className="hidden min-h-11 flex-col justify-center leading-tight hover:text-accent-hover sm:flex"
       aria-label={secondary ? `${primary}, ${secondary}${verified ? ", verified" : ""}` : primary}
     >
       <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">

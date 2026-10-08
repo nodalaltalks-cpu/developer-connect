@@ -80,5 +80,5 @@ test("staff: the name map includes inactive members so history keeps showing who
   const repo = createInMemoryStaffRepository();
   const member = await addStaffMember(repo, PRIYA, FOUNDER);
   await setStaffActive(repo, member.id, false, FOUNDER);
-  assert.deepEqual(staffNameMap(await listStaff(repo, FOUNDER)), { [PRIYA.userId]: "Priya Nair" });
+  assert.deepEqual(staffNameMap(await listStaff(repo, FOUNDER)), { [PRIYA.userId]: "DC2 · Priya Nair" });
 });

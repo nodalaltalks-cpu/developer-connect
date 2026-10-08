@@ -52,7 +52,7 @@ export function DateRangeFilter() {
           value={selected}
           onChange={(e) => handleChange(e.target.value)}
           aria-label="Founder Dashboard date range"
-          className="min-h-11 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-11 rounded-md border border-border bg-background px-3 py-2 text-base font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {DATE_RANGE_OPTIONS.map((option) => (
             <option key={option.key} value={option.key}>

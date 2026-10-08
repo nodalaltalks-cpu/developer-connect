@@ -56,8 +56,8 @@ test("ownership: reassigning keeps the previous owner in history, and the timeli
   assert.deepEqual(events.map((e) => e.payload), [{ from: null, to: priya.userId }, { from: priya.userId, to: rohan.userId }]);
   const names = staffNameMap(await listStaff(staff, FOUNDER));
   const lines = describeTimeline(await getLeadTimeline(repos, a.id), names).map((l) => l.headline).join(" | ");
-  assert.match(lines, /Assigned to Priya Nair/);
-  assert.match(lines, /Reassigned from Priya Nair to Rohan Das/);
+  assert.match(lines, /Assigned to DC2 · Priya Nair/);
+  assert.match(lines, /Reassigned from DC2 · Priya Nair to DC3 · Rohan Das/);
 });
 
 test("ownership: returning a lead to the founder queue (null) is allowed and recorded", async () => {
@@ -134,7 +134,7 @@ test("activity: an employee can note, log contact, set and complete a follow-up 
     assert.ok(event.createdAt instanceof Date);
   }
   const lines = describeTimeline(await getLeadTimeline(repos, a.id), staffNameMap(await listStaff(staff, FOUNDER)));
-  assert.ok(lines.some((l) => l.by === "Priya Nair"));
+  assert.ok(lines.some((l) => l.by === "DC2 · Priya Nair"));
 });
 
 test("activity: an employee cannot touch another's, an unassigned or an erased lead — NotFound, nothing written", async () => {

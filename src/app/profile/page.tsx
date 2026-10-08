@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { Metadata } from "next";
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { ProfileEditor } from "@/components/profile/profile-editor";

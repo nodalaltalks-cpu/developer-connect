@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { CampaignForm, CampaignStatusButtons } from "@/components/admin/campaign-form";

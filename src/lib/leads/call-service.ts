@@ -204,7 +204,11 @@ export async function reportDeviceCall(
       receivedAt: now,
       payload: evidence,
     });
-    if (duplicate) return { call, duplicate: true };
+    if (duplicate) {
+      // The unique event insert only reports a duplicate AFTER the winning delivery has committed, so the `call` read at the
+      // top of this transaction is stale (no classification yet). Re-read it so every delivery returns the same final result.
+      return { call: (await tx.calls.getById(call.id)) ?? call, duplicate: true };
+    }
 
     let patch: Partial<LeadCall>;
     if (notPlaced) {

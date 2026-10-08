@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { NextStepCard } from "@/components/leads/next-step-card";
 import { getNextStepForLead } from "@/lib/leads/intelligence-service";
 import { ProjectsSection } from "@/components/leads/projects-section";

@@ -1,4 +1,4 @@
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { OpenVisitsList } from "@/components/leads/open-visits-list";

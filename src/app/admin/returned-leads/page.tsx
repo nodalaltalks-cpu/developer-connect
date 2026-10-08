@@ -1,5 +1,5 @@
 import { requireFounder } from "@/lib/auth";
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { FounderCallButton } from "@/components/admin/leads/founder-call-button";
 import { ReturnedCard } from "@/components/leads/missed-card";
@@ -33,7 +33,7 @@ export default async function AdminReturnedLeadsPage() {
           <EmptyState title="Nothing returned" description="No team member has returned a lead that is still waiting." />
         </div>
       ) : (
-        <ul className="mt-3 grid gap-3 lg:grid-cols-2">
+        <ul className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {items.map((item) => (
             <ReturnedCard
               key={item.lead.id}

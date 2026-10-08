@@ -105,3 +105,65 @@ body {
     display: none;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Mobile foundations (shared by every route)
+ * ------------------------------------------------------------------------------------------------------------------ */
+
+/* Bottom sheet entrance (see components/ui/bottom-sheet.tsx). The component only uses it under motion-safe. */
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* The page behind an open modal sheet must not scroll. */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
+html {
+  /* No grey flash on tap; text stays at the size the user chose when the phone rotates. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* A focused field is never hidden under a sticky header or bottom bar. */
+  scroll-padding-top: 5rem;
+  scroll-padding-bottom: 6rem;
+}
+
+/* Controls that are only ever tapped should not wait for a double-tap-zoom decision. */
+button,
+[role="button"],
+[role="switch"],
+summary,
+a {
+  touch-action: manipulation;
+}
+
+/* Anything that animates respects the "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Shimmer for loading skeletons (see components/ui/skeleton.tsx). */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}

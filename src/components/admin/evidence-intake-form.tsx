@@ -6,7 +6,7 @@ import { addEvidenceAction } from "@/app/admin/_actions/candidate-actions";
 import type { EvidenceType, Evidence, WebsiteCandidate } from "@/lib/developer-connect/types";
 
 const inputClassName =
-  "mt-1.5 w-full rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "mt-1.5 w-full min-h-11 rounded-md border border-border px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const labelClassName = "block text-sm font-medium text-foreground";
 
 const EVIDENCE_TYPES: EvidenceType[] = [

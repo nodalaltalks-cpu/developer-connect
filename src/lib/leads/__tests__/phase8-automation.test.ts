@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { AUTOMATION_DEFAULTS, CAPS, chooseAssignee, resolveSettings, visitWindow, WINDOWS } from "../automation-rules.ts";
+import { AUTOMATION_DEFAULTS, CAPS, chooseAssignee, returnVisitKey, resolveSettings, visitWindow, WINDOWS } from "../automation-rules.ts";
 import { getAutomationOverview, runAutomations, setAutomationEnabled } from "../automation-service.ts";
 import { assignLead, captureAssistanceLead, getLeadTimeline } from "../lead-service.ts";
 import { scheduleFollowUp } from "../follow-up-service.ts";
@@ -47,9 +47,9 @@ async function world() {
 // --- the rules --------------------------------------------------------------------------------------
 
 test("defaults: reminders are ON, automatic routing is OFF; stored settings override; unknown keys are ignored", () => {
-  assert.deepEqual(resolveSettings({}), { FOLLOW_UP_REMINDERS: true, SITE_VISIT_REMINDERS: true, STALE_LEAD_ALERTS: true, AUTO_ROUTING: false });
+  assert.deepEqual(resolveSettings({}), { FOLLOW_UP_REMINDERS: true, SITE_VISIT_REMINDERS: true, STALE_LEAD_ALERTS: true, RETURN_VISIT_ALERTS: true, AUTO_ROUTING: false });
   assert.equal(AUTOMATION_DEFAULTS.AUTO_ROUTING, false);
-  assert.deepEqual(resolveSettings({ AUTO_ROUTING: true, SITE_VISIT_REMINDERS: false, NOT_A_RULE: true } as never), { FOLLOW_UP_REMINDERS: true, SITE_VISIT_REMINDERS: false, STALE_LEAD_ALERTS: true, AUTO_ROUTING: true });
+  assert.deepEqual(resolveSettings({ AUTO_ROUTING: true, SITE_VISIT_REMINDERS: false, NOT_A_RULE: true } as never), { FOLLOW_UP_REMINDERS: true, SITE_VISIT_REMINDERS: false, STALE_LEAD_ALERTS: true, RETURN_VISIT_ALERTS: true, AUTO_ROUTING: true });
 });
 
 test("visit window: the narrowest applicable window, none for a past or far-future visit", () => {
@@ -140,6 +140,62 @@ test("stale lead alerts: once per quiet spell to the owner, as ONE digest per ow
   await runAutomations(w.repos, w.staff, r.notifier, new Date(later.getTime() + 8 * DAY));
   assert.equal(r.sent.filter((n) => n.type === "LEAD_STALE").length, 2);
   void unowned;
+});
+
+// --- return visit alerts ------------------------------------------------------------------------------
+
+test("return visit alerts: the owner is told once per 12h when the buyer comes back; the enquiry session, closed, unowned and consent-less leads never alert", async () => {
+  const w = await world();
+  const lead = await w.mk(1);
+  const noViews = await w.mk(2);
+  const unowned = await w.mk(3);
+  const closed = await w.mk(4);
+  for (const [l, user] of [[lead, "user_buyer_1"], [noViews, "user_buyer_2"], [unowned, "user_buyer_3"], [closed, "user_buyer_4"]] as const) await w.repos.leads.update(l.id, { userId: user }, T0);
+  for (const l of [lead, noViews, closed]) await assignLead(w.repos, w.staff, l.id, w.priya.id, FOUNDER, minutes(5));
+  await w.repos.leads.update(closed.id, { status: "LOST" }, T0);
+  const r = recorder();
+
+  // The enquiry session itself (30 minutes after capture) is not a return; nor are views by buyers who are unowned/closed.
+  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 30 * 60_000));
+  w.repos.recordPageView("user_buyer_3", new Date(T0.getTime() + 5 * HOUR));
+  w.repos.recordPageView("user_buyer_4", new Date(T0.getTime() + 5 * HOUR));
+  w.repos.recordPageView("someone_else", new Date(T0.getTime() + 5 * HOUR));
+  const first = new Date(T0.getTime() + HOUR);
+  await runAutomations(w.repos, w.staff, r.notifier, first);
+  assert.equal(r.sent.filter((n) => n.type === "LEAD_REVISITED").length, 0);
+
+  // A real return, 5 hours in: one alert to the OWNER, pointing at the lead, carrying no buyer data.
+  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 5 * HOUR));
+  const now = new Date(T0.getTime() + 6 * HOUR);
+  const res = await runAutomations(w.repos, w.staff, r.notifier, now);
+  await runAutomations(w.repos, w.staff, r.notifier, new Date(now.getTime() + 60_000));
+  const alerts = r.sent.filter((n) => n.type === "LEAD_REVISITED");
+  assert.equal(res.results.RETURN_VISIT_ALERTS.sent, 1);
+  assert.equal(alerts.length, 1, "once, even though the engine ran twice");
+  assert.equal(alerts[0].userId, w.priya.userId);
+  assert.equal(alerts[0].targetRoute, `/team/leads/${lead.id}`);
+  assert.doesNotMatch(JSON.stringify(alerts[0]), /Buyer 1|98765|user_buyer/);
+  void noViews;
+  void unowned;
+});
+
+test("return visit alerts: a later return in a new 12h bucket alerts again; the Founder can switch the rule off", async () => {
+  const w = await world();
+  const lead = await w.mk(1);
+  await w.repos.leads.update(lead.id, { userId: "user_buyer_1" }, T0);
+  await assignLead(w.repos, w.staff, lead.id, w.priya.id, FOUNDER, minutes(5));
+  const r = recorder();
+  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 5 * HOUR));
+  await runAutomations(w.repos, w.staff, r.notifier, new Date(T0.getTime() + 6 * HOUR));
+  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 20 * HOUR));
+  await runAutomations(w.repos, w.staff, r.notifier, new Date(T0.getTime() + 21 * HOUR));
+  assert.equal(r.sent.filter((n) => n.type === "LEAD_REVISITED").length, 2);
+  assert.notEqual(returnVisitKey(lead.id, new Date(T0.getTime() + 5 * HOUR)), returnVisitKey(lead.id, new Date(T0.getTime() + 20 * HOUR)));
+
+  await setAutomationEnabled(w.repos, "RETURN_VISIT_ALERTS", false, FOUNDER);
+  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 40 * HOUR));
+  await runAutomations(w.repos, w.staff, r.notifier, new Date(T0.getTime() + 41 * HOUR));
+  assert.equal(r.sent.filter((n) => n.type === "LEAD_REVISITED").length, 2, "off means silent");
 });
 
 test("follow-up reminders reuse the existing atomic sweeps: due-soon and missed are sent once, proactively, for every owner", async () => {

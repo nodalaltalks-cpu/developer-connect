@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { searchDevelopers, recordSearchResultClick } from "@/app/_actions/public-actions";
-import { VerifiedBadge } from "@/components/verified-badge";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 
 const DEBOUNCE_MS = 300;
@@ -144,9 +143,6 @@ export function SearchBox() {
                     <span className="block text-sm text-muted-foreground">
                       {developer.city}, {developer.state}
                     </span>
-                    <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <VerifiedBadge />
-                    </span>
                   </span>
                   <span aria-hidden="true" className="mt-1 shrink-0 text-muted-foreground">
                     →
@@ -183,13 +179,13 @@ function ZeroResultState({
   return (
     <div className="rounded-lg border border-border bg-muted p-5 text-sm">
       <p className="font-medium text-foreground">
-        No verified developer found for &ldquo;{query}&rdquo;
+        No developer found for &ldquo;{query}&rdquo;
         {hasActiveFilter ? " in this location." : "."}
       </p>
       <p className="mt-1 text-muted-foreground">
         {hasActiveFilter
           ? "Try another search, or clear filters to search everywhere."
-          : "Covering verified developers across India and the UAE, including Mumbai and Dubai."}
+          : "Covering developers across India and the UAE, including Mumbai and Dubai."}
       </p>
       {hasActiveFilter && (
         <button

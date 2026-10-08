@@ -190,6 +190,27 @@
       "when": 1791344292434,
       "tag": "0026_phase8_automation",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791406284002,
+      "tag": "0027_employee_identity_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791454606263,
+      "tag": "0028_visitor_behaviour_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791459691787,
+      "tag": "0029_lead_revisited_notification",
+      "breakpoints": true
     }
   ]
 }

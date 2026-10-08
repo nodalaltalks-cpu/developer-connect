@@ -17,7 +17,7 @@ function ProfileMenuIcon() {
 }
 
 /**
- * Clerk requires <UserButton> custom children (MenuItems/Link) to be
+ * Clerk requires <UserButton appearance={{ elements: { userButtonTrigger: { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" } } }}> custom children (MenuItems/Link) to be
  * rendered inside a Client Component — passing them as JSX from an async
  * Server Component crosses the RSC boundary and breaks the reference-
  * equality check Clerk's internals use to recognize its own sub-components,
@@ -40,7 +40,7 @@ export function AccountMenu({
       : "View Profile";
 
   return (
-    <UserButton>
+    <UserButton appearance={{ elements: { userButtonTrigger: { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" } } }}>
       <UserButton.MenuItems>
         <UserButton.Link href="/profile" label={label} labelIcon={<ProfileMenuIcon />} />
       </UserButton.MenuItems>

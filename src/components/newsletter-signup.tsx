@@ -52,7 +52,7 @@ export function NewsletterSignup({ source }: { source: string }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="min-h-11 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-11 w-full rounded-md border border-border bg-background px-3 py-2 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button type="submit" disabled={isPending} className={buttonClassName("primary", "shrink-0")}>
             {isPending ? "Subscribing…" : "Subscribe"}

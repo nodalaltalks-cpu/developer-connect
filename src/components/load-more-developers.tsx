@@ -52,7 +52,7 @@ export function LoadMoreDevelopers({
   return (
     <>
       {appended.length > 0 && (
-        <div className="mt-4 grid items-stretch gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
           {appended.map((developer) => (
             <DeveloperCard key={developer.id} developer={developer} />
           ))}
@@ -61,7 +61,7 @@ export function LoadMoreDevelopers({
 
       <div className="mt-6 flex flex-col items-center gap-2">
         <p className="text-sm text-muted-foreground">
-          Showing {shownCount} of {Math.max(latestTotal, shownCount)} verified developers.
+          Showing {shownCount} of {Math.max(latestTotal, shownCount)} developers.
         </p>
         {hasMore && (
           <Button variant="secondary" onClick={loadMore} disabled={isPending}>

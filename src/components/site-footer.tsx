@@ -59,7 +59,6 @@ function buildColumns(): FooterColumn[] {
       heading: "Resources",
       links: [
         { label: "FAQ", href: "/faq" },
-        { label: "How we verify", href: "/how-we-verify" },
         { label: "Developer research guides", href: "/buy-direct-from-developer" },
         { label: "Blog", comingSoon: true },
       ],
@@ -105,8 +104,8 @@ export function SiteFooter() {
           <div className="max-w-sm">
             <Logo size="sm" />
             <p className="mt-2 text-sm text-muted-foreground">
-              Research verified developers first. Get optional property
-              assistance when you&apos;re ready.
+              Property advisory for Mumbai, Dubai and beyond. Clear
+              information, expert guidance, at your pace.
             </p>
           </div>
           <NewsletterSignup source="footer" />
@@ -124,7 +123,7 @@ export function SiteFooter() {
                     {link.comingSoon || !link.href ? (
                       <span className="text-sm text-muted-foreground">{link.label} — Coming Soon</span>
                     ) : link.href.startsWith("mailto:") ? (
-                      <a href={link.href} className="text-sm text-foreground hover:text-accent-hover hover:underline">
+                      <a href={link.href} className="inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline">
                         {link.label}
                       </a>
                     ) : link.external ? (
@@ -132,12 +131,12 @@ export function SiteFooter() {
                         href={link.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-foreground hover:text-accent-hover hover:underline"
+                        className="inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline"
                       >
                         {link.label}
                       </a>
                     ) : (
-                      <Link href={link.href} className="text-sm text-foreground hover:text-accent-hover hover:underline">
+                      <Link href={link.href} className="inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline">
                         {link.label}
                       </Link>
                     )}

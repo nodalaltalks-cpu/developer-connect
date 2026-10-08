@@ -149,7 +149,7 @@ test("cookie policy: the 'how you found us' storage is sent to the server ONLY w
 // --- commercial disclosure --------------------------------------------------------------------------------
 
 const PAYMENT_SENTENCE = /may receive payment from developers or others in connection with property transactions/;
-const NO_EFFECT = /no effect on whether a developer's website is verified/;
+const NO_EFFECT = /no effect on how we present any developer/;
 
 test("commercial disclosure: the SAME approved sentence is at the point of enquiry and in the Privacy Policy, as on About, Disclaimer and FAQ", () => {
   assert.match(COMMERCIAL_DISCLOSURE, PAYMENT_SENTENCE);

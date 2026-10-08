@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { VerifiedBadge } from "@/components/verified-badge";
-import { OfficialWebsiteVerifiedBadge } from "@/components/official-website-verified-badge";
 import { ConnectWithDeveloperButton } from "@/components/connect-with-developer-button";
 import { buttonClassName } from "@/components/ui/button";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
@@ -18,14 +16,10 @@ import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view
  * developer's own website: that is internal verification data.
  */
 export function DeveloperCard({ developer }: { developer: PublicDeveloperProfile }) {
-  const website = developer.officialWebsite;
-
   return (
     <article className="flex h-full min-w-0 flex-col rounded-lg border border-border p-5 transition-colors hover:border-accent-hover focus-within:border-accent-hover">
       <div>
-        <VerifiedBadge />
-
-        <h3 className="mt-3 text-lg font-semibold leading-snug text-foreground">
+        <h3 className="text-lg font-semibold leading-snug text-foreground">
           {developer.displayName}
         </h3>
 
@@ -42,11 +36,6 @@ export function DeveloperCard({ developer }: { developer: PublicDeveloperProfile
           </div>
         )}
 
-        {website && (
-          <div className="mt-3">
-            <OfficialWebsiteVerifiedBadge full />
-          </div>
-        )}
       </div>
 
       {/* mt-auto anchors this CTA row to the bottom of the card regardless
@@ -54,7 +43,7 @@ export function DeveloperCard({ developer }: { developer: PublicDeveloperProfile
           and "View developer" aligned across a row of cards whose content
           height differs (headquarters/website present or not). */}
       <div className="mt-auto flex flex-col gap-2 pt-5">
-        {website && (
+        {developer.officialWebsite && (
           <ConnectWithDeveloperButton
             developerId={developer.id}
             developerName={developer.displayName}

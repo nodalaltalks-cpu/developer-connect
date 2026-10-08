@@ -23,7 +23,7 @@ export function Logo({ size = "default" }: { size?: "default" | "sm" }) {
   const imageSize = size === "sm" ? 20 : 24;
 
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex min-w-0 items-center gap-2">
       <Image
         src="/developer-connects-logo.jpg"
         alt=""
@@ -35,8 +35,8 @@ export function Logo({ size = "default" }: { size?: "default" | "sm" }) {
       <span
         className={
           size === "sm"
-            ? "font-semibold text-foreground"
-            : "text-lg font-semibold tracking-tight text-foreground"
+            ? "truncate font-semibold text-foreground"
+            : "truncate text-lg font-semibold tracking-tight text-foreground"
         }
       >
         Developer Connects

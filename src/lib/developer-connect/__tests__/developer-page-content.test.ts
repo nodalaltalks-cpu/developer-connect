@@ -59,10 +59,9 @@ test("verifiedAt is null when reviewedAt is null — never updatedAt/lastChecked
 });
 
 // B/C. page + sitemap follow the same rule
-test("developer page renders 'Last verified' only when verifiedAt exists", () => {
+test("developer page no longer shows verification dates or claims", () => {
   const page = read("../../../app/developers/[slug]/page.tsx");
-  assert.match(page, /officialWebsite\.verifiedAt && \(/);
-  assert.match(page, /Last verified \{formatDate\(developer\.officialWebsite\.verifiedAt\)\}/);
+  assert.doesNotMatch(page, /Last verified|verifiedAt|OfficialWebsiteVerifiedBadge|how-we-verify/);
   assert.doesNotMatch(page, /updatedAt|lastCheckedAt|createdAt/);
 });
 
@@ -73,11 +72,12 @@ test("sitemap lastmod comes only from verifiedAt and is omitted when null", () =
 });
 
 // D/E. P2 — metadata
-test("verified metadata states official-website intent, with the city when present", () => {
+test("published developer metadata states the advisory offer, with the city when present", () => {
   const { title, description } = buildDeveloperMetadataText(profile());
   assert.equal(title, "Acme Realty in Mumbai: Developer Profile | Developer Connects");
   assert.doesNotMatch(description, /acme\.example|https?:|\.com\b/, "the developer's website is never named in public metadata");
-  assert.match(description, /verified its official website/);
+  assert.doesNotMatch(description, /verif/i, "developer verification is no longer a public claim");
+  assert.match(description, /one-to-one expert guidance/);
   assert.match(description, /Mumbai/);
   assert.match(description, /Developer Connects/);
 });
@@ -97,11 +97,11 @@ test("developer metadata has no marketing claims", () => {
 });
 
 // I. unverified developer behaviour is unchanged
-test("unverified developer: plain title, not an official-website page, still noindexed", () => {
+test("unpublished developer: plain title, not a profile page, still noindexed", () => {
   const { title, description } = buildDeveloperMetadataText(profile({}, null));
   assert.equal(title, "Acme Realty | Developer Connects");
   assert.doesNotMatch(title, /Official Website/);
-  assert.match(description, /verification is in progress/);
+  assert.match(description, /profile is being prepared/);
   const page = read("../../../app/developers/[slug]/page.tsx");
   assert.match(page, /developer\.officialWebsite \? \{\} : \{ robots: \{ index: false, follow: true \} \}/);
 });
@@ -132,10 +132,9 @@ test("legal name is presented as 'Also known as', never 'Registered as'", () => 
 });
 
 // H. P7 — one consolidated verification presentation
-test("page shows exactly one verification signal and no duplicate blue badge", () => {
+test("page shows no verification signal or badge", () => {
   const page = read("../../../app/developers/[slug]/page.tsx");
-  assert.equal((page.match(/<OfficialWebsiteVerifiedBadge/g) ?? []).length, 1);
-  assert.doesNotMatch(page, /VerifiedBadge \/>|from "@\/components\/verified-badge"/);
+  assert.equal((page.match(/VerifiedBadge/g) ?? []).length, 0);
   assert.doesNotMatch(page, /verified by Developer Connects\./);
 });
 
@@ -160,11 +159,8 @@ test("the public profile carries no URL or domain, and the page renders neither"
 // A stub formatter keeps these independent of the runtime's time zone.
 const fmt = (date: Date) => `<${date.toISOString().slice(0, 10)}>`;
 
-test("intro: a VERIFIED developer states the official-website relationship with name, location, domain, verifier and date", () => {
-  assert.equal(
-    developerIntroText(profile(), fmt),
-    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website has been verified by Developer Connects on <2026-02-02>.",
-  );
+test("intro: a published developer gets one factual location sentence (no verification claim)", () => {
+  assert.equal(developerIntroText(profile(), fmt), "Acme Realty is a real estate developer in Mumbai, Maharashtra, India.");
 });
 
 test("intro: never names the website, whatever its domain is", () => {
@@ -173,17 +169,13 @@ test("intro: never names the website, whatever its domain is", () => {
   assert.ok(!text.includes("totally-unrelated.example"));
   assert.ok(!text.includes("acme.example"));
   assert.ok(!text.includes("acme-realty"));
-  assert.match(text, /official website has been verified by Developer Connects/);
+  assert.doesNotMatch(text, /verif/i);
 });
 
-test("intro: no reliable verification date means no date in the sentence (nothing is invented)", () => {
+test("intro: whether or not a review date exists, the sentence is the same (nothing is invented)", () => {
   const p = profile({}, verifiedCandidate({ reviewedAt: undefined }));
   const text = developerIntroText(p, fmt);
-  assert.equal(
-    text,
-    "Acme Realty is a real estate developer in Mumbai, Maharashtra, India. Acme Realty's official website has been verified by Developer Connects.",
-  );
-  assert.doesNotMatch(text, / on /);
+  assert.equal(text, "Acme Realty is a real estate developer in Mumbai, Maharashtra, India.");
   assert.doesNotMatch(text, /<\d{4}-\d{2}-\d{2}>/);
 });
 
@@ -194,60 +186,39 @@ test("intro: an UNVERIFIED developer gets the location sentence only — never a
 });
 
 test("intro: missing optional location parts are omitted rather than printed blank", () => {
-  assert.equal(
-    developerIntroText(profile({ state: "  " }), fmt),
-    "Acme Realty is a real estate developer in Mumbai, India. Acme Realty's official website has been verified by Developer Connects on <2026-02-02>.",
-  );
-  // No location at all: still one factual sentence, naming the developer directly.
-  assert.equal(
-    developerIntroText(profile({ city: "", state: "", country: "" }), fmt),
-    "Acme Realty's official website has been verified by Developer Connects on <2026-02-02>.",
-  );
+  assert.equal(developerIntroText(profile({ state: "  " }), fmt), "Acme Realty is a real estate developer in Mumbai, India.");
+  // No location at all: no sentence rather than an empty one.
+  assert.equal(developerIntroText(profile({ city: "", state: "", country: "" }), fmt), "");
   assert.equal(developerIntroText(profile({ city: "", state: "", country: "" }, null), fmt), "");
 });
 
-test("intro: one natural statement — the developer name is not repeated as keyword variants", () => {
+test("intro: one natural statement — the developer name appears once", () => {
   const text = developerIntroText(profile(), fmt);
-  assert.equal(text.match(/official website/gi)?.length, 1);
-  assert.doesNotMatch(text, /official site\b|website of|\bwebsite\b.*\bwebsite\b/i);
+  assert.equal(text.match(/Acme Realty/g)?.length, 1);
 });
 
 test("page: renders the sentence from developerIntroText once, and leaves the CTA/card, share, report and related section in place", () => {
   const page = read("../../../app/developers/[slug]/page.tsx");
   assert.equal((page.match(/developerIntroText\(/g) ?? []).length, 1);
   assert.match(page, /\{introText && <p className="mt-2 text-foreground">\{introText\}<\/p>\}/);
-  // The sentence text itself lives in the content module, not hard-coded in the page.
   assert.doesNotMatch(page, /official website is|has been verified by/);
-  // Existing UI is unchanged.
   // The primary CTA is "Connect with {developer}": it opens the Developer Connects gate and is handed neither a URL nor a domain.
   const cta = page.match(/<ConnectWithDeveloperButton[\s\S]*?\/>/)?.[0] ?? "";
   assert.match(cta, /developerId=\{developer\.id\}/);
   assert.match(cta, /developerName=\{developer\.displayName\}/);
   assert.doesNotMatch(cta, /\burl=|\bdomain=/, "the browser is never handed a developer website");
   assert.doesNotMatch(page, /ExternalDomainLink|gateRequired|VisitOfficialWebsiteButton/);
-  assert.match(page, /Last verified \{formatDate\(developer\.officialWebsite\.verifiedAt\)\}/);
   assert.match(page, /<ShareDeveloper /);
   assert.match(page, /<ReportInaccurateInfo /);
-  assert.match(page, /Other verified developers in \{developer\.city\}/);
+  assert.match(page, /Other developers in \{developer\.city\}/);
   assert.match(page, /Also known as/);
-  assert.equal((page.match(/<OfficialWebsiteVerifiedBadge/g) ?? []).length, 1);
 });
 
-// --- /how-we-verify methodology page ----------------------------------------
-test("how-we-verify: indexable page with its own title, description and canonical, and no unsupported claims", () => {
-  const page = read("../../../app/how-we-verify/page.tsx");
-  assert.match(page, /title: "How Developer Connects Verifies Official Developer Websites \| Developer Connects"/);
-  assert.match(page, /alternates: \{ canonical: "\/how-we-verify" \}/);
-  assert.doesNotMatch(page, /robots|application\/ld\+json/);
-  assert.match(page, /<h1[^>]*>\s*How Developer Connects Verifies Official Developer Websites\s*<\/h1>/);
-  assert.doesNotMatch(page, /trusted developer|legitimate company|approved developer|genuine developer/i);
-  assert.match(page, /not a certification of\s+the developer, its projects or its regulatory status/);
-});
-
-test("how-we-verify: linked from the developer page, homepage, about page, footer and sitemap", () => {
-  assert.match(read("../../../app/developers/[slug]/page.tsx"), /href="\/how-we-verify"/);
-  assert.match(read("../../../app/(marketing)/page.tsx"), /href="\/how-we-verify"/);
-  assert.match(read("../../../app/about/page.tsx"), /href="\/how-we-verify"/);
-  assert.match(read("../../../components/site-footer.tsx"), /"\/how-we-verify"/);
-  assert.match(read("../../sitemap-entries.ts"), /"\/how-we-verify"/);
+// --- the retired /how-we-verify page ------------------------------------------
+test("how-we-verify: the page is gone, nothing links to it, and the old URL redirects permanently to About", () => {
+  assert.throws(() => read("../../../app/how-we-verify/page.tsx"));
+  for (const file of ["../../../app/developers/[slug]/page.tsx", "../../../app/(marketing)/page.tsx", "../../../app/about/page.tsx", "../../../components/site-footer.tsx", "../../sitemap-entries.ts"]) {
+    assert.doesNotMatch(read(file), /how-we-verify/, `${file} still links to the retired page`);
+  }
+  assert.match(read("../../../../next.config.ts"), /source: "\/how-we-verify", destination: "\/about", permanent: true/);
 });

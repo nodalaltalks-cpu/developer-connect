@@ -100,7 +100,7 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
           <EmptyState title={EMPTY_COPY[view].title} description={EMPTY_COPY[view].description} />
         </div>
       ) : (
-        <ul className="mt-3 grid gap-3 lg:grid-cols-2">
+        <ul className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {items.map((item) => (
             <LeadCard key={item.lead.id} item={item} now={now} ownerName={item.lead.ownerId ? owners[item.lead.ownerId] : undefined} callSlot={<FounderCallButton compact leadId={item.lead.id} phoneE164={item.lead.phoneE164} />} />
           ))}

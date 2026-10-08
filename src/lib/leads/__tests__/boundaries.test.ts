@@ -121,7 +121,7 @@ function methodNames(block: string): string[] {
 
 test("immutability: the repository contract offers NO update or delete on events, touches or consents", () => {
   const source = read(path.join(leadsRoot, "repository.ts"));
-  assert.deepEqual(methodNames(interfaceBlock(source, "LeadEventRepository")), ["append", "listByLead", "summarise", "redactPayloads", "countByTypeAndActor"]);
+  assert.deepEqual(methodNames(interfaceBlock(source, "LeadEventRepository")), ["append", "listByLead", "summarise", "redactPayloads", "countByTypeAndActor", "listByActor", "actorLeadCounts"]);
   assert.deepEqual(methodNames(interfaceBlock(source, "TouchRepository")), ["create", "getById", "countBySessionSince"]);
   assert.deepEqual(methodNames(interfaceBlock(source, "ConsentRepository")), ["create", "listByLead", "withdrawActive"]);
 });

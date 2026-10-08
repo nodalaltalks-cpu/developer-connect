@@ -5,6 +5,7 @@ import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { FounderCallButton } from "@/components/admin/leads/founder-call-button";
 import { LeadCard } from "@/components/admin/leads/lead-card";
 import { LeadsViewTabs, VIEW_LABELS } from "@/components/admin/leads/leads-view-tabs";
+import { LeadSourceTabs, SOURCE_FILTER_LABEL, parseSourceFilter, sourceTypeOf } from "@/components/admin/leads/lead-source-tabs";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 import { staffNameMap } from "@/lib/staff/staff-service";
@@ -49,22 +50,24 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
   const params = await searchParams;
   const view = parseView(params.view);
   const page = parsePage(params.page);
+  const source = parseSourceFilter(params.source);
+  const sourceType = sourceTypeOf(source);
   const repos = createPostgresLeadRepositories();
   const now = new Date();
 
   const owners = staffNameMap(await createPostgresStaffRepository().list());
-  const counts = await getLeadCounts(repos, now);
+  const counts = await getLeadCounts(repos, now, sourceType);
   let items: LeadListItem[];
   let pagination: { page: number; pageCount: number; total: number } | null = null;
   if (view === "attention") {
-    items = await getAttentionItems(repos, now);
+    items = await getAttentionItems(repos, now, undefined, sourceType);
   } else {
-    const result = await getLeadsPage(repos, view, page, now);
+    const result = await getLeadsPage(repos, view, page, now, undefined, sourceType);
     items = result.items;
     pagination = { page: result.page, pageCount: result.pageCount, total: result.total };
   }
 
-  const href = (nextPage: number) => `/admin/leads?view=${view}&page=${nextPage}`;
+  const href = (nextPage: number) => `/admin/leads?view=${view}&page=${nextPage}${source === "all" ? "" : `&source=${source}`}`;
 
   return (
     <div>
@@ -87,10 +90,14 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
       </p>
 
       <div className="mt-6">
-        <LeadsViewTabs active={view} />
+        <LeadSourceTabs active={source} hrefFor={(filter) => `/admin/leads?view=${view}${filter === "all" ? "" : `&source=${filter}`}`} />
+      </div>
+      <div className="mt-3">
+        <LeadsViewTabs active={view} source={source} />
       </div>
 
       <h2 className="mt-4 text-sm font-medium text-foreground">
+        {source === "all" ? "" : `${SOURCE_FILTER_LABEL[source]} · `}
         {VIEW_LABELS[view]}
         {pagination ? ` · ${pagination.total}` : items.length ? ` · ${items.length}` : ""}
       </h2>

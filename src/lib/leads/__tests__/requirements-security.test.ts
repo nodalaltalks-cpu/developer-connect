@@ -51,7 +51,7 @@ test("requirements security: every service operation checks the actor's identity
 
 test("requirements security: the employee capability is exactly the requirement workflow, and nothing founder-only was opened", () => {
   const access = read("src/lib/leads/lead-access.ts");
-  assert.match(access, /EMPLOYEE_CAPABILITIES = \["ADD_NOTE", "LOG_CONTACT", "SET_FOLLOW_UP", "COMPLETE_FOLLOW_UP", "MANAGE_REQUIREMENT", "RETURN_LEAD", "PLACE_CALL", "SHORTLIST_PROJECT", "MANAGE_SITE_VISIT"\] as const/);
+  assert.match(access, /EMPLOYEE_CAPABILITIES = \["ADD_NOTE", "LOG_CONTACT", "SET_FOLLOW_UP", "COMPLETE_FOLLOW_UP", "MANAGE_REQUIREMENT", "RETURN_LEAD", "PLACE_CALL", "SHORTLIST_PROJECT", "MANAGE_SITE_VISIT", "QUALIFY_LEAD"\] as const/);
   const lead = read("src/lib/leads/lead-service.ts");
   assert.match(functionBody(lead, "updateRequirement"), /actor\.actorType === "EMPLOYEE"\) throw new UnauthorizedLeadActionError/, "the legacy editor stays closed to employees");
   for (const name of ["changeLeadStatus", "setTemperature", "assignLead", "createBooking", "updateBooking", "eraseLead"]) {

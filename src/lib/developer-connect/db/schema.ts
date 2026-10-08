@@ -535,7 +535,7 @@ export const leadTimelineEnum = pgEnum("lead_timeline", [
 export const leadPurposeEnum = pgEnum("lead_purpose", ["SELF_USE", "INVESTMENT"]);
 
 /** Where a lead came from — never mixed up with how it was contacted. */
-export const leadSourceTypeEnum = pgEnum("lead_source_type", ["DIGITAL", "SELF_GENERATED"]);
+export const leadSourceTypeEnum = pgEnum("lead_source_type", ["DIGITAL", "COLD_CALL"]);
 
 /** Budgets and booking values are whole units of one currency; totals are never summed across currencies. */
 export const leadCurrencyEnum = pgEnum("lead_currency", ["INR", "AED"]);
@@ -576,6 +576,11 @@ export const leadEventTypeEnum = pgEnum("lead_event_type", [
   "PROJECT_SHORTLIST_REMOVED",
   "SITE_VISIT_SCHEDULED",
   "SITE_VISIT_UPDATED",
+  // Migration 0030: a team member opened WhatsApp to a lead (NOT a sent message), and recorded a qualification.
+  "WHATSAPP_OPENED",
+  "QUALIFICATION_RECORDED",
+  // Migration 0031: a team member filled in a missing name or email.
+  "CONTACT_DETAILS_UPDATED",
 ]);
 
 /** How warm the buyer is. A separate concept from pipeline status; null on the lead = not yet rated. */
@@ -641,7 +646,7 @@ export const leads = pgTable(
     // Set when a team member returns the lead to the Founder queue; cleared when the Founder assigns it to someone
     // again. The full story lives in the lead's events; these three make "Returned leads" a plain indexed query.
     // WHERE THE LEAD CAME FROM — a separate concept from the calls made to it. DIGITAL (website, ads, referral...) or
-    // SELF_GENERATED (Excel/CSV import, cold calling, created by hand). creation_method says how it entered the
+    // COLD_CALL (Excel/CSV import, cold calling, created by hand). creation_method says how it entered the
     // system; import_batch_id keeps the Excel batch so batch -> leads -> calls -> bookings can always be traced.
     sourceType: leadSourceTypeEnum("source_type").notNull().default("DIGITAL"),
     sourceDetail: text("source_detail"),
@@ -686,6 +691,7 @@ export const leads = pgTable(
     index("leads_session_idx").on(table.sessionId),
     index("leads_owner_idx").on(table.ownerId),
     index("leads_source_idx").on(table.sourceType, table.creationMethod),
+    index("leads_source_owner_idx").on(table.sourceType, table.ownerId, table.createdAt),
     index("leads_import_batch_idx").on(table.importBatchId).where(sql`${table.importBatchId} is not null`),
     index("leads_returned_idx").on(table.returnedAt).where(sql`${table.returnedAt} is not null`),
     check("leads_phone_present_ck", sql`${table.phoneE164} is not null or ${table.erasedAt} is not null`),
@@ -729,6 +735,7 @@ export const leadEvents = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    index("lead_events_seq_idx").on(table.seq),
     index("lead_events_lead_created_idx").on(table.leadId, table.createdAt),
     index("lead_events_developer_type_idx").on(table.developerId, table.eventType),
     index("lead_events_type_created_idx").on(table.eventType, table.createdAt),

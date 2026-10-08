@@ -3,6 +3,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { addMyLeadNoteAction, logMyLeadContactAction, type TeamActionResult } from "@/app/team/_actions/team-actions";
 import { formatEnumLabel } from "@/lib/leads/format";
+import { WhatsAppOpenLink } from "@/components/leads/whatsapp-open-link";
 import type { ContactChannel, ContactOutcome } from "@/lib/leads/lead-service";
 
 /**
@@ -78,15 +79,7 @@ export function TeamLeadActions(props: TeamLeadActionsProps) {
       <Section title="Contact">
         <div className="grid grid-cols-2 gap-2">
           {props.whatsappHref && (
-            <a
-              href={props.whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setChannel("WHATSAPP")}
-              className={props.prefersWhatsApp ? BTN_PRIMARY : BTN}
-            >
-              WhatsApp
-            </a>
+            <WhatsAppOpenLink href={props.whatsappHref} leadId={leadId} scope="team" onOpen={() => setChannel("WHATSAPP")} className={props.prefersWhatsApp ? BTN_PRIMARY : BTN} />
           )}
           {props.callSlot ? props.callSlot : props.telHref ? (
             <a href={props.telHref} onClick={() => setChannel("PHONE_CALL")} className={props.prefersWhatsApp ? BTN : BTN_PRIMARY}>

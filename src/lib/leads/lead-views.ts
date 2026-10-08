@@ -1,5 +1,5 @@
 import { FOUNDER_TIME_ZONE, QUEUE_EXCLUDED_STATUSES } from "./queue-config.ts";
-import type { Lead, LeadStatus } from "./types.ts";
+import type { Lead, LeadSourceType, LeadStatus } from "./types.ts";
 
 /**
  * The founder's Leads list views and dashboard counts — defined ONCE, here,
@@ -35,6 +35,8 @@ export interface LeadListQuery {
    * founder tab.
    */
   view: Exclude<LeadView, "attention"> | "follow_up_due";
+  /** When set, only leads of this ORIGINAL source (the Cold Call or the Digital bucket). The source is fixed forever, so this is a stable partition of one lead table. */
+  sourceType?: LeadSourceType;
   /** When set, only leads owned by this id. The team workspace ALWAYS sets it, from the verified session — never from the browser. */
   ownerId?: string;
   limit: number;

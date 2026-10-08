@@ -200,8 +200,19 @@ export function ColdCallPad() {
         )}
       </div>
 
+      {!prepared && ready && lookup?.kind !== "NOT_YOURS" && lookup?.kind !== "INVALID" && (
+        <p className="mt-3 text-center text-sm">
+          <Link href={`/team/cold-call?phone=${encodeURIComponent(full)}`} className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
+            Record a cold call lead without dialing
+          </Link>
+        </p>
+      )}
+
       {prepared && (
         <div className="mt-3 flex flex-wrap gap-2">
+          <Link href={`/team/cold-call/${prepared.leadId}`} className={`${BTN} border-accent bg-accent/10`}>
+            Add call details
+          </Link>
           <Link href={`/team/leads/${prepared.leadId}`} className={BTN}>
             View lead
           </Link>

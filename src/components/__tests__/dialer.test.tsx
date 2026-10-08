@@ -140,7 +140,7 @@ const lead = {
   status: "NEW",
   temperature: null,
   ownerId: null,
-  sourceType: "SELF_GENERATED",
+  sourceType: "COLD_CALL",
   sourceDetail: "Thane cold list",
   creationMethod: "EXCEL_IMPORT",
   importBatchId: "b1",
@@ -165,12 +165,12 @@ const lead = {
   erasedAt: null,
 } as unknown as Lead;
 
-test("lead card: shows the LEAD source (Self-generated · Excel import) and uses the call control it is given in place of a plain link", () => {
+test("lead card: shows the LEAD source (Cold call · Excel import) and uses the call control it is given in place of a plain link", () => {
   const item = { lead, developerName: null, followUp: null, attention: null, summary: null } as unknown as LeadListItem;
   const html = renderToStaticMarkup(
     <LeadCard item={item} now={new Date("2026-10-06T10:00:00.000Z")} callSlot={<button type="button">TRACKED CALL</button>} />,
   );
-  assert.match(html, /Self-generated · Excel import/);
+  assert.match(html, /Cold call · Excel import/);
   assert.match(html, /TRACKED CALL/);
   assert.doesNotMatch(html, /href="tel:/, "the plain link is replaced, not duplicated");
   const plain = renderToStaticMarkup(<LeadCard item={item} now={new Date("2026-10-06T10:00:00.000Z")} />);

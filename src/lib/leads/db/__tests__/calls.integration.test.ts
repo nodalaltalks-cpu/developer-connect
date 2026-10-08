@@ -208,12 +208,16 @@ test("integration: the SQL aggregation agrees with the in-memory reference for E
   void schema; void db; void eq;
 });
 
-test("integration: source filtering and separation — a SELF_GENERATED lead's calls are counted apart from a DIGITAL lead's, and calling never changes where a lead came from", { skip }, async () => {
+test("integration: source filtering and separation — a COLD_CALL lead's calls are counted apart from a DIGITAL lead's, and calling never changes where a lead came from", { skip }, async () => {
   const { calls, leadPg, db, schema, eq } = await modules();
   const repos = leadPg.createPostgresLeadRepositories();
   const digital = await newLead("digital", "gclid-abc");
-  const self = await newLead("self");
-  await db.update(schema.leads).set({ sourceType: "SELF_GENERATED", creationMethod: "CSV_IMPORT" }).where(eq(schema.leads.id, self.id));
+  // A genuine cold-call lead: the source is fixed when the lead is created (the database refuses any later change).
+  const { createSelfGeneratedLead } = await import("../../lead-import-service.ts");
+  const madeSelf = await createSelfGeneratedLead(repos, { phone: await freshPhone(), name: "TEST self", creationMethod: "COLD_CALLING" }, { actorType: "EMPLOYEE", actorId: `user_it_${randomUUID().slice(0, 12)}` });
+  assert.ok(madeSelf.created);
+  const self = madeSelf.lead;
+  void schema; void db; void eq;
   assert.equal(digital.sourceType, "DIGITAL");
   assert.equal(digital.sourceDetail, "GOOGLE", "classified from the first touch at capture");
   assert.equal(digital.creationMethod, "WEBSITE_GATE");
@@ -231,14 +235,14 @@ test("integration: source filtering and separation — a SELF_GENERATED lead's c
   await placeAndFinish(self.id, new Date(at.getTime() + 2 * HOUR));
   const q = { from: new Date("2031-05-01T00:00:00Z"), to: new Date("2031-06-01T00:00:00Z"), groupBy: "EMPLOYEE" as const, timeZone: "Asia/Kolkata", staffUserId: who.actorId };
   assert.equal((await repos.calls.aggregate({ ...q, sourceType: "DIGITAL" }))[0].dialed, 1);
-  assert.equal((await repos.calls.aggregate({ ...q, sourceType: "SELF_GENERATED" }))[0].dialed, 2);
+  assert.equal((await repos.calls.aggregate({ ...q, sourceType: "COLD_CALL" }))[0].dialed, 2);
   assert.equal((await repos.calls.aggregate(q))[0].dialed, 3);
   const feed = await repos.calls.listRecent({ staffUserId: who.actorId, limit: 10 });
-  assert.deepEqual(feed.map((r) => r.lead.sourceType), ["SELF_GENERATED", "SELF_GENERATED", "DIGITAL"], "newest first, each with its lead's source");
-  assert.equal((await repos.leads.getById(self.id))?.sourceType, "SELF_GENERATED", "calling did not change the source");
+  assert.deepEqual(feed.map((r) => r.lead.sourceType), ["COLD_CALL", "COLD_CALL", "DIGITAL"], "newest first, each with its lead's source");
+  assert.equal((await repos.leads.getById(self.id))?.sourceType, "COLD_CALL", "calling did not change the source");
 });
 
-test("integration: a CSV import creates SELF_GENERATED leads tied to the batch (who, when, file, campaign), skips duplicates and bad rows, and creates no consent", { skip }, async () => {
+test("integration: a CSV import creates COLD_CALL leads tied to the batch (who, when, file, campaign), skips duplicates and bad rows, and creates no consent", { skip }, async () => {
   const { importSvc, leadPg, service } = await modules();
   const repos = leadPg.createPostgresLeadRepositories();
   const founder = founderOf(`user_it_${randomUUID().slice(0, 12)}`);
@@ -256,7 +260,7 @@ test("integration: a CSV import creates SELF_GENERATED leads tied to the batch (
     return rows.find((l) => l.phoneE164 === phone)!;
   }));
   for (const lead of created) {
-    assert.equal(lead.sourceType, "SELF_GENERATED");
+    assert.equal(lead.sourceType, "COLD_CALL");
     assert.equal(lead.creationMethod, "CSV_IMPORT");
     assert.equal(lead.importBatchId, result.batch.id);
     assert.equal(lead.createdBy, founder.actorId);

@@ -116,6 +116,35 @@ export async function listProjectsForFounder(repos: LeadRepositories, actor: Lea
   return projects.map((project) => ({ project, developerName: names[project.developerId] ?? "Unknown developer" }));
 }
 
+export interface ProjectSearchHit {
+  id: string;
+  name: string;
+  developerName: string;
+  city: string;
+  locality: string | null;
+}
+
+/**
+ * A team member searches the canonical, ACTIVE projects (name, developer, city, locality) to attach a client's interest.
+ * Read-only and deliberately thin: ids and labels, no prices. Employees can never create a project through this.
+ */
+export async function searchActiveProjects(repos: LeadRepositories, actor: LeadActor, query: unknown, limit = 12): Promise<ProjectSearchHit[]> {
+  assertWorkingActor(actor);
+  const text = typeof query === "string" ? query.trim().toLowerCase().slice(0, 60) : "";
+  if (text.length < 2) return [];
+  const projects = await repos.projects.list({ activeOnly: true, limit: MAX_PROJECTS_SHOWN });
+  const names = await repos.leads.developerNames([...new Set(projects.map((p) => p.developerId))]);
+  const tokens = text.split(/\s+/).filter(Boolean);
+  return projects
+    .map((p) => ({ p, developerName: names[p.developerId] ?? "Unknown developer" }))
+    .filter(({ p, developerName }) => {
+      const haystack = `${p.name} ${developerName} ${p.city} ${p.locality ?? ""}`.toLowerCase();
+      return tokens.every((t) => haystack.includes(t));
+    })
+    .slice(0, Math.min(Math.max(limit, 1), 25))
+    .map(({ p, developerName }) => ({ id: p.id, name: p.name, developerName, city: p.city, locality: p.locality }));
+}
+
 // --- the buyer's view of projects -----------------------------------------------------------------
 
 export interface ProjectMatchRow {
@@ -165,7 +194,15 @@ export async function getLeadProjects(repos: LeadRepositories, actor: LeadActor,
   return { requirement, matches: rows, history };
 }
 
-export async function shortlistProject(repos: LeadRepositories, leadId: string, projectId: string, actor: LeadActor, now: Date = new Date()): Promise<ShortlistEntry> {
+export async function shortlistProject(
+  repos: LeadRepositories,
+  leadId: string,
+  projectId: string,
+  actor: LeadActor,
+  now: Date = new Date(),
+  /** Cold-call intake records the projects a client is interested in WITHOUT moving the pipeline: the employee's qualification stays the status. */
+  options: { advanceStatus?: boolean } = {},
+): Promise<ShortlistEntry> {
   assertWorkingActor(actor);
   return repos.transaction(async (tx) => {
     const lead = await tx.leads.getById(leadId);
@@ -179,7 +216,7 @@ export async function shortlistProject(repos: LeadRepositories, leadId: string, 
     const entry = await tx.shortlist.add({ leadId, requirementId: requirement?.id ?? null, projectId, shortlistedBy: actor.actorId!, now });
     await tx.events.append({ leadId, eventType: "PROJECT_SHORTLISTED", actorType: actor.actorType, actorId: actor.actorId ?? null, developerId: null, fromStatus: null, toStatus: null, payload: { projectId, requirementId: requirement?.id ?? null }, createdAt: now });
     await tx.leads.update(leadId, { lastActivityAt: now }, now);
-    await advanceLeadStatus(tx, (await tx.leads.getById(leadId))!, "SHORTLISTED", "PROJECT_SHORTLISTED", now);
+    if (options.advanceStatus !== false) await advanceLeadStatus(tx, (await tx.leads.getById(leadId))!, "SHORTLISTED", "PROJECT_SHORTLISTED", now);
     return entry;
   });
 }

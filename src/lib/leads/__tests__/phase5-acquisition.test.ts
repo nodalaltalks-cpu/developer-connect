@@ -36,10 +36,10 @@ test("channel: evidence decides - click ids and tags name a channel; with none t
 });
 
 test("channel: self-generated leads are their own channels and are never 'digital', whatever a touch says", () => {
-  assert.equal(channelOf(row({ sourceType: "SELF_GENERATED", creationMethod: "CSV_IMPORT", first: touch({ gclid: "x" }) })), "CSV_IMPORT");
-  assert.equal(channelOf(row({ sourceType: "SELF_GENERATED", creationMethod: "EXCEL_IMPORT" })), "CSV_IMPORT");
-  assert.equal(channelOf(row({ sourceType: "SELF_GENERATED", creationMethod: "COLD_CALLING" })), "COLD_CALLING");
-  assert.equal(channelOf(row({ sourceType: "SELF_GENERATED", creationMethod: "EMPLOYEE_CREATED" })), "SELF_GENERATED_OTHER");
+  assert.equal(channelOf(row({ sourceType: "COLD_CALL", creationMethod: "CSV_IMPORT", first: touch({ gclid: "x" }) })), "CSV_IMPORT");
+  assert.equal(channelOf(row({ sourceType: "COLD_CALL", creationMethod: "EXCEL_IMPORT" })), "CSV_IMPORT");
+  assert.equal(channelOf(row({ sourceType: "COLD_CALL", creationMethod: "COLD_CALLING" })), "COLD_CALLING");
+  assert.equal(channelOf(row({ sourceType: "COLD_CALL", creationMethod: "EMPLOYEE_CREATED" })), "SELF_GENERATED_OTHER");
 });
 
 test("first touch vs latest touch: the basis picks the touch, and first touch is the default - a later ad click never rewrites where the lead came from", () => {
@@ -71,7 +71,7 @@ test("report: every lead is counted exactly once per grouping; rates are blank, 
     row({ leadId: "1", first: touch({ gclid: "a", utmCampaign: "spring" }), reachedQualified: true, hasSiteVisit: true, booked: true }),
     row({ leadId: "2", first: touch({ gclid: "b", utmCampaign: "spring" }), reachedQualified: true }),
     row({ leadId: "3", first: touch({ utmCampaign: "unknown_tag" }) }),
-    row({ leadId: "4", sourceType: "SELF_GENERATED", creationMethod: "COLD_CALLING", first: null, latest: null }),
+    row({ leadId: "4", sourceType: "COLD_CALL", creationMethod: "COLD_CALLING", first: null, latest: null }),
   ];
   const report = buildAcquisitionReport(rows, [{ id: "c1", name: "Spring sale", utmCampaign: "spring" }], "first");
   const sum = (g: { leads: number }[]) => g.reduce((n, x) => n + x.leads, 0);

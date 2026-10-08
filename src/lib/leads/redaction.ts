@@ -48,6 +48,11 @@ const SAFE_PAYLOAD_KEYS: Record<LeadEventType, readonly string[]> = {
   // Shortlist and site visits: ids and enums only. Visit notes and next actions are free text and never ride on an event.
   PROJECT_SHORTLISTED: ["projectId", "requirementId"],
   PROJECT_SHORTLIST_REMOVED: ["projectId"],
+  // WhatsApp was OPENED to the lead (never a sent message): nothing to keep. A qualification is two codes, never text.
+  WHATSAPP_OPENED: [],
+  QUALIFICATION_RECORDED: ["outcome", "reason"],
+  // Which fields were filled in (names of fields only); the values are personal data and never ride on an event.
+  CONTACT_DETAILS_UPDATED: ["fields"],
   SITE_VISIT_SCHEDULED: ["visitId", "projectId", "scheduledAt"],
   SITE_VISIT_UPDATED: ["visitId", "projectId", "status", "scheduledAt", "outcome", "reason", "rescheduledTo"],
 };

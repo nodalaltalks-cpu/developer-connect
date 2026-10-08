@@ -21,7 +21,15 @@ test("digital source: classified from the first touch's evidence — Google, Met
   assert.equal(classifyDigitalSource(touch({ gclid: "abc" })), "GOOGLE");
   assert.equal(classifyDigitalSource(touch({ utmSource: "Google" })), "GOOGLE");
   assert.equal(classifyDigitalSource(touch({ fbclid: "x" })), "META");
-  assert.equal(classifyDigitalSource(touch({ utmSource: "instagram" })), "META");
+  assert.equal(classifyDigitalSource(touch({ utmSource: "instagram" })), "INSTAGRAM");
+  assert.equal(classifyDigitalSource(touch({ fbclid: "x", utmSource: "instagram" })), "INSTAGRAM", "an Instagram ad also carries Meta's click id; the channel is Instagram");
+  assert.equal(classifyDigitalSource(touch({ utmSource: "facebook" })), "META");
+  assert.equal(classifyDigitalSource(touch({ utmSource: "youtube" })), "YOUTUBE");
+  assert.equal(classifyDigitalSource(touch({ referrer: "https://www.youtube.com/watch?v=1" })), "YOUTUBE");
+  assert.equal(classifyDigitalSource(touch({ utmSource: "whatsapp" })), "WHATSAPP");
+  assert.equal(classifyDigitalSource(touch({ utmMedium: "whatsapp" })), "WHATSAPP");
+  assert.equal(classifyDigitalSource(touch({ utmCampaign: "thane-2bhk" })), "CAMPAIGN", "a campaign tag with no recognisable source is still a campaign visit");
+  assert.equal(classifyDigitalSource(touch({ utmCampaign: "x", utmSource: "newsletter" })), "OTHER_DIGITAL");
   assert.equal(classifyDigitalSource(touch({ utmMedium: "referral" })), "REFERRAL");
   assert.equal(classifyDigitalSource(touch({ referrer: "https://www.google.com/" })), "ORGANIC");
   assert.equal(classifyDigitalSource(touch({ referrer: "https://some-blog.example/post" })), "REFERRAL");
@@ -60,7 +68,7 @@ No Phone,,
 Mail Wrong,90000 00001,not-an-email
 Fresh Lead,90000 00002,`;
 
-test("import: leads are created as SELF_GENERATED / CSV_IMPORT with the batch, who and when; duplicates and bad rows are counted, not created", async () => {
+test("import: leads are created as COLD_CALL / CSV_IMPORT with the batch, who and when; duplicates and bad rows are counted, not created", async () => {
   const repos = createInMemoryLeadRepositories();
   const result = await importLeadsFromCsv(repos, CSV, { name: "Thane list Oct", originalFilename: "thane.csv", campaign: "Thane cold list" }, FOUNDER, minutes(10));
   assert.equal(result.created, 3);
@@ -74,14 +82,14 @@ test("import: leads are created as SELF_GENERATED / CSV_IMPORT with the batch, w
   const leads = [...(await repos.leads.list({ view: "all", limit: 50, offset: 0, now: minutes(11), endOfToday: minutes(900) })).leads];
   assert.equal(leads.length, 3);
   for (const lead of leads) {
-    assert.equal(lead.sourceType, "SELF_GENERATED");
+    assert.equal(lead.sourceType, "COLD_CALL");
     assert.equal(lead.creationMethod, "CSV_IMPORT");
     assert.equal(lead.sourceDetail, "Thane cold list");
     assert.equal(lead.importBatchId, result.batch.id, "the batch is preserved on every lead");
     assert.equal(lead.createdBy, FOUNDER.actorId);
     assert.equal(lead.ownerId, null, "imported leads wait in the Founder queue");
     assert.equal(lead.contactPreference, "PHONE_CALL");
-    assert.equal(leadSourceLabel(lead), "Self-generated · CSV import");
+    assert.equal(leadSourceLabel(lead), "Cold call · CSV import");
     const [created] = (await getLeadTimeline(repos, lead.id)).filter((e) => e.eventType === "LEAD_CREATED");
     assert.deepEqual(created.payload, { via: "IMPORT", batchId: result.batch.id });
     assert.equal(created.actorId, FOUNDER.actorId);
@@ -138,7 +146,7 @@ test("hand-created leads: a team member's lead is theirs from the start and labe
   assert.ok(mine.created);
   if (!mine.created) return;
   assert.equal(mine.lead.ownerId, priya.userId);
-  assert.equal(mine.lead.sourceType, "SELF_GENERATED");
+  assert.equal(mine.lead.sourceType, "COLD_CALL");
   assert.equal(mine.lead.creationMethod, "COLD_CALLING");
   assert.equal(mine.lead.createdBy, priya.userId);
   const events = (await getLeadTimeline(repos, mine.lead.id)).map((e) => e.eventType);
@@ -162,12 +170,12 @@ test("hand-created leads: a team member's lead is theirs from the start and labe
   }
 });
 
-test("source vs calls: the lead source label never mentions calls, and DIGITAL vs SELF_GENERATED stay distinct for every creation method", () => {
-  const label = (sourceType: "DIGITAL" | "SELF_GENERATED", creationMethod: string, sourceDetail: string | null = null) => leadSourceLabel({ sourceType, creationMethod, sourceDetail });
+test("source vs calls: the lead source label never mentions calls, and DIGITAL vs COLD_CALL stay distinct for every creation method", () => {
+  const label = (sourceType: "DIGITAL" | "COLD_CALL", creationMethod: string, sourceDetail: string | null = null) => leadSourceLabel({ sourceType, creationMethod, sourceDetail });
   assert.equal(label("DIGITAL", "WEBSITE_GATE", "META"), "Digital · Meta");
   assert.equal(label("DIGITAL", "WEBSITE_GATE"), "Digital");
-  assert.equal(label("SELF_GENERATED", "COLD_CALLING"), "Self-generated · Cold calling");
-  assert.equal(label("SELF_GENERATED", "DIALER_GENERATED"), "Self-generated · Dialer-generated");
-  assert.equal(label("SELF_GENERATED", "EMPLOYEE_CREATED"), "Self-generated · Added by employee");
+  assert.equal(label("COLD_CALL", "COLD_CALLING"), "Cold call · Cold calling");
+  assert.equal(label("COLD_CALL", "DIALER_GENERATED"), "Cold call · Manual dial");
+  assert.equal(label("COLD_CALL", "EMPLOYEE_CREATED"), "Cold call · Added by employee");
   assert.ok(!/call|dialer|connected/i.test(label("DIGITAL", "WEBSITE_GATE", "GOOGLE")));
 });

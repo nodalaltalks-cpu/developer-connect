@@ -18,7 +18,7 @@ import type { Lead, LeadActor } from "./types.ts";
  * reaches this layer as an actor.
  */
 
-export const EMPLOYEE_CAPABILITIES = ["ADD_NOTE", "LOG_CONTACT", "SET_FOLLOW_UP", "COMPLETE_FOLLOW_UP", "MANAGE_REQUIREMENT", "RETURN_LEAD", "PLACE_CALL", "SHORTLIST_PROJECT", "MANAGE_SITE_VISIT"] as const;
+export const EMPLOYEE_CAPABILITIES = ["ADD_NOTE", "LOG_CONTACT", "SET_FOLLOW_UP", "COMPLETE_FOLLOW_UP", "MANAGE_REQUIREMENT", "RETURN_LEAD", "PLACE_CALL", "SHORTLIST_PROJECT", "MANAGE_SITE_VISIT", "QUALIFY_LEAD"] as const;
 export type LeadCapability = (typeof EMPLOYEE_CAPABILITIES)[number];
 
 /** The identity gate for operations a team member may perform: a founder or an employee, with an id. Runs BEFORE any read. */

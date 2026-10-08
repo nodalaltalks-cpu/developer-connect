@@ -4,6 +4,7 @@ import { telHref, whatsappHref } from "@/lib/leads/contact-links";
 import { formatBudget, formatDateTime, formatDuration, formatEnumLabel } from "@/lib/leads/format";
 import type { LeadListItem } from "@/lib/leads/lead-reads";
 import { leadSourceLabel } from "@/lib/leads/lead-source";
+import { WhatsAppOpenLink } from "@/components/leads/whatsapp-open-link";
 import { StatusBadge, TemperatureBadge } from "./lead-badges";
 
 const ACTION =
@@ -75,17 +76,32 @@ export function LeadCard({
         <p className="mt-1.5 text-xs text-muted-foreground">{leadSourceLabel(lead)}</p>
         <p className={`mt-1.5 text-sm font-medium ${TONE_CLASS[next.tone]}`}>{next.text}</p>
         {details.length > 0 && <p className="mt-1 text-sm text-muted-foreground">{details.join(" · ")}</p>}
+        {item.insight && (item.insight.interestedProjectCount > 0 || item.insight.lastCallAt) && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {item.insight.interestedProjectCount > 0 && (
+              <span>
+                Interested: {item.insight.interestedProjects.join(", ")}
+                {item.insight.interestedProjectCount > item.insight.interestedProjects.length ? ` +${item.insight.interestedProjectCount - item.insight.interestedProjects.length}` : ""}
+              </span>
+            )}
+            {item.insight.interestedProjectCount > 0 && item.insight.lastCallAt ? " · " : ""}
+            {item.insight.lastCallAt && (
+              <span>
+                Last call {formatDuration(now.getTime() - item.insight.lastCallAt.getTime())} ago
+                {item.insight.lastCallClassification ? ` · ${item.insight.lastCallClassification === "CONNECTED" ? "Connected" : "Dialed"}` : ""}
+              </span>
+            )}
+          </p>
+        )}
         <p className="mt-1 text-xs text-muted-foreground">
-          Last activity {lastActivity} ago
+          Lead age {formatDuration(now.getTime() - lead.createdAt.getTime())} · Last activity {lastActivity} ago
           {summary && summary.contactAttempts > 0 ? ` · ${summary.contactAttempts} contact ${summary.contactAttempts === 1 ? "attempt" : "attempts"}` : ""}
         </p>
       </Link>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         {wa ? (
-          <a href={wa} target="_blank" rel="noopener noreferrer" className={prefersWhatsApp ? ACTION_PRIMARY : ACTION}>
-            WhatsApp
-          </a>
+          <WhatsAppOpenLink href={wa} leadId={lead.id} scope={basePath.startsWith("/admin") ? "admin" : "team"} className={prefersWhatsApp ? ACTION_PRIMARY : ACTION} />
         ) : null}
         {callSlot ? callSlot : tel ? (
           <a href={tel} className={prefersWhatsApp ? ACTION : ACTION_PRIMARY}>

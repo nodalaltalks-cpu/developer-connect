@@ -30,6 +30,7 @@ import type {
   SiteVisit,
   SiteVisitEvent,
   SiteVisitStatus,
+  LeadBucketInsight,
 } from "./types.ts";
 import type { CleanTouch } from "./attribution.ts";
 import type { AcquisitionRow } from "./acquisition.ts";
@@ -68,8 +69,22 @@ export interface NewLeadInput {
   now: Date;
 }
 
-/** The columns a service may change on an existing lead. Identity and creation time never change. */
-export type LeadPatch = Partial<Omit<Lead, "id" | "createdAt" | "updatedAt">>;
+/**
+ * The original acquisition record of a lead. It can never be changed after the lead exists: not by an employee, not by the
+ * Founder, not by a bug. Enforced here (the type refuses these keys and `assertNoImmutableFields` refuses them at run time
+ * for untyped callers) AND in the database (trigger guard_lead_source_mutation, migration 0030).
+ */
+export const IMMUTABLE_LEAD_FIELDS = ["sourceType", "sourceDetail", "creationMethod", "importBatchId", "createdBy"] as const;
+
+/** The columns a service may change on an existing lead. Identity, creation time and the original source never change. */
+export type LeadPatch = Partial<Omit<Lead, "id" | "createdAt" | "updatedAt" | (typeof IMMUTABLE_LEAD_FIELDS)[number]>>;
+
+export function assertNoImmutableFields(patch: object): void {
+  for (const field of IMMUTABLE_LEAD_FIELDS) {
+    if (field in patch) throw new Error(`The lead's original acquisition source cannot be changed (${field}).`);
+  }
+  if ("createdAt" in patch || "id" in patch) throw new Error("A lead's identity and creation time cannot be changed.");
+}
 
 export interface LeadRepository {
   /**
@@ -95,7 +110,9 @@ export interface LeadRepository {
   /** One page of the founder's Leads list for a view (see lead-views.ts), plus how many leads match in total. Erased leads are never returned. */
   list(query: LeadListQuery): Promise<{ leads: Lead[]; total: number }>;
   /** Dashboard counts, computed in the database in one bounded query — never by loading every lead. */
-  counts(now: Date, endOfToday: Date): Promise<LeadCounts>;
+  counts(now: Date, endOfToday: Date, sourceType?: LeadSourceType): Promise<LeadCounts>;
+  /** For a page of leads: the last call and the interested projects of each, in two batched queries (never one per lead). */
+  bucketInsights(leadIds: string[]): Promise<LeadBucketInsight[]>;
   /** Names of the given developers, for display only (one batched lookup, never one per lead). Unknown ids are simply absent. */
   developerNames(ids: string[]): Promise<Record<string, string>>;
   /** Per current owner: live leads at QUALIFIED, SITE_VISIT_SCHEDULED and BOOKED. A snapshot of where their leads stand now, not credit for how they got there. */

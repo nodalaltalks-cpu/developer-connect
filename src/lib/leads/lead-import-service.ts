@@ -5,7 +5,7 @@ import type { CreationMethod, LeadActor, LeadImportBatch, Lead } from "./types.t
 
 /**
  * Self-generated leads: importing a CSV (an Excel sheet saved as CSV) and creating a lead by hand. Both record where the
- * lead came from — SELF_GENERATED, the creation method, who created it, and (for imports) the batch — so that
+ * lead came from — COLD_CALL, the creation method, who created it, and (for imports) the batch — so that
  * batch -> leads -> calls -> connected -> follow-ups -> bookings can always be followed. Neither creates a buyer
  * consent record: a self-generated lead has not asked to be contacted. (That is a legal question for the business, not
  * something this code decides; see the Phase 2 report.)
@@ -155,7 +155,7 @@ export async function importLeadsFromCsv(
         userId: null,
         // The lead SOURCE (where it came from) is kept apart from how it is called. A per-row source/campaign wins over the batch one.
         source: {
-          sourceType: "SELF_GENERATED",
+          sourceType: "COLD_CALL",
           sourceDetail: cleanOptional(sourceCol === -1 ? undefined : cells[sourceCol], 120) ?? cleanOptional(campaignCol === -1 ? undefined : cells[campaignCol], 120) ?? campaign ?? batchName,
           creationMethod: "CSV_IMPORT",
           importBatchId: batch.id,
@@ -192,7 +192,7 @@ export async function importLeadsFromCsv(
   });
 }
 
-export const HAND_CREATED_METHODS: readonly CreationMethod[] = ["COLD_CALLING", "EMPLOYEE_CREATED", "FOUNDER_CREATED", "DIALER_GENERATED"];
+export const HAND_CREATED_METHODS: readonly CreationMethod[] = ["COLD_CALLING", "EMPLOYEE_CREATED", "FOUNDER_CREATED", "DIALER_GENERATED", "REFERRAL_CREATED"];
 
 /**
  * Creates one self-generated lead by hand. A team member's lead is theirs from the start; the Founder's goes to the
@@ -222,7 +222,7 @@ export async function createSelfGeneratedLead(
       sourceCta: null,
       sessionId: null,
       userId: null,
-      source: { sourceType: "SELF_GENERATED", sourceDetail: cleanOptional(input.sourceDetail ?? undefined, 120), creationMethod: method, importBatchId: null, createdBy: actor.actorId! },
+      source: { sourceType: "COLD_CALL", sourceDetail: cleanOptional(input.sourceDetail ?? undefined, 120), creationMethod: method, importBatchId: null, createdBy: actor.actorId! },
       now,
     });
     // A number already in the system is never handed back: telling a team member WHICH lead it is would show them a

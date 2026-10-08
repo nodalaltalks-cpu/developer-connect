@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assignLead, captureAssistanceLead, eraseLead, getLeadTimeline } from "../lead-service.ts";
+import { createSelfGeneratedLead } from "../lead-import-service.ts";
 import { getCallForActor, ingestProviderEvent, nextCallState, placeCall, setCallDisposition } from "../call-service.ts";
 import { notConfiguredProvider, getTelephonyProvider, TelephonyNotConfiguredError, WebhookVerificationError, type PlaceCallRequest, type ProviderEvent, type TelephonyProvider } from "../telephony.ts";
 import { getCallActivity, getEmployeeInsights, getMyCallDashboard, parseInsightFilters, resolveRange, toMetrics, formatCallDuration, formatTalkTime, formatRate } from "../call-analytics.ts";
@@ -367,9 +368,9 @@ test("ranges: today, yesterday, last 7 and 30 days and a custom range are exact 
   assert.equal(custom.from.toISOString(), "2026-09-30T18:30:00.000Z");
   assert.equal(custom.to.toISOString(), "2026-10-03T18:30:00.000Z", "the end date is inclusive");
   for (const bad of [{ from: "2026-10-05", to: "2026-10-01" }, { from: "nonsense", to: "2026-10-01" }, {}, { from: "2025-01-01", to: "2026-10-01" }]) assert.throws(() => resolveRange("custom", now, bad), LeadValidationError);
-  const parsed = parseInsightFilters({ range: "custom", from: "bad", to: "bad", period: "monthly", employee: "u1", source: "SELF_GENERATED", connected: "yes", status: "BUSY" }, now);
+  const parsed = parseInsightFilters({ range: "custom", from: "bad", to: "bad", period: "monthly", employee: "u1", source: "COLD_CALL", connected: "yes", status: "BUSY" }, now);
   assert.equal(parsed.range.label, "Today", "an unusable range falls back safely");
-  assert.deepEqual([parsed.period, parsed.employeeId, parsed.sourceType, parsed.connected, parsed.statuses], ["monthly", "u1", "SELF_GENERATED", true, ["BUSY"]]);
+  assert.deepEqual([parsed.period, parsed.employeeId, parsed.sourceType, parsed.connected, parsed.statuses], ["monthly", "u1", "COLD_CALL", true, ["BUSY"]]);
   assert.equal(parseInsightFilters({ period: "hourly", source: "X", status: "NOPE" }, now).period, "daily");
 });
 
@@ -411,21 +412,27 @@ test("aggregation: one query answers every grouping — employee, hour, day — 
   assert.deepEqual((await w.repos.calls.aggregate({ ...base, groupBy: "DAY" })).map((r) => r.dialed), [6], "T0 is one business day");
 });
 
-test("aggregation: the filters — employee, connected, status, source type — narrow the same query; a self-generated lead's calls stay separate from digital ones", async () => {
+test("aggregation: the filters — employee, connected, status, source type — narrow the same query; a cold-call lead's calls stay separate from digital ones", async () => {
   const w = await world();
   await seedCalls(w);
-  await w.repos.leads.update(w.b.id, { sourceType: "SELF_GENERATED", creationMethod: "EXCEL_IMPORT" }, minutes(2));
+  // A genuine cold-call lead (the source is set when the lead is created and can never be changed afterwards).
+  const made = await createSelfGeneratedLead(w.repos, { phone: "+91 98111 00001", creationMethod: "COLD_CALLING" }, w.rohanActor, minutes(2));
+  assert.ok(made.created);
+  await finishedCall(w, made.lead.id, w.rohanActor, "CONNECTED_60", 30, 40);
   const q = { from: minutes(0), to: minutes(600), timeZone: "Asia/Kolkata", groupBy: "EMPLOYEE" } as const;
   const total = (rows: Awaited<ReturnType<typeof w.repos.calls.aggregate>>) => rows.reduce((n, r) => n + r.dialed, 0);
   assert.equal(total(await w.repos.calls.aggregate({ ...q, staffUserId: w.priya.userId })), 4);
-  assert.equal(total(await w.repos.calls.aggregate({ ...q, connected: true })), 3);
+  assert.equal(total(await w.repos.calls.aggregate({ ...q, connected: true })), 4);
   assert.equal(total(await w.repos.calls.aggregate({ ...q, connected: false })), 3);
   assert.equal(total(await w.repos.calls.aggregate({ ...q, statuses: ["BUSY"] })), 1);
-  assert.equal(total(await w.repos.calls.aggregate({ ...q, sourceType: "SELF_GENERATED" })), 2, "only Rohan's lead is self-generated");
-  assert.equal(total(await w.repos.calls.aggregate({ ...q, sourceType: "DIGITAL" })), 4);
-  assert.equal(total(await w.repos.calls.aggregate({ ...q, from: minutes(18) })), 3, "the range is applied to the call's start");
-  const lead = (await w.repos.leads.getById(w.b.id))!;
-  assert.equal(lead.sourceType, "SELF_GENERATED", "calling a lead never changes where it came from");
+  assert.equal(total(await w.repos.calls.aggregate({ ...q, sourceType: "COLD_CALL" })), 1, "only the cold-call lead's call");
+  assert.equal(total(await w.repos.calls.aggregate({ ...q, sourceType: "DIGITAL" })), 6);
+  assert.equal(total(await w.repos.calls.aggregate({ ...q, from: minutes(18) })), 4, "the range is applied to the call's start");
+  const lead = (await w.repos.leads.getById(made.lead.id))!;
+  assert.equal(lead.sourceType, "COLD_CALL", "calling a lead never changes where it came from");
+  // And nothing can change it: the repository refuses the attempt outright.
+  await assert.rejects(w.repos.leads.update(lead.id, { sourceType: "DIGITAL" } as never, minutes(3)), /cannot be changed/);
+  assert.equal((await w.repos.leads.getById(lead.id))!.sourceType, "COLD_CALL");
 });
 
 test("Founder insights: per employee, by hour (24 buckets, dialed AND connected) and by period; every team member listed; no score, no ranking", async () => {

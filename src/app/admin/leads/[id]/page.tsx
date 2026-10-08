@@ -10,7 +10,8 @@ import { FollowUpSection } from "@/components/leads/follow-up-section";
 import { RequirementSection } from "@/components/leads/requirement-section";
 import { FounderLeadProjectsAndVisits } from "@/app/admin/leads/_components/lead-projects-visits";
 import { FounderLeadBookings } from "@/app/admin/leads/_components/lead-bookings";
-import { StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
+import { SourceBadge, StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
+import { QualificationCard } from "@/components/leads/qualification-card";
 import {
   AttributionCard,
   AuditCard,
@@ -28,12 +29,12 @@ import { getLeadDetail } from "@/lib/leads/lead-reads";
 import { prefillFromLead, toRequirementView } from "@/lib/leads/requirement-view";
 import { toCallView } from "@/lib/leads/call-view";
 import { toFollowUpView } from "@/lib/leads/follow-up-view";
-import { leadSourceLabel } from "@/lib/leads/lead-source";
 import { getTelephonyProvider } from "@/lib/leads/telephony";
 import {
   cancelLeadFollowUpAction,
   completeLeadFollowUpAction,
   createRequirementAction,
+  recordLeadQualificationAction,
   rescheduleLeadFollowUpAction,
   setLeadFollowUpAction,
   setRequirementStatusAction,
@@ -91,8 +92,9 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusBadge status={lead.status} />
           <span className="text-xs text-muted-foreground">Owner: {ownerName ?? "Founder"}</span>
-          <span className="text-xs text-muted-foreground">{leadSourceLabel(lead)}</span>
+          <SourceBadge lead={lead} />
         </div>
+        {!erased && <p className="mt-2 text-xs text-muted-foreground">{detail.contactBasis.statement}</p>}
         {!erased && (
           <p className="mt-2 text-sm text-foreground">
             {lead.phoneE164}
@@ -133,6 +135,14 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
               currentOwnerName={ownerName ?? null}
               members={team.filter((m) => m.active).map((m) => ({ id: m.id, userId: m.userId, name: m.displayName }))}
               ownerInactive={lead.ownerId !== null && team.some((m) => m.userId === lead.ownerId && !m.active)}
+            />
+          )}
+          {!erased && (
+            <QualificationCard
+              status={lead.status}
+              latest={detail.qualification ? { outcome: detail.qualification.outcome, reason: detail.qualification.reason, atLabel: formatDateTimeFull(detail.qualification.at) } : null}
+              restrictToTeamMoves={false}
+              onRecord={recordLeadQualificationAction.bind(null, lead.id)}
             />
           )}
           {!erased && <CallHistoryCard calls={detail.calls.map(toCallView)} names={names} />}

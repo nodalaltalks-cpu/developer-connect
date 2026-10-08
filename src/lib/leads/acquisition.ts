@@ -70,7 +70,7 @@ export interface AcquisitionBooking {
 export type AttributionBasis = "first" | "latest";
 
 export function channelOf(row: Pick<AcquisitionRow, "sourceType" | "creationMethod" | "first" | "latest">, basis: AttributionBasis = "first"): AcquisitionChannel {
-  if (row.sourceType === "SELF_GENERATED") {
+  if (row.sourceType === "COLD_CALL") {
     if (row.creationMethod === "CSV_IMPORT" || row.creationMethod === "EXCEL_IMPORT") return "CSV_IMPORT";
     if (row.creationMethod === "COLD_CALLING") return "COLD_CALLING";
     return "SELF_GENERATED_OTHER";

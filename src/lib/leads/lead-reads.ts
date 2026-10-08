@@ -2,9 +2,10 @@ import { DEFAULT_QUEUE_LIMIT, LEADS_PAGE_SIZE } from "./queue-config.ts";
 import { endOfDayIn, followUpState, type FollowUpState, type LeadCounts, type LeadListQuery } from "./lead-views.ts";
 import { buildTodayQueue, type TodayQueueEntry, type TodayQueueInput } from "./today-queue.ts";
 import { canViewLead } from "./lead-access.ts";
+import { contactBasisOf, type ContactBasisView } from "./contact-basis.ts";
 import { MissedFollowUpBlockError, UnauthorizedLeadActionError } from "./errors.ts";
 import type { LeadRepositories } from "./repository.ts";
-import type { Booking, Lead, LeadActivitySummary, LeadActor, LeadCall, LeadConsent, LeadEvent, LeadFollowUp, LeadRequirement, MarketingTouch } from "./types.ts";
+import type { Booking, Lead, LeadActivitySummary, LeadBucketInsight, LeadSourceType, LeadActor, LeadCall, LeadConsent, LeadEvent, LeadFollowUp, LeadRequirement, MarketingTouch } from "./types.ts";
 
 /**
  * Read models for the founder's Leads screens. Read-only: nothing here writes.
@@ -21,6 +22,8 @@ export interface LeadListItem {
   /** The developer the buyer first researched, for display. */
   developerName: string | null;
   summary: LeadActivitySummary | null;
+  /** The last call and the interested projects, for the bucket cards. */
+  insight?: LeadBucketInsight | null;
   /** Why the Today queue put this lead here; null outside the attention view. */
   attention: Pick<TodayQueueEntry, "bucket" | "reasons" | "summary"> | null;
   followUp: FollowUpState | null;
@@ -44,8 +47,9 @@ async function toItems(
   const endOfToday = endOfDayIn(now);
   const ids = leads.map((lead) => lead.id);
   const developerIds = [...new Set(leads.map((lead) => lead.developerId).filter((id): id is string => id !== null))];
-  const [summaries, names] = await Promise.all([repos.events.summarise(ids), repos.leads.developerNames(developerIds)]);
+  const [summaries, names, insights] = await Promise.all([repos.events.summarise(ids), repos.leads.developerNames(developerIds), repos.leads.bucketInsights(ids)]);
   const summaryByLead = new Map(summaries.map((summary) => [summary.leadId, summary]));
+  const insightByLead = new Map(insights.map((insight) => [insight.leadId, insight]));
 
   return leads.map((lead) => {
     const summary = summaryByLead.get(lead.id) ?? null;
@@ -54,6 +58,7 @@ async function toItems(
       lead,
       developerName: (lead.developerId ? names[lead.developerId] : null) ?? summary?.firstDeveloperName ?? null,
       summary,
+      insight: insightByLead.get(lead.id) ?? null,
       attention: entry ? { bucket: entry.bucket, reasons: entry.reasons, summary: entry.summary } : null,
       followUp: followUpState(lead.nextFollowUpAt, now, endOfToday),
     };
@@ -65,8 +70,9 @@ export async function getAttentionItems(
   repos: LeadRepositories,
   now: Date = new Date(),
   limit: number = DEFAULT_QUEUE_LIMIT,
+  sourceType?: LeadSourceType,
 ): Promise<LeadListItem[]> {
-  const leads = await repos.leads.listForQueue(1000);
+  const leads = (await repos.leads.listForQueue(1000)).filter((lead) => sourceType === undefined || lead.sourceType === sourceType);
   const summaries = await repos.events.summarise(leads.map((lead) => lead.id));
   const summaryByLead = new Map(summaries.map((summary) => [summary.leadId, summary]));
   const inputs: TodayQueueInput[] = leads.map((lead) => {
@@ -85,9 +91,10 @@ export async function getLeadsPage(
   page: number,
   now: Date = new Date(),
   pageSize: number = LEADS_PAGE_SIZE,
+  sourceType?: LeadSourceType,
 ): Promise<LeadsPage> {
   const safePage = Number.isInteger(page) && page >= 1 ? page : 1;
-  const result = await repos.leads.list({ view, limit: pageSize, offset: (safePage - 1) * pageSize, now, endOfToday: endOfDayIn(now) });
+  const result = await repos.leads.list({ view, sourceType, limit: pageSize, offset: (safePage - 1) * pageSize, now, endOfToday: endOfDayIn(now) });
   return {
     items: await toItems(repos, result.leads, now),
     total: result.total,
@@ -97,12 +104,32 @@ export async function getLeadsPage(
   };
 }
 
-export async function getLeadCounts(repos: LeadRepositories, now: Date = new Date()): Promise<LeadCounts> {
-  return repos.leads.counts(now, endOfDayIn(now));
+export async function getLeadCounts(repos: LeadRepositories, now: Date = new Date(), sourceType?: LeadSourceType): Promise<LeadCounts> {
+  return repos.leads.counts(now, endOfDayIn(now), sourceType);
+}
+
+/** The latest qualification a team member or the Founder recorded, read from the immutable events. */
+export interface LatestQualification {
+  outcome: string;
+  reason: string | null;
+  at: Date;
+}
+
+export function latestQualification(events: readonly LeadEvent[]): LatestQualification | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.eventType === "QUALIFICATION_RECORDED" && typeof e.payload.outcome === "string") {
+      return { outcome: e.payload.outcome, reason: typeof e.payload.reason === "string" ? e.payload.reason : null, at: e.createdAt };
+    }
+  }
+  return null;
 }
 
 export interface LeadDetail {
   lead: Lead;
+  /** What can be said FACTUALLY about why we hold this number and whether they agreed to be contacted. Never invents consent. */
+  contactBasis: ContactBasisView;
+  qualification: LatestQualification | null;
   developerName: string | null;
   /** Oldest first. */
   events: LeadEvent[];
@@ -143,8 +170,11 @@ export async function getLeadDetail(repos: LeadRepositories, leadId: string, now
     if (typeof name === "string" && !viewed.includes(name)) viewed.push(name);
   }
 
+  const active = consents.some((c) => c.withdrawnAt === null);
   return {
     lead,
+    contactBasis: contactBasisOf(lead, consents.length > 0 ? { given: true, withdrawn: !active } : null),
+    qualification: latestQualification(events),
     developerName: (lead.developerId ? names[lead.developerId] : null) ?? viewed[0] ?? null,
     events,
     firstTouch,
@@ -198,6 +228,7 @@ export async function getMyLeadsPage(
   page: number,
   now: Date = new Date(),
   pageSize: number = LEADS_PAGE_SIZE,
+  sourceType?: LeadSourceType,
 ): Promise<MyLeadsPage> {
   if (actor.actorType !== "EMPLOYEE" || !actor.actorId) {
     throw new UnauthorizedLeadActionError("A signed-in team member is required.");
@@ -213,6 +244,7 @@ export async function getMyLeadsPage(
   const safePage = Number.isInteger(page) && page >= 1 ? page : 1;
   const result = await repos.leads.list({
     view: safeView,
+    sourceType,
     ownerId: actor.actorId,
     limit: pageSize,
     offset: (safePage - 1) * pageSize,
@@ -232,6 +264,8 @@ export async function getMyLeadsPage(
 /** What a team member sees of one lead: contact, requirement, interest, timeline and follow-up — no attribution, consent records or bookings. */
 export interface MyLeadDetail {
   lead: Lead;
+  contactBasis: ContactBasisView;
+  qualification: LatestQualification | null;
   developerName: string | null;
   /** Oldest first. */
   events: LeadEvent[];
@@ -266,6 +300,8 @@ export async function getMyLeadDetail(
   if (misses.length > 0 && !misses.some((row) => row.followUp.leadId === leadId)) throw new MissedFollowUpBlockError(misses.length);
   return {
     lead: detail.lead,
+    contactBasis: detail.contactBasis,
+    qualification: detail.qualification,
     developerName: detail.developerName,
     // Booking events carry money figures; those stay the Founder's.
     events: detail.events.filter((event) => event.eventType !== "BOOKING_CREATED" && event.eventType !== "BOOKING_UPDATED"),

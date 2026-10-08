@@ -284,10 +284,10 @@ test("erasure clears a visit's free text (notes, next action) and keeps the visi
 
 const read = (p: string) => readFileSync(new URL(`../../../../${p}`, import.meta.url), "utf8");
 
-test("static: the new employee capabilities are exactly shortlist and site visits - nothing that changes status, projects, assignment or revenue", () => {
+test("static: the employee capabilities are exactly the activity set plus shortlist, site visits and the narrow QUALIFY_LEAD - never unrestricted status, projects, assignment or revenue", () => {
   const access = read("src/lib/leads/lead-access.ts");
   const caps = access.match(/EMPLOYEE_CAPABILITIES = \[([^\]]*)\]/)![1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
-  assert.deepEqual(caps, ["ADD_NOTE", "LOG_CONTACT", "SET_FOLLOW_UP", "COMPLETE_FOLLOW_UP", "MANAGE_REQUIREMENT", "RETURN_LEAD", "PLACE_CALL", "SHORTLIST_PROJECT", "MANAGE_SITE_VISIT"]);
+  assert.deepEqual(caps, ["ADD_NOTE", "LOG_CONTACT", "SET_FOLLOW_UP", "COMPLETE_FOLLOW_UP", "MANAGE_REQUIREMENT", "RETURN_LEAD", "PLACE_CALL", "SHORTLIST_PROJECT", "MANAGE_SITE_VISIT", "QUALIFY_LEAD"]);
   const team = read("src/app/team/_actions/team-actions.ts");
   assert.doesNotMatch(team, /createProject|updateProject|createProjectAction/, "team members never edit inventory");
 });

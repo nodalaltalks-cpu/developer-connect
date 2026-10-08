@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEmployee } from "@/lib/team/session";
 import { TeamLeadActions } from "@/components/team/team-lead-actions";
-import { StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
+import { SourceBadge, StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
+import { QualificationCard } from "@/components/leads/qualification-card";
 import { InterestCard, TimelineCard } from "@/components/admin/leads/lead-detail-sections";
 import { CallHistoryCard } from "@/components/leads/call-history";
 import { FollowUpSection } from "@/components/leads/follow-up-section";
@@ -15,7 +16,6 @@ import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
 import { MissedFollowUpBlockError } from "@/lib/leads/errors";
 import { toCallView } from "@/lib/leads/call-view";
 import { toFollowUpView } from "@/lib/leads/follow-up-view";
-import { leadSourceLabel } from "@/lib/leads/lead-source";
 import { getTelephonyProvider } from "@/lib/leads/telephony";
 import { getMyLeadDetail } from "@/lib/leads/lead-reads";
 import { TeamLeadProjectsAndVisits } from "@/app/team/_components/lead-projects-visits";
@@ -25,6 +25,7 @@ import {
   completeMyLeadFollowUpAction,
   createMyRequirementAction,
   rescheduleMyLeadFollowUpAction,
+  recordMyQualificationAction,
   returnMyLeadAction,
   setMyLeadFollowUpAction,
   setMyRequirementStatusAction,
@@ -87,8 +88,9 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusBadge status={lead.status} />
           <span className="text-xs text-muted-foreground">Owner: {member.employeeId} · {member.displayName}</span>
-          <span className="text-xs text-muted-foreground">{leadSourceLabel(lead)}</span>
+          <SourceBadge lead={lead} />
         </div>
+        <p className="mt-2 text-xs text-muted-foreground">{detail.contactBasis.statement}</p>
         <p className="mt-2 text-sm text-foreground">
           {lead.phoneE164}
           <span className="text-muted-foreground"> · prefers {formatEnumLabel(lead.contactPreference)}</span>
@@ -115,6 +117,17 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
           telHref={telHref(lead.phoneE164)}
           whatsappHref={whatsappHref(lead.phoneE164)}
           prefersWhatsApp={lead.contactPreference === "WHATSAPP"}
+        />
+        {lead.sourceType === "COLD_CALL" && (
+          <Link href={`/team/cold-call/${lead.id}`} className="flex min-h-12 items-center justify-center rounded-lg border border-accent bg-accent/10 px-4 text-base font-semibold text-foreground">
+            Add call details
+          </Link>
+        )}
+        <QualificationCard
+          status={lead.status}
+          latest={detail.qualification ? { outcome: detail.qualification.outcome, reason: detail.qualification.reason, atLabel: formatDateTimeFull(detail.qualification.at) } : null}
+          restrictToTeamMoves
+          onRecord={recordMyQualificationAction.bind(null, lead.id)}
         />
         <CallHistoryCard calls={detail.calls.map(toCallView)} names={{ [member.userId]: member.displayName }} />
         <FollowUpSection

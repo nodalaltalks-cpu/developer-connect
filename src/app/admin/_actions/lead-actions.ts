@@ -13,6 +13,8 @@ import { createProject, removeFromShortlist, shortlistProject, updateProject, ty
 import { changeSiteVisit, scheduleSiteVisit } from "@/lib/leads/site-visit-service";
 import type { VisitChange as VisitChangeInput } from "@/components/leads/site-visits-section";
 import { importLeadsFromCsv } from "@/lib/leads/lead-import-service";
+import { recordQualification } from "@/lib/leads/qualification-service";
+import { recordWhatsAppOpened } from "@/lib/leads/whatsapp-service";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
 import { getTelephonyProvider, TelephonyNotConfiguredError } from "@/lib/leads/telephony";
 import { businessLocalToInstant } from "@/lib/leads/format";
@@ -71,6 +73,16 @@ async function run(leadId: string, work: (actor: LeadActor) => Promise<unknown>)
   revalidatePath("/admin/missed-leads");
   revalidatePath("/admin/returned-leads");
   return { ok: true };
+}
+
+/** The Founder records a qualification (same mapping onto the canonical status as a team member's; the Founder is not limited to the team member transitions). */
+export async function recordLeadQualificationAction(leadId: string, outcome: string, reason?: string | null): Promise<LeadActionResult> {
+  return run(leadId, (actor) => recordQualification(createPostgresLeadRepositories(), leadId, { outcome, reason }, actor));
+}
+
+/** Records that WhatsApp was OPENED to a lead's number (never that a message was sent). */
+export async function recordLeadWhatsAppOpenedAction(leadId: string): Promise<LeadActionResult> {
+  return run(leadId, (actor) => recordWhatsAppOpened(createPostgresLeadRepositories(), leadId, actor));
 }
 
 export async function setLeadTemperatureAction(leadId: string, temperature: LeadTemperature | null): Promise<LeadActionResult> {
@@ -316,7 +328,7 @@ export type ImportLeadsResult =
   | { ok: false; error: string };
 
 /**
- * Imports leads from CSV text (an Excel sheet saved as CSV). Founder only. The leads are SELF_GENERATED, tied to an
+ * Imports leads from CSV text (an Excel sheet saved as CSV). Founder only. The leads are COLD_CALL, tied to an
  * import batch (who, when, which file and campaign) so the batch can be followed through calls and bookings.
  */
 export async function importLeadsAction(csvText: string, batchName: string, campaign: string, originalFilename: string, assigneeStaffId?: string): Promise<ImportLeadsResult> {

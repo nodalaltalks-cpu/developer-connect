@@ -12,14 +12,15 @@ export const MY_VIEW_LABELS: Record<MyLeadView, string> = {
 const ORDER: MyLeadView[] = ["all", "new", "follow_up_due", "hot"];
 
 /** The four filters on My Leads. Chips scroll inside their own row only — the page never scrolls sideways. */
-export function MyLeadsTabs({ active }: { active: MyLeadView }) {
+export function MyLeadsTabs({ active, source = "all" }: { active: MyLeadView; source?: "all" | "cold_call" | "digital" }) {
+  const suffix = source === "all" ? "" : `source=${source}`;
   return (
     <nav aria-label="Lead filters">
       <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
         {ORDER.map((view) => (
           <li key={view} className="shrink-0">
             <Link
-              href={view === "all" ? "/team" : `/team?view=${view}`}
+              href={[view === "all" ? "/team" : `/team?view=${view}`, suffix ? (view === "all" ? `?${suffix}` : `&${suffix}`) : ""].join("")}
               aria-current={view === active ? "page" : undefined}
               className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm transition-colors ${
                 view === active ? "border-accent bg-accent-soft font-medium text-accent-hover" : "border-border text-foreground hover:bg-muted"

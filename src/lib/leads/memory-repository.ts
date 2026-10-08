@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { CLOSED_OUT_STATUSES } from "./lead-views.ts";
 import type { TouchEvidence } from "./acquisition.ts";
 import { randomUUID } from "node:crypto";
@@ -37,6 +38,7 @@ import type {
   RequirementLocation,
   StoredCallEvent,
 } from "./repository.ts";
+import { assertNoImmutableFields } from "./repository.ts";
 import { OPEN_SITE_VISIT_STATUSES, TERMINAL_CALL_STATUSES, type Booking, type Lead, type LeadCall, type LeadConsent, type LeadEvent, type LeadFollowUp, type LeadImportBatch, type LeadRequirement, type AutomationAction, type Campaign, type LeadStatus, type MarketingSpend, type MarketingTouch, type Project, type ShortlistEntry, type SiteVisit, type SiteVisitEvent } from "./types.ts";
 
 /**
@@ -116,6 +118,8 @@ export function createInMemoryLeadRepositories(
 
   // A promise-chain mutex so concurrent transactions run one at a time, like row locks would serialise them.
   let queue: Promise<unknown> = Promise.resolve();
+  // Inside a transaction, a nested transaction joins it (Postgres nests via SAVEPOINT); the outer rollback covers everything.
+  const insideTransaction = new AsyncLocalStorage<boolean>();
 
   const repos: LeadRepositories = {
     leads: {
@@ -171,6 +175,7 @@ export function createInMemoryLeadRepositories(
         return lead ? { ...lead } : null;
       },
       async update(id: string, patch: LeadPatch, at: Date) {
+        assertNoImmutableFields(patch);
         const lead = state.leads.get(id);
         if (!lead) throw new LeadNotFoundError("Lead not found.");
         // A phone number may only be cleared (erasure) or left alone — never re-pointed at another lead's number.
@@ -193,12 +198,31 @@ export function createInMemoryLeadRepositories(
       async list(query) {
         const matching = [...state.leads.values()]
           .filter((lead) => query.ownerId === undefined || lead.ownerId === query.ownerId)
+          .filter((lead) => query.sourceType === undefined || lead.sourceType === query.sourceType)
           .filter((lead) => matchesView(lead, query.view, query.now, query.endOfToday))
           .sort(compareForView(query.view));
         return { total: matching.length, leads: matching.slice(query.offset, query.offset + query.limit).map((lead) => ({ ...lead })) };
       },
-      async counts(now, endOfToday) {
-        return countLeads([...state.leads.values()], now, endOfToday);
+      async counts(now, endOfToday, sourceType) {
+        return countLeads([...state.leads.values()].filter((lead) => sourceType === undefined || lead.sourceType === sourceType), now, endOfToday);
+      },
+      async bucketInsights(leadIds) {
+        return leadIds.map((id) => {
+          const latest = [...state.calls.values()].filter((c) => c.leadId === id).sort((a, b) => b.initiatedAt.getTime() - a.initiatedAt.getTime())[0];
+          const names = [...state.shortlist.values()]
+            .filter((e) => e.leadId === id && e.removedAt === null)
+            .sort((a, b) => a.shortlistedAt.getTime() - b.shortlistedAt.getTime())
+            .map((e) => state.projects.get(e.projectId)?.name)
+            .filter((n): n is string => Boolean(n));
+          return {
+            leadId: id,
+            lastCallAt: latest ? latest.initiatedAt : null,
+            lastCallClassification: latest?.classification ?? null,
+            lastCallDurationSeconds: latest?.durationSeconds ?? null,
+            interestedProjects: names.slice(0, 3),
+            interestedProjectCount: names.length,
+          };
+        });
       },
       async developerNames(ids) {
         return Object.fromEntries(ids.filter((id) => id in developerNames).map((id) => [id, developerNames[id]]));
@@ -1071,10 +1095,11 @@ export function createInMemoryLeadRepositories(
     },
 
     async transaction<T>(work: (inner: LeadRepositories) => Promise<T>): Promise<T> {
+      if (insideTransaction.getStore()) return work(repos);
       const run = async () => {
         const before = cloneState();
         try {
-          return await work(repos);
+          return await insideTransaction.run(true, () => work(repos));
         } catch (error) {
           state.leads = before.leads;
           state.events = before.events;

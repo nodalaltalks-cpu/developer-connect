@@ -30,7 +30,7 @@ test("integration: a cold call creates one lead, concurrent cold calls never dup
   assert.ok(lead, "the lead exists");
   assert.ok(done.every((d) => d.value.leadId === lead.id), "every successful call is on the one lead");
   assert.equal(lead.ownerId, caller.actorId);
-  assert.equal(lead.sourceType, "SELF_GENERATED");
+  assert.equal(lead.sourceType, "COLD_CALL");
   assert.equal(lead.creationMethod, "DIALER_GENERATED");
   assert.equal(done.filter((d) => d.value.createdLead).length, 1, "exactly one of them created it");
 

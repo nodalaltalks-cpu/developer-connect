@@ -14,7 +14,7 @@ import type { LeadActor } from "./types.ts";
  *  - A number already in the system is NEVER duplicated. If the caller may call that lead (they own it, or they are the
  *    Founder) the call attaches to it; if not, they are told only that the number is already in the system and not theirs
  *    to call - never whose it is, never its name.
- *  - A number that is not in the system becomes a SELF_GENERATED lead (creation method DIALER_GENERATED), owned by the
+ *  - A number that is not in the system becomes a COLD_CALL lead (creation method DIALER_GENERATED), owned by the
  *    caller, created visibly - the screen says so - and in the same breath as the call attempt. A wrong number is then
  *    closed with the usual outcome (invalid number), exactly like any lead.
  *  - Everything after the call is the existing path: the phone reports its call-log duration, the SERVER classifies it

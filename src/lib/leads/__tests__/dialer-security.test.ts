@@ -138,7 +138,7 @@ test("lead source: kept separate from calls — the source columns live on leads
   const calls = read("src/lib/leads/call-service.ts");
   assert.doesNotMatch(calls, /sourceType|creationMethod|sourceDetail|importBatchId/, "the dialer never touches where a lead came from");
   const imp = read("src/lib/leads/lead-import-service.ts");
-  assert.match(imp, /sourceType: "SELF_GENERATED"/);
+  assert.match(imp, /sourceType: "COLD_CALL"/);
   assert.match(functionBody(imp, "importLeadsFromCsv"), /assertFounder\(actor\)/);
   assert.doesNotMatch(imp, /consents\.create|CONSENT_GIVEN/, "an imported lead never gets a fabricated consent record");
 });

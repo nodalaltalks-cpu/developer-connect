@@ -84,6 +84,12 @@ function headlineFor(event: LeadEvent, names?: Record<string, string>): { headli
         headline: `Status: ${label(event.fromStatus)} → ${label(event.toStatus)}${p.reasonCode ? ` (${label(p.reasonCode)})` : ""}`,
         detail: text(p.note),
       };
+    case "QUALIFICATION_RECORDED":
+      return { headline: `Qualification: ${label(p.outcome)}${p.reason ? ` · ${label(p.reason)}` : ""}`, detail: null };
+    case "CONTACT_DETAILS_UPDATED":
+      return { headline: "Contact details added", detail: Array.isArray(p.fields) ? p.fields.map((f) => label(f)).join(", ") : null };
+    case "WHATSAPP_OPENED":
+      return { headline: "Opened WhatsApp (the message itself is not tracked)", detail: null };
     case "TEMPERATURE_CHANGED":
       return { headline: `Temperature: ${label(p.from)} → ${label(p.to)}`, detail: null };
     case "OWNER_CHANGED":

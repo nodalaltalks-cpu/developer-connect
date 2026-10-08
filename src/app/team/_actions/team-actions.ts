@@ -8,6 +8,10 @@ import { addNote, logContact, type ContactChannel, type ContactOutcome } from "@
 import { cancelLeadFollowUp, completeLeadFollowUp, rescheduleFollowUp, returnLeadToFounder, scheduleFollowUp } from "@/lib/leads/follow-up-service";
 import { getCallForActor, placeCall, prepareDeviceCall, reportDeviceCall, setCallDisposition } from "@/lib/leads/call-service";
 import { toCallView, type CallView } from "@/lib/leads/call-view";
+import { recordQualification } from "@/lib/leads/qualification-service";
+import { saveColdCallLead, type ColdCallLeadResult } from "@/lib/leads/cold-call-lead-service";
+import { searchActiveProjects, type ProjectSearchHit } from "@/lib/leads/project-service";
+import { recordWhatsAppOpened } from "@/lib/leads/whatsapp-service";
 import { lookupColdCallNumber, prepareColdCall, type ColdCallLookup } from "@/lib/leads/cold-call-service";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
 import { removeFromShortlist, shortlistProject } from "@/lib/leads/project-service";
@@ -54,6 +58,80 @@ async function run(leadId: string, work: (actor: LeadActor, notifier: ReturnType
   revalidatePath("/team");
   revalidatePath("/team/missed");
   return { ok: true };
+}
+
+/**
+ * Records the qualification of a lead the signed-in team member OWNS. The browser sends only which lead and which of the
+ * four outcomes (and, for a qualified lead, one of four reasons); the service maps the outcome onto the canonical status
+ * and refuses any move a team member may not make. Status is never accepted from the browser.
+ */
+export async function recordMyQualificationAction(leadId: string, outcome: string, reason?: string | null): Promise<TeamActionResult> {
+  return run(leadId, (actor) => recordQualification(createPostgresLeadRepositories(), leadId, { outcome, reason }, actor));
+}
+
+export interface ColdCallFormPayload {
+  /** An existing lead (after a dialed call). Absent: a new cold-call lead is created from `phone`. */
+  leadId?: string | null;
+  phone?: string;
+  name?: string;
+  email?: string;
+  interest: string;
+  qualification?: { outcome?: string; reason?: string | null } | null;
+  projectIds?: string[];
+  /** The next step. `whenLocal` is "YYYY-MM-DDTHH:mm" in the business time zone; the server turns it into an exact instant. */
+  plan?: { kind: string; whenLocal: string; note?: string } | null;
+  requirement?: RequirementInput | null;
+  note?: string;
+}
+
+export type SaveColdCallResult = { ok: true; result: ColdCallLeadResult } | { ok: false; error: string };
+
+/**
+ * Saves a whole cold call (contact, interest, qualification, projects, requirement, next step, note) in ONE transaction:
+ * all of it, or none of it. The browser sends plain choices; the owner, the source (always COLD_CALL), the canonical
+ * status, the lead's identity and every timestamp are decided on the server.
+ */
+export async function saveMyColdCallLeadAction(payload: ColdCallFormPayload): Promise<SaveColdCallResult> {
+  const { actor } = await requireEmployeeForAction();
+  if (!payload || typeof payload !== "object") return { ok: false, error: GENERIC_ERROR };
+  try {
+    let plan: { kind?: unknown; scheduledAt?: unknown; note?: unknown } | null = null;
+    if (payload.plan) {
+      const scheduledAt = businessLocalToInstant(payload.plan.whenLocal);
+      if (!scheduledAt) return { ok: false, error: "Choose a valid date and time for the next step." };
+      plan = { kind: payload.plan.kind, scheduledAt, note: payload.plan.note };
+    }
+    const result = await saveColdCallLead(
+      createPostgresLeadRepositories(),
+      { leadId: payload.leadId, phone: payload.phone, name: payload.name, email: payload.email, interest: payload.interest, qualification: payload.qualification, projectIds: payload.projectIds, plan, requirement: payload.requirement, note: payload.note },
+      actor,
+    );
+    if (result.saved) {
+      revalidatePath("/team");
+      revalidatePath("/team/missed");
+      revalidatePath(`/team/leads/${result.leadId}`);
+    }
+    return { ok: true, result };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: NOT_FOUND };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+/** Type-ahead over the canonical ACTIVE projects. Read-only: ids and labels, no prices; nothing can be created here. */
+export async function searchMyProjectsAction(query: string): Promise<ProjectSearchHit[]> {
+  const { actor } = await requireEmployeeForAction();
+  try {
+    return await searchActiveProjects(createPostgresLeadRepositories(), actor, query);
+  } catch {
+    return [];
+  }
+}
+
+/** Records that WhatsApp was OPENED to a lead's number (never that a message was sent). */
+export async function recordMyWhatsAppOpenedAction(leadId: string): Promise<TeamActionResult> {
+  return run(leadId, (actor) => recordWhatsAppOpened(createPostgresLeadRepositories(), leadId, actor));
 }
 
 export async function addMyLeadNoteAction(leadId: string, text: string): Promise<TeamActionResult> {

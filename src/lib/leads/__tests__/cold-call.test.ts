@@ -62,7 +62,7 @@ test("new number: becomes a self-generated lead owned by the caller, with a call
   const lead = (await w.repos.leads.findByPhone(NEW_E164))!;
   assert.equal(lead.id, prepared.leadId);
   assert.equal(lead.ownerId, w.priyaActor.actorId, "the caller owns the lead they created");
-  assert.equal(lead.sourceType, "SELF_GENERATED", "lead SOURCE stays self-generated; it is not confused with the calling method");
+  assert.equal(lead.sourceType, "COLD_CALL", "lead SOURCE stays self-generated; it is not confused with the calling method");
   assert.equal(lead.creationMethod, "DIALER_GENERATED");
   const events = (await getLeadTimeline(w.repos, lead.id)).map((e) => e.eventType);
   assert.ok(events.includes("LEAD_CREATED") && events.includes("CALL_PLACED"));

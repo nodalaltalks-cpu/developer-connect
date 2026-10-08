@@ -5,6 +5,7 @@ import { LeadCard } from "@/components/admin/leads/lead-card";
 import { MissedCard } from "@/components/leads/missed-card";
 import { TeamCallButton } from "@/components/team/team-call-button";
 import { MyLeadsTabs, MY_VIEW_LABELS } from "@/components/team/my-leads-tabs";
+import { LeadSourceTabs, parseSourceFilter, sourceTypeOf } from "@/components/admin/leads/lead-source-tabs";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getMyWorkState, type MyWorkItem } from "@/lib/leads/follow-up-reads";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
@@ -58,6 +59,7 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
   const params = await searchParams;
   const view = parseView(params.view);
   const page = parsePage(params.page);
+  const source = parseSourceFilter(params.source);
   const now = new Date();
   const repos = createPostgresLeadRepositories();
 
@@ -82,8 +84,8 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
     );
   }
 
-  const result = await getMyLeadsPage(repos, actor, view, page, now);
-  const href = (nextPage: number) => `/team?view=${view}&page=${nextPage}`;
+  const result = await getMyLeadsPage(repos, actor, view, page, now, undefined, sourceTypeOf(source));
+  const href = (nextPage: number) => `/team?view=${view}&page=${nextPage}${source === "all" ? "" : `&source=${source}`}`;
 
   return (
     <div>
@@ -119,7 +121,10 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
         </section>
       )}
 
-      <MyLeadsTabs active={view} />
+      <div className="mb-3">
+        <LeadSourceTabs active={source} hrefFor={(filter) => `/team?view=${view}${filter === "all" ? "" : `&source=${filter}`}`} />
+      </div>
+      <MyLeadsTabs active={view} source={source} />
 
       <h2 className="mt-4 text-sm font-medium text-foreground">
         {MY_VIEW_LABELS[view]} · {result.total}

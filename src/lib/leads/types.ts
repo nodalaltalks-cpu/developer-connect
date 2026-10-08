@@ -81,6 +81,9 @@ export const LEAD_EVENT_TYPES = [
   "PROJECT_SHORTLIST_REMOVED",
   "SITE_VISIT_SCHEDULED",
   "SITE_VISIT_UPDATED",
+  "WHATSAPP_OPENED",
+  "QUALIFICATION_RECORDED",
+  "CONTACT_DETAILS_UPDATED",
 ] as const;
 export type LeadEventType = (typeof LEAD_EVENT_TYPES)[number];
 
@@ -120,9 +123,9 @@ export interface Lead {
   temperature: LeadTemperature | null;
   /** Null = unassigned = the Founder's own queue (Phase 1 is founder-only). */
   ownerId: string | null;
-  /** WHERE it came from (separate from the calls made to it): DIGITAL or SELF_GENERATED. */
+  /** WHERE it came from (separate from the calls made to it): DIGITAL or COLD_CALL. */
   sourceType: LeadSourceType;
-  /** For DIGITAL: WEBSITE, GOOGLE, META, REFERRAL, ORGANIC or OTHER_DIGITAL; for SELF_GENERATED: the campaign or list name, if any. */
+  /** For DIGITAL: WEBSITE, GOOGLE, META, REFERRAL, ORGANIC or OTHER_DIGITAL; for COLD_CALL: the campaign or list name, if any. */
   sourceDetail: string | null;
   /** How it entered the system: one of CREATION_METHODS. */
   creationMethod: string;
@@ -214,16 +217,39 @@ export interface Requirement {
   timeline?: LeadTimeline | null;
 }
 
-export const LEAD_SOURCE_TYPES = ["DIGITAL", "SELF_GENERATED"] as const;
+export const LEAD_SOURCE_TYPES = ["DIGITAL", "COLD_CALL"] as const;
 export type LeadSourceType = (typeof LEAD_SOURCE_TYPES)[number];
 
 /** How a lead entered the system. Independent of how it is later contacted. */
-export const CREATION_METHODS = ["WEBSITE_GATE", "CSV_IMPORT", "EXCEL_IMPORT", "COLD_CALLING", "EMPLOYEE_CREATED", "FOUNDER_CREATED", "DIALER_GENERATED"] as const;
+export const CREATION_METHODS = ["WEBSITE_GATE", "CSV_IMPORT", "EXCEL_IMPORT", "COLD_CALLING", "EMPLOYEE_CREATED", "FOUNDER_CREATED", "DIALER_GENERATED", "REFERRAL_CREATED"] as const;
 export type CreationMethod = (typeof CREATION_METHODS)[number];
 
 /** Digital source detail. */
-export const DIGITAL_SOURCES = ["WEBSITE", "GOOGLE", "META", "REFERRAL", "ORGANIC", "OTHER_DIGITAL"] as const;
+export const DIGITAL_SOURCES = ["WEBSITE", "GOOGLE", "META", "INSTAGRAM", "YOUTUBE", "WHATSAPP", "REFERRAL", "ORGANIC", "CAMPAIGN", "OTHER_DIGITAL"] as const;
 export type DigitalSource = (typeof DIGITAL_SOURCES)[number];
+
+/**
+ * Cold-call detail: HOW a cold-call lead was found. Never typed by a browser: it is derived on the server from the
+ * creation method the server set when the lead was made, so it cannot disagree with the immutable creation record.
+ */
+export const COLD_CALL_DETAILS = ["SELF_GENERATED", "COLD_DATA", "REFERRAL", "MANUAL_DIAL", "IMPORTED_COLD_DATA"] as const;
+export type ColdCallDetail = (typeof COLD_CALL_DETAILS)[number];
+
+export function coldCallDetailOf(creationMethod: string): ColdCallDetail {
+  switch (creationMethod) {
+    case "DIALER_GENERATED":
+      return "MANUAL_DIAL";
+    case "CSV_IMPORT":
+    case "EXCEL_IMPORT":
+      return "IMPORTED_COLD_DATA";
+    case "COLD_CALLING":
+      return "COLD_DATA";
+    case "REFERRAL_CREATED":
+      return "REFERRAL";
+    default:
+      return "SELF_GENERATED";
+  }
+}
 
 export const CALL_STATUSES = ["INITIATED", "RINGING", "CONNECTED", "COMPLETED", "NO_ANSWER", "BUSY", "FAILED", "REJECTED"] as const;
 export type CallStatus = (typeof CALL_STATUSES)[number];
@@ -406,6 +432,17 @@ export interface LeadActivitySummary {
   lastBuyerActivityDeveloperName: string | null;
   /** The developer named on the FIRST website click — the one the buyer originally researched. */
   firstDeveloperName: string | null;
+}
+
+/** What the Cold Call / Digital bucket cards add to a lead: its last call and the projects the client is interested in. One batched read per page. */
+export interface LeadBucketInsight {
+  leadId: string;
+  lastCallAt: Date | null;
+  lastCallClassification: "DIALED" | "CONNECTED" | null;
+  lastCallDurationSeconds: number | null;
+  /** Active shortlist (interest) project names, oldest first, at most three. */
+  interestedProjects: string[];
+  interestedProjectCount: number;
 }
 
 // --- Phase 4: projects, shortlist, site visits ------------------------------------------------------

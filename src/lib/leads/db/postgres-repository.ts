@@ -29,7 +29,7 @@ import {
   siteVisits,
 } from "../../developer-connect/db/schema.ts";
 import type { AcquisitionBooking, TouchEvidence } from "../acquisition.ts";
-import type { AutomationAction, Campaign, LeadSourceType, LeadStatus, MarketingSpend, Project, ShortlistEntry, SiteVisit, SiteVisitEvent } from "../types.ts";
+import type { AutomationAction, Campaign, LeadSourceType, LeadStatus, MarketingSpend, Project, ShortlistEntry, SiteVisit, SiteVisitEvent, LeadBucketInsight } from "../types.ts";
 import { assertSafeTimeZone } from "../call-buckets.ts";
 import { LeadNotFoundError, LeadStateError } from "../errors.ts";
 import { QUEUE_EXCLUDED_STATUSES } from "../queue-config.ts";
@@ -65,6 +65,7 @@ import type {
   RequirementPatch,
   StoredCallEvent,
 } from "../repository.ts";
+import { assertNoImmutableFields } from "../repository.ts";
 import type { Booking, Lead, LeadActivitySummary, LeadCall, LeadConsent, LeadEvent, LeadFollowUp, LeadImportBatch, LeadRequirement, MarketingTouch } from "../types.ts";
 
 /**
@@ -141,8 +142,8 @@ function uuidList(ids: string[]) {
 }
 
 /** SQL twin of matchesView() in lead-views.ts — an integration test asserts they agree. */
-function viewPredicate(query: Pick<LeadListQuery, "view" | "now" | "endOfToday" | "ownerId">): SQL | undefined {
-  const rules = viewRules(query);
+function viewPredicate(query: Pick<LeadListQuery, "view" | "now" | "endOfToday" | "ownerId" | "sourceType">): SQL | undefined {
+  const rules = query.sourceType === undefined ? viewRules(query) : and(eq(leads.sourceType, query.sourceType), viewRules(query));
   // An owner scope is ANDed onto whatever the view says: a scoped query can never return another owner's lead.
   return query.ownerId === undefined ? rules : and(eq(leads.ownerId, query.ownerId), rules);
 }
@@ -248,6 +249,7 @@ function build(db: DbOrTx): LeadRepositories {
       },
 
       async update(id: string, patch: LeadPatch, at: Date) {
+        assertNoImmutableFields(patch);
         const [row] = await db
           .update(leads)
           .set({ ...patch, updatedAt: at })
@@ -282,7 +284,41 @@ function build(db: DbOrTx): LeadRepositories {
         return { leads: rows.map(toLead), total };
       },
 
-      async counts(now, endOfToday): Promise<LeadCounts> {
+      async bucketInsights(leadIds): Promise<LeadBucketInsight[]> {
+        if (leadIds.length === 0) return [];
+        const calls = await db.execute(sql`
+          select distinct on (lead_id) lead_id, initiated_at, classification::text as classification, duration_seconds
+          from lead_calls
+          where lead_id in (${uuidList(leadIds)})
+          order by lead_id, initiated_at desc`);
+        const projects = await db.execute(sql`
+          select sh.lead_id, p.name
+          from lead_project_shortlist sh
+          join projects p on p.id = sh.project_id
+          where sh.removed_at is null and sh.lead_id in (${uuidList(leadIds)})
+          order by sh.shortlisted_at asc, sh.id asc`);
+        const byLead = new Map<string, LeadBucketInsight>(
+          leadIds.map((id) => [id, { leadId: id, lastCallAt: null, lastCallClassification: null, lastCallDurationSeconds: null, interestedProjects: [], interestedProjectCount: 0 }]),
+        );
+        for (const raw of calls.rows) {
+          const row = raw as { lead_id: string; initiated_at: Date; classification: "DIALED" | "CONNECTED" | null; duration_seconds: number | null };
+          const insight = byLead.get(row.lead_id);
+          if (!insight) continue;
+          insight.lastCallAt = new Date(row.initiated_at);
+          insight.lastCallClassification = row.classification;
+          insight.lastCallDurationSeconds = row.duration_seconds;
+        }
+        for (const raw of projects.rows) {
+          const row = raw as { lead_id: string; name: string };
+          const insight = byLead.get(row.lead_id);
+          if (!insight) continue;
+          insight.interestedProjectCount += 1;
+          if (insight.interestedProjects.length < 3) insight.interestedProjects.push(row.name);
+        }
+        return leadIds.map((id) => byLead.get(id)!);
+      },
+
+      async counts(now, endOfToday, sourceType): Promise<LeadCounts> {
         const closed = sql.join(CLOSED_OUT_STATUSES.map((status) => sql`${status}`), sql`, `);
         const open = sql`${leads.status}::text not in (${closed})`;
         const [row] = await db
@@ -298,7 +334,8 @@ function build(db: DbOrTx): LeadRepositories {
             siteVisitScheduled: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.status} = 'SITE_VISIT_SCHEDULED')`,
             booked: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.status} = 'BOOKED')`,
           })
-          .from(leads);
+          .from(leads)
+          .where(sourceType ? eq(leads.sourceType, sourceType) : undefined);
         // count() arrives as a string from the driver for some column types; normalise.
         return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, Number(value)])) as unknown as LeadCounts;
       },

@@ -49,7 +49,7 @@ test("mobile: the persistent advisor bar is phone-only, safe-area aware, keeps c
   assert.match(src, /sm:hidden/);
   assert.match(src, /env\(safe-area-inset-bottom\)/);
   assert.match(src, /h-\[calc\(4\.75rem\+env\(safe-area-inset-bottom\)\)\] sm:hidden/, "a spacer so the bar never covers the footer");
-  assert.match(src, /!hidden && <AdvisorBar />/);
+  assert.ok(src.includes("{!hidden && <AdvisorBar />}"));
   for (const prefix of ["/admin", "/team", "/profile", "/testimonial"]) assert.ok(src.includes(`"${prefix}"`), prefix + " has no advisor bar");
   assert.ok(!read("src/components/connect-with-developer-button.tsx").includes("IntersectionObserver"), "one persistent bar, not two");
 });

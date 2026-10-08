@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { requireEmployee } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
@@ -91,6 +92,7 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
 
   return (
     <div>
+      <LiveRefresh />
       <TodayPanel today={today} />
       <SectionHeading title="My Leads" description="Leads assigned to you. Private — visible only to you and the Founder." />
       <p className="-mt-2 mb-2 sm:hidden">

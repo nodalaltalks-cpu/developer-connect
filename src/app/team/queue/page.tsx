@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { requireEmployee } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
@@ -20,6 +21,7 @@ export default async function CallingQueuePage() {
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Calling queue" description="Lists of leads given to you to call. Open one and tap Call — your phone asks which SIM to use." />
       {batches.length === 0 ? (
         <EmptyState title="Nothing to call yet" description="When the Founder gives you a calling list it appears here." />

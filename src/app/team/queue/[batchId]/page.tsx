@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEmployee } from "@/lib/team/session";
@@ -35,6 +36,7 @@ export default async function CallingQueueBatchPage({ params }: PageProps<"/team
       <Link href="/team/queue" className="inline-flex min-h-11 items-center text-sm text-accent-hover hover:underline">
         ← All lists
       </Link>
+      <LiveRefresh />
       <SectionHeading title={queue.batch.name} description={`${counts.completed} of ${counts.assigned} called · ${counts.pending + counts.skipped} to go`} />
 
       <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Progress through this list" aria-valuemin={0} aria-valuemax={counts.assigned} aria-valuenow={counts.completed}>

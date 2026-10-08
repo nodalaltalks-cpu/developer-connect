@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
@@ -39,6 +40,7 @@ export default async function CommandCentrePage({ searchParams }: PageProps<"/ad
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title={`Command centre — ${cc.range.label}`} description="What needs a decision, what happened, why, and who is responsible. Every figure is counted from real records; each block links to where you can act on it." />
       <nav aria-label="Range" className="mb-5 flex flex-wrap gap-2">
         {RANGES.map((r) => (

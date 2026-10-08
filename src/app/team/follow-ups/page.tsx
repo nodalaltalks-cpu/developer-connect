@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { requireEmployee } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
@@ -44,6 +45,7 @@ export default async function TeamFollowUpsPage({ searchParams }: PageProps<"/te
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Follow-ups" description="What to do, in time order. One tap to call, WhatsApp, finish or move it." />
 
       {unresolved > 0 && tab !== "missed" && tab !== "overdue" && (

@@ -175,6 +175,8 @@ export interface LeadEventRepository {
   listByLead(leadId: string): Promise<LeadEvent[]>;
   /** Contact and buyer-activity facts for the Today queue, one summary per requested lead. */
   summarise(leadIds: string[]): Promise<LeadActivitySummary[]>;
+  /** The newest event position (insertion order) in the scope: the Founder sees everything, a team member only events on their own leads or their own actions. A cursor only, never event content. */
+  latestSeq(scope: { personId?: string }): Promise<number>;
   /**
    * The erasure exception: rewrites ONLY the payload of this lead's events,
    * through `redact`, and never touches any other column. Returns how many

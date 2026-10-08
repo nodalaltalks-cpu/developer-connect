@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
@@ -35,6 +36,7 @@ export default async function CallActivityPage({ searchParams }: PageProps<"/adm
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Call activity" description="Recent calls placed through the internal dialer, as the telephony provider reported them. Private — visible only to you." />
 
       {!dialer.configured && (

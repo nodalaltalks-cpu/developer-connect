@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
@@ -71,6 +72,7 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Leads" description="Buyers who asked to be helped. Private — visible only to you." />
 
       <StatGrid>

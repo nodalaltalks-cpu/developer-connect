@@ -516,6 +516,11 @@ export function createInMemoryLeadRepositories(
           .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
           .map((event) => ({ ...event, payload: structuredClone(event.payload) }));
       },
+      async latestSeq(scope) {
+        // The memory log has no identity column: the count of visible events is a cursor that only ever grows.
+        if (!scope.personId) return state.events.length;
+        return state.events.filter((e) => e.actorId === scope.personId || state.leads.get(e.leadId)?.ownerId === scope.personId).length;
+      },
       async summarise(leadIds) {
         return leadIds.map((id) => summariseEvents(id, state.events.filter((event) => event.leadId === id)));
       },

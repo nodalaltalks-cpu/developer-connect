@@ -703,6 +703,12 @@ function build(db: DbOrTx): LeadRepositories {
         return rows.map(toEvent);
       },
 
+      async latestSeq(scope): Promise<number> {
+        const result = scope.personId
+          ? await db.execute(sql`select coalesce(max(e.seq), 0)::bigint as seq from lead_events e join leads l on l.id = e.lead_id where l.owner_id = ${scope.personId} or e.actor_id = ${scope.personId}`)
+          : await db.execute(sql`select coalesce(max(seq), 0)::bigint as seq from lead_events`);
+        return Number((result.rows[0] as { seq: string | number }).seq);
+      },
       async summarise(leadIds): Promise<LeadActivitySummary[]> {
         if (leadIds.length === 0) return [];
 

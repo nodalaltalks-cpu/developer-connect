@@ -1,3 +1,5 @@
+import { LeadJourney } from "@/components/leads/lead-journey";
+import { getLeadJourney } from "@/lib/leads/lead-journey";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEmployee } from "@/lib/team/session";
@@ -73,6 +75,7 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
   }
   if (!detail) notFound();
   const { lead } = detail;
+  const journey = await getLeadJourney(createPostgresLeadRepositories(), lead);
 
   return (
     <div>
@@ -123,6 +126,7 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
             Add call details
           </Link>
         )}
+        <LeadJourney steps={journey} />
         <QualificationCard
           status={lead.status}
           latest={detail.qualification ? { outcome: detail.qualification.outcome, reason: detail.qualification.reason, atLabel: formatDateTimeFull(detail.qualification.at) } : null}

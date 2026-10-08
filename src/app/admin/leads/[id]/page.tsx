@@ -1,3 +1,5 @@
+import { LeadJourney } from "@/components/leads/lead-journey";
+import { getLeadJourney } from "@/lib/leads/lead-journey";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireFounder } from "@/lib/auth";
@@ -65,6 +67,7 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
   const detail = await getLeadDetail(createPostgresLeadRepositories(), id, now);
   if (!detail) notFound();
   const { lead } = detail;
+  const journey = await getLeadJourney(createPostgresLeadRepositories(), lead);
   const team = await createPostgresStaffRepository().list();
   const names = staffNameMap(team);
   const ownerName = lead.ownerId ? (names[lead.ownerId] ?? "Team member") : undefined;
@@ -128,6 +131,7 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
         )}
 
         <div className="space-y-4">
+          {!erased && <LeadJourney steps={journey} />}
           {!erased && (
             <LeadOwnerCard
               leadId={lead.id}

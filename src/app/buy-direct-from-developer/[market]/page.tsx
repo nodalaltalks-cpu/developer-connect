@@ -153,7 +153,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
                   ))}
                 </ul>
                 {total > developers.length && (
-                  <Link href={directoryHref} className="mt-4 inline-block text-sm font-medium text-accent-hover hover:underline">
+                  <Link href={directoryHref} className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
                     See all {total} developers in {market.name} →
                   </Link>
                 )}
@@ -176,7 +176,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
                   href={market.regulator.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-block text-sm font-medium text-accent-hover hover:underline"
+                  className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline"
                 >
                   Visit the regulator&apos;s official website ↗
                 </a>

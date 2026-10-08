@@ -176,7 +176,7 @@ export function CookieSettingsButton() {
       <button
         type="button"
         onClick={openSettings}
-        className="text-sm text-foreground hover:text-accent-hover hover:underline"
+        className="inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline"
       >
         Cookie settings
       </button>

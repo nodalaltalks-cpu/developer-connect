@@ -252,7 +252,7 @@ export default async function DeveloperPage({
                 </ul>
                 <Link
                   href={buyDirectPath(buyDirectGuide)}
-                  className="mt-3 inline-block text-sm font-medium text-accent-hover hover:underline"
+                  className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline"
                 >
                   {buyDirectGuide
                     ? `How to research developers in ${buyDirectGuide.name} →`

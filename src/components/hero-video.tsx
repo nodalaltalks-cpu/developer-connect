@@ -63,16 +63,25 @@ export function HeroVideo() {
       observer.observe(video);
     };
 
-    // Wait for the page to be painted and idle before spending any bandwidth on the video.
-    const begin = () => {
-      if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(start, { timeout: 2500 });
-      else window.setTimeout(start, 800);
+    // Wait for the page to be loaded and visible, then give it a moment, before spending any bandwidth on the video.
+    // A plain timer (not requestIdleCallback, which browsers may never run in a background tab) after load; a tab that is
+    // hidden at that point simply waits until someone looks at it.
+    let timer: number | undefined;
+    const schedule = () => {
+      if (cancelled || started) return;
+      if (document.visibilityState !== "visible") return; // onVisibility reschedules
+      window.clearTimeout(timer);
+      timer = window.setTimeout(start, 1000);
     };
+    const begin = () => schedule();
     if (document.readyState === "complete") begin();
     else window.addEventListener("load", begin, { once: true });
 
     const onVisibility = () => {
-      if (!started) return;
+      if (!started) {
+        schedule();
+        return;
+      }
       if (document.visibilityState === "hidden") video.pause();
       else void video.play().catch(() => {});
     };
@@ -80,6 +89,7 @@ export function HeroVideo() {
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
       observer?.disconnect();
       window.removeEventListener("load", begin);
       document.removeEventListener("visibilitychange", onVisibility);

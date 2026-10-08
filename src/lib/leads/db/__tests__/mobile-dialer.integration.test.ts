@@ -135,13 +135,13 @@ test("integration: calling batch — create, queue counts and NEXT CALL from rea
   void batchId;
 
   let queue = (await batchSvc.getCallingQueue(repos, who, batch.id))!;
-  assert.deepEqual(queue.counts, { assigned: 3, completed: 0, connected: 0, dialed: 0, pending: 3, returned: 0 });
+  assert.deepEqual(queue.counts, { assigned: 3, attempted: 0, callback: 0, completed: 0, connected: 0, dialed: 0, notConnected: 0, pending: 3, returned: 0, skipped: 0 });
   assert.equal(queue.next?.progress.lead.id, leads[0].id);
 
   await deviceCall(leads[0].id, who, 75, batch.id);
   await deviceCall(leads[1].id, who, 4, batch.id);
   queue = (await batchSvc.getCallingQueue(repos, who, batch.id))!;
-  assert.deepEqual(queue.counts, { assigned: 3, completed: 2, connected: 1, dialed: 1, pending: 1, returned: 0 });
+  assert.deepEqual(queue.counts, { assigned: 3, attempted: 0, callback: 0, completed: 2, connected: 1, dialed: 1, notConnected: 1, pending: 1, returned: 0, skipped: 0 });
   assert.equal(queue.next?.progress.lead.id, leads[2].id);
   assert.equal(queue.rows[0].progress.lastClassification, "CONNECTED");
 

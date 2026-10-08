@@ -28,7 +28,7 @@ export type Severity = "HIGH" | "MEDIUM";
 
 export interface AttentionItem {
   /** Which rule fired. */
-  key: "MISSED_FOLLOW_UPS" | "PENDING_SITE_VISITS" | "UNASSIGNED_LEADS" | "STALE_LEADS" | "SPEND_NO_LEADS" | "LOW_CONVERSION" | "HIGH_CPL" | "OUTSTANDING_COMMISSION" | "RETURNED_LEADS";
+  key: "NEW_LEADS" | "UNTOUCHED_HOT" | "VISITS_TODAY" | "PENDING_APPROVALS" | "MISSED_FOLLOW_UPS" | "PENDING_SITE_VISITS" | "UNASSIGNED_LEADS" | "STALE_LEADS" | "SPEND_NO_LEADS" | "LOW_CONVERSION" | "HIGH_CPL" | "OUTSTANDING_COMMISSION" | "RETURNED_LEADS";
   severity: Severity;
   title: string;
   /** Why, with the numbers. */
@@ -39,6 +39,15 @@ export interface AttentionItem {
 }
 
 export interface AttentionInput {
+  /** Optional so older callers still compile; each is a plain count of real records. */
+  /** Open leads still at NEW (nobody has recorded any progress). */
+  newLeads?: number;
+  /** HOT, open leads with no activity for 24 hours or more. */
+  untouchedHot?: number;
+  /** Open site visits scheduled for the rest of today. */
+  visitsToday?: number;
+  /** Team members the Founder has invited but not yet approved. */
+  pendingApprovals?: number;
   missedFollowUps: number;
   returnedLeads: number;
   /** Open site visits whose scheduled time has passed with no outcome recorded. */
@@ -60,6 +69,19 @@ const money = (n: number, c: LeadCurrency) => (c === "INR" ? `₹${new Intl.Numb
 
 export function buildAttention(input: AttentionInput): AttentionItem[] {
   const items: AttentionItem[] = [];
+
+  if ((input.untouchedHot ?? 0) > 0) {
+    items.push({ key: "UNTOUCHED_HOT", severity: "HIGH", title: `${plural(input.untouchedHot!, "hot lead")} with no activity for a day`, detail: "Marked hot, still open, and nothing has happened for 24 hours or more.", action: "Call them, or ask the owner why not.", href: "/admin/leads?view=hot" });
+  }
+  if ((input.pendingApprovals ?? 0) > 0) {
+    items.push({ key: "PENDING_APPROVALS", severity: "MEDIUM", title: `${plural(input.pendingApprovals!, "team member")} waiting for your approval`, detail: "Invited but not approved, so they cannot sign in yet.", action: "Review and approve or leave them out.", href: "/admin/staff" });
+  }
+  if ((input.visitsToday ?? 0) > 0) {
+    items.push({ key: "VISITS_TODAY", severity: "MEDIUM", title: `${plural(input.visitsToday!, "site visit")} today`, detail: "Open visits scheduled for the rest of today.", action: "Make sure each one is confirmed and has someone attending.", href: "/admin/site-visits" });
+  }
+  if ((input.newLeads ?? 0) > 0) {
+    items.push({ key: "NEW_LEADS", severity: "MEDIUM", title: `${plural(input.newLeads!, "new lead")} to pick up`, detail: "Leads still at New: no progress has been recorded on them.", action: "Assign them or make the first call.", href: "/admin/leads?view=new" });
+  }
 
   if (input.missedFollowUps > 0) {
     items.push({ key: "MISSED_FOLLOW_UPS", severity: "HIGH", title: `${plural(input.missedFollowUps, "missed follow-up")}`, detail: "A follow-up time passed with nothing done. The employee is blocked from other leads until each is resolved.", action: "Open the missed leads and make sure each one is resolved.", href: "/admin/missed-leads" });

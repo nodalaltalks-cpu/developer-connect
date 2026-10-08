@@ -1,4 +1,5 @@
 import { UnauthorizedLeadActionError } from "./errors.ts";
+import { endOfDayIn } from "./lead-views.ts";
 import { buildAttention, THRESHOLDS, type AttentionItem } from "./command-centre.ts";
 import { getEmployeeInsights, type EmployeeInsightRow, type InsightFilters } from "./call-analytics.ts";
 import { getFinanceView } from "./finance-service.ts";
@@ -81,6 +82,17 @@ export async function getCommandCentre(repos: LeadRepositories, staff: StaffRepo
   const { report } = finance;
   const totals = report.totals;
 
+  // Four more things the Founder watches, each a count of real records (bounded reads).
+  const endOfToday = endOfDayIn(now);
+  const [hotOpen, visitsToday, team] = await Promise.all([
+    repos.leads.list({ view: "hot", limit: 200, offset: 0, now, endOfToday }),
+    repos.siteVisits.list({ statuses: ["SCHEDULED", "CONFIRMED"], from: now, to: endOfToday, limit: 500 }),
+    staff.list(),
+  ]);
+  const hotQuiet = hotOpen.leads.filter((l) => now.getTime() - l.lastActivityAt.getTime() >= DAY).length;
+  const visitsTodayCount = visitsToday.length;
+  const pendingApprovals = team.filter((m) => m.status === "INVITED" && !m.approvedAt).length;
+
   // Commission still unpaid past the chase window, per currency.
   const overdueCommission: Partial<Record<LeadCurrency, { amount: number; bookings: number }>> = {};
   const cutoff = now.getTime() - THRESHOLDS.COMMISSION_CHASE_DAYS * DAY;
@@ -110,6 +122,10 @@ export async function getCommandCentre(repos: LeadRepositories, staff: StaffRepo
   return {
     range: filters.range,
     attention: buildAttention({
+      newLeads: statusCounts.NEW ?? 0,
+      untouchedHot: hotQuiet,
+      visitsToday: visitsTodayCount,
+      pendingApprovals,
       missedFollowUps: attention.missed,
       returnedLeads: attention.returned,
       visitsAwaitingOutcome: openVisits.length,

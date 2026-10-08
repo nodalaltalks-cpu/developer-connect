@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "./schema.ts";
+import { explicitSslMode } from "./ssl-mode.ts";
 
 /**
  * Lazily-initialized connection pool + Drizzle instance.
@@ -31,7 +32,7 @@ function requireDatabaseUrl(): string {
 
 export function getDb(): NodePgDatabase<typeof schema> {
   if (!db) {
-    pool = new Pool({ connectionString: requireDatabaseUrl() });
+    pool = new Pool({ connectionString: explicitSslMode(requireDatabaseUrl()) });
     db = drizzle(pool, { schema });
   }
   return db;

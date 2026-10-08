@@ -113,6 +113,8 @@ export interface LeadRepository {
   counts(now: Date, endOfToday: Date, sourceType?: LeadSourceType): Promise<LeadCounts>;
   /** Open, live leads this team member owns that are past first contact (contacted .. negotiation) but have NO active requirement recorded yet. */
   countOpenWithoutRequirement(ownerId: string): Promise<number>;
+  /** Cohort funnel: for leads CREATED in [from, to), how far each source got. One bounded query; nothing is estimated. */
+  sourceFunnel(query: SourceFunnelQuery): Promise<SourceFunnel>;
   /** For a page of leads: the last call and the interested projects of each, in two batched queries (never one per lead). */
   bucketInsights(leadIds: string[]): Promise<LeadBucketInsight[]>;
   /** Names of the given developers, for display only (one batched lookup, never one per lead). Unknown ids are simply absent. */
@@ -430,6 +432,51 @@ export interface CallWithLead {
 
 /** How a set of calls is grouped. Hours, days and the larger periods are ALL the same aggregation with a different bucket. */
 export type CallGroupBy = "HOUR_OF_DAY" | "HOUR" | "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "EMPLOYEE";
+
+export interface SourceFunnelQuery {
+  from: Date;
+  to: Date;
+  /** SOURCE: one row per source. OWNER: one row per person (cold-call leads credit whoever created them, digital leads the current owner). */
+  groupBy: "SOURCE" | "OWNER";
+  sourceType?: LeadSourceType;
+  /** Only this person's leads (same crediting rule as OWNER). */
+  personId?: string;
+}
+
+/** Counts of distinct leads that EVER reached each stage (not where they are now), so the stages only ever shrink. */
+export interface SourceFunnelRow {
+  sourceType: LeadSourceType;
+  /** The finer source (e.g. INSTAGRAM, REFERRAL), or null when grouping by person. */
+  sourceDetail: string | null;
+  /** The person credited, or null when grouping by source. */
+  personId: string | null;
+  leads: number;
+  called: number;
+  connected: number;
+  qualified: number;
+  shortlisted: number;
+  visitsScheduled: number;
+  visitsDone: number;
+  negotiation: number;
+  booked: number;
+  /** Provider-reported talk time on these leads' CONNECTED calls, in seconds. */
+  talkSeconds: number;
+}
+
+export interface SourceRevenueRow {
+  sourceType: LeadSourceType;
+  personId: string | null;
+  currency: LeadCurrency;
+  bookingValue: number;
+  commissionExpected: number;
+  commissionReceived: number;
+}
+
+export interface SourceFunnel {
+  rows: SourceFunnelRow[];
+  /** One row per currency per source: INR and AED are never added together. */
+  revenue: SourceRevenueRow[];
+}
 
 export interface CallAggregateQuery {
   from: Date;

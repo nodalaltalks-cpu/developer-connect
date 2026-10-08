@@ -93,7 +93,7 @@ export default async function EmployeeInsightsPage({ searchParams }: PageProps<"
             <option value="">All</option>
             {LEAD_SOURCE_TYPES.map((s) => (
               <option key={s} value={s}>
-                {s === "DIGITAL" ? "Digital" : "Self-generated"}
+                {s === "DIGITAL" ? "Digital" : "Cold Call"}
               </option>
             ))}
           </select>

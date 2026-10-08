@@ -39,6 +39,8 @@ import type {
   CallAggregateQuery,
   BatchLeadProgress,
   CallAggregateRow,
+  SourceFunnel,
+  SourceRevenueRow,
   CallFilter,
   CallPatch,
   CallWithLead,
@@ -293,6 +295,76 @@ function build(db: DbOrTx): LeadRepositories {
             and l.status in ('CONTACTED', 'QUALIFIED', 'SHORTLISTED', 'SITE_VISIT_SCHEDULED', 'SITE_VISIT_DONE', 'NEGOTIATION')
             and not exists (select 1 from lead_requirements r where r.lead_id = l.id and r.status = 'ACTIVE')`);
         return Number((result.rows[0] as { n: number }).n);
+      },
+      async sourceFunnel(query): Promise<SourceFunnel> {
+        const person = sql`(case when l.source_type = 'COLD_CALL' then l.created_by else l.owner_id end)`;
+        const byOwner = query.groupBy === "OWNER";
+        const where = sql`l.erased_at is null and l.created_at >= ${query.from} and l.created_at < ${query.to}
+          ${query.sourceType ? sql`and l.source_type = ${query.sourceType}` : sql``}
+          ${query.personId ? sql`and ${person} = ${query.personId}` : sql``}`;
+        // "Ever reached": the status event history, OR the lead's current status (a hand-created lead can start past NEW with no event).
+        const reached = (statuses: string[]) => {
+          const list = sql.join(statuses.map((s) => sql`${s}`), sql`, `);
+          return sql`(l.status::text in (${list}) or exists (select 1 from lead_events e where e.lead_id = l.id and e.to_status::text in (${list})))`;
+        };
+        const flags = sql`
+          select l.id, l.source_type::text as source_type, l.source_detail, ${person} as person,
+            exists (select 1 from lead_calls c where c.lead_id = l.id and c.classification is not null) as called,
+            exists (select 1 from lead_calls c where c.lead_id = l.id and c.classification = 'CONNECTED') as connected,
+            ${reached(["QUALIFIED", "SHORTLISTED", "SITE_VISIT_SCHEDULED", "SITE_VISIT_DONE", "NEGOTIATION", "BOOKED", "CLOSED"])} as qualified,
+            exists (select 1 from lead_project_shortlist s where s.lead_id = l.id) as shortlisted,
+            exists (select 1 from site_visits v where v.lead_id = l.id and v.status <> 'CANCELLED') as visit_scheduled,
+            exists (select 1 from site_visits v where v.lead_id = l.id and v.status = 'COMPLETED') as visit_done,
+            ${reached(["NEGOTIATION", "BOOKED", "CLOSED"])} as negotiation,
+            exists (select 1 from bookings b where b.lead_id = l.id and b.status = 'BOOKED') as booked,
+            coalesce((select sum(c.duration_seconds) from lead_calls c where c.lead_id = l.id and c.classification = 'CONNECTED'), 0) as talk
+          from leads l where ${where}`;
+        const groupCols = byOwner ? sql`source_type, person` : sql`source_type, source_detail`;
+        const rowsResult = await db.execute(sql`
+          with f as (${flags})
+          select source_type, ${byOwner ? sql`null::text as source_detail, person` : sql`source_detail, null::text as person`},
+            count(*)::int as leads,
+            (count(*) filter (where called))::int as called,
+            (count(*) filter (where connected))::int as connected,
+            (count(*) filter (where qualified))::int as qualified,
+            (count(*) filter (where shortlisted))::int as shortlisted,
+            (count(*) filter (where visit_scheduled))::int as visits_scheduled,
+            (count(*) filter (where visit_done))::int as visits_done,
+            (count(*) filter (where negotiation))::int as negotiation,
+            (count(*) filter (where booked))::int as booked,
+            coalesce(sum(talk), 0)::int as talk_seconds
+          from f group by ${groupCols} order by leads desc, ${groupCols}`);
+        const revenueResult = await db.execute(sql`
+          select l.source_type::text as source_type, ${byOwner ? person : sql`null::text`} as person, b.currency::text as currency,
+            coalesce(sum(b.booking_value), 0)::bigint as booking_value,
+            coalesce(sum(b.commission_expected), 0)::bigint as commission_expected,
+            coalesce(sum(b.commission_received), 0)::bigint as commission_received
+          from bookings b join leads l on l.id = b.lead_id
+          where b.status = 'BOOKED' and ${where}
+          group by l.source_type, ${byOwner ? person : sql`1`}, b.currency
+          order by 1, 2, 3`);
+        return {
+          rows: rowsResult.rows.map((raw) => {
+            const r = raw as Record<string, string | number | null>;
+            return {
+              sourceType: r.source_type as LeadSourceType,
+              sourceDetail: (r.source_detail as string | null) ?? null,
+              personId: (r.person as string | null) ?? null,
+              leads: Number(r.leads), called: Number(r.called), connected: Number(r.connected), qualified: Number(r.qualified),
+              shortlisted: Number(r.shortlisted), visitsScheduled: Number(r.visits_scheduled), visitsDone: Number(r.visits_done),
+              negotiation: Number(r.negotiation), booked: Number(r.booked), talkSeconds: Number(r.talk_seconds),
+            };
+          }),
+          revenue: revenueResult.rows.map((raw) => {
+            const r = raw as Record<string, string | number | null>;
+            return {
+              sourceType: r.source_type as LeadSourceType,
+              personId: (r.person as string | null) ?? null,
+              currency: r.currency as SourceRevenueRow["currency"],
+              bookingValue: Number(r.booking_value), commissionExpected: Number(r.commission_expected), commissionReceived: Number(r.commission_received),
+            };
+          }),
+        };
       },
       async bucketInsights(leadIds): Promise<LeadBucketInsight[]> {
         if (leadIds.length === 0) return [];

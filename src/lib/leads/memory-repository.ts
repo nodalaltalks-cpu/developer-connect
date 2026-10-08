@@ -16,6 +16,9 @@ import type {
   CallAggregateQuery,
   BatchLeadProgress,
   CallAggregateRow,
+  SourceFunnel,
+  SourceFunnelRow,
+  SourceRevenueRow,
   CallFilter,
   CallPatch,
   CallWithLead,
@@ -209,6 +212,43 @@ export function createInMemoryLeadRepositories(
       async countOpenWithoutRequirement(ownerId) {
         const stages = ["CONTACTED", "QUALIFIED", "SHORTLISTED", "SITE_VISIT_SCHEDULED", "SITE_VISIT_DONE", "NEGOTIATION"];
         return [...state.leads.values()].filter((l) => l.ownerId === ownerId && l.erasedAt === null && stages.includes(l.status) && ![...state.requirements.values()].some((r) => r.leadId === l.id && r.status === "ACTIVE")).length;
+      },
+      async sourceFunnel(query) {
+        const byOwner = query.groupBy === "OWNER";
+        const personOf = (l: Lead) => (l.sourceType === "COLD_CALL" ? l.createdBy : l.ownerId) ?? null;
+        const ever = (l: Lead, statuses: string[]) => statuses.includes(l.status) || state.events.some((e) => e.leadId === l.id && e.toStatus !== null && statuses.includes(e.toStatus));
+        const cohort = [...state.leads.values()].filter(
+          (l) => l.erasedAt === null && l.createdAt >= query.from && l.createdAt < query.to && (!query.sourceType || l.sourceType === query.sourceType) && (!query.personId || personOf(l) === query.personId),
+        );
+        const rows = new Map<string, SourceFunnelRow>();
+        const revenue = new Map<string, SourceRevenueRow>();
+        for (const l of cohort) {
+          const calls = [...state.calls.values()].filter((c) => c.leadId === l.id);
+          const visits = [...state.siteVisits.values()].filter((v) => v.leadId === l.id);
+          const key = byOwner ? `${l.sourceType}|${personOf(l) ?? ""}` : `${l.sourceType}|${l.sourceDetail ?? ""}`;
+          const row = rows.get(key) ?? { sourceType: l.sourceType, sourceDetail: byOwner ? null : l.sourceDetail, personId: byOwner ? personOf(l) : null, leads: 0, called: 0, connected: 0, qualified: 0, shortlisted: 0, visitsScheduled: 0, visitsDone: 0, negotiation: 0, booked: 0, talkSeconds: 0 };
+          row.leads += 1;
+          if (calls.some((c) => c.classification !== null)) row.called += 1;
+          if (calls.some((c) => c.classification === "CONNECTED")) row.connected += 1;
+          if (ever(l, ["QUALIFIED", "SHORTLISTED", "SITE_VISIT_SCHEDULED", "SITE_VISIT_DONE", "NEGOTIATION", "BOOKED", "CLOSED"])) row.qualified += 1;
+          if ([...state.shortlist.values()].some((e) => e.leadId === l.id)) row.shortlisted += 1;
+          if (visits.some((v) => v.status !== "CANCELLED")) row.visitsScheduled += 1;
+          if (visits.some((v) => v.status === "COMPLETED")) row.visitsDone += 1;
+          if (ever(l, ["NEGOTIATION", "BOOKED", "CLOSED"])) row.negotiation += 1;
+          row.talkSeconds += calls.filter((c) => c.classification === "CONNECTED").reduce((n, c) => n + (c.durationSeconds ?? 0), 0);
+          const bookings = [...state.bookings.values()].filter((b) => b.leadId === l.id && b.status === "BOOKED");
+          if (bookings.length > 0) row.booked += 1;
+          for (const b of bookings) {
+            const rk = `${l.sourceType}|${byOwner ? (personOf(l) ?? "") : ""}|${b.currency}`;
+            const r = revenue.get(rk) ?? { sourceType: l.sourceType, personId: byOwner ? personOf(l) : null, currency: b.currency, bookingValue: 0, commissionExpected: 0, commissionReceived: 0 };
+            r.bookingValue += b.bookingValue;
+            r.commissionExpected += b.commissionExpected;
+            r.commissionReceived += b.commissionReceived;
+            revenue.set(rk, r);
+          }
+          rows.set(key, row);
+        }
+        return { rows: [...rows.values()].sort((a, b) => b.leads - a.leads), revenue: [...revenue.values()] };
       },
       async bucketInsights(leadIds) {
         return leadIds.map((id) => {

@@ -23,6 +23,7 @@ export const NAV_ITEMS = [
   { href: "/admin/site-visits", label: "Site visits" },
   { href: "/admin/call-activity", label: "Call Activity" },
   { href: "/admin/employee-insights", label: "Employee Insights" },
+  { href: "/admin/source-analytics", label: "Cold vs Digital" },
   { href: "/admin/leads/import", label: "Import Leads" },
   { href: "/admin/staff", label: "Team" },
   { href: "/admin/verification", label: "Verification" },

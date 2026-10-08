@@ -9,6 +9,7 @@ export function createInMemoryTestimonialRepository(): TestimonialRepository & {
   const guard = (t: Testimonial) => {
     if (t.isIllustrative && (t.status === "APPROVED" || t.status === "PUBLISHED")) throw new Error("check violation: testimonials_illustrative_never_public_ck");
     if (t.status === "PUBLISHED" && !(t.permissionPublish && t.approvedAt && t.experience)) throw new Error("check violation: testimonials_published_consent_ck");
+    if ((t.status === "APPROVED" || t.status === "PUBLISHED") && !t.publishedText) throw new Error("check violation: testimonials_published_text_ck");
     if (t.requestTokenHash && [...rows.values()].some((r) => r.id !== t.id && r.requestTokenHash === t.requestTokenHash)) throw new Error("unique violation: testimonials_token_hash_key");
   };
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
-import { requestMailtoHref, requestMessage, requestWhatsappHref, type RequestChannel } from "@/lib/testimonials/model";
+import { TestimonialValidationError, requestMailtoHref, requestMessage, requestWhatsappHref, type RequestChannel } from "@/lib/testimonials/model";
 import { createPostgresTestimonialRepository } from "@/lib/testimonials/postgres-repository";
 import * as testimonials from "@/lib/testimonials/service";
 
@@ -94,5 +94,57 @@ export async function seedIllustrativeTestimonialsAction(): Promise<{ ok: true; 
   } catch (error) {
     console.error("seeding illustrative testimonials failed:", error);
     return { ok: false, error: "Could not create the drafts." };
+  }
+}
+
+export interface FounderEntryPayload {
+  originalText: string;
+  name: string;
+  displayMode: string;
+  attributionDetail: string;
+  city: string;
+  country: string;
+  helpedWith: string;
+  project: string;
+  permissionPublish: boolean;
+}
+
+/** Feedback a real client gave another way: stored exactly as pasted, then reviewed like any other. */
+export async function recordClientFeedbackAction(payload: FounderEntryPayload): Promise<TestimonialActionResult> {
+  const actorId = await requireFounderForAction();
+  if (!payload || typeof payload !== "object") return { ok: false, error: "Nothing to save." };
+  try {
+    await testimonials.recordFounderEntered(createPostgresTestimonialRepository(), {
+      originalText: payload.originalText,
+      name: payload.name,
+      displayMode: payload.displayMode,
+      attributionDetail: payload.attributionDetail,
+      city: payload.city,
+      country: payload.country,
+      helpedWith: payload.helpedWith,
+      project: payload.project,
+      permissionPublish: payload.permissionPublish === true,
+    }, founder(actorId));
+    revalidatePath("/admin/testimonials");
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof TestimonialValidationError) return { ok: false, error: error.message };
+    console.error("recording client feedback failed:", error);
+    return { ok: false, error: "Could not save the feedback." };
+  }
+}
+
+/** Choose what is published: the client's own words, or a paraphrase the Founder confirms is faithful. */
+export async function setTestimonialWordingAction(id: string, input: { text: string; paraphrased: boolean; confirmedFaithful: boolean }): Promise<TestimonialActionResult> {
+  const actorId = await requireFounderForAction();
+  if (typeof id !== "string" || !UUID.test(id) || !input || typeof input !== "object") return { ok: false, error: "Not found." };
+  try {
+    await testimonials.setPublishedWording(createPostgresTestimonialRepository(), id, { text: input.text, paraphrased: input.paraphrased === true, confirmedFaithful: input.confirmedFaithful === true }, founder(actorId));
+    revalidatePath("/admin/testimonials");
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof TestimonialValidationError || error instanceof testimonials.TestimonialStateError || error instanceof testimonials.TestimonialNotFoundError) return { ok: false, error: error.message };
+    console.error("setting testimonial wording failed:", error);
+    return { ok: false, error: "Could not save the wording." };
   }
 }

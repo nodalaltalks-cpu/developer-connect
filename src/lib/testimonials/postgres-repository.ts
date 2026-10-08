@@ -2,7 +2,7 @@ import { and, desc, eq, isNotNull, sql, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { getDb } from "../developer-connect/db/client.ts";
 import * as schema from "../developer-connect/db/schema.ts";
-import type { DisplayMode, RequestChannel, Testimonial, TestimonialStatus } from "./model.ts";
+import type { DisplayMode, EnteredVia, RequestChannel, Testimonial, TestimonialStatus } from "./model.ts";
 import type { TestimonialEvent, TestimonialRepository } from "./service.ts";
 
 type Db = NodePgDatabase<typeof schema>;
@@ -21,6 +21,10 @@ const toTestimonial = (r: Row): Testimonial => ({
   country: r.country,
   helpedWith: r.helpedWith,
   experience: r.experience,
+  publishedText: r.publishedText,
+  isParaphrased: r.isParaphrased,
+  attributionDetail: r.attributionDetail,
+  enteredVia: r.enteredVia as EnteredVia,
   project: r.project,
   rating: r.rating,
   permissionPublish: r.permissionPublish,
@@ -50,6 +54,10 @@ const values = (t: Testimonial) => ({
   country: t.country,
   helpedWith: t.helpedWith,
   experience: t.experience,
+  publishedText: t.publishedText,
+  isParaphrased: t.isParaphrased,
+  attributionDetail: t.attributionDetail,
+  enteredVia: t.enteredVia,
   project: t.project,
   rating: t.rating,
   permissionPublish: t.permissionPublish,
@@ -81,8 +89,8 @@ function build(db: Db): TestimonialRepository {
     },
     async save(t) {
       // The creation facts (id, createdBy, createdAt, token hash, illustrative flag, scenario) are never rewritten.
-      const { id, createdBy, createdAt, requestTokenHash, isIllustrative, scenario, ...mutable } = values(t);
-      void id; void createdBy; void createdAt; void requestTokenHash; void isIllustrative; void scenario;
+      const { id, createdBy, createdAt, requestTokenHash, isIllustrative, scenario, enteredVia, ...mutable } = values(t);
+      void id; void createdBy; void createdAt; void requestTokenHash; void isIllustrative; void scenario; void enteredVia;
       await db.update(schema.testimonials).set(mutable).where(eq(schema.testimonials.id, t.id));
     },
     async list({ status, illustrative, limit }) {

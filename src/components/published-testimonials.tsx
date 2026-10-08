@@ -14,7 +14,7 @@ export async function PublishedTestimonials() {
     <section aria-labelledby="testimonials-heading" className="py-14 sm:py-20">
       <Container>
         <div className="mx-auto max-w-5xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">In their words</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Client feedback</p>
           <h2 id="testimonials-heading" className="mt-3 font-serif text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
             What clients have shared
           </h2>
@@ -22,10 +22,17 @@ export async function PublishedTestimonials() {
             {items.map((t) => (
               <li key={t.id}>
                 <figure className="flex h-full flex-col rounded-2xl border border-border p-6">
-                  <blockquote className="flex-1 text-base leading-7 text-foreground/90">&ldquo;{t.experience}&rdquo;</blockquote>
+                  {/* A paraphrase is never put inside quotation marks; only a client's unaltered words are. */}
+                  {t.paraphrased ? (
+                    <p className="flex-1 text-base leading-7 text-foreground/90">{t.text}</p>
+                  ) : (
+                    <blockquote className="flex-1 text-base leading-7 text-foreground/90">&ldquo;{t.text}&rdquo;</blockquote>
+                  )}
                   <figcaption className="mt-5 text-sm">
                     <span className="font-semibold text-foreground">{t.name}</span>
+                    {t.attribution && <span className="block text-muted-foreground">{t.attribution}</span>}
                     {t.place && <span className="block text-muted-foreground">{t.place}</span>}
+                    {t.paraphrased && <span className="mt-1 block text-xs text-muted-foreground">Summarised from the client&apos;s feedback.</span>}
                   </figcaption>
                 </figure>
               </li>

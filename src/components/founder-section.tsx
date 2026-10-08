@@ -49,11 +49,14 @@ export function FounderSection() {
             {story.title}
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-foreground/85">{story.body}</p>
-          <ul className="mt-5 space-y-1 text-sm text-foreground/85">
-            <li>{FOUNDER.experience}</li>
-            {FOUNDER.education && <li>{FOUNDER.education}</li>}
-            {FOUNDER.transactedValue && <li>{FOUNDER.transactedValue}</li>}
+          <ul className="mt-6 divide-y divide-border border-y border-border">
+            {FOUNDER.facts.map((fact) => (
+              <li key={fact} className="py-3 text-base leading-7 text-foreground">
+                {fact}
+              </li>
+            ))}
           </ul>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">{FOUNDER.context}</p>
           <a
             href={FOUNDER.linkedinUrl}
             target="_blank"

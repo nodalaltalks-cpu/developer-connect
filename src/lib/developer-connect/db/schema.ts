@@ -1453,7 +1453,15 @@ export const testimonials = pgTable(
     city: text("city"),
     country: text("country"),
     helpedWith: text("helped_with"),
+    // The client's OWN words, exactly as given (never edited). `published_text` is what the site shows: either the same words
+    // or a faithful paraphrase the Founder wrote and confirmed. A paraphrase is never shown inside quotation marks.
     experience: text("experience"),
+    publishedText: text("published_text"),
+    isParaphrased: boolean("is_paraphrased").notNull().default(false),
+    // A title or company, ONLY when the client provided it and allowed it to be shown.
+    attributionDetail: text("attribution_detail"),
+    // FORM = the client wrote it in the private link; FOUNDER_ENTERED = the Founder recorded feedback received another way (e.g. WhatsApp).
+    enteredVia: text("entered_via").notNull().default("FORM"),
     project: text("project"),
     rating: smallint("rating"),
     permissionPublish: boolean("permission_publish").notNull().default(false),
@@ -1479,7 +1487,10 @@ export const testimonials = pgTable(
     // The guard that cannot be forgotten: an illustrative template can never become public, and nothing is public without consent.
     check("testimonials_illustrative_never_public_ck", sql`not (${table.isIllustrative} and ${table.status} in ('APPROVED', 'PUBLISHED'))`),
     check("testimonials_published_consent_ck", sql`${table.status} <> 'PUBLISHED' or (${table.permissionPublish} and ${table.approvedAt} is not null and ${table.experience} is not null)`),
-    check("testimonials_text_len_ck", sql`char_length(coalesce(${table.experience}, '')) <= 2000 and char_length(coalesce(${table.helpedWith}, '')) <= 500 and char_length(coalesce(${table.authorName}, '')) <= 120`),
+    check("testimonials_entered_via_ck", sql`${table.enteredVia} in ('FORM', 'FOUNDER_ENTERED')`),
+    // What is public is the Founder-approved wording: an approved or published row must have it.
+    check("testimonials_published_text_ck", sql`${table.status} not in ('APPROVED', 'PUBLISHED') or ${table.publishedText} is not null`),
+    check("testimonials_text_len_ck", sql`char_length(coalesce(${table.experience}, '')) <= 2000 and char_length(coalesce(${table.helpedWith}, '')) <= 500 and char_length(coalesce(${table.authorName}, '')) <= 120 and char_length(coalesce(${table.publishedText}, '')) <= 2000 and char_length(coalesce(${table.attributionDetail}, '')) <= 160`),
   ],
 );
 

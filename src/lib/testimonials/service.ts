@@ -4,12 +4,15 @@ import {
   ILLUSTRATIVE_LABEL,
   TESTIMONIAL_STATUSES,
   canTransition,
+  cleanFounderEntry,
   cleanSubmission,
   hashRequestToken,
   isPlausibleToken,
   newRequestToken,
+  resolvePublishedWording,
   toPublic,
   type PublicTestimonial,
+  type FounderEntryInput,
   type RequestChannel,
   type SubmissionInput,
   type Testimonial,
@@ -99,6 +102,10 @@ const blank = (id: string, actor: string, now: Date): Testimonial => ({
   country: null,
   helpedWith: null,
   experience: null,
+  publishedText: null,
+  isParaphrased: false,
+  attributionDetail: null,
+  enteredVia: "FORM",
   project: null,
   rating: null,
   permissionPublish: false,
@@ -192,6 +199,7 @@ export async function approve(repo: TestimonialRepository, id: string, actor: { 
   if (row.isIllustrative) throw new TestimonialStateError("An illustrative draft can never be approved. Replace it with a real customer's words first.");
   if (!row.permissionPublish) throw new TestimonialStateError("The author did not give permission to publish. This testimonial cannot be approved.");
   if (!row.experience) throw new TestimonialStateError("There is no testimonial text to approve.");
+  if (!row.publishedText) throw new TestimonialStateError("Choose the wording to publish first: the client's own words, or a paraphrase you have confirmed is faithful.");
   return move(repo, row, "APPROVED", actor.actorId, now, (t) => {
     t.approvedAt = now;
     t.approvedBy = actor.actorId;
@@ -307,4 +315,76 @@ export async function seedIllustrativeDrafts(repo: TestimonialRepository, actor:
     created += 1;
   }
   return { created };
+}
+
+// ---- feedback received another way, and the wording that is published ---------------------------------------------------------
+
+/**
+ * The Founder records feedback a real client gave another way (a WhatsApp message, an email). The client's original words are stored
+ * exactly as pasted; nothing is invented (a missing name stays missing and forces an anonymous display); the record goes through the
+ * same steps as any other (draft, sent, received) so its history is whole, and still needs review, wording and approval to be public.
+ */
+export async function recordFounderEntered(
+  repo: TestimonialRepository,
+  input: FounderEntryInput,
+  actor: { actorType: string; actorId?: string | null },
+  now: Date = new Date(),
+): Promise<Testimonial> {
+  requireFounder(actor);
+  const clean = cleanFounderEntry(input);
+  const row = blank(randomUUID(), actor.actorId, now);
+  row.enteredVia = "FOUNDER_ENTERED";
+  row.authorName = clean.authorName;
+  row.displayMode = clean.displayMode;
+  row.attributionDetail = clean.attributionDetail;
+  row.city = clean.city;
+  row.country = clean.country;
+  row.helpedWith = clean.helpedWith;
+  row.project = clean.project;
+  row.experience = clean.originalText;
+  row.permissionPublish = clean.permissionPublish;
+  await repo.transaction(async (tx) => {
+    await tx.insert(row);
+    await tx.appendEvent({ id: randomUUID(), testimonialId: row.id, eventType: "FOUNDER_ENTERED", fromStatus: null, toStatus: "DRAFT", actor: actor.actorId, note: "Recorded by the Founder from feedback the client gave directly.", createdAt: now });
+  });
+  const sent = await move(repo, row, "SENT", actor.actorId, now, (t) => {
+    t.sentAt = now;
+  });
+  return move(repo, sent, "RECEIVED", actor.actorId, now, (t) => {
+    t.receivedAt = now;
+  });
+}
+
+/**
+ * Chooses what the site will say: the client's original words, or a paraphrase the Founder wrote and confirmed is faithful. The original
+ * is never changed. Allowed only while the testimonial is being reviewed, so approved wording cannot be swapped silently afterwards.
+ */
+export async function setPublishedWording(
+  repo: TestimonialRepository,
+  id: string,
+  input: { text?: unknown; paraphrased?: unknown; confirmedFaithful?: unknown },
+  actor: { actorType: string; actorId?: string | null },
+  now: Date = new Date(),
+): Promise<Testimonial> {
+  requireFounder(actor);
+  const row = await load(repo, id);
+  if (row.isIllustrative) throw new TestimonialStateError("An illustrative draft has no real wording to publish.");
+  if (row.status !== "RECEIVED" && row.status !== "PENDING_APPROVAL") throw new TestimonialStateError("The wording can only be set while the testimonial is being reviewed.");
+  if (!row.experience) throw new TestimonialStateError("There is no original text yet.");
+  const wording = resolvePublishedWording(row.experience, input);
+  const next: Testimonial = { ...row, publishedText: wording.text, isParaphrased: wording.paraphrased, updatedAt: now };
+  await repo.transaction(async (tx) => {
+    await tx.save(next);
+    await tx.appendEvent({
+      id: randomUUID(),
+      testimonialId: id,
+      eventType: "PUBLISHED_WORDING_SET",
+      fromStatus: row.status,
+      toStatus: row.status,
+      actor: actor.actorId,
+      note: wording.paraphrased ? "Paraphrase written by the Founder, who confirmed it is faithful to the original." : "Published as the client wrote it.",
+      createdAt: now,
+    });
+  });
+  return next;
 }

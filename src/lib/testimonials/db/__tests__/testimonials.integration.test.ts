@@ -24,16 +24,18 @@ test("integration: the real workflow, the database guards and the append-only au
   await svc.submitByRequestToken(repo, token, { name: "TEST Person", displayMode: "FIRST_NAME_LAST_INITIAL", city: "Mumbai", country: "India", experience, permissionPublish: true });
   await assert.rejects(svc.submitByRequestToken(repo, token, { name: "X", experience }), svc.TestimonialStateError, "single use");
   await svc.moveToReview(repo, testimonial.id, founder);
+  await svc.setPublishedWording(repo, testimonial.id, { paraphrased: false }, founder);
   await svc.approve(repo, testimonial.id, founder);
-  assert.ok(!(await svc.getPublishedTestimonials(repo, 200)).some((t) => t.experience === experience), "approved is not public");
+  assert.ok(!(await svc.getPublishedTestimonials(repo, 200)).some((t) => t.text === experience), "approved is not public");
   await svc.publish(repo, testimonial.id, founder);
-  const pub = (await svc.getPublishedTestimonials(repo, 200)).find((t) => t.experience === experience);
+  const pub = (await svc.getPublishedTestimonials(repo, 200)).find((t) => t.text === experience);
   assert.ok(pub);
   assert.equal(pub.name, "TEST P.");
-  assert.deepEqual(Object.keys(pub).sort(), ["experience", "helpedWith", "id", "name", "place", "project", "publishedAt"], "the public shape carries no contact or internal field");
+  assert.deepEqual(Object.keys(pub).sort(), ["attribution", "helpedWith", "id", "name", "paraphrased", "place", "project", "publishedAt", "text"], "the public shape carries no contact or internal field");
 
   const events = await repo.listEvents(testimonial.id);
-  assert.deepEqual(events.map((e) => e.toStatus), ["DRAFT", "SENT", "RECEIVED", "PENDING_APPROVAL", "APPROVED", "PUBLISHED"]);
+  assert.deepEqual(events.map((e) => e.toStatus), ["DRAFT", "SENT", "RECEIVED", "PENDING_APPROVAL", "PENDING_APPROVAL", "APPROVED", "PUBLISHED"]);
+  assert.ok(events.some((e) => e.eventType === "PUBLISHED_WORDING_SET"), "choosing the wording is audited");
   assert.ok(events.every((e) => e.actor));
 
   // The audit trail cannot be rewritten, not even with direct SQL.
@@ -48,7 +50,19 @@ test("integration: the real workflow, the database guards and the append-only au
   await assert.rejects(db.update(schema.testimonials).set({ status: "PUBLISHED", permissionPublish: true, approvedAt: new Date() }).where(drizzle.eq(schema.testimonials.id, template.id)), /Failed query|violates check/);
   // ...and refuses a published row without consent.
   const { testimonial: second } = await svc.createRequest(repo, {}, founder);
-  await assert.rejects(db.update(schema.testimonials).set({ status: "PUBLISHED", experience: "x", approvedAt: new Date() }).where(drizzle.eq(schema.testimonials.id, second.id)), /Failed query|violates check/);
+  await assert.rejects(db.update(schema.testimonials).set({ status: "PUBLISHED", experience: "x", publishedText: "x", approvedAt: new Date() }).where(drizzle.eq(schema.testimonials.id, second.id)), /Failed query|violates check/);
+  // ...and refuses an approved or published row that has no chosen wording.
+  await assert.rejects(db.update(schema.testimonials).set({ status: "APPROVED", experience: "words", permissionPublish: true, approvedAt: new Date() }).where(drizzle.eq(schema.testimonials.id, second.id)), /Failed query|violates check/);
+  // Feedback entered by the Founder, with a confirmed paraphrase, round-trips and keeps the original separate.
+  const original = `TEST client wording ${randomUUID()} that was shared directly.`;
+  const entered = await svc.recordFounderEntered(repo, { originalText: original, name: "TEST Client", displayMode: "FULL_NAME", permissionPublish: true }, founder);
+  const paraphrase = "TEST paraphrase of the client's feedback.";
+  await svc.setPublishedWording(repo, entered.id, { text: paraphrase, paraphrased: true, confirmedFaithful: true }, founder);
+  const stored = await repo.getById(entered.id);
+  assert.equal(stored!.experience, original, "the original is stored untouched");
+  assert.equal(stored!.publishedText, paraphrase);
+  assert.equal(stored!.isParaphrased, true);
+  assert.equal(stored!.enteredVia, "FOUNDER_ENTERED");
   // The seed is idempotent against the real table.
   assert.deepEqual(await svc.seedIllustrativeDrafts(repo, founder), { created: 0 });
   // No template is ever public.

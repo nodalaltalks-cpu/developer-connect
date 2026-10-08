@@ -4,7 +4,7 @@ import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ADVISOR_CONTACT, callHref, mailtoHref, whatsappHref } from "@/lib/advisor-contact";
-import { FOUNDER } from "@/lib/founder";
+import { FOUNDER_EXPERIENCE } from "@/lib/founder";
 
 export const metadata: Metadata = {
   title: "Talk to an Advisor | Developer Connects",
@@ -30,7 +30,7 @@ export default function AdvisorPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Talk to an Advisor</p>
             <h1 className="mt-3 font-serif text-4xl font-medium leading-tight tracking-tight text-foreground sm:text-5xl">Speak with Ambish.</h1>
             <p className="mt-4 text-base leading-7 text-foreground/80">
-              {FOUNDER.experience.charAt(0).toUpperCase() + FOUNDER.experience.slice(1)}. Message or call directly, and say as much or as little as you like.
+              {FOUNDER_EXPERIENCE} Message or call directly, and say as much or as little as you like.
             </p>
 
             <div className="mt-10 space-y-8">

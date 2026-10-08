@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentUser, requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { RequestForm, RowActions, SeedButton } from "@/components/admin/testimonials/testimonial-controls";
+import { FeedbackEntryForm, WordingEditor } from "@/components/admin/testimonials/wording-controls";
 import { formatDateTimeFull } from "@/lib/leads/format";
 import { DISPLAY_MODE_LABEL, ILLUSTRATIVE_LABEL, TESTIMONIAL_STATUSES, displayName, type TestimonialStatus } from "@/lib/testimonials/model";
 import { createPostgresTestimonialRepository } from "@/lib/testimonials/postgres-repository";
@@ -52,7 +53,10 @@ export default async function TestimonialsPage({ searchParams }: PageProps<"/adm
         ))}
       </ul>
 
-      <RequestForm />
+      <div className="space-y-4">
+        <RequestForm />
+        <FeedbackEntryForm />
+      </div>
 
       <nav aria-label="Filter" className="mt-6 flex flex-wrap gap-2">
         {(["all", ...TESTIMONIAL_STATUSES, "templates"] as const).map((v) => (
@@ -94,7 +98,24 @@ export default async function TestimonialsPage({ searchParams }: PageProps<"/adm
                 {[t.city, t.country].filter(Boolean).join(", ") || "Place not given"} · created {formatDateTimeFull(t.createdAt)}
                 {t.requestedVia ? ` · sent by ${t.requestedVia.toLowerCase()}` : ""}
               </p>
-              {t.experience && <p className="mt-3 whitespace-pre-line text-sm leading-6 text-foreground">{t.experience}</p>}
+              {t.experience && (
+                <div className="mt-3">
+                  {!t.isIllustrative && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client&apos;s original words</p>}
+                  <p className="whitespace-pre-line text-sm leading-6 text-foreground">{t.experience}</p>
+                </div>
+              )}
+              {!t.isIllustrative && t.experience && (
+                <div className="mt-3 rounded-lg bg-muted p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Will be published as {t.publishedText ? (t.isParaphrased ? "a paraphrase (no quotation marks)" : "the client's own words (in quotation marks)") : "— not chosen yet"}</p>
+                  {t.publishedText && <p className="mt-1 whitespace-pre-line text-sm leading-6 text-foreground">{t.publishedText}</p>}
+                  {t.attributionDetail && <p className="mt-1 text-xs text-muted-foreground">Shown with: {t.attributionDetail}</p>}
+                  {(t.status === "RECEIVED" || t.status === "PENDING_APPROVAL") && (
+                    <div className="mt-2">
+                      <WordingEditor id={t.id} original={t.experience} current={t.publishedText} paraphrased={t.isParaphrased} />
+                    </div>
+                  )}
+                </div>
+              )}
               {!t.isIllustrative && t.experience && (
                 <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
                   <div>
@@ -127,7 +148,7 @@ export default async function TestimonialsPage({ searchParams }: PageProps<"/adm
               )}
               {t.rejectReason && <p className="mt-2 text-xs text-muted-foreground">Rejected: {t.rejectReason}</p>}
               <div className="mt-3">
-                <RowActions id={t.id} status={t.status} illustrative={t.isIllustrative} canPublish={t.permissionPublish} />
+                <RowActions id={t.id} status={t.status} illustrative={t.isIllustrative} canPublish={t.permissionPublish && Boolean(t.publishedText)} />
               </div>
             </li>
           ))}

@@ -150,7 +150,7 @@ export function RowActions({ id, status, illustrative, canPublish }: { id: strin
           </button>
         )}
       </div>
-      {(status === "RECEIVED" || status === "PENDING_APPROVAL") && !canPublish && <p className="mt-1 text-xs text-muted-foreground">The author did not allow publishing, so this cannot be approved.</p>}
+      {(status === "RECEIVED" || status === "PENDING_APPROVAL") && !canPublish && <p className="mt-1 text-xs text-muted-foreground">Approval needs the author&apos;s permission to publish and a chosen wording.</p>}
       {error && (
         <p role="alert" className="mt-1 text-sm text-red-700">
           {error}

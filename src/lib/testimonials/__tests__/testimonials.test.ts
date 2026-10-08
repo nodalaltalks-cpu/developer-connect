@@ -13,6 +13,7 @@ import {
   lookupRequest,
   markSent,
   moveToReview,
+  setPublishedWording,
   publish,
   reject,
   seedIllustrativeDrafts,
@@ -35,14 +36,18 @@ test("workflow: a real request moves DRAFT to PUBLISHED one allowed step at a ti
   await submitByRequestToken(repo, token, GOOD, T(2));
   assert.equal((await repo.getById(testimonial.id))!.status, "RECEIVED");
   await moveToReview(repo, testimonial.id, FOUNDER, T(3));
+  await assert.rejects(approve(repo, testimonial.id, FOUNDER, T(3)), /wording/, "the Founder must choose what is published first");
+  await setPublishedWording(repo, testimonial.id, { paraphrased: false }, FOUNDER, T(3));
   await approve(repo, testimonial.id, FOUNDER, T(4));
   assert.deepEqual(await getPublishedTestimonials(repo), [], "approved is not public yet");
   await publish(repo, testimonial.id, FOUNDER, T(5));
   const pub = await getPublishedTestimonials(repo);
   assert.equal(pub.length, 1);
   assert.equal(pub[0].name, "Asha V.");
+  assert.equal(pub[0].text, GOOD.experience, "published verbatim, exactly as the client wrote it");
+  assert.equal(pub[0].paraphrased, false);
   assert.equal(pub[0].place, "Mumbai, India");
-  assert.deepEqual(repo.events.map((e) => e.eventType), ["REQUEST_CREATED", "STATUS_SENT", "STATUS_RECEIVED", "STATUS_PENDING_APPROVAL", "STATUS_APPROVED", "STATUS_PUBLISHED"]);
+  assert.deepEqual(repo.events.map((e) => e.eventType), ["REQUEST_CREATED", "STATUS_SENT", "STATUS_RECEIVED", "STATUS_PENDING_APPROVAL", "PUBLISHED_WORDING_SET", "STATUS_APPROVED", "STATUS_PUBLISHED"]);
   await archive(repo, testimonial.id, FOUNDER, T(6));
   assert.deepEqual(await getPublishedTestimonials(repo), [], "archiving withdraws it");
 });
@@ -63,6 +68,8 @@ test("consent: without permission to publish a testimonial cannot be approved or
   await submitByRequestToken(repo, token, { ...GOOD, permissionPublish: false }, T(1));
   await moveToReview(repo, testimonial.id, FOUNDER, T(2));
   await assert.rejects(approve(repo, testimonial.id, FOUNDER, T(3)), /permission/);
+  await setPublishedWording(repo, testimonial.id, { paraphrased: false }, FOUNDER, T(3));
+  await assert.rejects(approve(repo, testimonial.id, FOUNDER, T(3)), /permission/, "a chosen wording does not replace consent");
   const row = await repo.getById(testimonial.id);
   await assert.rejects(repo.save({ ...row!, status: "PUBLISHED", approvedAt: T(3), publishedAt: T(3) }), /consent/, "the data layer refuses it too");
   // A bot-style truthy value is not consent.

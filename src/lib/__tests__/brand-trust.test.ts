@@ -54,17 +54,41 @@ test("featured developers: the homepage shows a developer only if it is an ACTIV
   assert.match(card, /href=\{`\/developers\/\$\{card\.slug\}`\}/);
 });
 
-test("founder: only substantiated claims are public, the LinkedIn link is the real one, and nothing is scraped", () => {
+test("founder: the authorised claims are worded exactly, framed as personal experience, and never read as platform statistics", () => {
   assert.equal(FOUNDER.name, "Ambish Singh");
   assert.equal(FOUNDER.linkedinUrl, "https://www.linkedin.com/in/ambishsingh");
-  assert.match(FOUNDER.experience, /6\+ years/);
-  assert.equal(FOUNDER.education, null, "the MBA is not claimed until its current status is confirmed");
-  assert.equal(FOUNDER.transactedValue, null, "the property-value figure is not claimed until it is evidenced");
+  assert.deepEqual([...FOUNDER.facts], [
+    "6+ years of real estate experience across India and the UAE.",
+    "Built relationships across a network of 10,000+ developers.",
+    "Personally contributed to ₹300 Cr+ in property transactions during a real estate career.",
+    "MBA completed in Dubai.",
+  ]);
+  const [experience, network, transacted, mba] = FOUNDER.facts;
+  // The network is a relationship claim: nothing that says developers are listed, active, verified or on the platform.
+  assert.ok(!/listed|active|verified|platform|on developer connects|our developers|we /i.test(network));
+  // The transaction figure is personal and historical: never revenue, volume, GMV, "we" or the company.
+  assert.match(transacted, /^Personally contributed to/);
+  assert.ok(!/revenue|volume|gmv|turnover|\bwe\b|\bour\b|developer connects/i.test(transacted));
+  // The MBA is stated as given: no institution, specialisation, date or distinction was supplied, so none is added.
+  assert.equal(mba, "MBA completed in Dubai.");
+  assert.ok(!/university|college|school|institute|specialis|distinction|honou?rs|cum laude|batch|\b20\d\d\b/i.test(mba));
+  assert.match(experience, /^6\+ years of real estate experience across India and the UAE\.$/);
+  assert.match(FOUNDER.context, /not Developer Connects platform statistics/);
   const section = read("src/components/founder-section.tsx");
-  assert.match(section, /FOUNDER\.education &&/);
-  assert.match(section, /FOUNDER\.transactedValue &&/);
+  assert.match(section, /FOUNDER\.facts\.map/);
+  assert.match(section, /\{FOUNDER\.context\}/, "the framing sits right beside the facts");
   assert.ok(!/follower|connections/i.test(section));
   assert.ok(!/Harvard|Stanford|Wharton|Oxford/i.test(read("src/lib/founder.ts") + section), "no borrowed institutions");
+});
+
+test("founder: the large figures appear ONLY in the founder's own words, never beside a platform count", () => {
+  const files = ["src/app/(marketing)/page.tsx", "src/app/about/page.tsx", "src/app/advisor/page.tsx", "src/components/featured-developers.tsx", "src/components/buyer-journey.tsx", "src/app/buy-direct-from-developer/[market]/page.tsx"];
+  for (const file of files) {
+    const code = read(file).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    assert.ok(!/10,000|₹\s?300|300 Cr/.test(code), `${file} must not hard-code the founder's figures; they come from lib/founder.ts`);
+  }
+  assert.match(read("src/app/about/page.tsx"), /<FounderSection \/>/);
+  assert.match(read("src/app/(marketing)/page.tsx"), /<FounderSection \/>/);
 });
 
 test("founder stories: rotation only chooses between approved entries, deterministically, and falls back safely", () => {

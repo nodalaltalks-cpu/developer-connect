@@ -9,7 +9,7 @@ import { cleanPath } from "../../behaviour/events.ts";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = (relative: string) => readFileSync(path.resolve(here, "../../../..", relative), "utf8");
 
-const FOUNDER_ACTIONS = ["createTestimonialRequestAction", "markTestimonialSentAction", "moveTestimonialToReviewAction", "approveTestimonialAction", "rejectTestimonialAction", "publishTestimonialAction", "archiveTestimonialAction", "seedIllustrativeTestimonialsAction"];
+const FOUNDER_ACTIONS = ["createTestimonialRequestAction", "markTestimonialSentAction", "moveTestimonialToReviewAction", "approveTestimonialAction", "rejectTestimonialAction", "publishTestimonialAction", "archiveTestimonialAction", "seedIllustrativeTestimonialsAction", "recordClientFeedbackAction", "setTestimonialWordingAction"];
 
 test("security: every Founder testimonial action resolves the Founder before anything else", () => {
   const source = read("src/app/admin/_actions/testimonial-actions.ts");

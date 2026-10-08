@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GoogleAnalytics } from "@/components/google-analytics";
+import { MetaPixel } from "@/components/meta-pixel";
 import { buttonClassName } from "@/components/ui/button";
 import {
   ANALYTICS_CONSENT_STORAGE_KEY,
@@ -100,12 +101,15 @@ function removeGaCookies(): void {
  */
 export function AnalyticsConsentProvider({
   measurementId,
+  metaPixelId = null,
   children,
 }: {
   measurementId: string | null;
+  /** The Meta Pixel, loaded only after the same "Accept" that enables Google Analytics. */
+  metaPixelId?: string | null;
   children: ReactNode;
 }) {
-  const enabled = measurementId !== null;
+  const enabled = measurementId !== null || metaPixelId !== null;
   const pathname = usePathname();
   const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const ready = stored !== UNKNOWN;
@@ -135,6 +139,7 @@ export function AnalyticsConsentProvider({
     <ConsentContext.Provider value={value}>
       {children}
       {measurementId !== null && consent === "all" && <GoogleAnalytics measurementId={measurementId} />}
+      {metaPixelId !== null && consent === "all" && <MetaPixel pixelId={metaPixelId} />}
       {showBanner && (
         <div
           role="region"
@@ -144,7 +149,7 @@ export function AnalyticsConsentProvider({
           <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-foreground">
               We use essential cookies to make Developer Connects work. With your permission we&apos;d also
-              use Google Analytics cookies to understand how the site is used.{" "}
+              use {metaPixelId !== null ? "analytics and advertising measurement" : "Google Analytics"} cookies to understand how the site is used.{" "}
               <Link href="/cookies" className="text-accent-hover underline">
                 Cookie Policy
               </Link>

@@ -119,6 +119,10 @@ export default function CookiePolicyPage() {
           own product-usage analytics (searches, page views, clicks) are recorded directly to our own database
           via the session identifier above.
         </p>
+        <p>
+          Advertising measurement (such as a Meta Pixel) is built into the site but switched off. If we turn it on, it will
+          load only after you choose &ldquo;Accept&rdquo;, and we will update this policy before it does.
+        </p>
       </LegalSection>
 
       <LegalSection title="7. Consent">

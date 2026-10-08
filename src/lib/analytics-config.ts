@@ -30,6 +30,13 @@ export function getGaMeasurementId(raw: string | null | undefined): string | nul
   return /^G-[A-Z0-9]{6,20}$/.test(value) ? value : null;
 }
 
+/** The Meta Pixel ID to use, or null when it is not configured (digits only, so it is safe to place in the inline snippet). */
+export function getMetaPixelId(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  return /^\d{10,20}$/.test(value) ? value : null;
+}
+
 /** localStorage key holding the visitor's analytics-cookie choice on this device. */
 export const ANALYTICS_CONSENT_STORAGE_KEY = "dc-analytics-consent";
 

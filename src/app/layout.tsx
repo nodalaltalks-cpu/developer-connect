@@ -5,7 +5,8 @@ import { AnalyticsConsentProvider } from "@/components/analytics-consent";
 import { AdvisorProvider } from "@/components/advisor/advisor";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { BehaviourTracker } from "@/components/behaviour-tracker";
-import { getGaMeasurementId } from "@/lib/analytics-config";
+import { getGaMeasurementId, getMetaPixelId } from "@/lib/analytics-config";
+import { AnalyticsEvents } from "@/components/analytics-events";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -90,6 +91,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   // valid ID (see lib/analytics-config.ts), and even then it only loads after
   // the visitor presses "Accept" in the cookie banner (analytics-consent.tsx).
   const gaMeasurementId = getGaMeasurementId(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID);
+  const metaPixelId = getMetaPixelId(process.env.NEXT_PUBLIC_META_PIXEL_ID);
 
   return (
     <html
@@ -118,7 +120,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           <AttributionCapture />
           <BehaviourTracker />
-          <AnalyticsConsentProvider measurementId={gaMeasurementId}>
+          <AnalyticsConsentProvider measurementId={gaMeasurementId} metaPixelId={metaPixelId}>
+            <AnalyticsEvents />
             <AdvisorProvider>{children}</AdvisorProvider>
           </AnalyticsConsentProvider>
         </ClerkProvider>

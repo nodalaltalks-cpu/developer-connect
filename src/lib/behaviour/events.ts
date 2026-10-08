@@ -26,6 +26,8 @@ export const CTA_IDS = [
   "sign_in",
   "newsletter_submit",
   "contact_submit",
+  "hero_market_dubai", // the Dubai button in the homepage hero
+  "hero_market_mumbai", // the Mumbai button in the homepage hero
 ] as const;
 export type CtaId = (typeof CTA_IDS)[number];
 

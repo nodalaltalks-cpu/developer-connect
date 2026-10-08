@@ -24,6 +24,8 @@ const RANGES = [
 const CTA_LABEL: Record<string, string> = {
   connect_developer: "Connect (developer page)",
   connect_sticky: "Connect (phone sticky bar)",
+  hero_market_dubai: "Homepage: chose Dubai",
+  hero_market_mumbai: "Homepage: chose Mumbai",
   connect_card: "Connect (directory card)",
   whatsapp_share: "Share on WhatsApp",
   email_share: "Share by email",

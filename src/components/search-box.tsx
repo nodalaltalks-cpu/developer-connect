@@ -107,7 +107,7 @@ export function SearchBox() {
         autoComplete="off"
         value={query}
         onChange={(event) => handleChange(event.target.value)}
-        placeholder="Search a developer or paste a website address"
+        placeholder="Search a developer or website"
         aria-describedby={statusId}
         className="w-full min-h-11 rounded-lg border border-border bg-background px-5 py-4 text-lg text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />

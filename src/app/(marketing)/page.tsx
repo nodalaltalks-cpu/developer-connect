@@ -12,6 +12,8 @@ import { GeoFilters } from "@/components/geo-filters";
 import { StatCounter } from "@/components/stat-counter";
 import { CountriesCoveredCard } from "@/components/countries-covered-card";
 import { HeroVideo } from "@/components/hero-video";
+import { HeroMarketProvider, HeroMarketToggle } from "@/components/hero-market";
+import { marketFromParams } from "@/lib/hero-market";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { ContinueResearch } from "@/components/continue-research";
 import { BuyerJourney } from "@/components/buyer-journey";
@@ -72,6 +74,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const state = firstValue(resolvedSearchParams.state);
   const city = firstValue(resolvedSearchParams.city);
   const hasActiveFilter = Boolean(query || country || state || city);
+  // A city in the address (a filter, or ?market=) decides which city's film opens the page; otherwise Dubai.
+  const heroMarket = marketFromParams({ market: firstValue(resolvedSearchParams.market), country, state, city });
 
   // Anonymous, no-filter "initial discovery" only ever narrows THIS
   // default view to a seeded sample — search, filters, and signed-in
@@ -111,6 +115,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       <main className="flex-1">
         {/* HERO: always dark (cinematic footage under a scrim), so its text is fixed white in light and dark themes. */}
+        <HeroMarketProvider fromAddress={heroMarket}>
         <section className="relative isolate overflow-hidden text-white">
           <HeroVideo />
           <Container className="relative py-20 sm:py-32 lg:py-40">
@@ -118,7 +123,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-200/90 sm:text-sm">
                 Mumbai &middot; Dubai &middot; India &middot; UAE
               </p>
-              <h1 className="mt-5 text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
+              <HeroMarketToggle />
+              <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
                 Find the right address.
                 <span className="block text-sky-200">Buy it with clarity.</span>
               </h1>
@@ -149,6 +155,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </div>
           </Container>
         </section>
+        </HeroMarketProvider>
 
         <Container className="py-12 sm:py-20">
           <div className="mx-auto max-w-2xl">

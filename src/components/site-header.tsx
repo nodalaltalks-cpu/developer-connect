@@ -54,7 +54,9 @@ export async function SiteHeader() {
           <Logo />
         </Link>
         <div className="flex shrink-0 items-center gap-1 sm:gap-4">
-          <AdvisorTrigger className="hidden min-h-11 px-5 sm:inline-flex">Talk to an Advisor</AdvisorTrigger>
+          <span className="hidden sm:block">
+            <AdvisorTrigger className="min-h-11 px-5">Talk to an Advisor</AdvisorTrigger>
+          </span>
           <Link
             href="/buy-direct-from-developer"
             className="hidden min-h-11 items-center text-sm font-medium text-foreground hover:text-accent-hover sm:inline-flex"

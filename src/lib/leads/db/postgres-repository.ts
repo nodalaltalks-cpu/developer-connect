@@ -195,6 +195,10 @@ async function locationsFor(db: DbOrTx, requirementIds: string[]): Promise<Map<s
 function build(db: DbOrTx): LeadRepositories {
   return {
     leads: {
+      async findByPhone(phoneE164) {
+        const [row] = await db.select().from(leads).where(eq(leads.phoneE164, phoneE164)).limit(1);
+        return row ? toLead(row) : null;
+      },
       async upsertByPhone(input: NewLeadInput) {
         // One atomic statement. The partial unique index on phone_e164 makes
         // a concurrent insert of the same number wait for the first to

@@ -32,6 +32,15 @@ class MainActivity : ComponentActivity() {
         web.loadUrl(BuildConfig.START_URL)
     }
 
+    /**
+     * Coming back to the app (typically right after a call ends) tells the page to sync at once. This needs no extra
+     * permission: it only nudges the website, which then asks pendingReports() for the call-log result.
+     */
+    override fun onResume() {
+        super.onResume()
+        if (::web.isInitialized) web.evaluateJavascript("window.dispatchEvent(new Event('dc:app-resumed'))", null)
+    }
+
     private fun allowed(uri: Uri): Boolean {
         val host = uri.host ?: return false
         val own = Uri.parse(BuildConfig.START_URL).host

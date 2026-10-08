@@ -8,11 +8,13 @@ import { usePathname } from "next/navigation";
  * `sm` up the same links sit in a row under the header. Five destinations, the same five on every screen size.
  */
 const ITEMS = [
-  { href: "/team", label: "My leads", match: (p: string) => p === "/team" || p.startsWith("/team/leads") },
-  { href: "/team/queue", label: "Queue", match: (p: string) => p.startsWith("/team/queue") },
-  { href: "/team/missed", label: "Follow-ups", match: (p: string) => p.startsWith("/team/missed") },
-  { href: "/team/visits", label: "Visits", match: (p: string) => p.startsWith("/team/visits") },
-  { href: "/team/calls", label: "Calls", match: (p: string) => p.startsWith("/team/calls") },
+  { href: "/team", label: "My leads", match: (p: string) => p === "/team" || p.startsWith("/team/leads"), phone: true },
+  { href: "/team/queue", label: "Queue", match: (p: string) => p.startsWith("/team/queue"), phone: true },
+  { href: "/team/dial", label: "Dial", match: (p: string) => p.startsWith("/team/dial"), phone: true },
+  { href: "/team/missed", label: "Follow-ups", match: (p: string) => p.startsWith("/team/missed"), phone: true },
+  // Visits has no slot in the five-item phone bar; on phones it is one tap from My leads.
+  { href: "/team/visits", label: "Visits", match: (p: string) => p.startsWith("/team/visits"), phone: false },
+  { href: "/team/calls", label: "Calls", match: (p: string) => p.startsWith("/team/calls"), phone: true },
 ];
 
 export function TeamNav() {
@@ -28,7 +30,7 @@ export function TeamNav() {
       </nav>
       <nav aria-label="Team quick navigation" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
         <ul className="flex">
-          {ITEMS.map((i) => {
+          {ITEMS.filter((i) => i.phone).map((i) => {
             const on = i.match(pathname);
             return (
               <li key={i.href} className="flex flex-1">

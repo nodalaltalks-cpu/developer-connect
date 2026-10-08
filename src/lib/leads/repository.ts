@@ -80,6 +80,8 @@ export interface LeadRepository {
    */
   upsertByPhone(input: NewLeadInput): Promise<{ lead: Lead; created: boolean }>;
   getById(id: string): Promise<Lead | null>;
+  /** The lead with exactly this E.164 number, or null. A read only: it never creates, locks or changes anything. */
+  findByPhone(phoneE164: string): Promise<Lead | null>;
   /** Applies `patch` and sets `updatedAt` to `at`. Throws if the lead does not exist. */
   update(id: string, patch: LeadPatch, at: Date): Promise<Lead>;
   /** Leads that could belong on the Founder's Today queue (not erased, not in a closed-out state), newest activity first. */

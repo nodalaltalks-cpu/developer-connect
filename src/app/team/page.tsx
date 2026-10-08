@@ -88,6 +88,11 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
   return (
     <div>
       <SectionHeading title="My Leads" description="Leads assigned to you. Private — visible only to you and the Founder." />
+      <p className="-mt-2 mb-2 sm:hidden">
+        <Link href="/team/visits" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
+          Site visits →
+        </Link>
+      </p>
 
       {(work.dueNow.length > 0 || work.dueToday.length > 0) && (
         <section aria-label="What to do now" className="mb-4 space-y-3">

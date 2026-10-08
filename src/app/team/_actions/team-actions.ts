@@ -8,6 +8,7 @@ import { addNote, logContact, type ContactChannel, type ContactOutcome } from "@
 import { cancelLeadFollowUp, completeLeadFollowUp, rescheduleFollowUp, returnLeadToFounder, scheduleFollowUp } from "@/lib/leads/follow-up-service";
 import { getCallForActor, placeCall, prepareDeviceCall, reportDeviceCall, setCallDisposition } from "@/lib/leads/call-service";
 import { toCallView, type CallView } from "@/lib/leads/call-view";
+import { lookupColdCallNumber, prepareColdCall, type ColdCallLookup } from "@/lib/leads/cold-call-service";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
 import { removeFromShortlist, shortlistProject } from "@/lib/leads/project-service";
 import { changeSiteVisit, scheduleSiteVisit } from "@/lib/leads/site-visit-service";
@@ -202,6 +203,37 @@ export async function prepareMyDeviceCallAction(leadId: string, batchId?: string
     if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
     if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: NOT_FOUND };
     return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+export type PrepareColdCallResult = { ok: true; callId: string; phone: string; leadId: string; createdLead: boolean } | { ok: false; error: string };
+
+/**
+ * Cold call, step 1: the signed-in team member typed a number. The server finds the lead with that number or creates a
+ * self-generated lead owned by them (never a duplicate), issues the call attempt and hands the number to their device.
+ * The browser sends only the number; who is calling comes from the session.
+ */
+export async function prepareMyColdCallAction(phone: string, deviceRef?: string | null): Promise<PrepareColdCallResult> {
+  const { actor } = await requireEmployeeForAction();
+  if (typeof phone !== "string") return { ok: false, error: "Enter a valid phone number." };
+  try {
+    const prepared = await prepareColdCall(createPostgresLeadRepositories(), { phone, deviceRef: typeof deviceRef === "string" ? deviceRef : null }, actor);
+    revalidatePath("/team");
+    return { ok: true, callId: prepared.call.id, phone: prepared.toE164, leadId: prepared.leadId, createdLead: prepared.createdLead };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: "That number could not be called from here." };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+/** Before the call: is this number new, already the caller's, or someone else's? Reveals nothing about a lead that is not theirs. */
+export async function lookupMyColdCallNumberAction(phone: string): Promise<ColdCallLookup> {
+  const { actor } = await requireEmployeeForAction();
+  try {
+    return await lookupColdCallNumber(createPostgresLeadRepositories(), phone, actor);
+  } catch {
+    return { kind: "INVALID" };
   }
 }
 

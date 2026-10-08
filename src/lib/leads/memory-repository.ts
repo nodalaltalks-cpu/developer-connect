@@ -119,6 +119,10 @@ export function createInMemoryLeadRepositories(
 
   const repos: LeadRepositories = {
     leads: {
+      async findByPhone(phoneE164) {
+        const found = [...state.leads.values()].find((lead) => lead.phoneE164 === phoneE164);
+        return found ? { ...found } : null;
+      },
       async upsertByPhone(input: NewLeadInput) {
         const existing = [...state.leads.values()].find((lead) => lead.phoneE164 === input.phoneE164);
         if (existing) return { lead: { ...existing }, created: false };

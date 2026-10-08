@@ -52,12 +52,22 @@ export function DeviceCallSync() {
     void flush();
     const timer = setInterval(flush, POLL_MS);
     const onWake = () => void flush();
+    // The Android app fires this the moment the employee comes back from a call. Phones write the call-log entry a
+    // moment after hang-up, so look again shortly: the call shows up within about a second instead of at the next poll.
+    const burst: ReturnType<typeof setTimeout>[] = [];
+    const onResumed = () => {
+      void flush();
+      for (const ms of [1200, 3000, 6000]) burst.push(setTimeout(() => void flush(), ms));
+    };
+    window.addEventListener("dc:app-resumed", onResumed);
     window.addEventListener("focus", onWake);
     window.addEventListener("online", onWake);
     document.addEventListener("visibilitychange", onWake);
     return () => {
       stopped = true;
       clearInterval(timer);
+      window.removeEventListener("dc:app-resumed", onResumed);
+      burst.forEach(clearTimeout);
       window.removeEventListener("focus", onWake);
       window.removeEventListener("online", onWake);
       document.removeEventListener("visibilitychange", onWake);

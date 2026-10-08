@@ -25,6 +25,14 @@ phone is set to "ask") -> call ends -> app reads call log -> outbox -> website r
 Offline or killed app: the report stays in the outbox and is retried; the server accepts one report per call, so a retry
 never double-counts.
 
+## Near-real-time capture (no extra permission)
+`MainActivity.onResume` tells the page (`dc:app-resumed`) the moment the employee comes back to the app, which is typically right
+after hang-up. The page then reads `pendingReports()` immediately and again after about 1, 3 and 6 seconds, because phones write
+the call-log entry a moment after the call ends. The call therefore appears on the website within about a second of returning,
+not at the next 5-second poll. A live in-call timer is deliberately NOT shown: only the phone's own call-log duration is ever
+recorded, never an elapsed timer that would include ringing. True in-call state (ringing / answered) would need the
+READ_PHONE_STATE permission and is a separate decision.
+
 ## Limits to verify on real phones (none verified yet)
 - SIM chooser appears only when the phone's setting is "Calling accounts -> Always ask".
 - Call-log entry timing and what each maker counts as "duration" (voicemail greetings can count) vary by device.

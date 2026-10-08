@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
+import { EnableWorkspace } from "@/components/admin/enable-workspace";
+import { currentUser } from "@/lib/auth";
 import { StaffManager } from "@/components/admin/staff-manager";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
@@ -21,6 +23,7 @@ const SHOW_LIMIT = 60;
 export default async function AdminStaffPage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; status?: string | string[] }> }) {
   // The layout also gates /admin, but a layout is not re-run on every client navigation.
   await requireFounder();
+  const founderUser = await currentUser();
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const q = first(sp.q)?.trim().slice(0, 80) ?? "";
@@ -45,6 +48,7 @@ export default async function AdminStaffPage({ searchParams }: { searchParams: P
   return (
     <div>
       <SectionHeading title="Team" description="Everyone has a permanent ID that is never reused. Private, visible only to you." />
+      <EnableWorkspace enrolledAs={members.find((m) => m.userId === founderUser?.id)?.employeeId ?? null} />
       <form action="/admin/staff" method="get" role="search" className="mb-4 flex gap-2">
         <label htmlFor="staff-search" className="sr-only">
           Search by employee ID, name or email

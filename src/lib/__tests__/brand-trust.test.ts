@@ -58,12 +58,18 @@ test("founder: the authorised claims are worded exactly, framed as personal expe
   assert.equal(FOUNDER.name, "Ambish Singh");
   assert.equal(FOUNDER.linkedinUrl, "https://www.linkedin.com/in/ambishsingh");
   assert.deepEqual([...FOUNDER.facts], [
-    "6+ years of real estate experience across India and the UAE.",
+    "Second-generation real estate entrepreneur.",
+    "10+ years of personal experience in the Mumbai market.",
+    "Worked at Square Yards for 4 years.",
     "Built relationships across a network of 10,000+ developers.",
     "Personally contributed to ₹300 Cr+ in property transactions during a real estate career.",
     "MBA completed in Dubai.",
   ]);
-  const [experience, network, transacted, mba] = FOUNDER.facts;
+  const [generation, experience, employer, network, transacted, mba] = FOUNDER.facts;
+  assert.equal(generation, "Second-generation real estate entrepreneur.");
+  // Square Yards is named only for what was stated: a four-year employment. It is never tied to the transaction figure or to platform numbers.
+  assert.equal(employer, "Worked at Square Yards for 4 years.");
+  assert.ok(!/square yards/i.test(`${network} ${transacted} ${mba}`), "the employer is not attached to any figure");
   // The network is a relationship claim: nothing that says developers are listed, active, verified or on the platform.
   assert.ok(!/listed|active|verified|platform|on developer connects|our developers|we /i.test(network));
   // The transaction figure is personal and historical: never revenue, volume, GMV, "we" or the company.
@@ -72,7 +78,7 @@ test("founder: the authorised claims are worded exactly, framed as personal expe
   // The MBA is stated as given: no institution, specialisation, date or distinction was supplied, so none is added.
   assert.equal(mba, "MBA completed in Dubai.");
   assert.ok(!/university|college|school|institute|specialis|distinction|honou?rs|cum laude|batch|\b20\d\d\b/i.test(mba));
-  assert.match(experience, /^6\+ years of real estate experience across India and the UAE\.$/);
+  assert.equal(experience, "10+ years of personal experience in the Mumbai market.");
   assert.match(FOUNDER.context, /not Developer Connects platform statistics/);
   const section = read("src/components/founder-section.tsx");
   assert.match(section, /FOUNDER\.facts\.map/);

@@ -148,3 +148,9 @@ export function businessPresetLocal(now: Date, days: number, hour = 10, timeZone
   const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   return `${get("year")}-${get("month")}-${get("day")}T${String(hour).padStart(2, "0")}:00`;
 }
+
+/** The full date and time WITH the day of the week ("Thu 09 Oct 2026, 10:32 AM"), in India time. Used where a comment is shown, so its day is never in doubt. */
+export function formatDateTimeWithDay(date: Date, timeZone = BUSINESS_TIME_ZONE): string {
+  const weekday = new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "short" }).format(date);
+  return `${weekday} ${formatDateTimeFull(date, timeZone)}`;
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useInteractionComment } from "@/components/team/interaction-comment";
 import { businessPresetLocal, formatDateTimeFull, formatEnumLabel, formatOverdue } from "@/lib/leads/format";
 import { isOverdue, openFollowUp, type FollowUpView } from "@/lib/leads/follow-up-view";
 import { CANCEL_REASONS, FOLLOW_UP_TYPES, type CancelReason, type FollowUpType } from "@/lib/leads/types";
@@ -15,10 +16,10 @@ import { CANCEL_REASONS, FOLLOW_UP_TYPES, type CancelReason, type FollowUpType }
 
 export type FollowUpActionResult = { ok: true } | { ok: false; error: string };
 
-export type ScheduleFollowUp = (scheduledAtLocal: string, type: FollowUpType, note?: string) => Promise<FollowUpActionResult>;
-export type RescheduleFollowUp = (followUpId: string, scheduledAtLocal: string, type: FollowUpType) => Promise<FollowUpActionResult>;
-export type CompleteFollowUp = (followUpId: string) => Promise<FollowUpActionResult>;
-export type CancelFollowUp = (followUpId: string, reason: CancelReason, note?: string) => Promise<FollowUpActionResult>;
+export type ScheduleFollowUp = (scheduledAtLocal: string, type: FollowUpType, note?: string, comment?: string) => Promise<FollowUpActionResult>;
+export type RescheduleFollowUp = (followUpId: string, scheduledAtLocal: string, type: FollowUpType, comment?: string) => Promise<FollowUpActionResult>;
+export type CompleteFollowUp = (followUpId: string, note?: string, comment?: string) => Promise<FollowUpActionResult>;
+export type CancelFollowUp = (followUpId: string, reason: CancelReason, note?: string, comment?: string) => Promise<FollowUpActionResult>;
 
 const BTN =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
@@ -97,6 +98,7 @@ export function FollowUpSection({
   const now = new Date(nowIso);
   const overdue = open ? isOverdue(open, now) : false;
 
+  const shared = useInteractionComment();
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState<"view" | "reschedule" | "cancel">("view");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -111,6 +113,7 @@ export function FollowUpSection({
     startTransition(async () => {
       const result = await work();
       if (result.ok) {
+        shared?.clear();
         setMessage({ tone: "ok", text: success });
         then?.();
       } else setMessage({ tone: "error", text: result.error });
@@ -149,7 +152,7 @@ export function FollowUpSection({
 
           {mode === "view" && (
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <button type="button" className={BTN_PRIMARY} disabled={pending} onClick={() => perform(() => onComplete(open.id), "Follow-up marked done.")}>
+              <button type="button" className={BTN_PRIMARY} disabled={pending} onClick={() => perform(() => (shared ? onComplete(open.id, undefined, shared.comment) : onComplete(open.id)), "Follow-up marked done.")}>
                 {overdue ? "Complete now" : "Mark done"}
               </button>
               <button type="button" className={BTN} disabled={pending} onClick={() => { setType(open.type); setMode("reschedule"); }}>
@@ -169,7 +172,7 @@ export function FollowUpSection({
                   type="button"
                   className={BTN_PRIMARY}
                   disabled={pending || !when}
-                  onClick={() => perform(() => onReschedule(open.id, when, type), "Follow-up rescheduled.", () => setMode("view"))}
+                  onClick={() => perform(() => (shared ? onReschedule(open.id, when, type, shared.comment) : onReschedule(open.id, when, type)), "Follow-up rescheduled.", () => setMode("view"))}
                 >
                   Save new time
                 </button>
@@ -200,7 +203,7 @@ export function FollowUpSection({
                   type="button"
                   className={BTN_PRIMARY}
                   disabled={pending}
-                  onClick={() => perform(() => onCancel(open.id, reason, reason === "OTHER" ? cancelNote || undefined : undefined), "Follow-up cancelled.", () => setMode("view"))}
+                  onClick={() => perform(() => { const why = reason === "OTHER" ? cancelNote || undefined : undefined; return shared ? onCancel(open.id, reason, why, shared.comment) : onCancel(open.id, reason, why); }, "Follow-up cancelled.", () => setMode("view"))}
                 >
                   Cancel follow-up
                 </button>
@@ -220,7 +223,7 @@ export function FollowUpSection({
             type="button"
             className={`${BTN_PRIMARY} w-full`}
             disabled={pending || !when}
-            onClick={() => perform(() => onSchedule(when, type, note || undefined), "Follow-up scheduled.", () => setNote(""))}
+            onClick={() => perform(() => (shared ? onSchedule(when, type, note || undefined, shared.comment) : onSchedule(when, type, note || undefined)), "Follow-up scheduled.", () => setNote(""))}
           >
             Schedule follow-up
           </button>

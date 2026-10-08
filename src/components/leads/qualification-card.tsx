@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { useInteractionComment } from "@/components/team/interaction-comment";
 import { formatEnumLabel } from "@/lib/leads/format";
 import { OUTCOME_STATUS, QUALIFICATION_OUTCOMES, QUALIFICATION_REASONS, employeeMayMove, type QualificationOutcome, type QualificationReason } from "@/lib/leads/qualification-model";
 import type { LeadStatus } from "@/lib/leads/types";
@@ -33,9 +34,10 @@ export function QualificationCard({
   latest: { outcome: string; reason: string | null; atLabel: string } | null;
   /** True for a team member: only the transitions they may make are enabled. The Founder is not limited. */
   restrictToTeamMoves: boolean;
-  onRecord: (outcome: string, reason: string | null) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onRecord: (outcome: string, reason: string | null, comment?: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const router = useRouter();
+  const shared = useInteractionComment();
   const [pending, startTransition] = useTransition();
   const [outcome, setOutcome] = useState<QualificationOutcome | null>(null);
   const [reason, setReason] = useState<QualificationReason | null>(null);
@@ -48,8 +50,9 @@ export function QualificationCard({
     if (!outcome) return;
     setMessage(null);
     startTransition(async () => {
-      const result = await onRecord(outcome, outcome === "QUALIFIED" ? reason : null);
+      const result = shared ? await onRecord(outcome, outcome === "QUALIFIED" ? reason : null, shared.comment) : await onRecord(outcome, outcome === "QUALIFIED" ? reason : null);
       if (result.ok) {
+        shared?.clear();
         setMessage({ tone: "ok", text: "Recorded." });
         setOutcome(null);
         setReason(null);

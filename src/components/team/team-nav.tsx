@@ -17,7 +17,7 @@ const ITEMS = [
   { href: "/team/calls", label: "Calls", match: (p: string) => p.startsWith("/team/calls"), phone: true },
 ];
 
-export function TeamNav() {
+export function TeamNav({ founder = false }: { founder?: boolean }) {
   const pathname = usePathname();
   return (
     <>
@@ -27,6 +27,11 @@ export function TeamNav() {
             {i.label}
           </Link>
         ))}
+        {founder && (
+          <Link href="/admin" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
+            Founder dashboard
+          </Link>
+        )}
       </nav>
       <nav aria-label="Team quick navigation" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
         <ul className="flex">

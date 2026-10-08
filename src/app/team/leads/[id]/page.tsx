@@ -1,4 +1,5 @@
 import { LeadJourney } from "@/components/leads/lead-journey";
+import { CommentBox, InteractionCommentProvider } from "@/components/team/interaction-comment";
 import { getLeadJourney } from "@/lib/leads/lead-journey";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -111,7 +112,10 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
         )}
       </header>
 
+      <InteractionCommentProvider>
       <div className="mt-4 space-y-4">
+        {/* The comment comes first: every outcome, qualification and follow-up below is saved together with it. */}
+        <CommentBox />
         {/* Actions first on a phone. */}
         <TeamLeadActions
           leadId={lead.id}
@@ -154,6 +158,7 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
         <TimelineCard events={detail.events} names={{ [member.userId]: member.displayName }} />
         <ReturnLeadCard onReturn={returnMyLeadAction.bind(null, lead.id)} />
       </div>
+      </InteractionCommentProvider>
     </div>
   );
 }

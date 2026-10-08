@@ -146,6 +146,7 @@ export function ColdCallForm({ leadId, phoneLast4, initialPhone = "", initialNam
   if (interested && !outcome) problems.push("Choose a qualification.");
   if (planKind && !planWhen) problems.push("Choose the date and time of the next step.");
   if (planKind === "SITE_VISIT" && projects.length === 0) problems.push("Add the project for the site visit.");
+  if (interest && note.trim().length < 3) problems.push("Add a comment on the call. It is saved with the date, time and day.");
   const canSave = problems.length === 0 && !pending && !saved;
 
   const dirty = Boolean(digits || name || email || interest || note || projects.length);
@@ -424,10 +425,10 @@ export function ColdCallForm({ leadId, phoneLast4, initialPhone = "", initialNam
         {interest && (
           <li className={CARD}>
             <label className="block text-base font-semibold text-foreground">
-              {interested ? "7. Note (optional)" : "3. Note (optional)"}
+              {interested ? "7. Comment on the call" : "3. Comment on the call"} <span className="font-normal text-red-700">(required)</span>
               <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} className={`${FIELD} mt-2 py-2 text-base font-normal`} />
             </label>
-            <p className="mt-1 text-xs text-muted-foreground">Saved to the lead&apos;s history. Notes cannot be edited afterwards.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Required. Saved to the lead&apos;s history with the date, time and day, and it cannot be edited afterwards. The lead is not saved without it.</p>
           </li>
         )}
       </ol>

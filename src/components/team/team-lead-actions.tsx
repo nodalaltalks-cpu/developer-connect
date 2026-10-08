@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { addMyLeadNoteAction, logMyLeadContactAction, type TeamActionResult } from "@/app/team/_actions/team-actions";
+import { useInteractionComment } from "@/components/team/interaction-comment";
 import { formatEnumLabel } from "@/lib/leads/format";
 import { WhatsAppOpenLink } from "@/components/leads/whatsapp-open-link";
 import type { ContactChannel, ContactOutcome } from "@/lib/leads/lead-service";
@@ -51,6 +52,8 @@ export function TeamLeadActions(props: TeamLeadActionsProps) {
 
   const [channel, setChannel] = useState<ContactChannel | null>(null);
   const [contactNote, setContactNote] = useState("");
+  const shared = useInteractionComment();
+  const contactComment = contactNote.trim() || shared?.comment || "";
   const [note, setNote] = useState("");
 
   function perform(work: () => Promise<TeamActionResult>, success: string, then?: () => void) {
@@ -103,15 +106,16 @@ export function TeamLeadActions(props: TeamLeadActionsProps) {
                 <button
                   key={outcome}
                   type="button"
-                  disabled={pending}
+                  disabled={pending || contactComment.trim().length < 3}
                   className={BTN}
                   onClick={() =>
                     perform(
-                      () => logMyLeadContactAction(leadId, channel, outcome, contactNote || undefined),
+                      () => logMyLeadContactAction(leadId, channel, outcome, contactComment),
                       "Recorded.",
                       () => {
                         setChannel(null);
                         setContactNote("");
+                        shared?.clear();
                       },
                     )
                   }
@@ -123,11 +127,12 @@ export function TeamLeadActions(props: TeamLeadActionsProps) {
             <input
               value={contactNote}
               onChange={(e) => setContactNote(e.target.value)}
-              placeholder="Optional note"
+              placeholder={shared ? "Comment (uses the one above if left empty)" : "Comment on this contact (required)"}
               maxLength={2000}
               className={`${FIELD} mt-2`}
-              aria-label="Optional note about this contact"
+              aria-label="Comment on this contact"
             />
+            {contactComment.trim().length < 3 && <p className="mt-1 text-xs text-muted-foreground">Add a comment to record the outcome. It is saved with the date, time and day.</p>}
             <button type="button" className="mt-2 min-h-11 text-sm text-muted-foreground underline" onClick={() => setChannel(null)}>
               Don&apos;t record
             </button>

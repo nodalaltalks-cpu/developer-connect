@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireFounderForAction } from "@/lib/auth";
+import { currentUser, requireFounderForAction } from "@/lib/auth";
 import { findClerkUserByEmail } from "@/lib/admin-analytics/clerk-users";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getEmployeeHistoryPage, returnOpenLeadsToFounder } from "@/lib/leads/employee-profile";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 import { StaffNotFoundError, StaffStateError, StaffValidationError } from "@/lib/staff/errors";
-import { approveStaffMember, changeStaffEmail, exitStaffMember, inviteStaffMember, setStaffActive } from "@/lib/staff/staff-service";
+import { approveStaffMember, changeStaffEmail, enrollFounderAsEmployee, exitStaffMember, inviteStaffMember, setStaffActive } from "@/lib/staff/staff-service";
 import type { ExitReason, StaffRole } from "@/lib/staff/types";
 import type { LeadActor } from "@/lib/leads/types";
 
@@ -128,5 +128,20 @@ export async function loadEmployeeHistoryAction(employeeId: string, beforeIso: s
     return { ok: true, rows: events.map((e) => ({ id: e.id, leadId: e.leadId, eventType: e.eventType, at: e.createdAt.toISOString() })) };
   } catch {
     return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+/** The Founder enrols themselves as the first team member, so their own calls and leads run through the team workspace and are tracked like anyone's. */
+export async function enableMyWorkspaceAction(): Promise<StaffActionResult> {
+  const founderId = await requireFounderForAction();
+  try {
+    const user = await currentUser();
+    const verified = user?.emailAddresses.find((e) => e.verification?.status === "verified")?.emailAddress ?? null;
+    const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Ambish Singh";
+    const { member, created } = await enrollFounderAsEmployee(createPostgresStaffRepository(), { userId: founderId, displayName: name, email: verified });
+    revalidatePath("/admin/staff");
+    return { ok: true, message: created ? `Your calling workspace is ready (${member.employeeId}).` : `Your calling workspace is already set up (${member.employeeId}).` };
+  } catch (error) {
+    return toResult(error);
   }
 }

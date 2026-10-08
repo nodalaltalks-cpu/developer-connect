@@ -204,10 +204,15 @@ export async function getLeadCallStatusAction(callId: string): Promise<CallView 
   return call ? toCallView(call) : null;
 }
 
-export async function setLeadCallDispositionAction(callId: string, disposition: CallDisposition): Promise<LeadActionResult> {
+export async function setLeadCallDispositionAction(callId: string, disposition: CallDisposition, comment?: string): Promise<LeadActionResult> {
   const founderId = await requireFounderForAction();
   try {
-    const call = await setCallDisposition(createPostgresLeadRepositories(), callId, disposition, { actorType: "FOUNDER", actorId: founderId });
+    const repos = createPostgresLeadRepositories();
+    const actor: LeadActor = { actorType: "FOUNDER", actorId: founderId };
+    // A comment typed with the outcome is kept on the lead with its date, time and day (the Founder is not forced to write one here; team members are).
+    const existing = typeof callId === "string" ? await repos.calls.getById(callId).catch(() => null) : null;
+    if (existing && typeof comment === "string" && comment.trim().length >= 3) await addNote(repos, existing.leadId, comment, actor);
+    const call = await setCallDisposition(repos, callId, disposition, actor);
     revalidatePath(`/admin/leads/${call.leadId}`);
     return { ok: true };
   } catch (error) {

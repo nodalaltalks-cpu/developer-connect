@@ -181,7 +181,7 @@ export function ColdCallPad() {
             Open Developer Connects in the Android app to call from your own SIM. A call made any other way is not counted, so this pad does not place it.
           </p>
         ) : (
-          <fieldset disabled={!ready || blocked || lookup?.kind === "INVALID" || looking} className="disabled:opacity-60">
+          <fieldset data-lock-lead={prepared ? undefined : "new"} disabled={!ready || blocked || lookup?.kind === "INVALID" || looking} className="disabled:opacity-60">
             <CallButton
               key={session}
               configured={false}

@@ -262,3 +262,39 @@ export function staffNameMap(members: readonly StaffMember[]): Record<string, st
   for (const member of members) names[member.userId] = `${member.employeeId} · ${member.displayName}${member.status === "EXITED" ? " (exited)" : ""}`;
   return names;
 }
+
+/**
+ * The Founder works their own calling and leads through the same team workspace as everyone else, so their calls, follow-ups and
+ * results are tracked exactly like an employee's. This is the Founder enrolling THEMSELVES (the only person who may be added
+ * without a separate invitation): an ACTIVE team record bound to their own sign-in, with a permanent employee ID of its own.
+ * Founder powers are unchanged (they stay the Founder through /admin); the record only adds the employee view. Idempotent.
+ */
+export async function enrollFounderAsEmployee(
+  repo: StaffRepository,
+  founder: { userId: string; displayName: string; email?: string | null },
+  now: Date = new Date(),
+): Promise<{ member: StaffMember; created: boolean }> {
+  if (typeof founder.userId !== "string" || !CLERK_USER_ID.test(founder.userId)) throw new StaffValidationError("userId", "That is not a valid sign-in identity.");
+  const existing = await repo.getByUserId(founder.userId);
+  if (existing) return { member: existing, created: false };
+  const member = await repo.create(
+    {
+      userId: founder.userId,
+      displayName: cleanName(founder.displayName),
+      email: cleanEmail(founder.email),
+      role: cleanRole(undefined),
+      status: "ACTIVE",
+      approvedAt: now,
+      approvedBy: founder.userId,
+      joinedAt: now,
+      createdBy: founder.userId,
+      now,
+    },
+    [
+      { eventType: "EMPLOYEE_INVITED", actorId: founder.userId, payload: { via: "FOUNDER_SELF_ENROLLED" } },
+      { eventType: "EMPLOYEE_APPROVED", actorId: founder.userId },
+      { eventType: "EMPLOYEE_ACTIVATED", actorId: founder.userId, payload: { via: "FOUNDER_SELF_ENROLLED" } },
+    ],
+  );
+  return { member, created: true };
+}

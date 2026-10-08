@@ -52,6 +52,7 @@ function buildColumns(): FooterColumn[] {
       heading: "Company",
       links: [
         { label: "About Us", href: "/about" },
+        { label: "Client feedback", href: "/testimonials" },
         { label: "Contact Us", href: "/contact" },
         { label: "Report Inaccurate Information", href: "/contact?reason=REPORT_INACCURATE_INFO" },
       ],

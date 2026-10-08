@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { useInteractionComment } from "@/components/team/interaction-comment";
 import { formatCallDuration } from "@/lib/leads/call-analytics";
 import { isFinished, wasConnected, type CallView } from "@/lib/leads/call-view";
 import { CALL_REPORTED_EVENT, getNativeDialer, readCapabilities, type DialerCapabilities } from "@/lib/leads/native-bridge";
@@ -26,7 +27,7 @@ import { CALL_DISPOSITIONS, type CallDisposition } from "@/lib/leads/types";
 export type PlaceCall = () => Promise<{ ok: true; callId: string } | { ok: false; error: string; notConfigured?: true }>;
 export type PrepareCall = () => Promise<{ ok: true; callId: string; phone: string } | { ok: false; error: string }>;
 export type CallStatusOf = (callId: string) => Promise<CallView | null>;
-export type SetCallDisposition = (callId: string, disposition: CallDisposition) => Promise<{ ok: true } | { ok: false; error: string }>;
+export type SetCallDisposition = (callId: string, disposition: CallDisposition, comment?: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 
 const CALL_BTN =
   "inline-flex min-h-11 w-full items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
@@ -69,6 +70,10 @@ export function CallButton({
   onStatus: CallStatusOf;
   onDisposition: SetCallDisposition;
 }) {
+  const shared = useInteractionComment();
+  const [localComment, setLocalComment] = useState("");
+  const activeComment = shared ? shared.comment : localComment;
+  const commentOk = activeComment.trim().length >= 3;
   const [pending, startTransition] = useTransition();
   const [callId, setCallId] = useState<string | null>(null);
   const [call, setCall] = useState<CallView | null>(null);
@@ -161,10 +166,16 @@ export function CallButton({
 
   function choose(disposition: CallDisposition) {
     if (!callId) return;
+    if (!commentOk) {
+      setMessage({ tone: "error", text: "Add a comment on this call first. It is saved with the date, time and day." });
+      return;
+    }
     setMessage(null);
     startTransition(async () => {
-      const result = await onDisposition(callId, disposition);
+      const result = await onDisposition(callId, disposition, activeComment);
       if (result.ok) {
+        if (shared) shared.clear();
+        else setLocalComment("");
         setCall((current) => (current ? { ...current, disposition } : current));
         setMessage({
           tone: "ok",
@@ -180,7 +191,7 @@ export function CallButton({
   const offered = CALL_DISPOSITIONS.filter((d) => lengthUnknown || (connected ? d !== "SWITCHED_OFF" && d !== "INVALID_NUMBER" && d !== "NO_ANSWER" && d !== "BUSY" : d === "SWITCHED_OFF" || d === "INVALID_NUMBER" || d === "NO_ANSWER" || d === "BUSY" || d === "OTHER"));
 
   return (
-    <div className="w-full">
+    <div className="w-full" data-call-active={callId ? "1" : undefined}>
       <button type="button" className={CALL_BTN} onClick={place} disabled={pending || (callId !== null && !finished)}>
         {pending && !callId ? "Calling…" : callId && !finished ? "Call in progress" : "Call"}
       </button>
@@ -214,10 +225,17 @@ export function CallButton({
           )}
           {finished && !call?.disposition && (
             <>
-              <p className="mt-1 text-xs text-muted-foreground">What did the call lead to? (No comment needed.)</p>
+              {!shared && (
+                <label className="mt-2 block text-sm font-semibold text-foreground">
+                  Comment on this call <span className="font-normal text-red-700">(required)</span>
+                  <textarea value={localComment} onChange={(e) => setLocalComment(e.target.value)} rows={3} maxLength={2000} placeholder="What was said and what happens next" className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">Saved with the date, time and day. The lead is not updated without it.</span>
+                </label>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">What did the call lead to?</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {offered.map((d) => (
-                  <button key={d} type="button" className={BTN} disabled={pending} onClick={() => choose(d)}>
+                  <button key={d} type="button" className={BTN} disabled={pending || !commentOk} onClick={() => choose(d)}>
                     {formatEnumLabel(d)}
                   </button>
                 ))}

@@ -9,6 +9,7 @@ export const NAV_ITEMS = [
   { href: "/admin/platform-health", label: "Platform Health" },
   { href: "/admin/developers", label: "Developers" },
   { href: "/admin/leads", label: "Leads" },
+  { href: "/team", label: "My calling workspace" },
   { href: "/admin/missed-leads", label: "Missed Leads" },
   { href: "/admin/returned-leads", label: "Returned Leads" },
   { href: "/admin/calling-batches", label: "Calling batches" },

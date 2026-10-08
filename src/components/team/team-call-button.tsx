@@ -6,6 +6,7 @@ import { getTelephonyProvider } from "@/lib/leads/telephony";
 /** The team member's Call control for one lead: tracked through the internal dialer when it is connected, honestly labelled when it is not. */
 export function TeamCallButton({ leadId, phoneE164, compact = false, batchId = null }: { leadId: string; phoneE164: string | null; compact?: boolean; batchId?: string | null }) {
   return (
+    <div data-lock-lead={leadId} className="w-full">
     <CallButton
       compact={compact}
       configured={getTelephonyProvider().configured}
@@ -15,5 +16,6 @@ export function TeamCallButton({ leadId, phoneE164, compact = false, batchId = n
       onStatus={getMyCallStatusAction}
       onDisposition={setMyCallDispositionAction}
     />
+    </div>
   );
 }

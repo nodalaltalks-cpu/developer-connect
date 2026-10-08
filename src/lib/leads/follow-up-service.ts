@@ -145,6 +145,12 @@ export async function assertNotBlocked(tx: LeadRepositories, ownerId: string, le
   if (misses.length > 0 && !misses.some((item) => item.followUp.leadId === leadId)) throw new MissedFollowUpBlockError(misses.length);
 }
 
+/** Throws MissedFollowUpBlockError when this team member has ANY unresolved miss. For starting something new (a new number, a new lead). */
+export async function assertNoMissedFollowUps(tx: LeadRepositories, ownerId: string, now: Date): Promise<void> {
+  const misses = await tx.followUps.listUnresolvedMissed({ ownerId, now, limit: 500 });
+  if (misses.length > 0) throw new MissedFollowUpBlockError(misses.length);
+}
+
 /**
  * The one check a lead operation makes inside its transaction: may this actor do `capability` on this lead (and
  * does it exist for them at all), and — for a team member — are they free of unresolved misses elsewhere?

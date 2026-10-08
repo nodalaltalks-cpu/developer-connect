@@ -1,4 +1,5 @@
 import { LeadNotFoundError, LeadValidationError } from "./errors.ts";
+import { assertNoMissedFollowUps } from "./follow-up-service.ts";
 import { lookupColdCallNumber, parseColdCallNumber } from "./cold-call-service.ts";
 import { guardLeadAction, scheduleFollowUp } from "./follow-up-service.ts";
 import { assertWorkingActor } from "./lead-access.ts";
@@ -77,6 +78,8 @@ function hasRequirementContent(r: RequirementInput | null | undefined): r is Req
 
 export async function saveColdCallLead(repos: LeadRepositories, input: ColdCallLeadInput, actor: LeadActor, now: Date = new Date()): Promise<ColdCallLeadResult> {
   assertWorkingActor(actor);
+  // The lock: a brand-new lead cannot be started while the member has unresolved missed follow-ups.
+  if (actor.actorType === "EMPLOYEE" && actor.actorId && !input.leadId) await assertNoMissedFollowUps(repos, actor.actorId, now);
 
   // ---- validate everything BEFORE touching the database -----------------------------------------------------------
   if (typeof input.interest !== "string" || !(INTEREST_CHOICES as readonly string[]).includes(input.interest)) {

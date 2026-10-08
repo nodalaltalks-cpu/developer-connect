@@ -21,6 +21,7 @@ import type { VisitChange as VisitChangeInput } from "@/components/leads/site-vi
 import { getTelephonyProvider, TelephonyNotConfiguredError } from "@/lib/leads/telephony";
 import { businessLocalToInstant } from "@/lib/leads/format";
 import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
+import { COMMENT_REQUIRED_MESSAGE, cleanComment, requireInteractionComment } from "@/lib/leads/interaction-comment";
 import { createRequirement, setRequirementStatus, updateRequirementDetails } from "@/lib/leads/requirement-service";
 import type { CallDisposition, CancelReason, FollowUpType, LeadActor, RequirementInput, RequirementStatus, ReturnReason } from "@/lib/leads/types";
 
@@ -66,8 +67,11 @@ async function run(leadId: string, work: (actor: LeadActor, notifier: ReturnType
  * four outcomes (and, for a qualified lead, one of four reasons); the service maps the outcome onto the canonical status
  * and refuses any move a team member may not make. Status is never accepted from the browser.
  */
-export async function recordMyQualificationAction(leadId: string, outcome: string, reason?: string | null): Promise<TeamActionResult> {
-  return run(leadId, (actor) => recordQualification(createPostgresLeadRepositories(), leadId, { outcome, reason }, actor));
+export async function recordMyQualificationAction(leadId: string, outcome: string, reason?: string | null, comment?: string): Promise<TeamActionResult> {
+  return run(leadId, async (actor) => {
+    await requireInteractionComment(createPostgresLeadRepositories(), leadId, actor, comment);
+    return recordQualification(createPostgresLeadRepositories(), leadId, { outcome, reason }, actor);
+  });
 }
 
 export interface ColdCallFormPayload {
@@ -95,6 +99,8 @@ export type SaveColdCallResult = { ok: true; result: ColdCallLeadResult } | { ok
 export async function saveMyColdCallLeadAction(payload: ColdCallFormPayload): Promise<SaveColdCallResult> {
   const { actor } = await requireEmployeeForAction();
   if (!payload || typeof payload !== "object") return { ok: false, error: GENERIC_ERROR };
+  // The comment rule: a cold call is never saved without a comment on the conversation (kept with its date, time and day).
+  if (!cleanComment(payload.note)) return { ok: false, error: COMMENT_REQUIRED_MESSAGE };
   try {
     let plan: { kind?: unknown; scheduledAt?: unknown; note?: unknown } | null = null;
     if (payload.plan) {
@@ -162,7 +168,11 @@ export async function logMyLeadContactAction(
   outcome: ContactOutcome,
   note?: string,
 ): Promise<TeamActionResult> {
-  return run(leadId, (actor) => logContact(createPostgresLeadRepositories(), leadId, { channel, outcome, note }, actor));
+  // The note typed with a logged contact IS the comment on that conversation.
+  return run(leadId, async (actor) => {
+    await requireInteractionComment(createPostgresLeadRepositories(), leadId, actor, note);
+    return logContact(createPostgresLeadRepositories(), leadId, { channel, outcome, note }, actor);
+  });
 }
 
 /**
@@ -171,29 +181,37 @@ export async function logMyLeadContactAction(
  * rejects anything that is not a full date-time in the future. If the lead already has an open follow-up it is
  * rescheduled instead.
  */
-export async function setMyLeadFollowUpAction(leadId: string, scheduledAtLocal: string, type?: FollowUpType, note?: string): Promise<TeamActionResult> {
-  return run(leadId, (actor) => {
+export async function setMyLeadFollowUpAction(leadId: string, scheduledAtLocal: string, type?: FollowUpType, note?: string, comment?: string): Promise<TeamActionResult> {
+  return run(leadId, async (actor) => {
     const scheduledAt = businessLocalToInstant(scheduledAtLocal);
     if (!scheduledAt) throw new LeadValidationError("scheduledAt", "Choose the exact date and time for the follow-up.");
+    await requireInteractionComment(createPostgresLeadRepositories(), leadId, actor, comment);
     return scheduleFollowUp(createPostgresLeadRepositories(), leadId, { scheduledAt, type, note }, actor);
   });
 }
 
-export async function rescheduleMyLeadFollowUpAction(leadId: string, followUpId: string, scheduledAtLocal: string, type?: FollowUpType): Promise<TeamActionResult> {
-  return run(leadId, (actor) => {
+export async function rescheduleMyLeadFollowUpAction(leadId: string, followUpId: string, scheduledAtLocal: string, type?: FollowUpType, comment?: string): Promise<TeamActionResult> {
+  return run(leadId, async (actor) => {
     const scheduledAt = businessLocalToInstant(scheduledAtLocal);
     if (!scheduledAt) throw new LeadValidationError("scheduledAt", "Choose the exact date and time for the follow-up.");
+    await requireInteractionComment(createPostgresLeadRepositories(), leadId, actor, comment);
     return rescheduleFollowUp(createPostgresLeadRepositories(), leadId, followUpId, { scheduledAt, type }, actor);
   });
 }
 
-export async function completeMyLeadFollowUpAction(leadId: string, followUpId?: string, note?: string): Promise<TeamActionResult> {
-  return run(leadId, (actor) => completeLeadFollowUp(createPostgresLeadRepositories(), leadId, { followUpId, note }, actor));
+export async function completeMyLeadFollowUpAction(leadId: string, followUpId?: string, note?: string, comment?: string): Promise<TeamActionResult> {
+  return run(leadId, async (actor) => {
+    await requireInteractionComment(createPostgresLeadRepositories(), leadId, actor, comment ?? note);
+    return completeLeadFollowUp(createPostgresLeadRepositories(), leadId, { followUpId, note }, actor);
+  });
 }
 
 /** Cancels a follow-up with a structured reason (mandatory). */
-export async function cancelMyLeadFollowUpAction(leadId: string, followUpId: string, reason: CancelReason, note?: string): Promise<TeamActionResult> {
-  return run(leadId, (actor) => cancelLeadFollowUp(createPostgresLeadRepositories(), leadId, followUpId, reason, note, actor));
+export async function cancelMyLeadFollowUpAction(leadId: string, followUpId: string, reason: CancelReason, note?: string, comment?: string): Promise<TeamActionResult> {
+  return run(leadId, async (actor) => {
+    await requireInteractionComment(createPostgresLeadRepositories(), leadId, actor, comment ?? note);
+    return cancelLeadFollowUp(createPostgresLeadRepositories(), leadId, followUpId, reason, note, actor);
+  });
 }
 
 /** Sends a lead the signed-in team member owns back to the Founder queue. The reason is mandatory. */
@@ -381,10 +399,13 @@ export async function getMyCallStatusAction(callId: string): Promise<CallView | 
 }
 
 /** What the conversation led to — once, after the call has finished, consistent with what the provider reported. */
-export async function setMyCallDispositionAction(callId: string, disposition: CallDisposition): Promise<TeamActionResult> {
+export async function setMyCallDispositionAction(callId: string, disposition: CallDisposition, comment?: string): Promise<TeamActionResult> {
   const { actor } = await requireEmployeeForAction();
   try {
-    const call = await setCallDisposition(createPostgresLeadRepositories(), callId, disposition, actor);
+    const repos = createPostgresLeadRepositories();
+    const existing = typeof callId === "string" && UUID.test(callId) ? await repos.calls.getById(callId) : null;
+    if (existing && existing.staffUserId === actor.actorId) await requireInteractionComment(repos, existing.leadId, actor, comment);
+    const call = await setCallDisposition(repos, callId, disposition, actor);
     revalidatePath(`/team/leads/${call.leadId}`);
     revalidatePath("/team/calls");
     revalidatePath("/team/queue", "layout");

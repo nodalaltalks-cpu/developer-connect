@@ -8,8 +8,10 @@ import type { Market } from "./hero-market.ts";
  *  - developerNetwork: relationships the founder built over a career. It is NOT a count of developers listed, active or verified on
  *    this platform (the directory is a different, smaller number) and must never sit next to one.
  *  - transactedValue: property value the founder personally contributed to over a real estate career. It is NOT Developer Connects
- *    revenue, transaction volume or GMV, and the wording never says "revenue", "volume" or "we". A named employer is added only
- *    when the supporting evidence for that specific period is on file.
+ *    revenue, transaction volume or GMV, and the wording never says "revenue", "volume" or "we". The employer (Square Yards, four
+ *    years) is its own line and is never attached to this figure, because the figure is not stated to belong to that period alone.
+ *  - experience: the founder's own statements, in order: second-generation real estate entrepreneur; 10+ years of personal experience in
+ *    the Mumbai market; four years at Square Yards. (An earlier line, "6+ years across India and the UAE", was superseded by these.)
  *  - education: stated as the founder gave it ("MBA completed in Dubai"). No university, specialisation, date or distinction is
  *    added, because none is in the project data.
  *  - linkedinUrl: the founder's real profile. Nothing is scraped from it (no follower count).
@@ -21,7 +23,9 @@ export const FOUNDER = {
   role: "Founder, Developer Connects",
   /** The facts shown on the founder card, in order. Each is a complete, self-contained statement. */
   facts: [
-    "6+ years of real estate experience across India and the UAE.",
+    "Second-generation real estate entrepreneur.",
+    "10+ years of personal experience in the Mumbai market.",
+    "Worked at Square Yards for 4 years.",
     "Built relationships across a network of 10,000+ developers.",
     "Personally contributed to ₹300 Cr+ in property transactions during a real estate career.",
     "MBA completed in Dubai.",
@@ -32,7 +36,7 @@ export const FOUNDER = {
 } as const;
 
 /** The same sentence used on the advisor page and in structured descriptions. */
-export const FOUNDER_EXPERIENCE = FOUNDER.facts[0];
+export const FOUNDER_EXPERIENCE = FOUNDER.facts[1];
 
 export interface FounderStory {
   id: string;

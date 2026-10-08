@@ -135,7 +135,10 @@ test("team security: /team is behind the sign-in gate, disallowed in robots, and
 });
 
 test("team security: the founder navigation is untouched by the team workspace, and the team layout never renders founder navigation", () => {
-  assert.doesNotMatch(read("src/components/admin/admin-nav.tsx"), /\/team\b/);
+  // The one deliberate bridge: the Founder can open their own calling workspace. No other team route is linked from the founder navigation.
+  const adminNav = read("src/components/admin/admin-nav.tsx");
+  assert.deepEqual(adminNav.match(/\/team\b[^"]*/g), ["/team"]);
+  assert.match(adminNav, /\{ href: "\/team", label: "My calling workspace" \}/);
   assert.doesNotMatch(read("src/app/team/layout.tsx"), /AdminNav|admin\//);
   assert.match(read("src/app/admin/layout.tsx"), /await requireFounder\(\)/, "the founder layout still gates /admin");
 });

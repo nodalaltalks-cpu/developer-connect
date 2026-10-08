@@ -1,4 +1,5 @@
 import { LeadNotFoundError, LeadStateError, LeadValidationError, UnauthorizedLeadActionError } from "./errors.ts";
+import { assertNoMissedFollowUps } from "./follow-up-service.ts";
 import { prepareDeviceCall, type PreparedDeviceCall } from "./call-service.ts";
 import { guardLeadAction } from "./follow-up-service.ts";
 import { assertWorkingActor } from "./lead-access.ts";
@@ -73,6 +74,8 @@ export async function prepareColdCall(
   let lead = await repos.leads.findByPhone(parsed.e164);
   let createdLead = false;
   if (!lead) {
+    // The lock: a team member with unresolved missed follow-ups cannot start a new lead until those are cleared.
+    if (actor.actorType === "EMPLOYEE" && actor.actorId) await assertNoMissedFollowUps(repos, actor.actorId, now);
     const made = await createSelfGeneratedLead(repos, { phone: parsed.e164, creationMethod: "DIALER_GENERATED", sourceDetail: "Cold call" }, actor, now);
     if (made.created) {
       lead = made.lead;

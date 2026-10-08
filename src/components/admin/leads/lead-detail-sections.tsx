@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ExternalDomainLink } from "@/components/external-domain-link";
-import { formatBudget, formatDateTime, formatDateTimeFull, formatEnumLabel, formatMoney } from "@/lib/leads/format";
+import { formatBudget, formatDateTime, formatDateTimeFull, formatDateTimeWithDay, formatEnumLabel, formatMoney } from "@/lib/leads/format";
 import { describeTimeline } from "@/lib/leads/timeline";
 import type { Booking, Lead, LeadConsent, LeadEvent, MarketingTouch } from "@/lib/leads/types";
 
@@ -177,7 +177,7 @@ export function TimelineCard({ events, names }: { events: LeadEvent[]; names?: R
             <p className="text-sm text-foreground">{line.headline}</p>
             {line.detail && <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-muted-foreground">{line.detail}</p>}
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {line.by} · {formatDateTimeFull(line.at)}
+              {line.by} · {formatDateTimeWithDay(line.at)}
             </p>
           </li>
         ))}

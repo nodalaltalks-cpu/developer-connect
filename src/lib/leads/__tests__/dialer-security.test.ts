@@ -66,7 +66,7 @@ test("dialer: the browser can only say WHICH lead / call and the disposition —
     for (const name of ["placeMyCallAction", "getMyCallStatusAction", "setMyCallDispositionAction", "placeLeadCallAction", "getLeadCallStatusAction", "setLeadCallDispositionAction"]) {
       if (!source.includes(`export async function ${name}(`)) continue;
       const params = source.match(new RegExp(`export async function ${name}\\(([^)]*)\\)`))![1];
-      assert.match(params, /^(leadId: string|callId: string(, disposition: CallDisposition)?)$/, `${name}(${params})`);
+      assert.match(params, /^(leadId: string|callId: string(, disposition: CallDisposition(, comment\?: string)?)?)$/, `${name}(${params})`);
     }
   }
   const ui = read("src/components/leads/call-button.tsx");

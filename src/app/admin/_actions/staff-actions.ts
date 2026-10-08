@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { currentUser, requireFounderForAction } from "@/lib/auth";
+import { FOUNDER } from "@/lib/founder";
 import { findClerkUserByEmail } from "@/lib/admin-analytics/clerk-users";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getEmployeeHistoryPage, returnOpenLeadsToFounder } from "@/lib/leads/employee-profile";
@@ -137,7 +138,8 @@ export async function enableMyWorkspaceAction(): Promise<StaffActionResult> {
   try {
     const user = await currentUser();
     const verified = user?.emailAddresses.find((e) => e.verification?.status === "verified")?.emailAddress ?? null;
-    const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Ambish Singh";
+    // The team record carries the Founder's name as the public site states it, not whatever the sign-in account happens to be called.
+    const name = FOUNDER.name;
     const { member, created } = await enrollFounderAsEmployee(createPostgresStaffRepository(), { userId: founderId, displayName: name, email: verified });
     revalidatePath("/admin/staff");
     return { ok: true, message: created ? `Your calling workspace is ready (${member.employeeId}).` : `Your calling workspace is already set up (${member.employeeId}).` };

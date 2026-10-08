@@ -122,7 +122,7 @@ test("buy-direct hub and market pages: connect through the advisory team, no 'go
   assert.match(hub, /connect with a developer through Developer Connects and our advisory team will help with your enquiry/);
 
   const market = plain(read("app/buy-direct-from-developer/[market]/page.tsx"));
-  assert.match(market, /Connect with a developer through Developer Connects and our advisory team will help with your enquiry\./);
+  assert.match(market, /When you want a second opinion, talk to an advisor./);
 });
 
 test("FAQ: describes connecting through Developer Connects; the retired how-we-verify page redirects to About", () => {

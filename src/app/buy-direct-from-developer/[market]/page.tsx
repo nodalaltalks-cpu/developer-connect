@@ -1,4 +1,7 @@
 import { cache } from "react";
+import { AdvisorPageContext } from "@/components/advisor/advisor";
+import { FOUNDER } from "@/lib/founder";
+import { RESEARCH_REVIEWED } from "@/lib/trust";
 import { SHARE_IMAGES } from "@/lib/share-image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -85,6 +88,15 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
     faqStructuredData(faq),
     {
       "@context": "https://schema.org",
+      "@type": "Article",
+      headline: `Researching developers in ${market.name}`,
+      author: { "@type": "Person", name: FOUNDER.name, sameAs: [FOUNDER.linkedinUrl] },
+      publisher: { "@id": "https://developerconnects.com/#organization" },
+      dateModified: RESEARCH_REVIEWED.iso,
+      mainEntityOfPage: `https://developerconnects.com${path}`,
+    },
+    {
+      "@context": "https://schema.org",
       "@type": "ItemList",
       name: `Real estate developers in ${market.name}`,
       numberOfItems: developers.length,
@@ -100,6 +112,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
   return (
     <div className="flex flex-1 flex-col">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }} />
+      <AdvisorPageContext article={`Researching developers in ${market.name}`} location={market.name} />
       <SiteHeader />
 
       <main className="flex-1">
@@ -130,8 +143,11 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
               {total > 0
-                ? `${total} real estate developer${total === 1 ? "" : "s"} in ${market.name}. Connect with a developer through Developer Connects and our advisory team will help with your enquiry.`
+                ? `Research the developers in ${market.name} at your own pace. When you want a second opinion, talk to an advisor.`
                 : `We are adding developers in ${market.name}. Check back soon.`}
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              By {FOUNDER.name}, {FOUNDER.role.split(",")[0]} · Research reviewed {RESEARCH_REVIEWED.label}
             </p>
 
             {developers.length > 0 && (

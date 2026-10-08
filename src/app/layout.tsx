@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { AnalyticsConsentProvider } from "@/components/analytics-consent";
+import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
 import { AdvisorProvider } from "@/components/advisor/advisor";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { BehaviourTracker } from "@/components/behaviour-tracker";

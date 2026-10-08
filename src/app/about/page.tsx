@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { AdvisorTrigger } from "@/components/advisor/advisor";
+import { FounderSection } from "@/components/founder-section";
+import { FOUNDER } from "@/lib/founder";
 
 export const metadata: Metadata = {
   title: "About Us | Developer Connects",
@@ -10,15 +13,29 @@ export const metadata: Metadata = {
   alternates: { canonical: "/about" },
 };
 
+/**
+ * Person + AboutPage structured data, describing only what the page states and what lib/founder.ts substantiates: a name, a role, the
+ * company and the founder's own public LinkedIn profile. No credentials, ratings or reviews are asserted.
+ */
+const aboutStructuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "AboutPage", "@id": "https://developerconnects.com/about#page", url: "https://developerconnects.com/about", name: "About Developer Connects", about: { "@id": "https://developerconnects.com/#organization" } },
+    { "@type": "Organization", "@id": "https://developerconnects.com/#organization", name: "Developer Connects", url: "https://developerconnects.com", founder: { "@id": "https://developerconnects.com/about#founder" } },
+    { "@type": "Person", "@id": "https://developerconnects.com/about#founder", name: FOUNDER.name, jobTitle: "Founder", worksFor: { "@id": "https://developerconnects.com/#organization" }, sameAs: [FOUNDER.linkedinUrl] },
+  ],
+};
+
 export default function AboutPage() {
   return (
     <div className="flex flex-1 flex-col">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutStructuredData) }} />
       <SiteHeader />
 
       <main className="flex-1">
         <Container className="py-12 sm:py-16">
           <div className="mx-auto max-w-2xl">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="font-serif text-4xl font-medium tracking-tight text-foreground sm:text-5xl">
               About Developer Connects
             </h1>
             <p className="mt-4 text-lg leading-8 text-muted-foreground">
@@ -27,7 +44,7 @@ export default function AboutPage() {
 
             <div className="mt-8 space-y-8 text-foreground">
               <section>
-                <h2 className="text-lg font-semibold">Why we exist</h2>
+                <h2 className="text-lg font-semibold">The problem, and why we exist</h2>
                 <p className="mt-2 text-muted-foreground">
                   Buying a home is the largest decision most families make, yet the process is still scattered,
                   rushed and hard to read. Prices are unclear, information sits across many websites, and it is
@@ -78,6 +95,14 @@ export default function AboutPage() {
               </section>
 
               <section>
+                <h2 className="text-lg font-semibold">Talk to someone</h2>
+                <p className="mt-2 text-muted-foreground">When you want human help, message or call Ambish directly. No form.</p>
+                <div className="mt-4">
+                  <AdvisorTrigger tone="navy">Talk to an Advisor</AdvisorTrigger>
+                </div>
+              </section>
+
+              <section>
                 <h2 className="text-lg font-semibold">Part of NoDalalTalks</h2>
                 <p className="mt-2 text-muted-foreground">
                   Developer Connects is part of the NoDalalTalks ecosystem, which focuses on building simple,
@@ -86,6 +111,9 @@ export default function AboutPage() {
               </section>
             </div>
           </div>
+        </Container>
+        <Container className="pb-16 sm:pb-24">
+          <FounderSection />
         </Container>
       </main>
 

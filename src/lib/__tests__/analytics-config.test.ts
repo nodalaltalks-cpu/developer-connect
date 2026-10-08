@@ -76,7 +76,7 @@ test("isAnalyticsExcludedPath: public pages are tracked, and a prefix only match
 test("layout: the ID comes only from the validated env var, is never hard-coded, and is handed to the consent provider", () => {
   const layout = read("../../app/layout.tsx");
   assert.match(layout, /getGaMeasurementId\(process\.env\.NEXT_PUBLIC_GA_MEASUREMENT_ID\)/);
-  assert.match(layout, /<AnalyticsConsentProvider measurementId=\{gaMeasurementId\}>\{children\}<\/AnalyticsConsentProvider>/);
+  assert.match(layout, /<AnalyticsConsentProvider measurementId=\{gaMeasurementId\}>\s*<AdvisorProvider>\{children\}<\/AdvisorProvider>\s*<\/AnalyticsConsentProvider>/);
   assert.doesNotMatch(layout, /G-[A-Z0-9]{6,}/);
   // Google Analytics is never mounted directly from the layout — only via the consent provider.
   assert.doesNotMatch(layout, /<GoogleAnalytics/);

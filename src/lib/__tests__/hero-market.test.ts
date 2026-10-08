@@ -76,7 +76,7 @@ test("toggle: accessible, touch-sized, tracked, and remembers the choice only in
 
 test("homepage: the hero is wrapped in the provider, shows the toggle, and takes its city from the address", () => {
   const home = read("src/app/(marketing)/page.tsx");
-  assert.match(home, /marketFromParams\(\{ market: firstValue\(resolvedSearchParams\.market\), country, state, city \}\)/);
+  assert.match(home, /marketFromParams\(\{\s*market: firstValue\(params\.market\)/);
   assert.match(home, /<HeroMarketProvider fromAddress=\{heroMarket\}>/);
   assert.match(home, /<HeroMarketToggle \/>/);
   assert.match(home, /<HeroVideo \/>/);

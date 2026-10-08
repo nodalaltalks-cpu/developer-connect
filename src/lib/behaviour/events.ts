@@ -28,6 +28,11 @@ export const CTA_IDS = [
   "contact_submit",
   "hero_market_dubai", // the Dubai button in the homepage hero
   "hero_market_mumbai", // the Mumbai button in the homepage hero
+  "advisor_open", // "Talk to an Advisor" (hero, page CTA or the sticky bar): opens the contact choices
+  "advisor_whatsapp", // WhatsApp, opened with a pre-filled message
+  "advisor_email", // a pre-addressed email
+  "advisor_call", // a phone call to the advisor
+  "advisor_linkedin", // the founder profile link
 ] as const;
 export type CtaId = (typeof CTA_IDS)[number];
 

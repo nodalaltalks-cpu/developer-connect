@@ -28,10 +28,13 @@ function ProfileMenuIcon() {
 export function AccountMenu({
   profilePercentage,
   verified,
+  showDashboard = false,
 }: {
   profilePercentage: number | null;
   /** From isProfileVerified() — see verification.ts. Never derived here from percentage alone. */
   verified: boolean;
+  /** The founder only. Shown here on phones, where the header has no room for a separate link. */
+  showDashboard?: boolean;
 }) {
   const label = verified
     ? "View Profile · Verified ✓"
@@ -43,6 +46,7 @@ export function AccountMenu({
     <UserButton appearance={{ elements: { userButtonTrigger: { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" } } }}>
       <UserButton.MenuItems>
         <UserButton.Link href="/profile" label={label} labelIcon={<ProfileMenuIcon />} />
+        {showDashboard ? <UserButton.Link href="/admin" label="Dashboard" labelIcon={<ProfileMenuIcon />} /> : null}
       </UserButton.MenuItems>
     </UserButton>
   );

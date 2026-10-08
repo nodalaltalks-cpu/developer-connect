@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import Link from "next/link";
 import { ContactForm } from "@/components/contact-form";
+import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
 
 export const metadata: Metadata = {
   title: "Contact Us | Developer Connects",
@@ -25,13 +27,24 @@ export default async function ContactPage({ searchParams }: PageProps<"/contact"
       <main className="flex-1">
         <Container className="py-12 sm:py-16">
           <div className="mx-auto max-w-xl">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Contact Us</h1>
+            <h1 className="font-serif text-4xl font-medium tracking-tight text-foreground sm:text-5xl">Contact us</h1>
             <p className="mt-3 text-muted-foreground">
-              Questions, a developer listing, a partnership idea, or something that needs fixing — tell us below
-              and a real person will read it.
+              For business, partnership, developer, media and general enquiries. Looking for property guidance?{" "}
+              <Link href="/advisor" className="font-medium text-accent-hover underline">
+                Talk to an Advisor
+              </Link>{" "}
+              directly instead: no form needed.
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Or email{" "}
+              <a href={`mailto:${ADVISOR_CONTACT.email}`} className="font-medium text-accent-hover underline">
+                {ADVISOR_CONTACT.email}
+              </a>
+              .
             </p>
 
-            <div className="mt-8">
+            <h2 className="mt-14 border-t border-border pt-8 text-lg font-semibold tracking-tight text-foreground">Send us a message</h2>
+            <div className="mt-5">
               <ContactForm initialReason={initialReason} />
             </div>
           </div>

@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { AnalyticsConsentProvider } from "@/components/analytics-consent";
+import { AdvisorProvider } from "@/components/advisor/advisor";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { BehaviourTracker } from "@/components/behaviour-tracker";
 import { getGaMeasurementId } from "@/lib/analytics-config";
@@ -10,6 +11,13 @@ import "./globals.css";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+});
+
+/** The one editorial face, used sparingly for headlines on the brand pages; everything else is Geist. Two families in total. */
+const serifDisplay = Source_Serif_4({
+  variable: "--font-serif-display",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -86,7 +94,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${serifDisplay.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <script
@@ -97,12 +105,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           afterSignOutUrl="/"
           appearance={{
             variables: {
-              colorPrimary: "#2563eb",
+              colorPrimary: "#1b2a49",
               colorBackground: "#ffffff",
               colorForeground: "#111318",
-              colorMuted: "#f7f8fa",
+              colorMuted: "#f7f5f1",
               colorMutedForeground: "#6b7280",
-              colorBorder: "#e5e7eb",
+              colorBorder: "#e6e2da",
               borderRadius: "0.375rem",
               fontFamily: "var(--font-geist-sans), sans-serif",
             },
@@ -110,7 +118,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           <AttributionCapture />
           <BehaviourTracker />
-          <AnalyticsConsentProvider measurementId={gaMeasurementId}>{children}</AnalyticsConsentProvider>
+          <AnalyticsConsentProvider measurementId={gaMeasurementId}>
+            <AdvisorProvider>{children}</AdvisorProvider>
+          </AnalyticsConsentProvider>
         </ClerkProvider>
       </body>
     </html>

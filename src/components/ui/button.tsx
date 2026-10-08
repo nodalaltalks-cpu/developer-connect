@@ -1,6 +1,6 @@
 import { ButtonHTMLAttributes, forwardRef } from "react";
 
-export type ButtonVariant = "primary" | "secondary";
+export type ButtonVariant = "primary" | "secondary" | "gold";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -13,6 +13,8 @@ const variantStyles: Record<ButtonVariant, string> = {
   primary: "bg-accent text-accent-foreground hover:bg-accent-hover",
   secondary:
     "bg-background text-foreground border border-border hover:bg-muted",
+  /** The private-consultation action. The only gold in the interface. */
+  gold: "bg-gold text-gold-foreground hover:bg-gold-hover font-semibold",
 };
 
 /** Shared with non-<button> elements (e.g. an external-link CTA) that need identical styling. */

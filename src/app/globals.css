@@ -5,23 +5,28 @@
 
   /* Surfaces */
   --background: #ffffff;
-  --muted: #f7f8fa;
+  --muted: #f7f5f1;
 
   /* Text */
   --foreground: #111318;
   --muted-foreground: #6b7280;
 
   /* Structure */
-  --border: #e5e7eb;
+  --border: #e6e2da;
 
-  /* Accent (restrained, professional blue) */
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+  /* Accent: deep navy ink. Brand = navy + white + warm neutral, with one restrained gold. */
+  --accent: #1b2a49;
+  --accent-hover: #101b33;
   --accent-foreground: #ffffff;
-  --accent-soft: #eff4ff;
+  --accent-soft: #eef1f7;
+
+  /* Gold: a muted, matte metallic used ONLY for the private-consultation action. Never a gradient, never decoration. */
+  --gold: #b8924a;
+  --gold-hover: #a58140;
+  --gold-foreground: #15110a;
 
   /* Focus ring */
-  --ring: #2563eb;
+  --ring: #1b2a49;
 
   /* Trust (official-website-verified language only — restrained, not neon) */
   --trust: #15803d;
@@ -38,11 +43,15 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
+  --color-gold: var(--gold);
+  --color-gold-hover: var(--gold-hover);
+  --color-gold-foreground: var(--gold-foreground);
   --color-ring: var(--ring);
   --color-trust: var(--trust);
   --color-trust-soft: var(--trust-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif-display), Georgia, serif;
 }
 
 html {

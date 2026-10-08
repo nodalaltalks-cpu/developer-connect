@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { recordOfficialWebsiteClick } from "@/app/_actions/public-actions";
 import { AssistanceGate } from "@/components/assistance-gate";
@@ -36,17 +36,6 @@ export function ConnectWithDeveloperButton({
   size = "primary",
 }: ConnectWithDeveloperButtonProps) {
   const [openedAt, setOpenedAt] = useState<string | null>(null);
-  // Phone-only sticky CTA: shown only while the in-page button has scrolled out of view, so it never doubles up.
-  const mainRef = useRef<HTMLButtonElement>(null);
-  const [offscreen, setOffscreen] = useState(false);
-  useEffect(() => {
-    const el = mainRef.current;
-    if (size !== "primary" || !el || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => setOffscreen(!entry.isIntersecting && entry.boundingClientRect.top < 0), { threshold: 0 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [size]);
-
   const handleClick = () => {
     void recordOfficialWebsiteClick(developerId);
     setOpenedAt(new Date().toISOString());
@@ -59,7 +48,6 @@ export function ConnectWithDeveloperButton({
   return (
     <>
       <button
-        ref={mainRef}
         type="button"
         data-cta={size === "primary" ? "connect_developer" : "connect_card"}
         onClick={handleClick}
@@ -68,13 +56,6 @@ export function ConnectWithDeveloperButton({
       >
         Connect with {developerName}
       </button>
-      {size === "primary" && offscreen && !openedAt && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 sm:hidden">
-          <button type="button" data-cta="connect_sticky" onClick={handleClick} aria-haspopup="dialog" className={buttonClassName("primary", "w-full text-base py-3.5")}>
-            Connect with {developerName}
-          </button>
-        </div>
-      )}
       {openedAt &&
         createPortal(
           <AssistanceGate

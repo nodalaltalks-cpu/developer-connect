@@ -34,6 +34,11 @@ const CTA_LABEL: Record<string, string> = {
   sign_in: "Sign in",
   newsletter_submit: "Newsletter sign-up",
   contact_submit: "Contact form",
+  advisor_open: "Talk to an Advisor (opened)",
+  advisor_whatsapp: "Advisor: WhatsApp",
+  advisor_email: "Advisor: Email",
+  advisor_call: "Advisor: Call",
+  advisor_linkedin: "Founder: LinkedIn",
 };
 
 const TONE: Record<Severity, { label: string; box: string; pill: string }> = {

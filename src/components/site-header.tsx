@@ -7,6 +7,7 @@ import { Logo } from "@/components/logo";
 import { NotificationBell } from "@/components/notification-bell";
 import { ProfileHeaderLink } from "@/components/profile-header-link";
 import { AccountMenu } from "@/components/account-menu";
+import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { isFounder } from "@/lib/auth";
 import { isPrimaryEmailVerified } from "@/lib/profile/account-signals";
 import { isProfileVerified } from "@/lib/profile/verification";
@@ -53,6 +54,7 @@ export async function SiteHeader() {
           <Logo />
         </Link>
         <div className="flex shrink-0 items-center gap-1 sm:gap-4">
+          <AdvisorTrigger className="hidden min-h-11 px-5 sm:inline-flex">Talk to an Advisor</AdvisorTrigger>
           <Link
             href="/buy-direct-from-developer"
             className="hidden min-h-11 items-center text-sm font-medium text-foreground hover:text-accent-hover sm:inline-flex"
@@ -71,7 +73,7 @@ export async function SiteHeader() {
               )}
               {completion && <ProfileHeaderLink completion={completion} verified={verified} />}
               <NotificationBell />
-              <AccountMenu profilePercentage={completion?.percentage ?? null} verified={verified} />
+              <AccountMenu profilePercentage={completion?.percentage ?? null} verified={verified} showDashboard={showDashboard} />
             </>
           ) : (
             // forceRedirectUrl always lands on /post-sign-in after a

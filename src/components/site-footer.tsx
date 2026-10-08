@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/logo";
 import { NewsletterSignup } from "@/components/newsletter-signup";
@@ -72,7 +73,7 @@ function buildColumns(): FooterColumn[] {
           href: "https://www.linkedin.com/company/nodalaltalks/?viewAsMember=true",
           external: true,
         },
-        { label: "Email", href: "mailto:nodalaltalks02@gmail.com" },
+        { label: "Email", href: `mailto:${ADVISOR_CONTACT.email}` },
       ],
     },
     {

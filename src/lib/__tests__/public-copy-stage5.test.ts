@@ -69,12 +69,13 @@ test("public copy: nothing tells a buyer to go to a developer's website or promi
   assert.deepEqual(offenders, []);
 });
 
-test("homepage: the headline and sub-line present the property advisory positioning, with a clear way to speak to an advisor", () => {
+test("homepage: the headline and sub-line present the research-first positioning, with a clear way to talk to an advisor", () => {
   const home = plain(read("app/(marketing)/page.tsx"));
-  assert.match(home, /Find the right address\./);
-  assert.match(home, /Buy it with clarity\./);
-  assert.match(home, /property advisory platform for buyers in India and the UAE/);
-  assert.match(home, /Speak to an advisor/);
+  assert.match(home, /Research first./);
+  assert.match(home, /Get expert help when you(&rsquo;|’|')re ready./);
+  assert.match(home, /Property decisions, without the usual noise./);
+  assert.match(home, /Talk to an Advisor/);
+  assert.match(home, /Explore Developers/);
 });
 
 test("site description (default meta description): states the advisory offer for Mumbai, Dubai and the UAE", () => {
@@ -201,7 +202,7 @@ test("positioning: the guide FAQ and steps no longer carry the unsupported price
 });
 
 test("positioning: the research journey wording is in place on the home page, the guide hub and the FAQ", () => {
-  assert.match(plain(read("app/(marketing)/page.tsx")), /Research a developer before you buy/);
+  assert.match(plain(read("app/(marketing)/page.tsx")), /buyDirectPath/);
   const hub = plain(read("app/buy-direct-from-developer/page.tsx"));
   assert.match(hub, /How to research a developer before you buy/);
   assert.match(hub, /Whoever helps you, check the basics/);

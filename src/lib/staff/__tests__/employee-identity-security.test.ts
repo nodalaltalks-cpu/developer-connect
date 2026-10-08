@@ -44,12 +44,14 @@ test("migration 0027: IDs unique and immutable, rows undeletable, events append-
   assert.match(sql, /staff_events_append_only/);
 });
 
-test("mobile: the sticky Connect bar is phone-only, safe-area aware, and only appears once the in-page button has scrolled away", () => {
-  const src = read("src/components/connect-with-developer-button.tsx");
-  assert.match(src, /new IntersectionObserver/);
+test("mobile: the persistent advisor bar is phone-only, safe-area aware, keeps clear of the footer and hides on private areas", () => {
+  const src = read("src/components/advisor/advisor.tsx");
   assert.match(src, /sm:hidden/);
   assert.match(src, /env\(safe-area-inset-bottom\)/);
-  assert.match(src, /size === "primary" && offscreen && !openedAt/);
+  assert.match(src, /h-\[calc\(4\.75rem\+env\(safe-area-inset-bottom\)\)\] sm:hidden/, "a spacer so the bar never covers the footer");
+  assert.match(src, /!hidden && <AdvisorBar />/);
+  for (const prefix of ["/admin", "/team", "/profile", "/testimonial"]) assert.ok(src.includes(`"${prefix}"`), prefix + " has no advisor bar");
+  assert.ok(!read("src/components/connect-with-developer-button.tsx").includes("IntersectionObserver"), "one persistent bar, not two");
 });
 
 test("mobile: both navigations are bottom bars on phones with safe-area padding, and the Founder one has a More sheet", () => {

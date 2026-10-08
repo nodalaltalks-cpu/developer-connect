@@ -24,6 +24,7 @@ export function HeroMarketProvider({ fromAddress, children }: { fromAddress: Mar
 
   // The address wins whenever it names a market (including when a filter changes it).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing state to the address, which is external to this component
     if (fromAddress) setMarket(fromAddress);
   }, [fromAddress]);
 
@@ -32,6 +33,7 @@ export function HeroMarketProvider({ fromAddress, children }: { fromAddress: Mar
     if (fromAddress) return;
     try {
       const stored = window.localStorage.getItem(MARKET_STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading localStorage is only possible after mount
       if (isMarket(stored)) setMarket(stored);
     } catch {
       // storage blocked: keep the default

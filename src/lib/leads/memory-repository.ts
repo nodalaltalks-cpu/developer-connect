@@ -16,7 +16,6 @@ import type {
   CallAggregateQuery,
   BatchLeadProgress,
   CallAggregateRow,
-  SourceFunnel,
   SourceFunnelRow,
   SourceRevenueRow,
   CallFilter,

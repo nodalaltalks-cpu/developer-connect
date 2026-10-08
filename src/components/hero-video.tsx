@@ -54,7 +54,9 @@ export function HeroVideo() {
   const [allowed, setAllowed] = useState(false);
   const [ready, setReady] = useState<Record<Market, boolean>>({ dubai: false, mumbai: false });
   const marketRef = useRef(market);
-  marketRef.current = market;
+  useEffect(() => {
+    marketRef.current = market;
+  }, [market]);
 
   // 1. Decide once whether video may run at all, and when (after load, tab visible, a moment of calm).
   useEffect(() => {

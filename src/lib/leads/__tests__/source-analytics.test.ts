@@ -97,3 +97,19 @@ test("source analytics: only the Founder can read it", async () => {
   await assert.rejects(getSourceFunnel(w.repos, w.priyaActor, RANGE), UnauthorizedLeadActionError);
   await assert.rejects(getPersonFunnel(w.repos, w.priyaActor, RANGE), UnauthorizedLeadActionError);
 });
+
+test("person funnel: people not on the team list collapse into one row per source and nothing is lost", async () => {
+  const { collapseUnknownPeople } = await import("../source-analytics.ts");
+  const counts = (n: number) => ({ leads: n, called: 0, connected: 0, qualified: 0, shortlisted: 0, visitsScheduled: 0, visitsDone: 0, negotiation: 0, booked: 0 });
+  const rows = [
+    { personId: "a", sourceType: "COLD_CALL" as const, counts: counts(3), talkSeconds: 10, revenue: [{ currency: "INR" as const, bookingValue: 5, commissionReceived: 1 }] },
+    { personId: "x", sourceType: "COLD_CALL" as const, counts: counts(2), talkSeconds: 5, revenue: [{ currency: "INR" as const, bookingValue: 7, commissionReceived: 0 }] },
+    { personId: "y", sourceType: "COLD_CALL" as const, counts: counts(4), talkSeconds: 1, revenue: [{ currency: "AED" as const, bookingValue: 9, commissionReceived: 0 }] },
+  ];
+  const out = collapseUnknownPeople(rows, new Set(["a"]));
+  assert.equal(out.length, 2);
+  const others = out.find((p) => p.personId === "")!;
+  assert.equal(others.counts.leads, 6);
+  assert.equal(others.talkSeconds, 6);
+  assert.deepEqual(others.revenue.map((r) => [r.currency, r.bookingValue]), [["INR", 7], ["AED", 9]], "currencies stay apart");
+});

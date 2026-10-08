@@ -1,24 +1,12 @@
 import Link from "next/link";
-import type { LeadSourceType } from "@/lib/leads/types";
 
 /**
  * ALL LEADS / COLD CALL / DIGITAL: three filtered views of ONE lead table. A lead's source is fixed when it is created and
  * can never change, so these are a stable partition, not separate lists. ("Cold call" is where a lead CAME FROM; the
  * "Cold" temperature chip further down is how WARM the buyer is. They are different things.)
  */
-export const SOURCE_FILTERS = ["all", "cold_call", "digital"] as const;
-export type SourceFilter = (typeof SOURCE_FILTERS)[number];
-
-export const SOURCE_FILTER_LABEL: Record<SourceFilter, string> = { all: "All leads", cold_call: "Cold call", digital: "Digital" };
-
-export function parseSourceFilter(value: string | string[] | undefined): SourceFilter {
-  const raw = Array.isArray(value) ? value[0] : value;
-  return (SOURCE_FILTERS as readonly string[]).includes(raw ?? "") ? (raw as SourceFilter) : "all";
-}
-
-export function sourceTypeOf(filter: SourceFilter): LeadSourceType | undefined {
-  return filter === "cold_call" ? "COLD_CALL" : filter === "digital" ? "DIGITAL" : undefined;
-}
+export { SOURCE_FILTERS, SOURCE_FILTER_LABEL, parseSourceFilter, sourceTypeOf, type SourceFilter } from "@/lib/leads/source-filter";
+import { SOURCE_FILTERS, SOURCE_FILTER_LABEL, type SourceFilter } from "@/lib/leads/source-filter";
 
 export function LeadSourceTabs({ active, hrefFor }: { active: SourceFilter; hrefFor: (filter: SourceFilter) => string }) {
   return (

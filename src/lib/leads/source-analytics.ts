@@ -110,3 +110,23 @@ export async function getPersonFunnel(repos: LeadRepositories, actor: LeadActor,
       };
     });
 }
+
+/** People who are not on the current team list (the Founder, ex-team members, test accounts) collapse into one row per source, so the table stays readable. */
+export function collapseUnknownPeople(people: PersonSummary[], knownIds: Set<string>): PersonSummary[] {
+  const known = people.filter((p) => knownIds.has(p.personId));
+  const merged = new Map<LeadSourceType, PersonSummary>();
+  for (const p of people.filter((p) => !knownIds.has(p.personId))) {
+    const row = merged.get(p.sourceType) ?? { personId: "", sourceType: p.sourceType, counts: zero(), talkSeconds: 0, revenue: [] };
+    for (const stage of FUNNEL_STAGES) row.counts[stage] += p.counts[stage];
+    row.talkSeconds += p.talkSeconds;
+    for (const r of p.revenue) {
+      const existing = row.revenue.find((x) => x.currency === r.currency);
+      if (existing) {
+        existing.bookingValue += r.bookingValue;
+        existing.commissionReceived += r.commissionReceived;
+      } else row.revenue.push({ ...r });
+    }
+    merged.set(p.sourceType, row);
+  }
+  return [...known, ...merged.values()];
+}

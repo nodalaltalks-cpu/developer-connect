@@ -32,6 +32,8 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const ACTIVITY_ACTIONS = [
   "addMyLeadNoteAction",
+  "recordMyQualificationAction",
+  "recordMyWhatsAppOpenedAction",
   "logMyLeadContactAction",
   "setMyLeadFollowUpAction",
   "rescheduleMyLeadFollowUpAction",
@@ -42,7 +44,7 @@ const ACTIVITY_ACTIONS = [
 const REQUIREMENT_ACTIONS = ["createMyRequirementAction", "updateMyRequirementAction", "setMyRequirementStatusAction", "shortlistMyProjectAction", "removeMyShortlistAction", "scheduleMySiteVisitAction", "changeMySiteVisitAction"];
 // The dialer actions return richer results than run() can (a call id, a call view), so they resolve the employee
 // THEMSELVES as their first statement.
-const DIALER_ACTIONS = ["placeMyCallAction", "prepareMyDeviceCallAction", "reportMyDeviceCallAction", "getMyCallStatusAction", "setMyCallDispositionAction"];
+const DIALER_ACTIONS = ["placeMyCallAction", "prepareMyDeviceCallAction", "reportMyDeviceCallAction", "getMyCallStatusAction", "setMyCallDispositionAction", "lookupMyColdCallNumberAction", "prepareMyColdCallAction", "saveMyColdCallLeadAction", "searchMyProjectsAction", "skipMyQueueLeadAction"];
 const TEAM_ACTIONS = [...ACTIVITY_ACTIONS, ...REQUIREMENT_ACTIONS, ...DIALER_ACTIONS];
 
 test("team security: every team action resolves the signed-in employee FIRST (through run()), and run() does so before any input or data", () => {

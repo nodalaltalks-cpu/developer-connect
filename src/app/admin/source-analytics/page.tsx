@@ -4,7 +4,7 @@ import { SectionHeading } from "@/components/admin/empty-state";
 import { RANGE_PRESETS, parseInsightFilters } from "@/lib/leads/call-analytics";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { formatEnumLabel, formatMoney } from "@/lib/leads/format";
-import { FUNNEL_STAGES, STAGE_LABEL, getPersonFunnel, getSourceFunnel, MIN_SAMPLE } from "@/lib/leads/source-analytics";
+import { FUNNEL_STAGES, STAGE_LABEL, collapseUnknownPeople, getPersonFunnel, getSourceFunnel, MIN_SAMPLE } from "@/lib/leads/source-analytics";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 
 export const metadata = {
@@ -33,8 +33,9 @@ export default async function SourceAnalyticsPage({ searchParams }: PageProps<"/
   const { range } = parseInsightFilters({ range: first(params.range) ?? "last30", from: first(params.from), to: first(params.to) }, now);
   const actor = { actorType: "FOUNDER" as const, actorId: user!.id };
   const repos = createPostgresLeadRepositories();
-  const [sources, people, team] = await Promise.all([getSourceFunnel(repos, actor, range), getPersonFunnel(repos, actor, range), createPostgresStaffRepository().list()]);
-  const nameOf = (id: string) => team.find((m) => m.userId === id)?.displayName ?? "Founder / unknown";
+  const [sources, allPeople, team] = await Promise.all([getSourceFunnel(repos, actor, range), getPersonFunnel(repos, actor, range), createPostgresStaffRepository().list()]);
+  const people = collapseUnknownPeople(allPeople, new Set(team.map((m) => m.userId)));
+  const nameOf = (id: string) => team.find((m) => m.userId === id)?.displayName ?? "Founder and others not on the team list";
 
   return (
     <div>
@@ -153,7 +154,7 @@ export default async function SourceAnalyticsPage({ searchParams }: PageProps<"/
               </thead>
               <tbody className="divide-y divide-border">
                 {people.map((p) => (
-                  <tr key={`${p.personId}-${p.sourceType}`}>
+                  <tr key={`${p.personId || "others"}-${p.sourceType}`}>
                     <th scope="row" className="px-3 py-2 font-medium text-foreground">{nameOf(p.personId)}</th>
                     <td className="px-3 py-2">{SOURCE_NAME[p.sourceType]}</td>
                     {(["leads", "called", "connected", "qualified", "visitsDone", "booked"] as const).map((k) => (

@@ -28,7 +28,9 @@ export function LiveRefresh({ intervalMs = BASE_MS }: { intervalMs?: number }) {
   const cursor = useRef<number | null>(null);
   const waiting = useRef(false);
   const pendingRef = useRef(pending);
-  pendingRef.current = pending;
+  useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;

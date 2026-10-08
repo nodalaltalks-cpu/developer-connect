@@ -9,7 +9,7 @@ import { createProject } from "../project-service.ts";
 import { saveColdCallLead } from "../cold-call-lead-service.ts";
 import { prepareDeviceCall, reportDeviceCall } from "../call-service.ts";
 import { getLeadCounts, getLeadsPage, getMyLeadsPage } from "../lead-reads.ts";
-import { parseSourceFilter, sourceTypeOf } from "../../../components/admin/leads/lead-source-tabs.tsx";
+import { parseSourceFilter, sourceTypeOf } from "../source-filter.ts";
 import { createInMemoryLeadRepositories } from "../memory-repository.ts";
 import { createInMemoryStaffRepository } from "../../staff/memory-repository.ts";
 import { addStaffMember } from "../../staff/staff-service.ts";
@@ -98,7 +98,7 @@ test("card insights: interested projects and the last call, in one batched read;
 
 test("static: three views of one table - the source tabs link to the same page, the card shows the source, and 'Cold' temperature is not renamed to a source", () => {
   const tabs = read("src/components/admin/leads/lead-source-tabs.tsx");
-  assert.match(tabs, /all: "All leads", cold_call: "Cold call", digital: "Digital"/);
+  assert.match(read("src/lib/leads/source-filter.ts"), /all: "All leads", cold_call: "Cold call", digital: "Digital"/);
   assert.match(tabs, /ONE lead table/);
   const founder = read("src/app/admin/leads/page.tsx");
   assert.match(founder, /getLeadsPage\(repos, view, page, now, undefined, sourceType\)/);

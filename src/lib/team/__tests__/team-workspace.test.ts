@@ -107,7 +107,7 @@ test("detail: an employee views their own lead — contact, requirement, timelin
   const detail = await getMyLeadDetail(repos, priyaActor, l1.id, NOW);
   assert.equal(detail?.lead.id, l1.id);
   assert.ok(detail!.events.length > 0);
-  assert.deepEqual(Object.keys(detail!).sort(), ["calls", "developerName", "developersViewed", "events", "followUp", "followUps", "lead", "requirements"].sort());
+  assert.deepEqual(Object.keys(detail!).sort(), ["calls", "contactBasis", "developerName", "developersViewed", "events", "followUp", "followUps", "lead", "qualification", "requirements"].sort());
   for (const forbidden of ["bookings", "consents", "firstTouch", "lastTouch"]) assert.ok(!(forbidden in detail!), `${forbidden} must not be loaded for an employee`);
 });
 

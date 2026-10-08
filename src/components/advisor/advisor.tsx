@@ -51,11 +51,7 @@ export function AdvisorProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // A page's own context never leaks to the next page.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on navigation
-    setPageState({});
-  }, [pathname]);
+  // A page's own context never leaks to the next page: <AdvisorPageContext /> clears itself when the page unmounts.
 
   const context = useMemo<AdvisorContext>(() => ({ ...contextFromPath(pathname, market), ...page }), [pathname, market, page]);
   const open = useCallback(() => setOpen(true), []);

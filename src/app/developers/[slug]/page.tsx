@@ -155,7 +155,7 @@ export default async function DeveloperPage({
   return (
     <div className="flex flex-1 flex-col">
       <DeveloperPageViewTracker developerId={developer.id} referrerQuery={referrerQuery} />
-      <AdvisorPageContext developer={developer.displayName} location={developer.city} />
+      <AdvisorPageContext developer={developer.displayName} location={developer.city} region={developer.country === "India" ? "india" : developer.country === "United Arab Emirates" ? "uae" : undefined} />
       {developer.officialWebsite && (
         <script
           type="application/ld+json"

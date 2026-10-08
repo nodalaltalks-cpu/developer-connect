@@ -11,7 +11,7 @@ const ITEMS = [
   { href: "/team", label: "My leads", match: (p: string) => p === "/team" || p.startsWith("/team/leads"), phone: true },
   { href: "/team/queue", label: "Queue", match: (p: string) => p.startsWith("/team/queue"), phone: true },
   { href: "/team/dial", label: "Dial", match: (p: string) => p.startsWith("/team/dial"), phone: true },
-  { href: "/team/missed", label: "Follow-ups", match: (p: string) => p.startsWith("/team/missed"), phone: true },
+  { href: "/team/follow-ups", label: "Follow-ups", match: (p: string) => p.startsWith("/team/follow-ups") || p.startsWith("/team/missed"), phone: true },
   // Visits has no slot in the five-item phone bar; on phones it is one tap from My leads.
   { href: "/team/visits", label: "Visits", match: (p: string) => p.startsWith("/team/visits"), phone: false },
   { href: "/team/calls", label: "Calls", match: (p: string) => p.startsWith("/team/calls"), phone: true },

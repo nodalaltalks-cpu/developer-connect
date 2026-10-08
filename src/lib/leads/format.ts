@@ -108,6 +108,19 @@ export function formatOverdue(milliseconds: number): string {
 }
 
 /**
+ * The inverse of businessLocalToInstant: an instant as the "YYYY-MM-DDTHH:mm" a datetime-local input shows, in the BUSINESS time
+ * zone (not the browser's). Used for defaults, minimums and quick-reschedule presets, so what the employee sees is the same clock
+ * the server reads. `addDays` moves the calendar date (not 24 hours), then `atHour` (if given) sets the clock time on that date.
+ */
+export function toBusinessLocalInput(instant: Date, options: { addDays?: number; atHour?: number; atMinute?: number } = {}, timeZone = BUSINESS_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(instant);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const date = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + (options.addDays ?? 0), options.atHour ?? get("hour"), options.atHour !== undefined ? (options.atMinute ?? 0) : get("minute")));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}
+
+/**
  * Turns the wall-clock value of a datetime-local input ("2026-10-12T15:30") into the exact instant it means IN THE
  * BUSINESS TIME ZONE — not in whatever zone the browser happens to be set to. Returns null for anything that is not
  * a valid local date-time with minutes (a date alone is not enough: follow-ups need an exact time).

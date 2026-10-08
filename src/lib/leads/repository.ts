@@ -111,6 +111,8 @@ export interface LeadRepository {
   list(query: LeadListQuery): Promise<{ leads: Lead[]; total: number }>;
   /** Dashboard counts, computed in the database in one bounded query — never by loading every lead. */
   counts(now: Date, endOfToday: Date, sourceType?: LeadSourceType): Promise<LeadCounts>;
+  /** Open, live leads this team member owns that are past first contact (contacted .. negotiation) but have NO active requirement recorded yet. */
+  countOpenWithoutRequirement(ownerId: string): Promise<number>;
   /** For a page of leads: the last call and the interested projects of each, in two batched queries (never one per lead). */
   bucketInsights(leadIds: string[]): Promise<LeadBucketInsight[]>;
   /** Names of the given developers, for display only (one batched lookup, never one per lead). Unknown ids are simply absent. */
@@ -525,6 +527,10 @@ export interface BatchLeadProgress {
   failedCalls: number;
   lastCallAt: Date | null;
   lastClassification: CallClassification | null;
+  /** Calls placed from a phone that could not measure their length: the lead WAS called, but the call is neither Connected nor Dialed. */
+  unmeasuredCalls?: number;
+  /** The employee left this lead for later (set once; says who and when through the batch item). */
+  skippedAt?: Date | null;
 }
 
 export interface CallingBatchRepository {
@@ -537,6 +543,8 @@ export interface CallingBatchRepository {
   listAll(limit: number): Promise<CallingBatch[]>;
   /** Every item in order with its lead and call-derived progress. */
   progress(batchId: string): Promise<BatchLeadProgress[]>;
+  /** Marks one item skipped (set once; a second skip changes nothing). Returns false when the lead is not in the batch. */
+  skip(batchId: string, leadId: string, skippedBy: string, at: Date): Promise<boolean>;
   close(id: string): Promise<CallingBatch>;
 }
 

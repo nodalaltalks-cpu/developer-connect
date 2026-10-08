@@ -45,6 +45,9 @@ async function append(
 /** CONNECTED means the SERVER classified the finished call as lasting more than 10 seconds (see call-classification.ts). */
 const isConnected = (call: Pick<LeadCall, "classification">) => call.classification === "CONNECTED";
 
+/** end_reason of a call that was placed from a phone that cannot measure call length. Such a call has no duration and no classification. */
+export const DURATION_UNAVAILABLE = "DURATION_UNAVAILABLE";
+
 // --- placing a call -------------------------------------------------------------------------------
 
 /**
@@ -142,13 +145,19 @@ export async function prepareDeviceCall(
 export interface DeviceCallReport {
   /** The phone's own dial time (its call-log entry). */
   startedAt: Date;
-  /** The phone's own talk-time for the call, whole seconds (0 if nobody answered). */
-  durationSeconds: number;
+  /** The phone's own talk-time for the call, whole seconds (0 if nobody answered). Not needed when the call was never placed or its length is unavailable. */
+  durationSeconds?: number;
   simRef?: string | null;
   callLogRef?: string | null;
   deviceRef?: string | null;
   /** True when the phone never actually placed the call (the employee backed out of the SIM chooser, permission denied). */
   notPlaced?: boolean;
+  /**
+   * True when the call WAS placed but this phone/build cannot measure how long it lasted (no call-log access). The server
+   * then records the call as placed with NO duration and NO classification: it is never counted as Connected or Dialed, and
+   * nothing is guessed. The employee states the outcome themselves.
+   */
+  durationUnavailable?: boolean;
 }
 
 export type DeviceReportOutcome = { call: LeadCall; duplicate: boolean };
@@ -172,9 +181,10 @@ export async function reportDeviceCall(
   assertWorkingActor(actor);
   if (!report || typeof report !== "object") throw new LeadValidationError("report", "That is not a valid call report.");
   const notPlaced = report.notPlaced === true;
+  const durationUnavailable = !notPlaced && report.durationUnavailable === true;
   if (!notPlaced) {
     if (!(report.startedAt instanceof Date) || Number.isNaN(report.startedAt.getTime())) throw new LeadValidationError("startedAt", "The call start time is not valid.");
-    if (typeof report.durationSeconds !== "number" || !Number.isInteger(report.durationSeconds) || report.durationSeconds < 0 || report.durationSeconds > MAX_CALL_SECONDS) {
+    if (!durationUnavailable && (typeof report.durationSeconds !== "number" || !Number.isInteger(report.durationSeconds) || report.durationSeconds < 0 || report.durationSeconds > MAX_CALL_SECONDS)) {
       throw new LeadValidationError("durationSeconds", "The call duration is not valid.");
     }
   }
@@ -189,6 +199,7 @@ export async function reportDeviceCall(
     const evidence = {
       callId: call.id,
       notPlaced,
+      durationUnavailable,
       startedAt: report.startedAt instanceof Date ? report.startedAt.toISOString() : null,
       durationSeconds: typeof report.durationSeconds === "number" ? report.durationSeconds : null,
       simRef: cleanRef(report.simRef, 64),
@@ -213,21 +224,31 @@ export async function reportDeviceCall(
     let patch: Partial<LeadCall>;
     if (notPlaced) {
       patch = { status: "FAILED", endedAt: now, endReason: "NOT_PLACED_ON_DEVICE", reportedAt: now, deviceRef: cleanRef(report.deviceRef, 64) ?? call.deviceRef };
+    } else if (durationUnavailable) {
+      const startedMs = report.startedAt.getTime();
+      if (startedMs < call.initiatedAt.getTime() - CLOCK_SKEW_MS || startedMs > now.getTime() + CLOCK_SKEW_MS) {
+        throw new LeadValidationError("startedAt", "The call time does not match this call attempt.");
+      }
+      if (now.getTime() - call.initiatedAt.getTime() > MAX_REPORT_DELAY_MS) throw new LeadValidationError("startedAt", "This call attempt is too old to report.");
+      // Placed, but the phone cannot say how long it lasted: no duration, no classification, never counted as Connected or Dialed.
+      patch = { status: "COMPLETED", startedAt: report.startedAt, endReason: DURATION_UNAVAILABLE, reportedAt: now, simRef: evidence.simRef, deviceRef: cleanRef(report.deviceRef, 64) ?? call.deviceRef };
     } else {
       const startedMs = report.startedAt.getTime();
       if (startedMs < call.initiatedAt.getTime() - CLOCK_SKEW_MS || startedMs > now.getTime() + CLOCK_SKEW_MS) {
         throw new LeadValidationError("startedAt", "The call time does not match this call attempt.");
       }
       if (now.getTime() - call.initiatedAt.getTime() > MAX_REPORT_DELAY_MS) throw new LeadValidationError("startedAt", "This call attempt is too old to report.");
+      // Validated above for this branch (the length is present, a whole number, and within bounds).
+      const seconds = report.durationSeconds as number;
       // A call cannot have lasted longer than the time that has passed since it started.
-      if (report.durationSeconds * 1000 > now.getTime() - startedMs + CLOCK_SKEW_MS) throw new LeadValidationError("durationSeconds", "The call duration is not possible.");
-      const endedAt = new Date(startedMs + report.durationSeconds * 1000);
+      if (seconds * 1000 > now.getTime() - startedMs + CLOCK_SKEW_MS) throw new LeadValidationError("durationSeconds", "The call duration is not possible.");
+      const endedAt = new Date(startedMs + seconds * 1000);
       patch = {
-        status: report.durationSeconds > 0 ? "COMPLETED" : "NO_ANSWER",
+        status: seconds > 0 ? "COMPLETED" : "NO_ANSWER",
         startedAt: report.startedAt,
         endedAt,
-        durationSeconds: report.durationSeconds,
-        classification: classifyCallDuration(report.durationSeconds),
+        durationSeconds: seconds,
+        classification: classifyCallDuration(seconds),
         simRef: evidence.simRef,
         callLogRef: evidence.callLogRef,
         deviceRef: cleanRef(report.deviceRef, 64) ?? call.deviceRef,
@@ -241,6 +262,7 @@ export async function reportDeviceCall(
       status: updated.status,
       connected: isConnected(updated),
       classification: updated.classification,
+      ...(durationUnavailable ? { durationUnavailable: true } : {}),
       ...(isConnected(updated) ? { durationSeconds: updated.durationSeconds ?? 0 } : {}),
     });
     const lead = await tx.leads.getById(call.leadId);
@@ -380,10 +402,12 @@ export async function setCallDisposition(
     if (!TERMINAL_CALL_STATUSES.includes(call.status)) throw new LeadStateError("The call has not finished yet.");
     if (call.disposition !== null) throw new LeadStateError("This call already has an outcome. It cannot be changed.");
     const connected = isConnected(call);
-    if (DISPOSITIONS_NEEDING_CONNECTION.includes(disposition) && !connected) {
+    // A call whose length the phone could not measure has no classification, so the employee may state any outcome (it is their word, and is recorded as such).
+    const lengthUnknown = call.endReason === DURATION_UNAVAILABLE;
+    if (!lengthUnknown && DISPOSITIONS_NEEDING_CONNECTION.includes(disposition) && !connected) {
       throw new LeadValidationError("disposition", "That outcome needs a connected call. This call was not answered.");
     }
-    if (DISPOSITIONS_FOR_UNCONNECTED.includes(disposition) && connected) {
+    if (!lengthUnknown && DISPOSITIONS_FOR_UNCONNECTED.includes(disposition) && connected) {
       throw new LeadValidationError("disposition", "That outcome is for calls that did not connect. This call was answered.");
     }
 

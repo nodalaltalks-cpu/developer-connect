@@ -272,13 +272,13 @@ test("queue: counts and NEXT CALL are derived from call records — pending, con
   const made = await createCallingBatch(w.repos, w.staff, { name: "Q", assigneeStaffId: w.priya.id, leadIds: [w.a.id, w.a2.id, w.a3.id, w.free.id] }, FOUNDER, at(8));
   const batchId = made.batch.id;
   let queue = (await getCallingQueue(w.repos, w.priyaActor, batchId))!;
-  assert.deepEqual(queue.counts, { assigned: 4, completed: 0, connected: 0, dialed: 0, pending: 4, returned: 0 });
+  assert.deepEqual(queue.counts, { assigned: 4, completed: 0, connected: 0, dialed: 0, notConnected: 0, attempted: 0, skipped: 0, callback: 0, pending: 4, returned: 0 });
   assert.equal(queue.next?.progress.lead.id, w.a.id, "next call is the first pending lead in order");
 
   await deviceCall(w, w.a.id, 60, 10, batchId); // connected
   await deviceCall(w, w.a2.id, 3, 20, batchId); // dialed
   queue = (await getCallingQueue(w.repos, w.priyaActor, batchId))!;
-  assert.deepEqual(queue.counts, { assigned: 4, completed: 2, connected: 1, dialed: 1, pending: 2, returned: 0 });
+  assert.deepEqual(queue.counts, { assigned: 4, completed: 2, connected: 1, dialed: 1, notConnected: 1, attempted: 0, skipped: 0, callback: 0, pending: 2, returned: 0 });
   assert.equal(queue.next?.progress.lead.id, w.a3.id);
 
   // A lead the employee returns to the Founder leaves the queue; its history stays.
@@ -298,7 +298,7 @@ test("queue: a retry call to a lead already called counts the lead once; a faile
   const { call } = await prepareDeviceCall(w.repos, w.a2.id, w.priyaActor, { batchId: batch.id }, at(30));
   await reportDeviceCall(w.repos, call.id, { startedAt: new Date(0), durationSeconds: 0, notPlaced: true }, w.priyaActor, at(31));
   const q = (await getCallingQueue(w.repos, w.priyaActor, batch.id))!;
-  assert.deepEqual(q.counts, { assigned: 2, completed: 1, connected: 1, dialed: 0, pending: 1, returned: 0 });
+  assert.deepEqual(q.counts, { assigned: 2, completed: 1, connected: 1, dialed: 0, notConnected: 0, attempted: 0, skipped: 0, callback: 0, pending: 1, returned: 0 });
   assert.equal(q.rows[0].progress.calls, 2);
 });
 
@@ -387,7 +387,7 @@ test("static: team device actions authorize the employee first and accept no cla
 
 test("static: the server alone classifies — call-service uses classifyCallDuration; nothing client-side or in the native app does", () => {
   const service = read("src/lib/leads/call-service.ts");
-  assert.match(service, /classification: classifyCallDuration\(report\.durationSeconds\)/);
+  assert.match(service, /classification: classifyCallDuration\(seconds\)/);
   for (const file of ["src/components/leads/call-button.tsx", "src/components/team/device-call-sync.tsx", "src/lib/leads/native-bridge.ts"]) {
     assert.doesNotMatch(read(file), /classifyCallDuration|CONNECTED_THRESHOLD/, `${file} never decides CONNECTED/DIALED`);
   }
@@ -398,7 +398,7 @@ test("static: the server alone classifies — call-service uses classifyCallDura
 test("static: the Android app requests no audio, microphone, contacts or recording capability, and shows only the allowed host", () => {
   const manifest = read("native-android/app/src/main/AndroidManifest.xml");
   const permissions = [...manifest.matchAll(/uses-permission android:name="([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(permissions, ["android.permission.CALL_PHONE", "android.permission.INTERNET", "android.permission.READ_CALL_LOG"]);
+  assert.deepEqual(permissions, ["android.permission.CALL_PHONE", "android.permission.INTERNET"]);
   assert.doesNotMatch(read("native-android/app/src/main/java/com/developerconnects/dialer/DialerBridge.kt"), /MediaRecorder|AudioRecord|RECORD_AUDIO/);
   assert.match(read("native-android/app/src/main/java/com/developerconnects/dialer/MainActivity.kt"), /shouldOverrideUrlLoading[\s\S]*!allowed\(/);
 });

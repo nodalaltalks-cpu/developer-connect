@@ -1,4 +1,4 @@
-import { LeadNotFoundError, LeadValidationError, UnauthorizedLeadActionError } from "./errors.ts";
+import { LeadNotFoundError, LeadStateError, LeadValidationError, UnauthorizedLeadActionError } from "./errors.ts";
 import type { BatchLeadProgress, CallingBatch, LeadRepositories } from "./repository.ts";
 import type { LeadActor, LeadCall } from "./types.ts";
 import type { StaffRepository } from "../staff/repository.ts";
@@ -13,7 +13,10 @@ import type { StaffRepository } from "../staff/repository.ts";
  *   connected = leads with at least one CONNECTED call (> 10 seconds)
  *   dialed    = completed leads that never connected (every call 10 seconds or less)
  *   returned  = leads the employee returned to the Founder
+ *   attempted = called from a phone that could not measure the call length: the lead WAS called, but the call is neither Connected nor Dialed
+ *   skipped   = left for later by the employee (recorded: who and when); it comes back once everything else has been called
  *   pending   = still the employee's, not yet completed
+ *   callback  = called leads that now have a follow-up scheduled (a callback is a follow-up, never a separate flag)
  * A lead that was returned (or reassigned) leaves the employee's queue, but the history stays.
  */
 
@@ -87,7 +90,7 @@ export async function createCallingBatch(
 
 // --- the queue ------------------------------------------------------------------------------------
 
-export type QueueState = "PENDING" | "CONNECTED" | "DIALED" | "RETURNED" | "REASSIGNED";
+export type QueueState = "PENDING" | "SKIPPED" | "CONNECTED" | "DIALED" | "ATTEMPTED" | "RETURNED" | "REASSIGNED";
 
 export interface QueueRow {
   progress: BatchLeadProgress;
@@ -99,6 +102,12 @@ export interface QueueCounts {
   completed: number;
   connected: number;
   dialed: number;
+  /** Leads called (every call 10 seconds or less): the same leads as `dialed`, shown to the employee as "Not connected". */
+  notConnected: number;
+  /** Called, but the phone could not read how long the call lasted. */
+  attempted: number;
+  skipped: number;
+  callback: number;
   pending: number;
   returned: number;
 }
@@ -116,6 +125,8 @@ function stateOf(p: BatchLeadProgress, assignedTo: string): QueueState {
   if (p.lead.ownerId !== assignedTo) return "REASSIGNED";
   if (p.connectedCalls > 0) return "CONNECTED";
   if (p.calls > 0) return "DIALED";
+  if ((p.unmeasuredCalls ?? 0) > 0) return "ATTEMPTED";
+  if (p.skippedAt) return "SKIPPED";
   return "PENDING";
 }
 
@@ -126,11 +137,30 @@ export function buildQueue(batch: CallingBatch, progress: BatchLeadProgress[]): 
     assigned: rows.length,
     connected: count("CONNECTED"),
     dialed: count("DIALED"),
+    notConnected: count("DIALED"),
+    attempted: count("ATTEMPTED"),
+    skipped: count("SKIPPED"),
+    callback: rows.filter((r) => (r.state === "CONNECTED" || r.state === "DIALED" || r.state === "ATTEMPTED") && r.progress.lead.nextFollowUpAt !== null).length,
     pending: count("PENDING"),
     returned: count("RETURNED") + count("REASSIGNED"),
-    completed: count("CONNECTED") + count("DIALED"),
+    completed: count("CONNECTED") + count("DIALED") + count("ATTEMPTED"),
   };
-  return { batch, rows, counts, next: rows.find((r) => r.state === "PENDING") ?? null };
+  // Next: the first lead not yet touched; when none is left, a lead the employee skipped comes back.
+  return { batch, rows, counts, next: rows.find((r) => r.state === "PENDING") ?? rows.find((r) => r.state === "SKIPPED") ?? null };
+}
+
+/**
+ * "Skip for now": the employee leaves a lead they have not called yet and moves to the next one. Recorded (who and when), never
+ * a client-side trick, so the count is real and the Founder can see it. Only the batch's own employee, only a lead not yet called.
+ */
+export async function skipQueueLead(repos: LeadRepositories, actor: LeadActor, batchId: string, leadId: string, now: Date = new Date()): Promise<void> {
+  if (actor.actorType !== "EMPLOYEE" || !actor.actorId) throw new UnauthorizedLeadActionError("A signed-in team member is required.");
+  const queue = await getCallingQueue(repos, actor, batchId);
+  if (!queue) throw new LeadNotFoundError("Calling batch not found.");
+  const row = queue.rows.find((r) => r.progress.lead.id === leadId);
+  if (!row) throw new LeadNotFoundError("That lead is not in this list.");
+  if (row.state !== "PENDING" && row.state !== "SKIPPED") throw new LeadStateError("Only a lead you have not called yet can be skipped.");
+  await repos.callingBatches.skip(batchId, leadId, actor.actorId, now);
 }
 
 /** A batch's queue for an actor allowed to see it: the Founder any; an employee only their own. Otherwise null. */

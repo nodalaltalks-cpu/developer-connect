@@ -17,6 +17,7 @@ import androidx.activity.ComponentActivity
  */
 class MainActivity : ComponentActivity() {
     private lateinit var web: WebView
+    private lateinit var bridge: DialerBridge
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,7 +26,8 @@ class MainActivity : ComponentActivity() {
         setContentView(web)
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
-        web.addJavascriptInterface(DialerBridge(this, Outbox(applicationContext)), "DCDialer")
+        bridge = DialerBridge(this, Outbox(applicationContext))
+        web.addJavascriptInterface(bridge, "DCDialer")
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = !allowed(request.url)
         }
@@ -38,6 +40,7 @@ class MainActivity : ComponentActivity() {
      */
     override fun onResume() {
         super.onResume()
+        if (::bridge.isInitialized) bridge.onActivityResumed()
         if (::web.isInitialized) web.evaluateJavascript("window.dispatchEvent(new Event('dc:app-resumed'))", null)
     }
 

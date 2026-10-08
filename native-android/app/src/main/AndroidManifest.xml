@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Only what is needed to place a call and read the phone's own call log for it. No recording, no microphone, no contacts. -->
+    <!-- Only what is needed to place a call. No call-log, recording, microphone, contacts, SMS or phone-state permission is
+         declared here. The one optional extra (READ_CALL_LOG, only to read the length of calls this app placed) is declared
+         ONLY in the "internal" flavor: native-android/app/src/internal/AndroidManifest.xml. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
 
     <uses-feature android:name="android.hardware.telephony" android:required="true" />
 

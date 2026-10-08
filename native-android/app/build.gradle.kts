@@ -18,6 +18,22 @@ android {
         // Clerk's sign-in host for the production instance; set when the production Clerk instance exists.
         buildConfigField("String", "EXTRA_ALLOWED_HOSTS", "\"\"")
     }
+    // Two builds of the SAME app. "internal" (APK / MDM distribution to our own team) carries the optional READ_CALL_LOG
+    // permission, used only to read the length of calls this app placed. "play" does NOT declare it at all: Google Play
+    // restricts call-log permissions, and we do not claim an approval we have not been given. In "play" the app still
+    // places calls and reports each as "attempted, length unavailable". See README.md.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("internal") {
+            dimension = "distribution"
+            versionNameSuffix = "-internal"
+            buildConfigField("boolean", "CALL_LOG_ENABLED", "true")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "CALL_LOG_ENABLED", "false")
+        }
+    }
     buildFeatures { buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

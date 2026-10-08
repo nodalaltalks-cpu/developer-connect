@@ -284,6 +284,16 @@ function build(db: DbOrTx): LeadRepositories {
         return { leads: rows.map(toLead), total };
       },
 
+      async countOpenWithoutRequirement(ownerId) {
+        const result = await db.execute(sql`
+          select count(*)::int as n
+          from leads l
+          where l.owner_id = ${ownerId}
+            and l.erased_at is null
+            and l.status in ('CONTACTED', 'QUALIFIED', 'SHORTLISTED', 'SITE_VISIT_SCHEDULED', 'SITE_VISIT_DONE', 'NEGOTIATION')
+            and not exists (select 1 from lead_requirements r where r.lead_id = l.id and r.status = 'ACTIVE')`);
+        return Number((result.rows[0] as { n: number }).n);
+      },
       async bucketInsights(leadIds): Promise<LeadBucketInsight[]> {
         if (leadIds.length === 0) return [];
         const calls = await db.execute(sql`
@@ -1305,7 +1315,7 @@ function build(db: DbOrTx): LeadRepositories {
       },
       async progress(batchId) {
         const items = await db
-          .select({ position: callingBatchItems.position, lead: leads })
+          .select({ position: callingBatchItems.position, skippedAt: callingBatchItems.skippedAt, lead: leads })
           .from(callingBatchItems)
           .innerJoin(leads, eq(leads.id, callingBatchItems.leadId))
           .where(eq(callingBatchItems.batchId, batchId))
@@ -1316,6 +1326,7 @@ function build(db: DbOrTx): LeadRepositories {
             calls: sql<number>`(count(*) filter (where ${leadCalls.classification} is not null))::int`,
             connected: sql<number>`(count(*) filter (where ${leadCalls.classification} = 'CONNECTED'))::int`,
             failed: sql<number>`(count(*) filter (where ${leadCalls.status} = 'FAILED'))::int`,
+            unmeasured: sql<number>`(count(*) filter (where ${leadCalls.endReason} = 'DURATION_UNAVAILABLE'))::int`,
             lastAt: sql<Date | null>`max(coalesce(${leadCalls.startedAt}, ${leadCalls.initiatedAt})) filter (where ${leadCalls.classification} is not null)`,
           })
           .from(leadCalls)
@@ -1336,10 +1347,18 @@ function build(db: DbOrTx): LeadRepositories {
             calls: s?.calls ?? 0,
             connectedCalls: s?.connected ?? 0,
             failedCalls: s?.failed ?? 0,
+            unmeasuredCalls: s?.unmeasured ?? 0,
+            skippedAt: item.skippedAt ? new Date(item.skippedAt) : null,
             lastCallAt: s?.lastAt ? new Date(s.lastAt) : null,
             lastClassification: lastBy.get(item.lead.id) ?? null,
           };
         });
+      },
+      async skip(batchId, leadId, skippedBy, at) {
+        const present = await db.select({ id: callingBatchItems.id }).from(callingBatchItems).where(and(eq(callingBatchItems.batchId, batchId), eq(callingBatchItems.leadId, leadId))).limit(1);
+        if (present.length === 0) return false;
+        await db.update(callingBatchItems).set({ skippedAt: at, skippedBy }).where(and(eq(callingBatchItems.batchId, batchId), eq(callingBatchItems.leadId, leadId), isNull(callingBatchItems.skippedAt)));
+        return true;
       },
       async close(id) {
         const [row] = await db.update(callingBatches).set({ status: "CLOSED" }).where(eq(callingBatches.id, id)).returning();

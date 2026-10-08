@@ -8,7 +8,7 @@ import type { ColdCallLookup } from "@/lib/leads/cold-call-service";
 import type { ColdCallLeadResult } from "@/lib/leads/cold-call-lead-service";
 import type { ProjectSearchHit } from "@/lib/leads/project-service";
 import { CONFIGURATION_SUGGESTIONS, PROPERTY_TYPE_SUGGESTIONS } from "@/lib/leads/requirement-view";
-import { formatEnumLabel, formatMoney } from "@/lib/leads/format";
+import { formatEnumLabel, formatMoney, toBusinessLocalInput } from "@/lib/leads/format";
 import { LEAD_PURPOSES, LEAD_TIMELINES, type LeadCurrency, type LeadPurpose, type LeadTimeline } from "@/lib/leads/types";
 import { QUALIFICATION_REASONS, type QualificationOutcome, type QualificationReason } from "@/lib/leads/qualification-model";
 
@@ -46,11 +46,6 @@ const PLAN_KINDS: Array<{ value: string; label: string }> = [
 ];
 
 const toggle = (on: boolean) => (on ? "border-accent bg-accent/10 text-foreground" : "border-border text-foreground hover:bg-muted");
-
-function localInputValue(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 function wholeNumber(text: string): number | null {
   const cleaned = text.replace(/[,\s]/g, "");
@@ -342,7 +337,7 @@ export function ColdCallForm({ leadId, phoneLast4, initialPhone = "", initialNam
               <h2 className="text-base font-semibold text-foreground">5. Next step (optional)</h2>
               <div role="radiogroup" aria-label="Next step" className="mt-3 flex flex-wrap gap-2">
                 {PLAN_KINDS.map((k) => (
-                  <button key={k.value} type="button" role="radio" aria-checked={planKind === k.value} onClick={() => { const next = planKind === k.value ? null : k.value; setPlanKind(next); if (next && !planWhen) setPlanWhen(localInputValue(new Date(Date.now() + 24 * 3_600_000))); }} className={`${CHIP} ${toggle(planKind === k.value)}`}>
+                  <button key={k.value} type="button" role="radio" aria-checked={planKind === k.value} onClick={() => { const next = planKind === k.value ? null : k.value; setPlanKind(next); if (next && !planWhen) setPlanWhen(toBusinessLocalInput(new Date(), { addDays: 1, atHour: 10 })); }} className={`${CHIP} ${toggle(planKind === k.value)}`}>
                     {k.label}
                   </button>
                 ))}
@@ -350,8 +345,8 @@ export function ColdCallForm({ leadId, phoneLast4, initialPhone = "", initialNam
               {planKind && (
                 <div className="mt-3 space-y-3">
                   <label className="block text-sm font-medium text-foreground">
-                    When
-                    <input type="datetime-local" value={planWhen} min={localInputValue(new Date())} onChange={(e) => setPlanWhen(e.target.value)} className={`${FIELD} mt-1.5`} />
+                    When (India time)
+                    <input type="datetime-local" value={planWhen} min={toBusinessLocalInput(new Date())} onChange={(e) => setPlanWhen(e.target.value)} className={`${FIELD} mt-1.5`} />
                   </label>
                   {planKind === "SITE_VISIT" && projects.length === 0 && <p className="text-sm text-red-700">Add the project for the site visit above.</p>}
                   <label className="block text-sm font-medium text-foreground">

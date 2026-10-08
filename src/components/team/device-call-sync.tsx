@@ -37,6 +37,7 @@ export function DeviceCallSync() {
             callLogRef: report.callLogRef,
             deviceRef: report.deviceRef,
             notPlaced: report.notPlaced,
+            durationUnavailable: report.durationUnavailable,
           }).catch(() => null);
           if (!result) break; // offline: keep it, retry on the next tick
           if (!result.ok && !result.permanent) break; // a server hiccup: keep it

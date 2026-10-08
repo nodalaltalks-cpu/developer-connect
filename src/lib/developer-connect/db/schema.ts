@@ -1076,8 +1076,11 @@ export const callingBatchItems = pgTable(
       .references(() => leads.id, { onDelete: "restrict" }),
     // The order the lead is offered in ("next call" follows this order).
     position: integer("position").notNull(),
+    // The employee chose to leave this lead for later. Set once (who and when); never cleared - a lead that is then called simply stops being skipped.
+    skippedAt: timestamp("skipped_at", { withTimezone: true }),
+    skippedBy: text("skipped_by"),
   },
-  (table) => [uniqueIndex("calling_batch_items_batch_lead_key").on(table.batchId, table.leadId), index("calling_batch_items_order_idx").on(table.batchId, table.position)],
+  (table) => [check("calling_batch_items_skip_pair_ck", sql`(${table.skippedAt} is null) = (${table.skippedBy} is null)`), uniqueIndex("calling_batch_items_batch_lead_key").on(table.batchId, table.leadId), index("calling_batch_items_order_idx").on(table.batchId, table.position)],
 );
 
 /**

@@ -9,6 +9,7 @@ import { cancelLeadFollowUp, completeLeadFollowUp, rescheduleFollowUp, returnLea
 import { getCallForActor, placeCall, prepareDeviceCall, reportDeviceCall, setCallDisposition } from "@/lib/leads/call-service";
 import { toCallView, type CallView } from "@/lib/leads/call-view";
 import { recordQualification } from "@/lib/leads/qualification-service";
+import { skipQueueLead } from "@/lib/leads/calling-batch-service";
 import { saveColdCallLead, type ColdCallLeadResult } from "@/lib/leads/cold-call-lead-service";
 import { searchActiveProjects, type ProjectSearchHit } from "@/lib/leads/project-service";
 import { recordWhatsAppOpened } from "@/lib/leads/whatsapp-service";
@@ -117,6 +118,22 @@ export async function saveMyColdCallLeadAction(payload: ColdCallFormPayload): Pr
     if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: NOT_FOUND };
     return { ok: false, error: GENERIC_ERROR };
   }
+}
+
+/** "Skip for now" in the calling queue. Recorded on the server (who, when); only the batch's own employee, only a lead not yet called. */
+export async function skipMyQueueLeadAction(batchId: string, leadId: string): Promise<TeamActionResult> {
+  const { actor } = await requireEmployeeForAction();
+  if (typeof batchId !== "string" || !UUID.test(batchId) || typeof leadId !== "string" || !UUID.test(leadId)) return { ok: false, error: NOT_FOUND };
+  try {
+    await skipQueueLead(createPostgresLeadRepositories(), actor, batchId, leadId);
+  } catch (error) {
+    if (error instanceof LeadStateError) return { ok: false, error: error.message };
+    if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: NOT_FOUND };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(`/team/queue/${batchId}`);
+  revalidatePath("/team/queue");
+  return { ok: true };
 }
 
 /** Type-ahead over the canonical ACTIVE projects. Read-only: ids and labels, no prices; nothing can be created here. */
@@ -323,6 +340,8 @@ export interface DeviceReportInput {
   callLogRef?: string | null;
   deviceRef?: string | null;
   notPlaced?: boolean;
+  /** The call was placed but this phone cannot measure its length (no call-log access). The server records it unclassified. */
+  durationUnavailable?: boolean;
 }
 
 /** `permanent` = the server will never accept this report (retrying cannot help); otherwise the phone should retry later. */
@@ -339,7 +358,7 @@ export async function reportMyDeviceCallAction(callId: string, report: DeviceRep
     const result = await reportDeviceCall(
       createPostgresLeadRepositories(),
       callId,
-      { startedAt: new Date(Number(report.startedAtMs)), durationSeconds: report.durationSeconds, simRef: report.simRef ?? null, callLogRef: report.callLogRef ?? null, deviceRef: report.deviceRef ?? null, notPlaced: report.notPlaced === true },
+      { startedAt: new Date(Number(report.startedAtMs)), durationSeconds: report.durationSeconds, simRef: report.simRef ?? null, callLogRef: report.callLogRef ?? null, deviceRef: report.deviceRef ?? null, notPlaced: report.notPlaced === true, durationUnavailable: report.durationUnavailable === true },
       actor,
     );
     revalidatePath(`/team/leads/${result.call.leadId}`);

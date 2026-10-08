@@ -34,12 +34,12 @@ export default async function CallingQueuePage() {
                 </span>
                 <span className="mt-1 block text-xs text-muted-foreground">Created {formatDateTimeFull(batch.createdAt)}</span>
                 <span className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                  <Stat label="Assigned" value={counts.assigned} />
-                  <Stat label="Pending" value={counts.pending} />
-                  <Stat label="Completed" value={counts.completed} />
+                  <Stat label="Total" value={counts.assigned} />
+                  <Stat label="Called" value={counts.completed} />
                   <Stat label="Connected" value={counts.connected} />
-                  <Stat label="Dialed" value={counts.dialed} />
-                  <Stat label="Returned" value={counts.returned} />
+                  <Stat label="Not connected" value={counts.notConnected} />
+                  <Stat label="Callback" value={counts.callback} />
+                  <Stat label="Remaining" value={counts.pending + counts.skipped} />
                 </span>
               </Link>
             </li>

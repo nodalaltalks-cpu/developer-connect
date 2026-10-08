@@ -225,6 +225,13 @@
       "when": 1791468254517,
       "tag": "0031_contact_details_event",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791470703086,
+      "tag": "0032_calling_queue_skip",
+      "breakpoints": true
     }
   ]
 }

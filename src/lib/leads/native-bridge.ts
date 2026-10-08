@@ -16,10 +16,19 @@
 export interface DCDialerNative {
   /** Native app version, e.g. "1". */
   version(): string;
-  /** "true" once the phone-permission needed to dial and read the call log is granted. */
+  /** "true" once the permission needed to PLACE a call (CALL_PHONE) is granted. Reading call length is a separate, optional permission: see capabilities(). */
   hasPermissions(): string;
-  /** Asks Android for the call and call-log permissions. The result is read with hasPermissions() afterwards. */
+  /** Older name for requestCallPermission(); asks for CALL_PHONE only. */
   requestPermissions(): void;
+  /** Asks Android for permission to place calls (CALL_PHONE). Nothing else. */
+  requestCallPermission?(): void;
+  /**
+   * Asks Android for call-log access, used ONLY to read how long the calls placed from this app lasted. Never requested
+   * automatically; the website explains why first. Absent in builds that do not carry the permission (see native-android/README.md).
+   */
+  requestDurationPermission?(): void;
+  /** JSON: { canPlace: boolean, canMeasureDuration: boolean, durationSupported: boolean, version: string }. Older apps do not have it. */
+  capabilities?(): string;
   /**
    * Starts the call: `callId` is the attempt the server issued, `phoneE164` the number the server returned. Android shows
    * its SIM chooser when the phone has more than one SIM. Returns immediately; the outcome arrives through pendingReports().
@@ -49,6 +58,30 @@ export interface PendingDeviceReport {
   deviceRef: string | null;
   /** The call was never placed (the employee backed out of the SIM chooser, or permission was refused). */
   notPlaced: boolean;
+  /** The call was placed but this phone cannot measure its length. The server records it with no duration and no classification. */
+  durationUnavailable: boolean;
+}
+
+export interface DialerCapabilities {
+  canPlace: boolean;
+  /** Call-log access is granted: call length will be recorded from the phone's own log. */
+  canMeasureDuration: boolean;
+  /** This build of the app can ask for that access at all (the Play build cannot). */
+  durationSupported: boolean;
+  version: string;
+}
+
+/** Reads capabilities() defensively; an older app (or a malformed answer) yields the conservative reading. */
+export function readCapabilities(bridge: DCDialerNative): DialerCapabilities {
+  const fallback: DialerCapabilities = { canPlace: bridge.hasPermissions() === "true", canMeasureDuration: true, durationSupported: true, version: bridge.version() };
+  try {
+    const raw = bridge.capabilities?.();
+    if (!raw) return fallback;
+    const o = JSON.parse(raw) as Record<string, unknown>;
+    return { canPlace: o.canPlace === true, canMeasureDuration: o.canMeasureDuration === true, durationSupported: o.durationSupported === true, version: typeof o.version === "string" ? o.version.slice(0, 32) : fallback.version };
+  } catch {
+    return fallback;
+  }
 }
 
 /** The Android bridge when running inside the app; null in an ordinary browser. */
@@ -77,11 +110,12 @@ export function parsePendingReports(json: string): PendingDeviceReport[] {
     const r = item as Record<string, unknown>;
     if (typeof r.callId !== "string" || !UUID.test(r.callId)) continue;
     const notPlaced = r.notPlaced === true;
+    const durationUnavailable = !notPlaced && r.durationUnavailable === true;
     const startedAtMs = Number(r.startedAtMs);
     const durationSeconds = Number(r.durationSeconds);
-    if (!notPlaced && (!Number.isFinite(startedAtMs) || !Number.isInteger(durationSeconds) || durationSeconds < 0)) continue;
+    if (!notPlaced && (!Number.isFinite(startedAtMs) || (!durationUnavailable && (!Number.isInteger(durationSeconds) || durationSeconds < 0)))) continue;
     const str = (v: unknown) => (typeof v === "string" && v ? v.slice(0, 64) : null);
-    out.push({ callId: r.callId, startedAtMs: notPlaced ? 0 : startedAtMs, durationSeconds: notPlaced ? 0 : durationSeconds, simRef: str(r.simRef), callLogRef: str(r.callLogRef), deviceRef: str(r.deviceRef), notPlaced });
+    out.push({ callId: r.callId, startedAtMs: notPlaced ? 0 : startedAtMs, durationSeconds: notPlaced || durationUnavailable ? 0 : durationSeconds, simRef: str(r.simRef), callLogRef: str(r.callLogRef), deviceRef: str(r.deviceRef), notPlaced, durationUnavailable });
   }
   return out;
 }

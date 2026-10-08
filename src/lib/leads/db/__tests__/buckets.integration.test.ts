@@ -72,3 +72,17 @@ test("integration: the source filter, counts and bucketInsights agree with each 
   assert.deepEqual([bare.lastCallAt, bare.interestedProjectCount, bare.lastCallClassification], [null, 0, null]);
   assert.equal((await repos.leads.getById(cold.lead.id))!.status, "NEW", "interest in a project did not move the pipeline");
 });
+
+test("integration: countOpenWithoutRequirement counts the owner's mid-stage leads that have no active requirement, and drops when one is recorded", { skip }, async () => {
+  const [leadPg, svc, reqs, qualification] = await Promise.all([import("../postgres-repository.ts"), import("../../lead-import-service.ts"), import("../../requirement-service.ts"), import("../../qualification-service.ts")]);
+  const repos = leadPg.createPostgresLeadRepositories();
+  const employee = { actorType: "EMPLOYEE" as const, actorId: `user_it_${randomUUID().slice(0, 10)}` };
+  const made = await svc.createSelfGeneratedLead(repos, { phone: mobile(), name: "TEST needs requirement", creationMethod: "COLD_CALLING" }, employee);
+  assert.ok(made.created);
+  assert.equal(await repos.leads.countOpenWithoutRequirement(employee.actorId), 0, "a NEW lead is not mid-stage yet");
+  await qualification.recordQualification(repos, made.lead.id, { outcome: "QUALIFIED" }, employee);
+  assert.equal(await repos.leads.countOpenWithoutRequirement(employee.actorId), 1);
+  await reqs.createRequirement(repos, made.lead.id, { configuration: "2 BHK" }, employee);
+  assert.equal(await repos.leads.countOpenWithoutRequirement(employee.actorId), 0);
+  assert.equal(await repos.leads.countOpenWithoutRequirement(`user_it_${randomUUID().slice(0, 10)}`), 0, "another owner's count is separate");
+});

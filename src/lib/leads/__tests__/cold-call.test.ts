@@ -167,7 +167,7 @@ test("static: the Android app nudges the page the moment the employee comes back
   assert.match(main, /dc:app-resumed/);
   const manifest = read("native-android/app/src/main/AndroidManifest.xml");
   const permissions = [...manifest.matchAll(/uses-permission android:name="([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(permissions, ["android.permission.CALL_PHONE", "android.permission.INTERNET", "android.permission.READ_CALL_LOG"], "still only these three");
+  assert.deepEqual(permissions, ["android.permission.CALL_PHONE", "android.permission.INTERNET"], "the main manifest declares only these two (call-log access lives only in the internal flavor)");
   const sync = read("src/components/team/device-call-sync.tsx");
   assert.match(sync, /dc:app-resumed/);
   assert.match(sync, /for \(const ms of \[1200, 3000, 6000\]\)/);

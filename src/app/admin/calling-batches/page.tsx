@@ -40,7 +40,7 @@ export default async function CallingBatchesPage() {
                 {names[batch.assignedTo] ?? "Unknown member"} · {batch.importBatchId ? "From a CSV import" : "From CRM leads"} · created {formatDateTimeFull(batch.createdAt)} · {batch.status === "ACTIVE" ? "Active" : "Closed"}
               </p>
               <p className="mt-2 text-xs text-foreground">
-                Assigned {counts.assigned} · Pending {counts.pending} · Completed {counts.completed} · Connected {counts.connected} · Dialed {counts.dialed} · Returned {counts.returned}
+                Total {counts.assigned} · Called {counts.completed} · Connected {counts.connected} · Callback {counts.callback} · Not connected {counts.notConnected} · Remaining {counts.pending + counts.skipped}{counts.skipped > 0 ? ` (skipped ${counts.skipped})` : ""}{counts.attempted > 0 ? ` · Length not recorded ${counts.attempted}` : ""}{counts.returned > 0 ? ` · Returned ${counts.returned}` : ""}
               </p>
             </li>
           ))}

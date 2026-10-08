@@ -16,6 +16,8 @@ export interface CallView {
   method: CallMethod;
   disposition: CallDisposition | null;
   staffUserId: string;
+  /** The call was placed from a phone that could not measure its length: no duration, no classification, and it is never counted as Connected or Dialed. */
+  durationUnknown?: boolean;
 }
 
 export function toCallView(call: LeadCall): CallView {
@@ -30,6 +32,7 @@ export function toCallView(call: LeadCall): CallView {
     method: call.method,
     disposition: call.disposition,
     staffUserId: call.staffUserId,
+    durationUnknown: call.endReason === "DURATION_UNAVAILABLE",
   };
 }
 
@@ -38,7 +41,8 @@ export const isFinished = (status: CallStatus): boolean => status === "COMPLETED
  * What a call is called on screen. CONNECTED comes only from the server's classification (more than 10 seconds); a
  * finished call that did not connect is "Dialed" unless how it ended is more specific (no answer, busy, rejected).
  */
-export function describeCall(call: Pick<CallView, "classification" | "status">): string {
+export function describeCall(call: Pick<CallView, "classification" | "status"> & { durationUnknown?: boolean }): string {
+  if (call.durationUnknown) return "Attempted (length not recorded)";
   if (call.classification === "CONNECTED") return "Connected";
   if (call.classification === "DIALED") return call.status === "NO_ANSWER" ? "No answer" : call.status === "BUSY" ? "Busy" : call.status === "REJECTED" ? "Rejected" : "Dialed";
   if (call.status === "FAILED") return "Failed";

@@ -5,6 +5,8 @@ import { LeadCard } from "@/components/admin/leads/lead-card";
 import { MissedCard } from "@/components/leads/missed-card";
 import { TeamCallButton } from "@/components/team/team-call-button";
 import { MyLeadsTabs, MY_VIEW_LABELS } from "@/components/team/my-leads-tabs";
+import { TodayPanel } from "@/components/team/today-panel";
+import { getMyToday } from "@/lib/leads/my-today";
 import { LeadSourceTabs, parseSourceFilter, sourceTypeOf } from "@/components/admin/leads/lead-source-tabs";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getMyWorkState, type MyWorkItem } from "@/lib/leads/follow-up-reads";
@@ -84,11 +86,12 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
     );
   }
 
-  const result = await getMyLeadsPage(repos, actor, view, page, now, undefined, sourceTypeOf(source));
+  const [result, today] = await Promise.all([getMyLeadsPage(repos, actor, view, page, now, undefined, sourceTypeOf(source)), getMyToday(repos, actor, work, now)]);
   const href = (nextPage: number) => `/team?view=${view}&page=${nextPage}${source === "all" ? "" : `&source=${source}`}`;
 
   return (
     <div>
+      <TodayPanel today={today} />
       <SectionHeading title="My Leads" description="Leads assigned to you. Private — visible only to you and the Founder." />
       <p className="-mt-2 mb-2 sm:hidden">
         <Link href="/team/visits" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">

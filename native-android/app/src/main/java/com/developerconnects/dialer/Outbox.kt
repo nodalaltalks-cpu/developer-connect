@@ -13,6 +13,8 @@ data class PendingReport(
     val callLogRef: String?,
     val deviceRef: String?,
     val notPlaced: Boolean,
+    /** The call was placed but this phone could not read how long it lasted. The website records it with no duration and never counts it as Connected or Dialed. */
+    val durationUnavailable: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("callId", callId)
@@ -22,19 +24,22 @@ data class PendingReport(
         .put("callLogRef", callLogRef)
         .put("deviceRef", deviceRef)
         .put("notPlaced", notPlaced)
+        .put("durationUnavailable", durationUnavailable)
 
     companion object {
         fun notPlaced(callId: String) = PendingReport(callId, 0, 0, null, null, null, true)
+        fun unmeasured(callId: String, startedAtMs: Long) = PendingReport(callId, startedAtMs, 0, null, null, android.os.Build.MODEL, false, true)
         fun fromJson(o: JSONObject) = PendingReport(
             o.getString("callId"), o.getLong("startedAtMs"), o.getInt("durationSeconds"),
             o.optString("simRef").ifEmpty { null }, o.optString("callLogRef").ifEmpty { null },
-            o.optString("deviceRef").ifEmpty { null }, o.optBoolean("notPlaced"),
+            o.optString("deviceRef").ifEmpty { null }, o.optBoolean("notPlaced"), o.optBoolean("durationUnavailable"),
         )
     }
 }
 
 /** An attempt the phone dialed whose call-log entry has not been read yet. */
-data class Attempt(val callId: String, val phone: String, val startedAtMs: Long)
+/** `measurable`: the phone could read the call log for this attempt (internal build with the permission granted). */
+data class Attempt(val callId: String, val phone: String, val startedAtMs: Long, val measurable: Boolean = true)
 
 /**
  * Small durable store in SharedPreferences: attempts waiting for their call to end, and reports waiting for the website
@@ -44,12 +49,12 @@ class Outbox(context: Context) {
     private val prefs = context.getSharedPreferences("dc_outbox", Context.MODE_PRIVATE)
 
     @Synchronized fun attempts(): List<Attempt> = read("attempts").let { arr ->
-        (0 until arr.length()).map { i -> arr.getJSONObject(i).let { Attempt(it.getString("callId"), it.getString("phone"), it.getLong("startedAtMs")) } }
+        (0 until arr.length()).map { i -> arr.getJSONObject(i).let { Attempt(it.getString("callId"), it.getString("phone"), it.getLong("startedAtMs"), it.optBoolean("measurable", true)) } }
     }
 
-    @Synchronized fun beginAttempt(callId: String, phone: String, startedAtMs: Long) {
+    @Synchronized fun beginAttempt(callId: String, phone: String, startedAtMs: Long, measurable: Boolean) {
         val arr = read("attempts")
-        arr.put(JSONObject().put("callId", callId).put("phone", phone).put("startedAtMs", startedAtMs))
+        arr.put(JSONObject().put("callId", callId).put("phone", phone).put("startedAtMs", startedAtMs).put("measurable", measurable))
         prefs.edit().putString("attempts", arr.toString()).apply()
     }
 

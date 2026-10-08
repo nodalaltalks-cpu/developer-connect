@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  INTERNAL build only (our own team, distributed as an APK or through MDM, NOT through Google Play).
+
+  READ_CALL_LOG is a restricted permission on Google Play. Here it is used for ONE thing: reading the LENGTH of calls this app
+  placed, so the website can classify them (more than 10 seconds = Connected). It is never requested automatically - the
+  website explains it and the employee chooses - and the app works without it (calls are then recorded as "attempted, length
+  unavailable"). The "play" flavor does not declare it at all. See native-android/README.md for the policy position.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+</manifest>

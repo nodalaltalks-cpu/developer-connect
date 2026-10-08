@@ -82,7 +82,7 @@ export function createInMemoryLeadRepositories(
     callEvents: [] as StoredCallEvent[],
     batches: new Map<string, LeadImportBatch>(),
     callingBatches: new Map<string, Omit<CallingBatch, "itemCount">>(),
-    callingItems: [] as Array<{ batchId: string; leadId: string; position: number }>,
+    callingItems: [] as Array<{ batchId: string; leadId: string; position: number; skippedAt: Date | null; skippedBy: string | null }>,
     projects: new Map<string, Project>(),
     shortlist: new Map<string, ShortlistEntry>(),
     siteVisits: new Map<string, SiteVisit>(),
@@ -205,6 +205,10 @@ export function createInMemoryLeadRepositories(
       },
       async counts(now, endOfToday, sourceType) {
         return countLeads([...state.leads.values()].filter((lead) => sourceType === undefined || lead.sourceType === sourceType), now, endOfToday);
+      },
+      async countOpenWithoutRequirement(ownerId) {
+        const stages = ["CONTACTED", "QUALIFIED", "SHORTLISTED", "SITE_VISIT_SCHEDULED", "SITE_VISIT_DONE", "NEGOTIATION"];
+        return [...state.leads.values()].filter((l) => l.ownerId === ownerId && l.erasedAt === null && stages.includes(l.status) && ![...state.requirements.values()].some((r) => r.leadId === l.id && r.status === "ACTIVE")).length;
       },
       async bucketInsights(leadIds) {
         return leadIds.map((id) => {
@@ -1027,7 +1031,7 @@ export function createInMemoryLeadRepositories(
       async create(input: NewCallingBatch) {
         const id = randomUUID();
         state.callingBatches.set(id, { id, name: input.name, createdBy: input.createdBy, assignedTo: input.assignedTo, importBatchId: input.importBatchId, status: "ACTIVE", createdAt: input.now });
-        input.leadIds.forEach((leadId, position) => state.callingItems.push({ batchId: id, leadId, position }));
+        input.leadIds.forEach((leadId, position) => state.callingItems.push({ batchId: id, leadId, position, skippedAt: null, skippedBy: null }));
         return { ...state.callingBatches.get(id)!, itemCount: input.leadIds.length };
       },
       async getById(id) {
@@ -1059,11 +1063,22 @@ export function createInMemoryLeadRepositories(
             calls: classified.length,
             connectedCalls: classified.filter((c) => c.classification === "CONNECTED").length,
             failedCalls: calls.filter((c) => c.status === "FAILED").length,
+            unmeasuredCalls: calls.filter((c) => c.endReason === "DURATION_UNAVAILABLE").length,
+            skippedAt: item.skippedAt,
             lastCallAt: classified[0] ? (classified[0].startedAt ?? classified[0].initiatedAt) : null,
             lastClassification: classified[0]?.classification ?? null,
           });
         }
         return out;
+      },
+      async skip(batchId, leadId, skippedBy, at) {
+        const item = state.callingItems.find((i) => i.batchId === batchId && i.leadId === leadId);
+        if (!item) return false;
+        if (item.skippedAt === null) {
+          item.skippedAt = at;
+          item.skippedBy = skippedBy;
+        }
+        return true;
       },
       async close(id) {
         const b = state.callingBatches.get(id);

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { formatCallDuration } from "@/lib/leads/call-analytics";
 import { isFinished, wasConnected, type CallView } from "@/lib/leads/call-view";
-import { CALL_REPORTED_EVENT, getNativeDialer } from "@/lib/leads/native-bridge";
+import { CALL_REPORTED_EVENT, getNativeDialer, readCapabilities, type DialerCapabilities } from "@/lib/leads/native-bridge";
 import { formatEnumLabel } from "@/lib/leads/format";
 import { CALL_DISPOSITIONS, type CallDisposition } from "@/lib/leads/types";
 
@@ -73,6 +73,8 @@ export function CallButton({
   const [callId, setCallId] = useState<string | null>(null);
   const [call, setCall] = useState<CallView | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  // Whether this phone can record how long the call lasted (known after the call was started).
+  const [lengthNote, setLengthNote] = useState<"ASK" | "UNSUPPORTED" | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   // Whether the Android app is present is only known in the browser, after mount.
   const hasBridge = useSyncExternalStore(subscribeNever, () => getNativeDialer() !== null, () => false);
@@ -127,11 +129,14 @@ export function CallButton({
     setMessage(null);
     const bridge = native ? getNativeDialer() : null;
     if (bridge && onPrepare) {
-      if (bridge.hasPermissions() !== "true") {
-        bridge.requestPermissions();
-        setMessage({ tone: "error", text: "Allow phone and call-log access in the app, then tap Call again." });
+      const caps: DialerCapabilities = readCapabilities(bridge);
+      if (!caps.canPlace) {
+        // Only the permission to PLACE calls is asked for here. Reading call length is a separate, explained, optional step.
+        (bridge.requestCallPermission ?? bridge.requestPermissions).call(bridge);
+        setMessage({ tone: "error", text: "Allow phone calls in the app, then tap Call again." });
         return;
       }
+      setLengthNote(caps.canMeasureDuration ? null : caps.durationSupported ? "ASK" : "UNSUPPORTED");
       startTransition(async () => {
         const prepared = await onPrepare();
         if (!prepared.ok) {
@@ -171,7 +176,8 @@ export function CallButton({
 
   const finished = call ? isFinished(call.status) : false;
   const connected = call ? wasConnected(call) : false;
-  const offered = CALL_DISPOSITIONS.filter((d) => (connected ? d !== "SWITCHED_OFF" && d !== "INVALID_NUMBER" && d !== "NO_ANSWER" && d !== "BUSY" : d === "SWITCHED_OFF" || d === "INVALID_NUMBER" || d === "NO_ANSWER" || d === "BUSY" || d === "OTHER"));
+  const lengthUnknown = call?.durationUnknown === true;
+  const offered = CALL_DISPOSITIONS.filter((d) => lengthUnknown || (connected ? d !== "SWITCHED_OFF" && d !== "INVALID_NUMBER" && d !== "NO_ANSWER" && d !== "BUSY" : d === "SWITCHED_OFF" || d === "INVALID_NUMBER" || d === "NO_ANSWER" || d === "BUSY" || d === "OTHER"));
 
   return (
     <div className="w-full">
@@ -188,10 +194,24 @@ export function CallButton({
       {callId && (
         <div className="mt-2 rounded-md bg-muted p-3" aria-live="polite">
           <p className="text-sm font-medium text-foreground">
-            {call && !(call.method === "ANDROID_SIM" && call.status === "INITIATED") ? STATUS_TEXT[call.status] : native ? "On a call from your phone… the result appears when the call ends." : "Connecting…"}
+            {call && lengthUnknown ? "Call attempted · length not recorded" : call && !(call.method === "ANDROID_SIM" && call.status === "INITIATED") ? STATUS_TEXT[call.status] : native ? "On a call from your phone… the result appears when the call ends." : "Connecting…"}
             {call && connected && call.durationSeconds !== null ? ` · ${formatCallDuration(call.durationSeconds)}` : ""}
             {call && call.classification === "DIALED" ? " · Dialed (10 seconds or less)" : ""}
           </p>
+          {lengthNote && (
+            <div className="mt-2 rounded-md border border-border bg-background p-3 text-sm text-foreground">
+              {lengthNote === "ASK" ? (
+                <>
+                  <p>How long calls last is not being recorded. To record it, this app can read the length of the calls you place from it, and nothing else in your call history.</p>
+                  <button type="button" className={`${BTN} mt-2`} onClick={() => getNativeDialer()?.requestDurationPermission?.()}>
+                    Allow call-length recording
+                  </button>
+                </>
+              ) : (
+                <p>This version records that the call was placed, not how long it lasted. Choose what the call led to when it ends.</p>
+              )}
+            </div>
+          )}
           {finished && !call?.disposition && (
             <>
               <p className="mt-1 text-xs text-muted-foreground">What did the call lead to? (No comment needed.)</p>

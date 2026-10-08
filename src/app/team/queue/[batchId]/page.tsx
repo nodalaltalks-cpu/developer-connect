@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireEmployee } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { TeamCallButton } from "@/components/team/team-call-button";
+import { SkipLeadButton } from "@/components/team/skip-lead-button";
 import { getCallingQueue, type QueueRow, type QueueState } from "@/lib/leads/calling-batch-service";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { formatDateTimeFull } from "@/lib/leads/format";
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const STATE_LABEL: Record<QueueState, string> = { PENDING: "To call", CONNECTED: "Connected", DIALED: "Dialed", RETURNED: "Returned", REASSIGNED: "Moved" };
+const STATE_LABEL: Record<QueueState, string> = { PENDING: "To call", SKIPPED: "Skipped", CONNECTED: "Connected", DIALED: "Not connected", ATTEMPTED: "Called (length not recorded)", RETURNED: "Returned", REASSIGNED: "Moved" };
 
 export default async function CallingQueueBatchPage({ params }: PageProps<"/team/queue/[batchId]">) {
   const { batchId } = await params;
@@ -34,25 +35,36 @@ export default async function CallingQueueBatchPage({ params }: PageProps<"/team
       <Link href="/team/queue" className="inline-flex min-h-11 items-center text-sm text-accent-hover hover:underline">
         ← All lists
       </Link>
-      <SectionHeading title={queue.batch.name} description={`${counts.completed} of ${counts.assigned} called · ${counts.pending} to go`} />
+      <SectionHeading title={queue.batch.name} description={`${counts.completed} of ${counts.assigned} called · ${counts.pending + counts.skipped} to go`} />
 
-      <div className="grid grid-cols-3 gap-2 text-center text-xs sm:grid-cols-6">
-        <Tile label="Assigned" value={counts.assigned} />
-        <Tile label="Pending" value={counts.pending} />
-        <Tile label="Completed" value={counts.completed} />
+      <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Progress through this list" aria-valuemin={0} aria-valuemax={counts.assigned} aria-valuenow={counts.completed}>
+        <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${counts.assigned > 0 ? Math.round((counts.completed / counts.assigned) * 100) : 0}%` }} />
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs sm:grid-cols-6">
+        <Tile label="Total" value={counts.assigned} />
+        <Tile label="Called" value={counts.completed} />
         <Tile label="Connected" value={counts.connected} />
-        <Tile label="Dialed" value={counts.dialed} />
-        <Tile label="Returned" value={counts.returned} />
+        <Tile label="Not connected" value={counts.notConnected} />
+        <Tile label="Callback" value={counts.callback} />
+        <Tile label="Remaining" value={counts.pending + counts.skipped} />
+        {counts.skipped > 0 && <Tile label="Skipped" value={counts.skipped} />}
+        {counts.attempted > 0 && <Tile label="Length not recorded" value={counts.attempted} />}
+        {counts.returned > 0 && <Tile label="Returned" value={counts.returned} />}
       </div>
 
       {next ? (
         <section aria-label="Next call" className="mt-5 rounded-lg border border-accent p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-accent-hover">Next call</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-accent-hover">{next.state === "SKIPPED" ? "Next call (you skipped this one earlier)" : "Next call"}</p>
           <p className="mt-1 text-base font-semibold text-foreground">{next.progress.lead.name ?? "Unnamed lead"}</p>
           <p className="text-sm text-muted-foreground">{next.progress.lead.phoneE164}</p>
           <div className="mt-3">
             <TeamCallButton key={next.progress.lead.id} leadId={next.progress.lead.id} phoneE164={next.progress.lead.phoneE164} batchId={queue.batch.id} />
           </div>
+          {next.state === "PENDING" && (
+            <div className="mt-2">
+              <SkipLeadButton batchId={queue.batch.id} leadId={next.progress.lead.id} />
+            </div>
+          )}
         </section>
       ) : (
         <p role="status" className="mt-5 rounded-md border border-border bg-muted px-3 py-3 text-sm text-foreground">

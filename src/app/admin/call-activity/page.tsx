@@ -1,10 +1,11 @@
+import { CallFilterBar } from "@/components/leads/call-filter-bar";
 import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
-import { formatCallDuration, getCallActivity, parseInsightFilters } from "@/lib/leads/call-analytics";
+import { CALL_OUTCOME_LABEL, RANGE_PRESETS, formatCallDuration, getCallActivity, matchesCallFilter, parseCallOutcomeFilter, parseInsightFilters } from "@/lib/leads/call-analytics";
 import { describeCall } from "@/lib/leads/call-view";
 import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
 import { leadSourceLabel } from "@/lib/leads/lead-source";
@@ -29,9 +30,11 @@ export default async function CallActivityPage({ searchParams }: PageProps<"/adm
 
   const params = await searchParams;
   const now = new Date();
-  const filters = parseInsightFilters({ range: first(params.range) ?? "today", employee: first(params.employee), connected: first(params.connected) }, now);
+  const filters = parseInsightFilters({ range: first(params.range) ?? "today", employee: first(params.employee), source: first(params.source) }, now);
   const names = staffNameMap(await createPostgresStaffRepository().list());
-  const feed = await getCallActivity(createPostgresLeadRepositories(), { actorType: "FOUNDER", actorId: user!.id }, filters, 100);
+  const outcome = parseCallOutcomeFilter(params.outcome);
+  const rangeKey = (RANGE_PRESETS as readonly string[]).includes(first(params.range) ?? "") ? first(params.range)! : "today";
+  const feed = (await getCallActivity(createPostgresLeadRepositories(), { actorType: "FOUNDER", actorId: user!.id }, filters, 300)).filter((item) => matchesCallFilter(item, outcome)).slice(0, 100);
   const dialer = getTelephonyProvider();
 
   return (
@@ -45,21 +48,10 @@ export default async function CallActivityPage({ searchParams }: PageProps<"/adm
         </p>
       )}
 
-      <nav aria-label="Range" className="mb-3 flex flex-wrap gap-2">
-        {(["today", "yesterday", "last7"] as const).map((range) => (
-          <Link
-            key={range}
-            href={`/admin/call-activity?range=${range}`}
-            aria-current={filters.range.label === ({ today: "Today", yesterday: "Yesterday", last7: "Last 7 days" } as const)[range] ? "page" : undefined}
-            className="inline-flex min-h-11 items-center rounded-full border border-border px-4 text-sm text-foreground hover:bg-muted"
-          >
-            {({ today: "Today", yesterday: "Yesterday", last7: "Last 7 days" } as const)[range]}
-          </Link>
-        ))}
-      </nav>
+      <CallFilterBar basePath="/admin/call-activity" state={{ range: rangeKey, outcome, source: first(params.source) ?? "", employee: first(params.employee) }} />
 
       <h2 className="text-sm font-medium text-foreground">
-        {filters.range.label} · {feed.length}
+        {filters.range.label} · {CALL_OUTCOME_LABEL[outcome]} · {feed.length}
       </h2>
       {feed.length === 0 ? (
         <div className="mt-3">

@@ -192,7 +192,7 @@ export async function getMyCallDashboard(
   const [rows, stats, recent] = await Promise.all([
     repos.calls.aggregate({ from: range.from, to: range.to, groupBy: "EMPLOYEE", timeZone: BUSINESS_TIME_ZONE, staffUserId: actor.actorId }),
     repos.followUps.statsByStaff(range.from, range.to, now),
-    repos.calls.listRecent({ staffUserId: actor.actorId, from: range.from, to: range.to, limit: 50 }),
+    repos.calls.listRecent({ staffUserId: actor.actorId, from: range.from, to: range.to, limit: 200 }),
   ]);
   const mine = stats[actor.actorId] ?? { created: 0, completed: 0, missedNow: 0 };
   return { range, metrics: toMetrics(rows[0]), followUps: { created: mine.created, completed: mine.completed, missed: mine.missedNow }, recent };
@@ -318,4 +318,38 @@ export async function getEmployeeInsights(repos: LeadRepositories, staff: StaffR
 export async function getCallActivity(repos: LeadRepositories, actor: LeadActor, filters: Pick<InsightFilters, "range" | "employeeId" | "sourceType" | "statuses" | "connected" | "disposition">, limit = 50): Promise<CallWithLead[]> {
   assertFounder(actor);
   return repos.calls.listRecent({ from: filters.range.from, to: filters.range.to, staffUserId: filters.employeeId, sourceType: filters.sourceType, statuses: filters.statuses, connected: filters.connected, disposition: filters.disposition, limit });
+}
+
+// --- Call history filters (the same rules for the employee's own list and the Founder's) ---------
+
+export const CALL_OUTCOME_FILTERS = ["all", "connected", "dialed", "not_connected", "callback"] as const;
+export type CallOutcomeFilter = (typeof CALL_OUTCOME_FILTERS)[number];
+
+export const CALL_OUTCOME_LABEL: Record<CallOutcomeFilter, string> = { all: "All calls", connected: "Connected", dialed: "Dialed", not_connected: "Not connected", callback: "Callback" };
+
+export function parseCallOutcomeFilter(value: string | string[] | undefined): CallOutcomeFilter {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return (CALL_OUTCOME_FILTERS as readonly string[]).includes(raw ?? "") ? (raw as CallOutcomeFilter) : "all";
+}
+
+/**
+ * Pure and exact. CONNECTED is the server's >10 s classification; DIALED is a finished call of 10 s or less; NOT CONNECTED is a call
+ * the network or the buyer ended without an answer (no answer, busy, rejected, failed, switched off, invalid number); CALLBACK is
+ * a call whose outcome asked for one. A call can be both Dialed and Not connected: the filters are views, not a partition.
+ */
+export function matchesCallFilter(item: CallWithLead, filter: CallOutcomeFilter, source?: LeadSourceType): boolean {
+  if (source && item.lead.sourceType !== source) return false;
+  const { call } = item;
+  switch (filter) {
+    case "all":
+      return true;
+    case "connected":
+      return call.classification === "CONNECTED";
+    case "dialed":
+      return call.classification === "DIALED";
+    case "not_connected":
+      return ["NO_ANSWER", "BUSY", "REJECTED", "FAILED"].includes(call.status) || ["NO_ANSWER", "BUSY", "SWITCHED_OFF", "INVALID_NUMBER"].includes(call.disposition ?? "");
+    case "callback":
+      return call.disposition === "CALLBACK_REQUESTED" || call.disposition === "FOLLOW_UP_REQUIRED";
+  }
 }

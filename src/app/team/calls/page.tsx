@@ -2,8 +2,10 @@ import Link from "next/link";
 import { requireEmployee } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { CallMetricTiles } from "@/components/leads/call-metrics";
+import { CallFilterBar } from "@/components/leads/call-filter-bar";
+import { LiveRefresh } from "@/components/live-refresh";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
-import { formatCallDuration, getMyCallDashboard } from "@/lib/leads/call-analytics";
+import { CALL_OUTCOME_LABEL, formatCallDuration, getMyCallDashboard, matchesCallFilter, parseCallOutcomeFilter } from "@/lib/leads/call-analytics";
 import { describeCall } from "@/lib/leads/call-view";
 import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
 import { getTelephonyProvider } from "@/lib/leads/telephony";
@@ -30,18 +32,17 @@ export default async function TeamCallsPage({ searchParams }: PageProps<"/team/c
   const params = await searchParams;
   const dashboard = await getMyCallDashboard(createPostgresLeadRepositories(), actor, new Date(), { range: first(params.range), from: first(params.from), to: first(params.to) });
   const dialer = getTelephonyProvider();
+  const rangeKey = RANGES.find((r) => r.label === dashboard.range.label)?.key ?? "today";
+  const outcome = parseCallOutcomeFilter(params.outcome);
+  const source = first(params.source) === "COLD_CALL" || first(params.source) === "DIGITAL" ? (first(params.source) as "COLD_CALL" | "DIGITAL") : "";
+  const calls = dashboard.recent.filter((item) => matchesCallFilter(item, outcome, source || undefined));
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title={`My calls — ${dashboard.range.label}`} description="Real call records. Connected means more than 10 seconds of talk time; 10 seconds or less is Dialed. You cannot edit these numbers." />
 
-      <nav aria-label="Range" className="mb-3 flex flex-wrap gap-2">
-        {RANGES.map((r) => (
-          <Link key={r.key} href={`/team/calls?range=${r.key}`} aria-current={dashboard.range.label === r.label ? "page" : undefined} className="inline-flex min-h-11 items-center rounded-full border border-border px-4 text-sm text-foreground hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:font-medium">
-            {r.label}
-          </Link>
-        ))}
-      </nav>
+      <CallFilterBar basePath="/team/calls" state={{ range: rangeKey, outcome, source }} />
 
       {!dialer.configured && (
         <p role="status" className="mb-4 rounded-md border border-border bg-muted px-3 py-3 text-sm text-foreground">
@@ -51,14 +52,16 @@ export default async function TeamCallsPage({ searchParams }: PageProps<"/team/c
 
       <CallMetricTiles metrics={dashboard.metrics} followUps={dashboard.followUps} />
 
-      <h2 className="mt-6 text-sm font-medium text-foreground">Recent calls</h2>
-      {dashboard.recent.length === 0 ? (
+      <h2 className="mt-6 text-sm font-medium text-foreground">
+        {CALL_OUTCOME_LABEL[outcome]} · {calls.length}
+      </h2>
+      {calls.length === 0 ? (
         <div className="mt-3">
           <EmptyState title="No calls in this range" description="Calls you make from the Android app appear here as soon as the app reports them." />
         </div>
       ) : (
         <ul className="mt-3 space-y-2">
-          {dashboard.recent.map(({ call, lead }) => (
+          {calls.slice(0, 100).map(({ call, lead }) => (
             <li key={call.id}>
               <Link href={`/team/leads/${lead.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border px-3 py-2 hover:bg-muted">
                 <span className="min-w-0">

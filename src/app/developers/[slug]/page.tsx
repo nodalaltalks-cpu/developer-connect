@@ -7,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { ConnectWithDeveloperButton } from "@/components/connect-with-developer-button";
+import { AdvisorPageContext, AdvisorTrigger } from "@/components/advisor/advisor";
 import { DeveloperPageViewTracker } from "@/components/developer-page-view-tracker";
 import { ShareDeveloper } from "@/components/share-developer";
 import { ReportInaccurateInfo } from "@/components/report-inaccurate-info";
@@ -154,6 +155,7 @@ export default async function DeveloperPage({
   return (
     <div className="flex flex-1 flex-col">
       <DeveloperPageViewTracker developerId={developer.id} referrerQuery={referrerQuery} />
+      <AdvisorPageContext developer={developer.displayName} location={developer.city} />
       {developer.officialWebsite && (
         <script
           type="application/ld+json"
@@ -207,7 +209,10 @@ export default async function DeveloperPage({
                   Researching {developer.displayName}? When you are ready, tell Developer Connects what you need and a property specialist will
                   get in touch.
                 </p>
-                <div className="mt-5">
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <AdvisorTrigger tone="navy" className="w-full sm:w-auto">
+                    Want a second opinion? Talk to an Advisor
+                  </AdvisorTrigger>
                   <ConnectWithDeveloperButton
                     developerId={developer.id}
                     developerName={developer.displayName}

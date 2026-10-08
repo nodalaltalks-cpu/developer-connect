@@ -18,6 +18,7 @@ export const NAV_ITEMS = [
   { href: "/admin/finance", label: "Finance" },
   { href: "/admin/spend", label: "Marketing spend" },
   { href: "/admin/campaigns", label: "Campaigns" },
+  { href: "/admin/testimonials", label: "Testimonials" },
   { href: "/admin/sales-automation", label: "Sales automation" },
   { href: "/admin/projects", label: "Projects" },
   { href: "/admin/site-visits", label: "Site visits" },

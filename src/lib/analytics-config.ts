@@ -5,7 +5,7 @@
  */
 
 /** Private or signed-in areas that must never send page views to Google Analytics. */
-const EXCLUDED_PATH_PREFIXES = ["/admin", "/profile", "/post-sign-in"] as const;
+const EXCLUDED_PATH_PREFIXES = ["/admin", "/profile", "/post-sign-in", "/testimonial"] as const;
 
 /**
  * True for /admin, /profile and /post-sign-in and everything beneath them.

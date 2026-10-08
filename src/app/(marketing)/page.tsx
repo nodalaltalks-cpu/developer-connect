@@ -11,6 +11,7 @@ import { HeroMarketProvider, HeroMarketToggle } from "@/components/hero-market";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { FeaturedDevelopers, type FeaturedCard } from "@/components/featured-developers";
 import { FounderSection } from "@/components/founder-section";
+import { PublishedTestimonials } from "@/components/published-testimonials";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { ContinueResearch } from "@/components/continue-research";
 import { BuyerJourney } from "@/components/buyer-journey";
@@ -183,6 +184,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             </div>
           </Container>
         </section>
+
+        <PublishedTestimonials />
 
         {/* CLOSE */}
         <Container className="py-16 sm:py-24">

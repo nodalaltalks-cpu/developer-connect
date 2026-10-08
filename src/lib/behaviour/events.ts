@@ -39,7 +39,7 @@ export type CtaId = (typeof CTA_IDS)[number];
 export const MAX_BATCH_EVENTS = 20;
 export const MAX_BODY_BYTES = 8 * 1024;
 const MAX_ENGAGED_SECONDS = 1800; // 30 minutes: a longer "engaged" time is a forgotten tab, not interest
-const PRIVATE_PREFIXES = ["/admin", "/profile", "/post-sign-in", "/team", "/api", "/sign-in", "/sign-up"] as const;
+const PRIVATE_PREFIXES = ["/admin", "/profile", "/post-sign-in", "/team", "/api", "/sign-in", "/sign-up", "/testimonial"] as const;
 
 export interface RawClientEvent {
   name?: unknown;

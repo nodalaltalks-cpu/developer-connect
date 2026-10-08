@@ -1423,3 +1423,80 @@ export const automationActions = pgTable(
     check("automation_actions_status_ck", sql`${table.status} in ('PENDING', 'DONE', 'FAILED', 'SKIPPED')`),
   ],
 );
+
+// ---------------------------------------------------------------------------------------------------------------
+// TESTIMONIALS: a consent-first workflow. Only a PUBLISHED, non-illustrative, permission-granted row is ever shown publicly.
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * One testimonial, from the request that asks for it to the words that are published. Status moves forward only along the
+ * allowed transitions (see lib/testimonials): DRAFT -> SENT -> RECEIVED -> PENDING_APPROVAL -> APPROVED -> PUBLISHED -> ARCHIVED
+ * (a Founder may also REJECT a received one). The buyer's text is stored exactly as written.
+ *
+ * `is_illustrative` rows are INTERNAL TEMPLATES ("ILLUSTRATIVE DRAFT - REQUIRES REAL CUSTOMER REPLACEMENT"). A database check
+ * makes it impossible for one to be APPROVED or PUBLISHED, however it is written. No phone or email is ever stored here: the
+ * request link is shared by the Founder through their own WhatsApp or email.
+ *
+ * `request_token_hash` is the SHA-256 of the secret in the buyer's link; the secret itself is shown once and never stored.
+ */
+export const testimonials = pgTable(
+  "testimonials",
+  {
+    id: uuid("id").primaryKey(),
+    status: text("status").notNull().default("DRAFT"),
+    isIllustrative: boolean("is_illustrative").notNull().default(false),
+    scenario: text("scenario"),
+    requestTokenHash: text("request_token_hash"),
+    requestedVia: text("requested_via"),
+    authorName: text("author_name"),
+    displayMode: text("display_mode").notNull().default("FIRST_NAME_LAST_INITIAL"),
+    city: text("city"),
+    country: text("country"),
+    helpedWith: text("helped_with"),
+    experience: text("experience"),
+    project: text("project"),
+    rating: smallint("rating"),
+    permissionPublish: boolean("permission_publish").notNull().default(false),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "restrict" }),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: text("approved_by"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    rejectReason: text("reject_reason"),
+  },
+  (table) => [
+    uniqueIndex("testimonials_token_hash_key").on(table.requestTokenHash),
+    index("testimonials_status_idx").on(table.status, table.createdAt),
+    check("testimonials_status_ck", sql`${table.status} in ('DRAFT', 'SENT', 'RECEIVED', 'PENDING_APPROVAL', 'APPROVED', 'PUBLISHED', 'ARCHIVED', 'REJECTED')`),
+    check("testimonials_display_ck", sql`${table.displayMode} in ('FULL_NAME', 'FIRST_NAME_LAST_INITIAL', 'FIRST_NAME_ONLY', 'ANONYMOUS')`),
+    check("testimonials_rating_ck", sql`${table.rating} is null or (${table.rating} between 1 and 5)`),
+    check("testimonials_via_ck", sql`${table.requestedVia} is null or ${table.requestedVia} in ('WHATSAPP', 'EMAIL', 'LINK')`),
+    // The guard that cannot be forgotten: an illustrative template can never become public, and nothing is public without consent.
+    check("testimonials_illustrative_never_public_ck", sql`not (${table.isIllustrative} and ${table.status} in ('APPROVED', 'PUBLISHED'))`),
+    check("testimonials_published_consent_ck", sql`${table.status} <> 'PUBLISHED' or (${table.permissionPublish} and ${table.approvedAt} is not null and ${table.experience} is not null)`),
+    check("testimonials_text_len_ck", sql`char_length(coalesce(${table.experience}, '')) <= 2000 and char_length(coalesce(${table.helpedWith}, '')) <= 500 and char_length(coalesce(${table.authorName}, '')) <= 120`),
+  ],
+);
+
+/** Append-only audit trail of everything done to a testimonial (a trigger refuses updates and deletes). */
+export const testimonialEvents = pgTable(
+  "testimonial_events",
+  {
+    id: uuid("id").primaryKey(),
+    testimonialId: uuid("testimonial_id")
+      .notNull()
+      .references(() => testimonials.id, { onDelete: "restrict" }),
+    eventType: text("event_type").notNull(),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status"),
+    actor: text("actor").notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("testimonial_events_testimonial_idx").on(table.testimonialId, table.createdAt)],
+);

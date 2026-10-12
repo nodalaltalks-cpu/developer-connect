@@ -24,7 +24,8 @@ export default async function NewColdCallLeadPage({ searchParams }: PageProps<"/
     <div>
       <SectionHeading title="New cold call lead" description="Record what you learned on the call. It is saved to your leads as a Cold Call lead." />
       <ColdCallForm initialPhone={carried.ok ? carried.e164 : ""} />
-      <p className="mt-6 text-center text-sm">
+      {/* The Save bar is fixed to the bottom on phones (and grows with a hint or error), so keep this link clear of it. */}
+      <p className="mt-2 pb-48 text-center text-sm sm:mt-6 sm:pb-0">
         <Link href="/team/dial" className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
           ← Back to the dial pad
         </Link>

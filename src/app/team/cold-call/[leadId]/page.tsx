@@ -27,7 +27,8 @@ export default async function ColdCallDetailsPage({ params }: PageProps<"/team/c
     <div>
       <SectionHeading title="Call details" description="Add what you learned on the call. Everything is saved to this lead's history together." />
       <ColdCallForm leadId={lead.id} phoneLast4={lead.phoneE164 ? lead.phoneE164.slice(-4) : null} initialName={lead.name} initialEmail={lead.email} />
-      <p className="mt-6 text-center text-sm">
+      {/* The Save bar is fixed to the bottom on phones (and grows with a hint or error), so keep this link clear of it. */}
+      <p className="mt-2 pb-48 text-center text-sm sm:mt-6 sm:pb-0">
         <Link href={`/team/leads/${lead.id}`} className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
           ← Back to the lead
         </Link>

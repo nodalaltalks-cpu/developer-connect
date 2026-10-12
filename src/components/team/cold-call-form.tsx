@@ -204,7 +204,7 @@ export function ColdCallForm({ leadId, phoneLast4, initialPhone = "", initialNam
   }
 
   return (
-    <div className="mx-auto max-w-md pb-32">
+    <div className="mx-auto max-w-md">
       {duplicate && (
         <div role="alert" className="mb-3 rounded-lg border border-border bg-muted p-4 text-sm text-foreground">
           {duplicate.reason === "EXISTS_YOURS" ? (

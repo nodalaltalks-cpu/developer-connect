@@ -24,8 +24,8 @@ export const LEGAL_CONFIG = {
    * changing that later is a one-line edit here, not a rewrite of four
    * pages.
    */
-  contactEmail: "nodalaltalks02@gmail.com",
-  privacyEmail: "nodalaltalks02@gmail.com",
+  contactEmail: "developerconnects02@gmail.com",
+  privacyEmail: "developerconnects02@gmail.com",
   /**
    * Update this single constant whenever any of the four legal pages'
    * substance changes — every page reads it, so there is no risk of one

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FEATURED_DEVELOPERS, FEATURED_SELECTION_NOTE, featuredFor } from "../featured-developers.ts";
-import { FOUNDER, FOUNDER_STORIES, pickFounderStory } from "../founder.ts";
+import { FOUNDER, FOUNDER_EXPERIENCE, FOUNDER_STORIES, pickFounderStory } from "../founder.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = (relative: string) => readFileSync(path.resolve(here, "../../..", relative), "utf8");
@@ -54,35 +54,34 @@ test("featured developers: the homepage shows a developer only if it is an ACTIV
   assert.match(card, /href=\{`\/developers\/\$\{card\.slug\}`\}/);
 });
 
-test("founder: the authorised claims are worded exactly, framed as personal experience, and never read as platform statistics", () => {
+test("founder: the credibility claims are worded as the founder gave them, shown as rolling numbers, with no platform-statistics disclaimer line", () => {
   assert.equal(FOUNDER.name, "Ambish Singh");
   assert.equal(FOUNDER.linkedinUrl, "https://www.linkedin.com/in/ambishsingh");
   assert.deepEqual([...FOUNDER.facts], [
-    "Second-generation real estate entrepreneur.",
-    "10+ years of personal experience in the Mumbai market.",
+    "First-generation real estate entrepreneur.",
+    "6+ years of hardcore real estate strategy and investment experience.",
     "Worked at Square Yards for 4 years.",
-    "Built relationships across a network of 10,000+ developers.",
-    "Personally contributed to ₹300 Cr+ in property transactions during a real estate career.",
-    "MBA completed in Dubai.",
+    "MBA in Strategy from Symbiosis International University, Dubai.",
   ]);
-  const [generation, experience, employer, network, transacted, mba] = FOUNDER.facts;
-  assert.equal(generation, "Second-generation real estate entrepreneur.");
-  // Square Yards is named only for what was stated: a four-year employment. It is never tied to the transaction figure or to platform numbers.
-  assert.equal(employer, "Worked at Square Yards for 4 years.");
-  assert.ok(!/square yards/i.test(`${network} ${transacted} ${mba}`), "the employer is not attached to any figure");
-  // The network is a relationship claim: nothing that says developers are listed, active, verified or on the platform.
-  assert.ok(!/listed|active|verified|platform|on developer connects|our developers|we /i.test(network));
-  // The transaction figure is personal and historical: never revenue, volume, GMV, "we" or the company.
-  assert.match(transacted, /^Personally contributed to/);
-  assert.ok(!/revenue|volume|gmv|turnover|\bwe\b|\bour\b|developer connects/i.test(transacted));
-  // The MBA is stated as given: no institution, specialisation, date or distinction was supplied, so none is added.
-  assert.equal(mba, "MBA completed in Dubai.");
-  assert.ok(!/university|college|school|institute|specialis|distinction|honou?rs|cum laude|batch|\b20\d\d\b/i.test(mba));
-  assert.equal(experience, "10+ years of personal experience in the Mumbai market.");
-  assert.match(FOUNDER.context, /not Developer Connects platform statistics/);
+  assert.equal(FOUNDER.education, "MBA Strategy \u00b7 Symbiosis International University, Dubai");
+  const [transacted, years, network] = FOUNDER.stats;
+  assert.deepEqual({ value: transacted.value, prefix: transacted.prefix, suffix: transacted.suffix }, { value: 300, prefix: "\u20b9", suffix: " Cr+" });
+  assert.match(transacted.label, /property transactions successfully executed/);
+  assert.equal(transacted.note, "Still counting");
+  assert.deepEqual({ value: years.value, suffix: years.suffix }, { value: 6, suffix: "+" });
+  assert.deepEqual({ value: network.value, suffix: network.suffix }, { value: 10000, suffix: "+" });
+  // Square Yards is named only for what was stated: a four-year employment, never tied to a figure.
+  assert.ok(!FOUNDER.stats.some((stat) => /square yards/i.test(stat.label)), "the employer is not attached to any figure");
+  // The developer-network figure is a relationship claim: nothing that says developers are listed or verified on the platform.
+  assert.ok(!/listed|active|verified|on developer connects|our developers/i.test(network.label));
+  assert.ok(!("context" in FOUNDER), "the 'not platform statistics' line is gone");
+  assert.equal(FOUNDER_EXPERIENCE, "6+ years of hardcore real estate strategy and investment experience.");
   const section = read("src/components/founder-section.tsx");
   assert.match(section, /FOUNDER\.facts\.map/);
-  assert.match(section, /\{FOUNDER\.context\}/, "the framing sits right beside the facts");
+  assert.match(section, /FOUNDER\.stats\.map/);
+  assert.match(section, /useCountUp/, "the headline numbers roll up like the homepage stats");
+  assert.match(section, /FOUNDER\.education/);
+  assert.ok(!/platform statistics/i.test(section), "the disclaimer line is not shown");
   assert.ok(!/follower|connections/i.test(section));
   assert.ok(!/Harvard|Stanford|Wharton|Oxford/i.test(read("src/lib/founder.ts") + section), "no borrowed institutions");
 });

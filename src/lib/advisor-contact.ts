@@ -14,7 +14,7 @@ export const ADVISOR_NAME = "Ambish";
 export const ADVISOR_CONTACT = {
   india: { market: "mumbai", label: "India", display: "+91 98337 50932", e164: "+919833750932", whatsappDigits: "919833750932" },
   uae: { market: "dubai", label: "UAE", display: "+971 50 890 2817", e164: "+971508902817", whatsappDigits: "971508902817" },
-  email: "nodalaltalks@gmail.com",
+  email: "developerconnects02@gmail.com",
   emailSubject: "Property Consultation — Developer Connects",
 } as const;
 

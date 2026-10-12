@@ -22,6 +22,7 @@ import { getPublicDeveloperBySlug } from "@/lib/developer-connect/search-service
 import { getRecentlyViewedDevelopers } from "@/lib/developer-connect/recently-viewed";
 import { readSessionId } from "@/lib/session";
 import { buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
+import { SocialVideoSection } from "@/components/social/social-video-section";
 
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -187,13 +188,19 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
         <PublishedTestimonials />
 
+        {/* WATCH: the Founder's best videos, vertical and horizontal, each opening the post on Instagram */}
+        <SocialVideoSection />
+
         {/* CLOSE */}
         <Container className="py-16 sm:py-24">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-serif text-3xl font-medium leading-tight tracking-tight text-foreground sm:text-4xl">Have a property in mind?</h2>
-            <p className="mt-3 text-base text-muted-foreground">Ask Ambish. No form, no pressure.</p>
-            <div className="mt-8 flex justify-center">
+            <p className="mt-3 text-base text-muted-foreground">Ask Ambish directly, or tap your requirements. No pressure.</p>
+            <div className="mt-8 flex flex-col items-center gap-3">
               <AdvisorTrigger tone="navy">Talk to an Advisor</AdvisorTrigger>
+              <Link href="/enquire" className="inline-flex min-h-11 items-center text-sm font-semibold text-accent-hover hover:underline">
+                Or just tap your requirements in 60 seconds →
+              </Link>
             </div>
             <ul className="mt-10 flex flex-wrap justify-center gap-x-6 text-sm">
               {guides.map((market) => (

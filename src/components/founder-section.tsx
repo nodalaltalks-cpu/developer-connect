@@ -2,17 +2,39 @@
 
 import { useEffect, useState } from "react";
 import { useHeroMarket } from "@/components/hero-market";
-import { FOUNDER, FOUNDER_STORIES, pickFounderStory, type FounderStory } from "@/lib/founder";
+import { useCountUp } from "@/components/stat-counter";
+import { FOUNDER, FOUNDER_STORIES, pickFounderStory, type FounderStat, type FounderStory } from "@/lib/founder";
 
 /**
- * The founder, briefly and plainly: who, what experience, how to reach them. Only what lib/founder.ts contains is shown; a claim
- * that has not been substantiated is simply absent. There is no portrait because none has been supplied (a monogram is not a photo,
+ * The founder, built for credibility: the headline numbers large and rolling up, then the supporting facts and qualification.
+ * Only what lib/founder.ts contains is shown; a claim that has not been supplied by the founder is simply absent. There is no portrait because none has been supplied (a monogram is not a photo,
  * and we do not use stock images of a real person).
  *
  * The short story rotates between APPROVED entries by visit number (kept in the visitor's own browser). It is never rewritten.
  */
 
 const VISIT_KEY = "dc_visit_count";
+
+/** One headline number: bold, rolling up once when it scrolls into view, landing on exactly the stated value. */
+function FounderStatTile({ stat }: { stat: FounderStat }) {
+  const { ref, display } = useCountUp(stat.value);
+  return (
+    <div ref={ref as React.RefObject<HTMLDivElement>} className="rounded-2xl border border-border bg-background px-4 py-5 shadow-sm">
+      <p className="font-serif text-4xl font-extrabold leading-none tracking-tight text-foreground sm:text-5xl">
+        {stat.prefix}
+        {display.toLocaleString("en-IN")}
+        <span>{stat.suffix}</span>
+      </p>
+      <p className="mt-2 text-sm font-medium leading-5 text-foreground/80">{stat.label}</p>
+      {stat.note && (
+        <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-red-700">
+          <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-red-600" />
+          {stat.note}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function FounderSection() {
   const { market } = useHeroMarket();
@@ -41,6 +63,7 @@ export function FounderSection() {
           <div>
             <p className="font-serif text-xl font-medium text-foreground">{FOUNDER.name}</p>
             <p className="text-sm text-muted-foreground">{FOUNDER.role}</p>
+            <p className="mt-2 inline-block rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-hover">{FOUNDER.education}</p>
           </div>
         </div>
         <div>
@@ -49,6 +72,11 @@ export function FounderSection() {
             {story.title}
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-foreground/85">{story.body}</p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3" aria-label="Experience in numbers">
+            {FOUNDER.stats.map((stat) => (
+              <FounderStatTile key={stat.label} stat={stat} />
+            ))}
+          </div>
           <ul className="mt-6 divide-y divide-border border-y border-border">
             {FOUNDER.facts.map((fact) => (
               <li key={fact} className="py-3 text-base leading-7 text-foreground">
@@ -56,7 +84,6 @@ export function FounderSection() {
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">{FOUNDER.context}</p>
           <a
             href={FOUNDER.linkedinUrl}
             target="_blank"

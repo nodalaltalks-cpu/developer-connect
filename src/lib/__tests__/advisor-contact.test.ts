@@ -15,7 +15,7 @@ test("advisor contact: the approved numbers open the right WhatsApp chat and the
 
 test("advisor contact: the email goes to the integration address with the agreed subject", () => {
   const href = mailtoHref({ region: "india" });
-  assert.ok(href.startsWith("mailto:nodalaltalks@gmail.com?subject="));
+  assert.ok(href.startsWith("mailto:developerconnects02@gmail.com?subject="));
   assert.ok(href.includes(encodeURIComponent("Property Consultation — Developer Connects")));
   assert.ok(!href.includes("ambishsingh223"), "the founder's personal address is not used");
   assert.match(decodeURIComponent(href), /Budget: \nRequirement: /);

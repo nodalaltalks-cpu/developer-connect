@@ -1,37 +1,48 @@
 import type { Market } from "./hero-market.ts";
 
 /**
- * Everything the public site says about the founder, in one reviewed place. Every line here is a statement of the founder's
- * PROFESSIONAL EXPERIENCE, authorised by the founder, and each is worded so that it cannot be read as a Developer Connects
- * statistic:
+ * Everything the public site says about the founder, in one reviewed place. Every line is the founder's own statement about their
+ * professional experience, authorised by the founder. The aim of the founder section is CREDIBILITY, so the headline figures are
+ * shown large and counting up (see `stats`), with the supporting facts beneath them.
  *
- *  - developerNetwork: relationships the founder built over a career. It is NOT a count of developers listed, active or verified on
- *    this platform (the directory is a different, smaller number) and must never sit next to one.
- *  - transactedValue: property value the founder personally contributed to over a real estate career. It is NOT Developer Connects
- *    revenue, transaction volume or GMV, and the wording never says "revenue", "volume" or "we". The employer (Square Yards, four
- *    years) is its own line and is never attached to this figure, because the figure is not stated to belong to that period alone.
- *  - experience: the founder's own statements, in order: second-generation real estate entrepreneur; 10+ years of personal experience in
- *    the Mumbai market; four years at Square Yards. (An earlier line, "6+ years across India and the UAE", was superseded by these.)
- *  - education: stated as the founder gave it ("MBA completed in Dubai"). No university, specialisation, date or distinction is
- *    added, because none is in the project data.
+ *  - stats: the three headline numbers. "300+ Cr of property transactions successfully executed" is the founder's career figure,
+ *    shown with "still counting". The 10,000+ is relationships the founder built across a developer network over a career; it is
+ *    not a count of developers listed on this platform (the directory is a different, smaller number) and must not sit beside one.
+ *  - facts: first-generation entrepreneur; 6+ years of hardcore real estate strategy and investment experience; four years at
+ *    Square Yards; MBA in Strategy from Symbiosis International University, Dubai.
  *  - linkedinUrl: the founder's real profile. Nothing is scraped from it (no follower count).
  *
  * The first person is deliberately avoided and no pronoun is used, so the lines read the same on every page.
  */
+export interface FounderStat {
+  value: number;
+  /** Shown before the number, e.g. the rupee sign. */
+  prefix?: string;
+  /** Shown after the number, e.g. " Cr+". */
+  suffix: string;
+  label: string;
+  /** A short tag under the label, e.g. "Still counting". */
+  note?: string;
+}
+
 export const FOUNDER = {
   name: "Ambish Singh",
   role: "Founder, Developer Connects",
+  /** The headline numbers, shown large and rolling. */
+  stats: [
+    { value: 300, prefix: "₹", suffix: " Cr+", label: "worth of property transactions successfully executed", note: "Still counting" },
+    { value: 6, suffix: "+", label: "years of hardcore real estate strategy and investment experience" },
+    { value: 10000, suffix: "+", label: "developer relationships across the network" },
+  ] satisfies readonly FounderStat[],
   /** The facts shown on the founder card, in order. Each is a complete, self-contained statement. */
   facts: [
-    "Second-generation real estate entrepreneur.",
-    "10+ years of personal experience in the Mumbai market.",
+    "First-generation real estate entrepreneur.",
+    "6+ years of hardcore real estate strategy and investment experience.",
     "Worked at Square Yards for 4 years.",
-    "Built relationships across a network of 10,000+ developers.",
-    "Personally contributed to ₹300 Cr+ in property transactions during a real estate career.",
-    "MBA completed in Dubai.",
+    "MBA in Strategy from Symbiosis International University, Dubai.",
   ],
-  /** Shown beside the facts so they are never mistaken for platform statistics. */
-  context: "Founder experience, not Developer Connects platform statistics.",
+  /** The qualification as a short badge for the card. */
+  education: "MBA Strategy · Symbiosis International University, Dubai",
   linkedinUrl: "https://www.linkedin.com/in/ambishsingh",
 } as const;
 

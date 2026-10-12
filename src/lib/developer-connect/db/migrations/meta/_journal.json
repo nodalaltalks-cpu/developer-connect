@@ -253,6 +253,13 @@
       "when": 1791829565678,
       "tag": "0035_team_added_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791839725913,
+      "tag": "0036_social_videos_events_enquiries",
+      "breakpoints": true
     }
   ]
 }

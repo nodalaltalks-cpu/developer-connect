@@ -1512,3 +1512,84 @@ export const testimonialEvents = pgTable(
   },
   (table) => [index("testimonial_events_testimonial_idx").on(table.testimonialId, table.createdAt)],
 );
+
+// ---------------------------------------------------------------------------------------------------------------
+// SOCIAL: the videos shown on the landing page, what visitors do with them, and the tap-to-select enquiry form
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * A short or long-form video the Founder chooses to show on the landing page. `mediaUrl` is a muted preview clip that plays on
+ * its own while the visitor looks at it; clicking sends the visitor to `permalinkUrl` (the post on Instagram or the video on
+ * YouTube). Nothing here is fetched from a social network: the Founder adds each item, so what shows is what was chosen.
+ */
+export const socialVideos = pgTable(
+  "social_videos",
+  {
+    id: uuid("id").primaryKey(),
+    title: text("title").notNull(),
+    platform: text("platform").notNull(),
+    orientation: text("orientation").notNull(),
+    permalinkUrl: text("permalink_url").notNull(),
+    mediaUrl: text("media_url"),
+    posterUrl: text("poster_url"),
+    /** The content pillar this belongs to (market update, project walkthrough, investor tip...): what the analytics group by. */
+    topic: text("topic"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("social_videos_order_idx").on(table.active, table.sortOrder),
+    check("social_videos_platform_ck", sql`${table.platform} in ('INSTAGRAM', 'YOUTUBE')`),
+    check("social_videos_orientation_ck", sql`${table.orientation} in ('VERTICAL', 'HORIZONTAL')`),
+  ],
+);
+
+/**
+ * One thing a visitor did on a social surface of the site: saw a video, played it, clicked through to the network, tapped a
+ * link on the links page, started or submitted the enquiry form. Anonymous (a session id only), allow-listed, no free text.
+ */
+export const socialEvents = pgTable(
+  "social_events",
+  {
+    id: uuid("id").primaryKey(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    sessionId: text("session_id").notNull(),
+    kind: text("kind").notNull(),
+    platform: text("platform"),
+    contentId: uuid("content_id"),
+    linkKey: text("link_key"),
+    watchMs: integer("watch_ms"),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    referrerHost: text("referrer_host"),
+    deviceType: text("device_type"),
+  },
+  (table) => [
+    index("social_events_kind_time_idx").on(table.kind, table.occurredAt),
+    index("social_events_content_idx").on(table.contentId),
+    index("social_events_session_idx").on(table.sessionId, table.occurredAt),
+  ],
+);
+
+/**
+ * What a visitor tapped on the enquiry form, in full, kept beside the lead it created. The lead holds the headline requirement
+ * the sales workflow uses; this keeps every answer for the Founder, exactly as given.
+ */
+export const enquirySubmissions = pgTable(
+  "enquiry_submissions",
+  {
+    id: uuid("id").primaryKey(),
+    leadId: uuid("lead_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    answers: jsonb("answers").notNull().default({}),
+    howFound: text("how_found"),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    landingPath: text("landing_path"),
+  },
+  (table) => [index("enquiry_submissions_time_idx").on(table.createdAt), index("enquiry_submissions_lead_idx").on(table.leadId)],
+);

@@ -20,8 +20,8 @@ import type { GateContactPreference } from "./gate-config.ts";
 export interface GateCopy {
   title: string;
   intro: string;
-  /** The transparency statement — who is asking, who is not, and why. */
-  transparency: string;
+  /** What the buyer can rely on, and who Developer Connects is. */
+  buyerPromise: string;
   phoneLabel: string;
   phoneHelp: string;
   countryLabel: string;
@@ -31,8 +31,6 @@ export interface GateCopy {
   preferenceWhatsAppHint: string;
   preferencePhone: string;
   consent: string;
-  /** The commercial relationship, stated where the buyer decides to share details. Same wording as About/Disclaimer/FAQ. */
-  commercialDisclosure: string;
   reassurance: string;
   privacyLinkLabel: string;
   submit: string;
@@ -54,12 +52,20 @@ export interface GateCopy {
 }
 
 /**
- * The approved commercial disclosure (identical to the sentence on the About, Disclaimer and FAQ pages).
- * It states the relationship as it is — no claim about fees, independence or licensing is made or implied.
+ * The commission policy, stated once and used word for word on the Privacy Policy, Disclaimer, FAQ and the buy-direct guides:
+ * 0% on primary (new-launch) sales; on secondary (resale) and rental transactions commission applies as per market standards.
  */
-export const COMMERCIAL_DISCLOSURE =
-  "Developer Connects may receive payment from developers or others in connection with property transactions. " +
-  "This has no effect on how we present any developer.";
+export const COMMISSION_POLICY =
+  "Developer Connects charges 0% commission on primary (new-launch) sales. " +
+  "On secondary (resale) and rental transactions, commission is applicable as per market standards.";
+
+/**
+ * What the buyer can rely on, and who Developer Connects is. The RERA registration number is shown when
+ * NEXT_PUBLIC_RERA_REGISTRATION is set (the number is the Founder's to supply; nothing is invented here).
+ */
+const RERA_NUMBER = (process.env.NEXT_PUBLIC_RERA_REGISTRATION ?? "").trim();
+export const BUYER_PROMISE = "0% commission on primary (new-launch) sales and 0% bias. On secondary (resale) and rental deals, commission is applicable as per market standards. Our guidance is tailored to your needs: your budget, location, configuration and timeline.";
+export const CREDENTIALS_LINE = `Developer Connects is a certified, affiliated channel partner and RERA registered${RERA_NUMBER ? ` (RERA No. ${RERA_NUMBER})` : ""}.`;
 
 export function gateCopy(developerName: string, preference: GateContactPreference = "WHATSAPP"): GateCopy {
   const channelWords = preference === "WHATSAPP" ? "on WhatsApp" : "by phone call";
@@ -67,10 +73,7 @@ export function gateCopy(developerName: string, preference: GateContactPreferenc
     title: `Connect with ${developerName}`,
     intro:
       "You've found the developer you're interested in. Share your details with Developer Connects and we'll help connect you based on your requirement.",
-    transparency:
-      `${developerName} does not require your phone number through this flow. ` +
-      `You're sharing your details with Developer Connects — we are not ${developerName} — so our property team can ` +
-      "help you explore suitable properties, configurations and next steps.",
+    buyerPromise: `${BUYER_PROMISE} ${CREDENTIALS_LINE}`,
     phoneLabel: "Your WhatsApp or phone number",
     phoneHelp: "We'll use this to reach you about your enquiry — nothing else.",
     countryLabel: "Country code",
@@ -80,7 +83,6 @@ export function gateCopy(developerName: string, preference: GateContactPreferenc
     preferenceWhatsAppHint: "Recommended",
     preferencePhone: "Phone call",
     consent: consentTextFor(preference),
-    commercialDisclosure: COMMERCIAL_DISCLOSURE,
     reassurance: "Your details are used to help with your property enquiry. You can choose your preferred contact method.",
     privacyLinkLabel: "Privacy Policy",
     submit: "Request a connection",

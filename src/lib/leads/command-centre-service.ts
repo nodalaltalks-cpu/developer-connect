@@ -110,10 +110,10 @@ export async function getCommandCentre(repos: LeadRepositories, staff: StaffRepo
   }
 
   const sum = <K extends keyof EmployeeInsightRow["contribution"]>(k: K) => insights.rows.reduce((n, r) => n + (r.contribution[k] as number), 0);
-  const names = await repos.leads.developerNames([...new Set(projects.map((p) => p.developerId))]);
+  const names = await repos.leads.developerNames([...new Set(projects.flatMap((p) => (p.developerId ? [p.developerId] : [])))]);
   const bookingsByProject = new Map(report.byProject.map((g) => [g.key, g.counts.bookings]));
   const demand = projects
-    .map((p): ProjectDemand => ({ projectId: p.id, name: p.name, developerName: names[p.developerId] ?? "Unknown developer", shortlisted: shortlisted[p.id] ?? 0, visits: visitsByProject[p.id] ?? 0, bookings: bookingsByProject.get(p.id) ?? 0 }))
+    .map((p): ProjectDemand => ({ projectId: p.id, name: p.name, developerName: (p.developerId ? names[p.developerId] ?? "Unknown developer" : "Added by the team"), shortlisted: shortlisted[p.id] ?? 0, visits: visitsByProject[p.id] ?? 0, bookings: bookingsByProject.get(p.id) ?? 0 }))
     .filter((p) => p.shortlisted + p.visits + p.bookings > 0)
     .sort((a, b) => b.bookings - a.bookings || b.visits - a.visits || b.shortlisted - a.shortlisted)
     .slice(0, 8);

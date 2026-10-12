@@ -3,6 +3,7 @@ import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { NotificationBell } from "@/components/notification-bell";
 import { DeviceCallSync } from "@/components/team/device-call-sync";
+import { AlertsPill } from "@/components/team/alerts-control";
 import { FollowUpAlerts } from "@/components/team/follow-up-alerts";
 import { MissedLock } from "@/components/team/missed-lock";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
@@ -53,6 +54,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
               Founder
             </Link>
           )}
+          <AlertsPill />
           <NotificationBell />
           <UserButton appearance={{ elements: { userButtonTrigger: { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" } } }} />
         </div>

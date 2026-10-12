@@ -12,7 +12,7 @@ import { LeadSourceTabs, parseSourceFilter, sourceTypeOf } from "@/components/ad
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getMyWorkState, type MyWorkItem } from "@/lib/leads/follow-up-reads";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
-import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
+import { formatDateTimeWithDay, formatEnumLabel } from "@/lib/leads/format";
 import { getMyLeadsPage, MY_LEAD_VIEWS, type MyLeadView } from "@/lib/leads/lead-reads";
 import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
 
@@ -48,7 +48,7 @@ function DueRow({ item }: { item: MyWorkItem }) {
       <Link href={`/team/leads/${item.lead.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border px-3 py-2 hover:bg-muted">
         <span className="min-w-0 truncate text-sm font-medium text-foreground">{item.lead.name ?? "Unnamed lead"}</span>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {formatEnumLabel(item.followUp.type)} · {formatDateTimeFull(item.followUp.scheduledAt)}
+          {formatEnumLabel(item.followUp.type)} · {formatDateTimeWithDay(item.followUp.scheduledAt)}
         </span>
       </Link>
     </li>

@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 const FIELD = "min-h-11 w-full rounded-md border border-border bg-background px-3 text-base text-foreground";
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
-const RANGE_LABEL: Record<(typeof RANGE_PRESETS)[number], string> = { today: "Today", yesterday: "Yesterday", last7: "Last 7 days", last30: "Last 30 days", custom: "Custom range" };
+const RANGE_LABEL: Record<(typeof RANGE_PRESETS)[number], string> = { today: "Today", yesterday: "Yesterday", last7: "Last 7 days", last30: "Last 30 days", all: "Since the start", custom: "Custom range" };
 
 export default async function EmployeeInsightsPage({ searchParams }: PageProps<"/admin/employee-insights">) {
   // The layout also gates /admin, but a layout is not re-run on every client navigation.

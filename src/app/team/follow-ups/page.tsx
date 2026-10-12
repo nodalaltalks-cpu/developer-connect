@@ -7,7 +7,7 @@ import { FollowUpQuickActions } from "@/components/team/follow-up-quick-actions"
 import { TeamCallButton } from "@/components/team/team-call-button";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { whatsappHref } from "@/lib/leads/contact-links";
-import { formatDateTimeFull, formatDuration, formatEnumLabel, formatOverdue } from "@/lib/leads/format";
+import { formatDateTimeWithDay, formatDuration, formatEnumLabel, formatOverdue } from "@/lib/leads/format";
 import { FOLLOW_UP_TABS, getMyFollowUpBoard, parseFollowUpTab, type FollowUpTab } from "@/lib/leads/follow-up-board";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
 import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
@@ -90,7 +90,7 @@ export default async function TeamFollowUpsPage({ searchParams }: PageProps<"/te
                   <TemperatureBadge temperature={lead.temperature} />
                 </div>
                 <p className="mt-1 text-sm text-foreground">
-                  {formatEnumLabel(followUp.type)} · {formatDateTimeFull(followUp.scheduledAt)}
+                  {formatEnumLabel(followUp.type)} · {formatDateTimeWithDay(followUp.scheduledAt)}
                 </p>
                 {late && <p className="text-sm font-medium text-red-700">Late by {formatOverdue(now.getTime() - followUp.scheduledAt.getTime())}</p>}
                 {followUp.note && <p className="mt-1 text-sm text-muted-foreground">{followUp.note}</p>}

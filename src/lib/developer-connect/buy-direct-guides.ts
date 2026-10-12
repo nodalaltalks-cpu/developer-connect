@@ -12,6 +12,7 @@
  * check — no fees, percentages or legal advice that could go stale or be
  * wrong. Pure data + pure functions, no framework imports.
  */
+import { COMMISSION_POLICY } from "../leads/gate/gate-copy.ts";
 import { resolveLocationPage, type LocationPage } from "./location-pages.ts";
 
 export const BUY_DIRECT_PATH = "/buy-direct-from-developer";
@@ -300,7 +301,7 @@ export function buyDirectFaq(market?: BuyDirectMarket | null): FaqItem[] {
     {
       question: "Does Developer Connects sell property? How does it earn money?",
       answer:
-        "Developer Connects does not sell property — developers do. We offer optional property advisory. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on how we present any developer.",
+        "Developer Connects does not sell property — developers do. We offer optional property advisory. " + COMMISSION_POLICY,
     },
   ];
 }

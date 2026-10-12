@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AssistanceGateView, type AssistanceGateViewProps } from "../assistance-gate-view.tsx";
-import { COMMERCIAL_DISCLOSURE, gateCopy } from "../../lib/leads/gate/gate-copy.ts";
+import { BUYER_PROMISE, CREDENTIALS_LINE, gateCopy } from "../../lib/leads/gate/gate-copy.ts";
 import { gatePreference, gateReducer, initialGateState, type GateAction, type GateState } from "../../lib/leads/gate/gate-flow.ts";
 
 /**
@@ -48,14 +48,13 @@ const STATES = {
 // GATE RENDERING — the form
 // =================================================================================================
 
-test("render: the form states the purpose, the transparency note and the developer's name", () => {
+test("render: the form states the purpose and the developer's name, with no 'does not require your phone number' block", () => {
   const out = html(STATES.form);
   assert.match(out, /Connect with Acme Realty/);
   assert.match(out, /You&#x27;ve found the developer you&#x27;re interested in/);
   assert.match(out, /Share your details with Developer Connects and we&#x27;ll help connect you based on your requirement/);
-  assert.match(out, /Acme Realty does not require your phone number through this flow/);
-  assert.match(out, /we are not Acme Realty/);
-  assert.match(out, /You&#x27;re sharing your details with Developer Connects/);
+  assert.doesNotMatch(out, /does not require your phone number/);
+  assert.doesNotMatch(out, /we are not Acme Realty/);
   assert.match(out, /Your request goes to the Developer Connects advisory team for Acme Realty\./);
 });
 
@@ -140,9 +139,9 @@ test("render: a returning buyer sees a masked number, one-tap continue and 'use 
   assert.doesNotMatch(out, /Continue to official website/);
 });
 
-test("render: the returning card still shows the transparency note and the consent wording (it is a fresh affirmative act)", () => {
+test("render: the returning card shows the consent wording (it is a fresh affirmative act) and no transparency block", () => {
   const out = html(STATES.returning);
-  assert.match(out, /Acme Realty does not require your phone number/);
+  assert.doesNotMatch(out, /does not require your phone number/);
   assert.match(out, /I agree that Developer Connects may contact me on WhatsApp/);
 });
 
@@ -363,35 +362,21 @@ test("privacy: no state's markup ever contains a full phone number it was not gi
 
 const decode = (markup: string) => markup.replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
 
-test("disclosure: the approved commercial sentence is shown beside the consent in every state that asks the buyer to share details", () => {
+test("promise: every state that asks for details shows the no-cost promise and the credentials, and says nothing about how Developer Connects is paid", () => {
   for (const key of ["form", "formTyped", "submitting", "failure", "returning", "returningSubmitting"] as const) {
     const out = decode(html(STATES[key]));
-    assert.ok(out.includes(COMMERCIAL_DISCLOSURE), `${key}: the disclosure is shown`);
-    assert.equal(out.split(COMMERCIAL_DISCLOSURE).length - 1, 1, `${key}: shown exactly once`);
+    assert.ok(out.includes(BUYER_PROMISE), `${key}: the promise is shown`);
+    assert.ok(out.includes(CREDENTIALS_LINE), `${key}: the credentials are shown`);
+    assert.doesNotMatch(out, /receive payment|paid by|their own margin/i, `${key}: no payment-source wording`);
   }
 });
 
-test("disclosure: it is not shown while loading or after success (nothing is being asked of the buyer)", () => {
-  assert.ok(!decode(html(STATES.loading)).includes(COMMERCIAL_DISCLOSURE));
-});
-
-test("disclosure: it sits with the consent text in the scrolling area, and the pinned button footer is unchanged", () => {
+test("promise: it is not shown while loading, and the pinned button footer is unchanged", () => {
+  assert.ok(!decode(html(STATES.loading)).includes(BUYER_PROMISE));
   const out = decode(html(STATES.form));
   const footerStart = out.search(/<div class="[^"]*sticky[^"]*">/);
   assert.ok(footerStart !== -1, "the sticky footer still exists");
-  assert.ok(out.indexOf(COMMERCIAL_DISCLOSURE) < footerStart, "the disclosure is above the pinned footer, so it never hides behind it");
   const footer = out.slice(footerStart, out.indexOf("</div>", footerStart));
-  assert.ok(!footer.includes(COMMERCIAL_DISCLOSURE), "the footer holds only the button and its hint");
+  assert.ok(!footer.includes(BUYER_PROMISE), "the footer holds only the button and its hint");
   assert.match(footer, /<button type="submit" form="assistance-gate-form"/);
-  // Consent comes first, then the disclosure.
-  assert.ok(out.indexOf(gateCopy(DEV, "WHATSAPP").consent.slice(0, 30)) < out.indexOf(COMMERCIAL_DISCLOSURE));
-});
-
-test("disclosure: it states the relationship only — no fee, independence, licence or non-broker claim", () => {
-  const out = decode(html(STATES.form));
-  assert.match(out, /may receive payment from developers or others in connection with property transactions/);
-  assert.match(out, /no effect on how we present any developer/);
-  for (const pattern of [/commission[- ]free/i, /zero[- ](commission|brokerage)/i, /independent/i, /not (a|an) (broker|agent)/i, /licen[cs]ed/i, /\bfree\b/i]) {
-    assert.doesNotMatch(out, pattern, `markup matches ${pattern}`);
-  }
 });

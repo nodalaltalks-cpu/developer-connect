@@ -6,12 +6,12 @@ import type { Booking } from "@/lib/leads/types";
 export async function FounderLeadBookings({ leadId, bookings }: { leadId: string; bookings: Booking[] }) {
   const repos = createPostgresLeadRepositories();
   const projects = await repos.projects.list({ activeOnly: true, limit: 200 });
-  const names = await repos.leads.developerNames([...new Set(projects.map((p) => p.developerId))]);
+  const names = await repos.leads.developerNames([...new Set(projects.flatMap((p) => (p.developerId ? [p.developerId] : [])))]);
   return (
     <BookingsPanel
       leadId={leadId}
       bookings={bookings.map((b) => ({ id: b.id, projectName: b.projectName, currency: b.currency, bookingValue: b.bookingValue, commissionExpected: b.commissionExpected, commissionReceived: b.commissionReceived, commissionReceivedAt: b.commissionReceivedAt ? b.commissionReceivedAt.toISOString() : null, status: b.status }))}
-      projects={projects.map((p) => ({ id: p.id, label: `${p.name} · ${names[p.developerId] ?? "Unknown developer"}` }))}
+      projects={projects.map((p) => ({ id: p.id, label: `${p.name} · ${(p.developerId ? names[p.developerId] ?? "Unknown developer" : "Added by the team")}` }))}
     />
   );
 }

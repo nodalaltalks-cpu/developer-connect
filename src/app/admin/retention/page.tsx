@@ -9,7 +9,7 @@ export const metadata = { title: "Retention | Developer Connects", robots: { ind
 export const dynamic = "force-dynamic";
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
-const RANGE_LABEL: Record<(typeof RANGE_PRESETS)[number], string> = { today: "Today", yesterday: "Yesterday", last7: "Last 7 days", last30: "Last 30 days", custom: "Custom" };
+const RANGE_LABEL: Record<(typeof RANGE_PRESETS)[number], string> = { today: "Today", yesterday: "Yesterday", last7: "Last 7 days", last30: "Last 30 days", all: "Since the start", custom: "Custom" };
 
 function Tile({ label, value, note }: { label: string; value: string; note?: string }) {
   return (

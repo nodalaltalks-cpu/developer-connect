@@ -676,7 +676,8 @@ export interface CampaignRepository {
 // --- Phase 4: projects, shortlist, site visits ------------------------------------------------------
 
 export interface NewProject {
-  developerId: string;
+  /** null for a project a team member typed in (no developer on file). */
+  developerId: string | null;
   name: string;
   city: string;
   locality: string | null;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { WhenInput } from "@/components/leads/when-input";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { completeMyLeadFollowUpAction, rescheduleMyLeadFollowUpAction } from "@/app/team/_actions/team-actions";
@@ -69,7 +70,7 @@ export function FollowUpQuickActions({ leadId, followUpId, whatsappHref }: { lea
       </div>
       {picking && (
         <div className="flex gap-2">
-          <input type="datetime-local" aria-label="New time (India time)" value={when} min={toBusinessLocalInput(new Date())} onChange={(e) => setWhen(e.target.value)} className="min-h-12 flex-1 rounded-md border border-border bg-background px-3 text-base text-foreground" />
+          <WhenInput ariaLabel="New time (India time)" value={when} min={toBusinessLocalInput(new Date())} onChange={setWhen} className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base text-foreground" />
           <button type="button" className={PRIMARY} disabled={pending || !when || !commentOk} onClick={() => reschedule(when)}>
             Save
           </button>

@@ -123,7 +123,7 @@ export function AssistanceGateView({
               </>
             )}
 
-            <p className="mt-3 rounded-md bg-muted p-3 text-sm text-muted-foreground">{copy.transparency}</p>
+            <p className="mt-3 rounded-md bg-muted p-3 text-sm font-medium text-foreground">{copy.buyerPromise}</p>
 
             {state.error && (
               <p role="alert" className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
@@ -232,7 +232,6 @@ export function AssistanceGateView({
                 </div>
 
                 <p className="text-xs text-muted-foreground">{copy.consent}</p>
-                <p className="text-xs text-muted-foreground">{copy.commercialDisclosure}</p>
               </form>
             )}
 
@@ -257,7 +256,6 @@ export function AssistanceGateView({
             {showReturning && (
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-muted-foreground">{copy.consent}</p>
-                <p className="text-xs text-muted-foreground">{copy.commercialDisclosure}</p>
                 <button
                   type="button"
                   disabled={submitting}

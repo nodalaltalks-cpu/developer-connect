@@ -23,7 +23,7 @@ const TEL = "tel:+919876543210";
 
 test("call button, dialer NOT connected: a plain Call link and an honest 'not tracked' note — it never pretends to be a dialer", () => {
   const html = renderToStaticMarkup(<CallButton configured={false} telHref={TEL} onPlace={noopPlace} onStatus={noopStatus} onDisposition={noopDisposition} />);
-  assert.match(html, /href="tel:\+919876543210"[^>]*>Call</);
+  assert.match(html, /href="tel:\+919876543210"[^>]*>(<svg.*<\/svg>)?Call</);
   assert.match(html, /Not tracked/);
   assert.match(html, /won&#x27;t be counted|won't be counted/);
   assert.doesNotMatch(html, /<button/, "nothing here places a tracked call");
@@ -42,7 +42,7 @@ test("call button, no phone number: nothing is rendered", () => {
 
 test("call button, dialer connected: a real button that places the call through the server, with no outcome or status shown until a call exists", () => {
   const html = renderToStaticMarkup(<CallButton configured telHref={TEL} onPlace={noopPlace} onStatus={noopStatus} onDisposition={noopDisposition} />);
-  assert.match(html, /<button[^>]*>Call<\/button>/);
+  assert.match(html, /<button[^>]*>(<svg.*<\/svg>)?Call<\/button>/);
   assert.doesNotMatch(html, /Not tracked/);
   assert.doesNotMatch(html, /What did the call lead to/);
   assert.doesNotMatch(html, /Connected|Ringing|Call ended/, "no invented state");
@@ -57,7 +57,7 @@ const calls: CallView[] = [
 test("call history: attempts, connected count, talk time, the last call and its outcome — and every call in order with who, when, status, duration", () => {
   const html = renderToStaticMarkup(<CallHistoryCard calls={[calls[2], calls[0], calls[1]]} names={{ u1: "Rahul", u2: "Amit" }} />);
   assert.match(html, /3 attempts · 1 connected · 03:42 talk time/);
-  assert.match(html, /Last call 10 Oct 2026, 03:45 PM — Busy/);
+  assert.match(html, /Last call Sat 10 Oct 2026, 03:45 PM — Busy/);
   const list = html.indexOf("<ol");
   const order = ["10 Oct 2026, 10:02 AM", "10 Oct 2026, 10:18 AM", "10 Oct 2026, 03:45 PM"].map((t) => html.indexOf(t, list));
   assert.ok(order.every((i) => i > -1));

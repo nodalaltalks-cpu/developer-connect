@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
 import { telHref } from "@/lib/leads/contact-links";
-import { formatDateTimeFull, formatEnumLabel, formatOverdue } from "@/lib/leads/format";
+import { formatDateTimeWithDay, formatEnumLabel, formatOverdue } from "@/lib/leads/format";
 import type { MissedFollowUpItem, ReturnedLeadItem } from "@/lib/leads/follow-up-reads";
 
 /**
@@ -17,7 +17,7 @@ const OPEN =
 
 function lastContactLine(summary: { lastContactAt: Date | null; contactAttempts: number } | null): string {
   if (!summary || !summary.lastContactAt) return "No contact attempt yet";
-  return `Last contact ${formatDateTimeFull(summary.lastContactAt)} · ${summary.contactAttempts} ${summary.contactAttempts === 1 ? "attempt" : "attempts"}`;
+  return `Last contact ${formatDateTimeWithDay(summary.lastContactAt)} · ${summary.contactAttempts} ${summary.contactAttempts === 1 ? "attempt" : "attempts"}`;
 }
 
 export function MissedCard({ item, href, ownerName, callSlot }: { item: MissedFollowUpItem; href: string; ownerName?: string; callSlot?: ReactNode }) {
@@ -31,7 +31,7 @@ export function MissedCard({ item, href, ownerName, callSlot }: { item: MissedFo
         <TemperatureBadge temperature={lead.temperature} />
       </div>
       <p className="mt-1 text-sm text-foreground">
-        {formatEnumLabel(followUp.type)} · {formatDateTimeFull(followUp.scheduledAt)}
+        {formatEnumLabel(followUp.type)} · {formatDateTimeWithDay(followUp.scheduledAt)}
       </p>
       <p className="text-sm font-medium text-red-700">Missed by {formatOverdue(item.overdueMs)}</p>
       <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -68,7 +68,7 @@ export function ReturnedCard({ item, href, returnedByName, callSlot }: { item: R
         <TemperatureBadge temperature={lead.temperature} />
       </div>
       <p className="mt-1 text-sm text-foreground">
-        Returned by {returnedByName ?? "a team member"} · {formatDateTimeFull(item.returnedAt)}
+        Returned by {returnedByName ?? "a team member"} · {formatDateTimeWithDay(item.returnedAt)}
       </p>
       <p className="text-sm font-medium text-foreground">Reason: {item.reason ? formatEnumLabel(item.reason) : "Not recorded"}</p>
       {item.note && <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-muted-foreground">{item.note}</p>}
@@ -76,11 +76,11 @@ export function ReturnedCard({ item, href, returnedByName, callSlot }: { item: R
         <StatusBadge status={lead.status} />
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        {item.lastContactAt ? `Last contact ${formatDateTimeFull(item.lastContactAt)} · ${item.contactAttempts} ${item.contactAttempts === 1 ? "attempt" : "attempts"}` : "No contact attempt recorded"}
+        {item.lastContactAt ? `Last contact ${formatDateTimeWithDay(item.lastContactAt)} · ${item.contactAttempts} ${item.contactAttempts === 1 ? "attempt" : "attempts"}` : "No contact attempt recorded"}
       </p>
       {item.lastFollowUp && (
         <p className="text-sm text-muted-foreground">
-          Last follow-up: {formatEnumLabel(item.lastFollowUp.type)} · {formatDateTimeFull(item.lastFollowUp.scheduledAt)} · {formatEnumLabel(item.lastFollowUp.status)}
+          Last follow-up: {formatEnumLabel(item.lastFollowUp.type)} · {formatDateTimeWithDay(item.lastFollowUp.scheduledAt)} · {formatEnumLabel(item.lastFollowUp.status)}
         </p>
       )}
       {item.requirement && <p className="mt-1 text-sm text-muted-foreground">{item.requirement}</p>}

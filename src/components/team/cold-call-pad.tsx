@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { CallButton } from "@/components/leads/call-button";
-import { getMyCallStatusAction, lookupMyColdCallNumberAction, prepareMyColdCallAction, setMyCallDispositionAction } from "@/app/team/_actions/team-actions";
+import { getMyCallStatusAction, lookupMyColdCallNumberAction, prepareMyColdCallAction, reportMyBrowserCallAction, setMyCallDispositionAction } from "@/app/team/_actions/team-actions";
 import type { ColdCallLookup } from "@/lib/leads/cold-call-service";
 import type { CallView } from "@/lib/leads/call-view";
-import { CALL_REPORTED_EVENT, getNativeDialer } from "@/lib/leads/native-bridge";
+import { CALL_REPORTED_EVENT } from "@/lib/leads/native-bridge";
 
 /**
  * Cold Call: type a number, call it from your own SIM, and have the call counted like any other.
@@ -16,8 +16,8 @@ import { CALL_REPORTED_EVENT, getNativeDialer } from "@/lib/leads/native-bridge"
  * reported duration (more than 10 seconds = CONNECTED). The call itself runs through the existing CallButton, so a cold
  * call has exactly the lifecycle of a call from a lead: attempt, SIM call, result, outcome.
  *
- * In an ordinary browser there is no Android app, so nothing can be dialed and tracked: the pad says so plainly rather
- * than opening an untracked phone call that would create no lead and count for nothing.
+ * In the Android app the phone's call log gives the real talk time. In an ordinary phone browser the green Call button opens
+ * the phone's own dialer on its SIM: the call and the lead are still recorded, but no talk time (a browser cannot read it).
  */
 
 const COUNTRIES = [
@@ -32,8 +32,6 @@ const KEY =
 const BTN =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
 
-const subscribeNever = () => () => {};
-
 function format(digits: string): string {
   return digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
 }
@@ -46,7 +44,6 @@ export function ColdCallPad() {
   const [session, setSession] = useState(0); // remounts the call control for the next number
   const [prepared, setPrepared] = useState<{ callId: string; leadId: string; createdLead: boolean } | null>(null);
   const [finished, setFinished] = useState(false);
-  const hasBridge = useSyncExternalStore(subscribeNever, () => getNativeDialer() !== null, () => false);
 
   const full = `${country.code}${digits}`;
   const ready = digits.length >= country.minDigits;
@@ -176,28 +173,23 @@ export function ColdCallPad() {
       </div>
 
       <div className="mt-4">
-        {!hasBridge ? (
-          <p role="status" className="rounded-md border border-border bg-muted px-3 py-3 text-sm text-foreground">
-            Open Developer Connects in the Android app to call from your own SIM. A call made any other way is not counted, so this pad does not place it.
-          </p>
-        ) : (
-          <fieldset data-lock-lead={prepared ? undefined : "new"} disabled={!ready || blocked || lookup?.kind === "INVALID" || looking} className="disabled:opacity-60">
+        <fieldset data-lock-lead={prepared ? undefined : "new"} disabled={!ready || blocked || lookup?.kind === "INVALID" || looking} className="disabled:opacity-60">
             <CallButton
               key={session}
               configured={false}
               telHref={null}
-              onPlace={async () => ({ ok: false, error: "Calls are placed from the Android app." })}
+              onPlace={async () => ({ ok: false, error: "Calls are placed from your phone." })}
               onPrepare={async () => {
                 const result = await prepareMyColdCallAction(full, null);
                 if (!result.ok) return result;
                 setPrepared({ callId: result.callId, leadId: result.leadId, createdLead: result.createdLead });
                 return { ok: true, callId: result.callId, phone: result.phone };
               }}
+              onReportBrowserCall={reportMyBrowserCallAction}
               onStatus={getMyCallStatusAction}
               onDisposition={setMyCallDispositionAction}
             />
           </fieldset>
-        )}
       </div>
 
       {!prepared && ready && lookup?.kind !== "NOT_YOURS" && lookup?.kind !== "INVALID" && (

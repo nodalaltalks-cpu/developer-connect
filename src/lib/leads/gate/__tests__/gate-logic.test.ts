@@ -37,21 +37,19 @@ test("copy: says plainly that this is a Developer Connects enquiry to be connect
   assert.match(copy.intro, /You've found the developer you're interested in/);
   assert.match(copy.intro, /Share your details with Developer Connects/);
   assert.match(copy.intro, /help connect you based on your requirement/);
-  assert.match(copy.transparency, /Developer Connects/);
-  assert.match(copy.transparency, /property team/i);
+  assert.equal("transparency" in copy, false, "the 'does not require your phone number' block is gone from the form");
 });
 
-test("copy: says plainly that the DEVELOPER does not require the buyer's number, and that Developer Connects is not the developer", () => {
-  const { transparency } = gateCopy(DEV);
-  assert.match(transparency, new RegExp(`${DEV} does not require your phone number through this flow`));
-  assert.match(transparency, new RegExp(`we are not ${DEV}`));
-});
-
-test("copy: says plainly that the buyer is VOLUNTARILY sharing details with Developer Connects", () => {
-  const { transparency, consent } = gateCopy(DEV);
-  assert.match(transparency, /You're sharing your details with Developer Connects/);
+test("copy: the recorded consent says the buyer is sharing details with Developer Connects", () => {
+  const { consent } = gateCopy(DEV);
   assert.match(consent, /I agree that Developer Connects may contact me/);
-  assert.match(consent, /sharing these details with Developer Connects, not with the developer/);
+  assert.doesNotMatch(consent, /not with the developer/);
+  const promise = gateCopy(DEV).buyerPromise;
+  assert.match(promise, /0% commission on primary \(new-launch\) sales and 0% bias/);
+  assert.match(promise, /secondary \(resale\) and rental deals, commission is applicable as per market standards/);
+  assert.match(promise, /tailored to your needs/);
+  assert.match(promise, /certified, affiliated channel partner and RERA registered/);
+  assert.doesNotMatch(promise, /payment|paid|margin|earn/i, "the form does not say how Developer Connects is paid");
 });
 
 test("copy: says what happens next — Developer Connects contacts them; they are NOT sent to another website", () => {

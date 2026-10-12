@@ -109,7 +109,7 @@ test("analytics: metrics come ONLY from call records — never from clicks, page
   assert.doesNotMatch(aggregate, /answeredAt/, "no figure depends on a timestamp the device or provider could shade");
   assert.match(aggregate, /assertSafeTimeZone\(query\.timeZone\)/, "the zone is validated before it is written into SQL");
   // One aggregation serves every period — there is no per-period copy of the logic.
-  assert.equal((read("src/lib/leads/call-analytics.ts").match(/repos\.calls\.aggregate\(/g) ?? []).length, 4, "employee grouping, hours, periods and the personal dashboard all use the one aggregate");
+  assert.equal((read("src/lib/leads/call-analytics.ts").match(/repos\.calls\.aggregate\(/g) ?? []).length, 5, "employee grouping, hours, periods and the personal dashboard (total and by day) all use the one aggregate");
 });
 
 test("analytics: Founder screens are founder-gated and noindex; the employee's own page is employee-gated and takes no scope from the URL", () => {

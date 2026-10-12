@@ -1,3 +1,4 @@
+import { COMMISSION_POLICY } from "@/lib/leads/gate/gate-copy";
 import type { Metadata } from "next";
 import { LegalPageLayout, LegalSection } from "@/components/legal-page-layout";
 import { LEGAL_CONFIG, LEGAL_ENTITY_PLACEHOLDER } from "@/lib/legal-config";
@@ -155,8 +156,7 @@ export default function PrivacyPolicyPage() {
             signature — not your name, number or email. See our Cookie Policy.
           </li>
           <li>
-            <strong>Our commercial relationship:</strong> Developer Connects may receive payment from developers or
-            others in connection with property transactions. This has no effect on how we present any developer.
+            <strong>Our commission:</strong> {COMMISSION_POLICY}
           </li>
           <li>
             <strong>Erasure:</strong> you can ask us to erase your enquiry details by emailing{" "}

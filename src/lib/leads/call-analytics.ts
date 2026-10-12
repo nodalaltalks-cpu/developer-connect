@@ -20,7 +20,7 @@ import { CALL_DISPOSITIONS, CALL_STATUSES, LEAD_SOURCE_TYPES, type CallDispositi
  * between busy and effective.
  */
 
-export const RANGE_PRESETS = ["today", "yesterday", "last7", "last30", "custom"] as const;
+export const RANGE_PRESETS = ["today", "yesterday", "last7", "last30", "all", "custom"] as const;
 export type RangePreset = (typeof RANGE_PRESETS)[number];
 
 export const PERIODS = ["daily", "weekly", "monthly", "quarterly", "yearly"] as const;
@@ -55,6 +55,11 @@ export function resolveRange(preset: RangePreset, now: Date, custom?: { from?: s
       return { from: new Date(start.getTime() - 6 * DAY_MS), to: end, label: "Last 7 days" };
     case "last30":
       return { from: new Date(start.getTime() - 29 * DAY_MS), to: end, label: "Last 30 days" };
+    case "all": {
+      // From the start of the product's year to the end of today.
+      const from = businessLocalToInstant("2026-01-01T00:00", timeZone) ?? start;
+      return { from, to: end, label: "Since the start" };
+    }
     case "custom": {
       const from = businessLocalToInstant(`${custom?.from ?? ""}T00:00`, timeZone);
       const lastDay = businessLocalToInstant(`${custom?.to ?? ""}T00:00`, timeZone);
@@ -177,6 +182,8 @@ export interface MyCallDashboard {
   metrics: CallMetrics;
   followUps: { created: number; completed: number; missed: number };
   recent: CallWithLead[];
+  /** The same member's calls day by day over the range (key is the business-zone date). */
+  daily: PeriodBucket[];
 }
 
 /** "My calls — today": the signed-in member's own real call records. Scope is the actor's id, never an argument. */
@@ -189,13 +196,14 @@ export async function getMyCallDashboard(
   if (!actor.actorId || (actor.actorType !== "EMPLOYEE" && actor.actorType !== "FOUNDER")) throw new UnauthorizedLeadActionError("A signed-in team member is required.");
   // Only the date range comes from the caller; whose calls they are is always the actor's own id.
   const range = parseInsightFilters({ range: rangeInput.range ?? "today", from: rangeInput.from, to: rangeInput.to }, now).range;
-  const [rows, stats, recent] = await Promise.all([
+  const [rows, stats, recent, dailyRows] = await Promise.all([
     repos.calls.aggregate({ from: range.from, to: range.to, groupBy: "EMPLOYEE", timeZone: BUSINESS_TIME_ZONE, staffUserId: actor.actorId }),
     repos.followUps.statsByStaff(range.from, range.to, now),
     repos.calls.listRecent({ staffUserId: actor.actorId, from: range.from, to: range.to, limit: 200 }),
+    repos.calls.aggregate({ from: range.from, to: range.to, groupBy: "DAY", timeZone: BUSINESS_TIME_ZONE, staffUserId: actor.actorId }),
   ]);
   const mine = stats[actor.actorId] ?? { created: 0, completed: 0, missedNow: 0 };
-  return { range, metrics: toMetrics(rows[0]), followUps: { created: mine.created, completed: mine.completed, missed: mine.missedNow }, recent };
+  return { range, metrics: toMetrics(rows[0]), followUps: { created: mine.created, completed: mine.completed, missed: mine.missedNow }, recent, daily: dailyRows.map((r) => ({ key: r.key, ...toMetrics(r) })) };
 }
 
 // --- Founder: employee insights -------------------------------------------------------------------

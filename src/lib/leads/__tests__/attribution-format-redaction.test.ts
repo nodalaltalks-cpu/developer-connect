@@ -55,7 +55,7 @@ test("consent: the wording names Developer Connects as the recipient and never i
   for (const channel of ["WHATSAPP", "PHONE_CALL", "EMAIL"] as const) {
     const text = consentTextFor(channel);
     assert.match(text, /Developer Connects may contact me/);
-    assert.match(text, /not with the developer/);
+    assert.match(text, /I agree that Developer Connects may contact me/);
     assert.doesNotMatch(text, /developer (requires|needs|asks)/i);
   }
   assert.match(consentTextFor("WHATSAPP"), /on WhatsApp/);

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { UserButton } from "@clerk/nextjs";
 import { currentUser } from "@/lib/auth";
+import { AlertsMessage, AlertsPill } from "@/components/team/alerts-control";
+import { FollowUpAlerts } from "@/components/team/follow-up-alerts";
 import { NotificationBell } from "@/components/notification-bell";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getFounderAttention } from "@/lib/leads/follow-up-reads";
@@ -52,6 +54,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             </span>
           </div>
           <div className="order-2 flex shrink-0 items-center gap-2 sm:order-3">
+            <AlertsPill />
             <NotificationBell />
             <UserButton appearance={{ elements: { userButtonTrigger: { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" } } }} />
           </div>
@@ -74,7 +77,12 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
         </nav>
         <AdminBottomNav badges={badges} />
 
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1">
+          {/* The Founder also works leads, so the same strong follow-up alerts run here (the banner is the header pill). */}
+          <AlertsMessage />
+          <FollowUpAlerts showBanner={false} />
+          {children}
+        </main>
       </div>
 
       <ScrollToTopButton />

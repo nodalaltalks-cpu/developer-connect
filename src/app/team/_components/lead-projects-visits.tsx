@@ -13,7 +13,7 @@ import { changeMySiteVisitAction, removeMyShortlistAction, scheduleMySiteVisitAc
 export async function TeamLeadProjectsAndVisits({ leadId, actor }: { leadId: string; actor: LeadActor }) {
   const repos = createPostgresLeadRepositories();
   const [projects, visits, active] = await Promise.all([getLeadProjects(repos, actor, leadId), getLeadVisits(repos, actor, leadId), repos.projects.list({ activeOnly: true, limit: 200 })]);
-  const names = await repos.leads.developerNames([...new Set(active.map((p) => p.developerId))]);
+  const names = await repos.leads.developerNames([...new Set(active.flatMap((p) => (p.developerId ? [p.developerId] : [])))]);
   const { step } = await getNextStepForLead(repos, actor, leadId);
   return (
     <>
@@ -21,7 +21,7 @@ export async function TeamLeadProjectsAndVisits({ leadId, actor }: { leadId: str
       <ProjectsSection view={toLeadProjectsViewModel(projects)} onShortlist={shortlistMyProjectAction.bind(null, leadId)} onRemove={removeMyShortlistAction.bind(null, leadId)} />
       <SiteVisitsSection
         visits={visits.map(toSiteVisitView)}
-        projects={active.map((p) => ({ id: p.id, label: `${p.name} · ${names[p.developerId] ?? "Unknown developer"}` }))}
+        projects={active.map((p) => ({ id: p.id, label: `${p.name} · ${(p.developerId ? names[p.developerId] ?? "Unknown developer" : "Added by the team")}` }))}
         onSchedule={scheduleMySiteVisitAction.bind(null, leadId)}
         onChange={changeMySiteVisitAction.bind(null, leadId)}
       />

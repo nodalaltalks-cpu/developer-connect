@@ -452,7 +452,8 @@ export type ProjectStatus = "ACTIVE" | "INACTIVE";
 /** A project a developer is selling. Unknown fields are null - the matcher reports UNKNOWN for them. */
 export interface Project {
   id: string;
-  developerId: string;
+  /** null for a project a team member typed in during a call (no developer on file). */
+  developerId: string | null;
   name: string;
   city: string;
   locality: string | null;

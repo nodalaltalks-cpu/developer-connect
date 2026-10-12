@@ -123,7 +123,8 @@ test("success: consent is stored with the exact wording for the chosen channel",
   const [consent] = await w.lead.consents.listByLead(leadId!);
   assert.equal(consent.channel, "PHONE_CALL");
   assert.match(consent.textShown, /Developer Connects may contact me by phone call/);
-  assert.match(consent.textShown, /not with the developer/);
+  assert.match(consent.textShown, /I agree that Developer Connects may contact me/);
+  assert.doesNotMatch(consent.textShown, /not with the developer/);
   assert.equal(consent.purpose, "PROPERTY_ASSISTANCE");
 });
 

@@ -62,7 +62,8 @@ test("capture: consent is stored with the exact wording and version shown, for t
   assert.equal(consent.purpose, "PROPERTY_ASSISTANCE");
   assert.equal(consent.channel, "PHONE_CALL");
   assert.match(consent.textShown, /by phone call/);
-  assert.match(consent.textShown, /not with the developer/);
+  assert.match(consent.textShown, /I agree that Developer Connects may contact me/);
+  assert.doesNotMatch(consent.textShown, /not with the developer/);
   assert.equal(consent.withdrawnAt, null);
 });
 

@@ -4,7 +4,7 @@ import { requireEmployee } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { listMyBatches } from "@/lib/leads/calling-batch-service";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
-import { formatDateTimeFull } from "@/lib/leads/format";
+import { formatDateTimeWithDay } from "@/lib/leads/format";
 
 export const metadata = {
   title: "Calling queue | Developer Connects",
@@ -34,7 +34,7 @@ export default async function CallingQueuePage() {
                   <span className="min-w-0 truncate text-sm font-semibold text-foreground">{batch.name}</span>
                   <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-hover">{batch.status === "ACTIVE" ? "Active" : "Closed"}</span>
                 </span>
-                <span className="mt-1 block text-xs text-muted-foreground">Created {formatDateTimeFull(batch.createdAt)}</span>
+                <span className="mt-1 block text-xs text-muted-foreground">Created {formatDateTimeWithDay(batch.createdAt)}</span>
                 <span className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
                   <Stat label="Total" value={counts.assigned} />
                   <Stat label="Called" value={counts.completed} />

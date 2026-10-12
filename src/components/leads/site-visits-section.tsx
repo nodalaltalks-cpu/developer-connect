@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { businessPresetLocal, formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
+import { WhenInput } from "@/components/leads/when-input";
+import { businessPresetLocal, formatDateTimeWithDay, formatEnumLabel } from "@/lib/leads/format";
 import type { SiteVisitView } from "@/lib/leads/project-view";
 import { SITE_VISIT_OUTCOMES, type SiteVisitOutcome } from "@/lib/leads/types";
 
@@ -41,7 +42,7 @@ function VisitCard({ visit, pending, onChange }: { visit: SiteVisitView; pending
     <li className="rounded-md border border-border p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{formatDateTimeFull(new Date(visit.scheduledAt))}</p>
+          <p className="text-sm font-medium text-foreground">{formatDateTimeWithDay(new Date(visit.scheduledAt))}</p>
           <p className="truncate text-xs text-muted-foreground">{visit.projectName ?? "No project chosen"}</p>
         </div>
         <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground">{STATUS_LABEL[visit.status]}</span>
@@ -105,7 +106,7 @@ function VisitCard({ visit, pending, onChange }: { visit: SiteVisitView; pending
           <label className="text-sm font-medium text-foreground" htmlFor={`w-${visit.id}`}>
             New date and time (India time)
           </label>
-          <input id={`w-${visit.id}`} type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={FIELD} />
+          <WhenInput id={`w-${visit.id}`} value={when} onChange={setWhen} className={FIELD} />
           <div className="flex gap-2">
             <button type="button" className={BTN_PRIMARY} disabled={pending} onClick={() => onChange({ kind: "RESCHEDULE", whenLocal: when })}>
               Reschedule
@@ -187,7 +188,7 @@ export function SiteVisitsSection({
         <label className="text-sm text-foreground" htmlFor="sv-when">
           Date and exact time (India time)
         </label>
-        <input id="sv-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={FIELD} />
+        <WhenInput id="sv-when" value={when} onChange={setWhen} className={FIELD} />
         <label className="text-sm text-foreground" htmlFor="sv-project">
           Project
         </label>

@@ -87,7 +87,8 @@ test("postgres gate: a verified developer + valid number saves the lead, consent
   assert.equal(lead.developerId, developer.id);
   assert.equal(lead.status, "NEW");
   const [consent] = await s.leads.consents.listByLead(leadId!);
-  assert.match(consent.textShown, /not with the developer/);
+  assert.match(consent.textShown, /I agree that Developer Connects may contact me/);
+  assert.doesNotMatch(consent.textShown, /not with the developer/);
   const touch = (await s.leads.touches.getById(lead.firstTouchId!))!;
   assert.equal(touch.utmSource, "google");
 

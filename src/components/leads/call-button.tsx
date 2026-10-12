@@ -26,11 +26,21 @@ import { CALL_DISPOSITIONS, type CallDisposition } from "@/lib/leads/types";
 
 export type PlaceCall = () => Promise<{ ok: true; callId: string } | { ok: false; error: string; notConfigured?: true }>;
 export type PrepareCall = () => Promise<{ ok: true; callId: string; phone: string } | { ok: false; error: string }>;
+/** Browser SIM call: records that the phone's own dialer was opened (length cannot be read from a browser). */
+export type ReportBrowserCall = (callId: string) => Promise<{ ok: true; duplicate: boolean; call: CallView } | { ok: false; error: string }>;
 export type CallStatusOf = (callId: string) => Promise<CallView | null>;
 export type SetCallDisposition = (callId: string, disposition: CallDisposition, comment?: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 
 const CALL_BTN =
-  "inline-flex min-h-11 w-full items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
+  "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 disabled:opacity-50";
+
+function PhoneIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+      <path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z" />
+    </svg>
+  );
+}
 const BTN =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-border px-3 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
 
@@ -55,6 +65,7 @@ export function CallButton({
   configured,
   onPlace,
   onPrepare,
+  onReportBrowserCall,
   onStatus,
   onDisposition,
   compact = false,
@@ -67,6 +78,8 @@ export function CallButton({
   onPlace: PlaceCall;
   /** Starts an Android SIM call (team members only). Without it the button never uses the app. */
   onPrepare?: PrepareCall;
+  /** Team members only: lets a plain phone browser place a counted call through the phone's own dialer (tel:) on its SIM. */
+  onReportBrowserCall?: ReportBrowserCall;
   onStatus: CallStatusOf;
   onDisposition: SetCallDisposition;
 }) {
@@ -84,6 +97,34 @@ export function CallButton({
   // Whether the Android app is present is only known in the browser, after mount.
   const hasBridge = useSyncExternalStore(subscribeNever, () => getNativeDialer() !== null, () => false);
   const native = hasBridge && onPrepare !== undefined;
+  const browserSim = !native && !configured && onPrepare !== undefined && onReportBrowserCall !== undefined;
+  const [reported, setReported] = useState(false);
+  const awaitingReturn = useRef(false);
+
+  // Browser SIM call: the phone's dialer took over the screen. When the person comes back to this page the call is recorded.
+  const recordBrowserCall = (id: string) => {
+    if (!onReportBrowserCall) return;
+    awaitingReturn.current = false;
+    setReported(true);
+    void onReportBrowserCall(id).then((result) => {
+      if (result.ok) {
+        setCall(result.call);
+        window.dispatchEvent(new CustomEvent(CALL_REPORTED_EVENT, { detail: result.call }));
+      } else {
+        setReported(false);
+        setMessage({ tone: "error", text: result.error });
+      }
+    });
+  };
+  useEffect(() => {
+    if (!browserSim || !callId || reported) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && awaitingReturn.current) recordBrowserCall(callId);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [browserSim, callId, reported]);
 
   // The sync component announces a report the server accepted: show it at once instead of waiting for the next poll.
   useEffect(() => {
@@ -118,11 +159,12 @@ export function CallButton({
     };
   }, [callId, onStatus]);
 
-  if (!configured && !native) {
+  if (!configured && !native && !browserSim) {
     if (!telHref) return null;
     return (
       <div className="w-full">
         <a href={telHref} className={CALL_BTN} title="Not tracked — the internal dialer isn't connected yet, so this call won't be counted.">
+          <PhoneIcon />
           Call
         </a>
         {!compact && <p className="mt-1 text-xs text-muted-foreground">Not tracked — the internal dialer isn&apos;t connected yet, so this call won&apos;t be counted.</p>}
@@ -132,6 +174,22 @@ export function CallButton({
 
   function place() {
     setMessage(null);
+    if (browserSim && onPrepare) {
+      startTransition(async () => {
+        const prepared = await onPrepare();
+        if (!prepared.ok) {
+          setMessage({ tone: "error", text: prepared.error });
+          return;
+        }
+        setCall(null);
+        setReported(false);
+        setCallId(prepared.callId);
+        awaitingReturn.current = true;
+        // Opens the phone's own dialer on the phone's SIM. The call is recorded when the person returns to this page.
+        window.location.href = `tel:${prepared.phone}`;
+      });
+      return;
+    }
     const bridge = native ? getNativeDialer() : null;
     if (bridge && onPrepare) {
       const caps: DialerCapabilities = readCapabilities(bridge);
@@ -193,8 +251,10 @@ export function CallButton({
   return (
     <div className="w-full" data-call-active={callId ? "1" : undefined}>
       <button type="button" className={CALL_BTN} onClick={place} disabled={pending || (callId !== null && !finished)}>
+        <PhoneIcon />
         {pending && !callId ? "Calling…" : callId && !finished ? "Call in progress" : "Call"}
       </button>
+      {browserSim && !callId && <p className="mt-1 text-xs text-muted-foreground">Opens your phone&apos;s dialer on your SIM. The call is counted; talk time is recorded only in the Android app.</p>}
 
       {message && (
         <p role="status" className={`mt-2 rounded-md px-3 py-2 text-sm ${message.tone === "ok" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
@@ -209,6 +269,14 @@ export function CallButton({
             {call && connected && call.durationSeconds !== null ? ` · ${formatCallDuration(call.durationSeconds)}` : ""}
             {call && call.classification === "DIALED" ? " · Dialed (10 seconds or less)" : ""}
           </p>
+          {browserSim && !reported && !finished && (
+            <div className="mt-2 text-sm text-foreground">
+              <p>Finish the call, then come back to this page. It is recorded when you return.</p>
+              <button type="button" className={`${BTN} mt-2`} onClick={() => callId && recordBrowserCall(callId)}>
+                I have finished the call
+              </button>
+            </div>
+          )}
           {lengthNote && (
             <div className="mt-2 rounded-md border border-border bg-background p-3 text-sm text-foreground">
               {lengthNote === "ASK" ? (

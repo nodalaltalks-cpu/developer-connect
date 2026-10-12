@@ -39,6 +39,15 @@ export function newAlerts(items: readonly AlertItem[], alerted: ReadonlySet<stri
     .sort((a, b) => (a.kind === b.kind ? Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt) : a.kind === "MISSED" ? -1 : 1));
 }
 
+/**
+ * "While you were away": everything due or missed that the person has not ACKNOWLEDGED yet (opened or dismissed), including
+ * alerts that were sent while the phone or Chrome was off and never seen. Used when the app is opened again, so every
+ * remaining reminder buzzes then. MISSED first, then the earliest due. Pure.
+ */
+export function catchUpAlerts(items: readonly AlertItem[], acknowledged: ReadonlySet<string>): AlertItem[] {
+  return newAlerts(items, acknowledged);
+}
+
 /** Keeps the remembered set from growing without bound: only the most recent entries survive. */
 export function trimAlerted(keys: readonly string[], max = 200): string[] {
   return keys.length > max ? keys.slice(keys.length - max) : [...keys];

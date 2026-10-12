@@ -1,0 +1,2 @@
+ALTER TABLE "projects" ALTER COLUMN "developer_id" DROP NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "projects_team_added_name_key" ON "projects" USING btree (lower("name")) WHERE "projects"."developer_id" is null;

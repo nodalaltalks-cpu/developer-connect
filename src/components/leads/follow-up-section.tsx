@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { WhenInput } from "@/components/leads/when-input";
 import { useInteractionComment } from "@/components/team/interaction-comment";
-import { businessPresetLocal, formatDateTimeFull, formatEnumLabel, formatOverdue } from "@/lib/leads/format";
+import { businessPresetLocal, formatDateTimeWithDay, formatEnumLabel, formatOverdue } from "@/lib/leads/format";
 import { isOverdue, openFollowUp, type FollowUpView } from "@/lib/leads/follow-up-view";
 import { CANCEL_REASONS, FOLLOW_UP_TYPES, type CancelReason, type FollowUpType } from "@/lib/leads/types";
 
@@ -72,7 +73,7 @@ function TimeFields({
       <label className="text-sm font-medium text-foreground" htmlFor="fu-when">
         Date and exact time (India time)
       </label>
-      <input id="fu-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={FIELD} />
+      <WhenInput id="fu-when" value={when} onChange={setWhen} className={FIELD} />
     </div>
   );
 }
@@ -137,7 +138,7 @@ export function FollowUpSection({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-base font-semibold text-foreground">{formatEnumLabel(open.type)}</p>
-              <p className="text-sm text-foreground">{formatDateTimeFull(new Date(open.scheduledAt))}</p>
+              <p className="text-sm text-foreground">{formatDateTimeWithDay(new Date(open.scheduledAt))}</p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${overdue ? "bg-red-50 text-red-700" : "bg-muted text-foreground"}`}>
               {overdue ? "Missed" : STATUS_LABEL[open.status]}
@@ -240,7 +241,7 @@ export function FollowUpSection({
                   {formatEnumLabel(followUp.type)} · {STATUS_LABEL[followUp.status]}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {formatDateTimeFull(new Date(followUp.scheduledAt))}
+                  {formatDateTimeWithDay(new Date(followUp.scheduledAt))}
                   {followUp.missedCount > 0 ? ` · missed ${followUp.missedCount}×` : ""}
                   {followUp.cancelReason ? ` · ${formatEnumLabel(followUp.cancelReason)}` : ""}
                 </p>

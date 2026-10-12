@@ -152,7 +152,7 @@ test("static: the screen is team-only, mobile-sized, and honest in an ordinary b
   const pad = read("src/components/team/cold-call-pad.tsx");
   assert.match(pad, /min-h-14/, "keypad keys are at least 56px");
   assert.match(pad, /grid-cols-3/);
-  assert.match(pad, /Open Developer Connects in the Android app to call from your own SIM/);
+  assert.match(pad, /reportMyBrowserCallAction/, "in a phone browser the call is still recorded server-side (placed, no length)");
   assert.doesNotMatch(pad, /href=\{`tel:|telHref=\{`|href="tel:/, "no untracked tel: call is ever offered");
   assert.match(pad, /prepareMyColdCallAction/);
   assert.match(pad, /lookupMyColdCallNumberAction/);

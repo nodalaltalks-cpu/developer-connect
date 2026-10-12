@@ -1,7 +1,7 @@
 import { formatCallDuration } from "@/lib/leads/call-analytics";
 import type { CallView } from "@/lib/leads/call-view";
 import { describeCall, wasConnected } from "@/lib/leads/call-view";
-import { formatDateTimeFull, formatEnumLabel } from "@/lib/leads/format";
+import { formatDateTimeWithDay, formatEnumLabel } from "@/lib/leads/format";
 
 /**
  * A lead's calls, oldest first, with the summary an employee needs at a glance: how many attempts, when the last one
@@ -30,7 +30,7 @@ export function CallHistoryCard({ calls, names }: { calls: CallView[]; names?: R
           </p>
           {last && (
             <p className="text-xs text-muted-foreground">
-              Last call {formatDateTimeFull(new Date(last.initiatedAt))} — {describeCall(last)}
+              Last call {formatDateTimeWithDay(new Date(last.initiatedAt))} — {describeCall(last)}
               {last.disposition ? ` · ${formatEnumLabel(last.disposition)}` : ""}
             </p>
           )}
@@ -43,7 +43,7 @@ export function CallHistoryCard({ calls, names }: { calls: CallView[]; names?: R
                   {call.disposition ? ` · ${formatEnumLabel(call.disposition)}` : ""}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {formatDateTimeFull(new Date(call.initiatedAt))} · {names?.[call.staffUserId] ?? "Team member"}
+                  {formatDateTimeWithDay(new Date(call.initiatedAt))} · {names?.[call.staffUserId] ?? "Team member"}
                 </p>
               </li>
             ))}

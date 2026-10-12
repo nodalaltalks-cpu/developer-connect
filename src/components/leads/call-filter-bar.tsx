@@ -11,6 +11,7 @@ const RANGES = [
   { key: "yesterday", label: "Yesterday" },
   { key: "last7", label: "Last 7 days" },
   { key: "last30", label: "Last 30 days" },
+  { key: "all", label: "Since the start" },
 ] as const;
 const SOURCES = [
   { key: "", label: "All sources" },

@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { WhenInput } from "@/components/leads/when-input";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { lookupMyColdCallNumberAction, saveMyColdCallLeadAction, searchMyProjectsAction, type ColdCallFormPayload } from "@/app/team/_actions/team-actions";
+import { addMyTeamProjectAction, lookupMyColdCallNumberAction, saveMyColdCallLeadAction, searchMyProjectsAction, type ColdCallFormPayload } from "@/app/team/_actions/team-actions";
 import type { ColdCallLookup } from "@/lib/leads/cold-call-service";
 import type { ColdCallLeadResult } from "@/lib/leads/cold-call-lead-service";
 import type { ProjectSearchHit } from "@/lib/leads/project-service";
@@ -239,14 +240,19 @@ export function ColdCallForm({ leadId, phoneLast4, initialPhone = "", initialNam
               <div>
                 <span className="block text-sm font-medium text-foreground">Phone</span>
                 <div className="mt-1.5 flex gap-2">
-                  <select aria-label="Country code" value={country.code} onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? COUNTRIES[0])} className={`${FIELD} w-32 shrink-0`}>
-                    {COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                  <input aria-label="Phone number" inputMode="tel" autoComplete="off" value={digits} onChange={(e) => setDigits(e.target.value.replace(/\D/g, "").slice(0, 12))} className={FIELD} />
+                  {/* The wrappers (not the fields) carry the widths: FIELD is w-full, which would otherwise push the number box off the screen. */}
+                  <div className="w-28 shrink-0">
+                    <select aria-label="Country code" value={country.code} onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? COUNTRIES[0])} className={FIELD}>
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <input aria-label="Phone number" placeholder="Phone number" inputMode="tel" autoComplete="off" value={digits} onChange={(e) => setDigits(e.target.value.replace(/\D/g, "").slice(0, 12))} className={FIELD} />
+                  </div>
                 </div>
                 <div aria-live="polite" className="mt-2 text-sm">
                   {lookupNow?.kind === "YOURS" && (
@@ -292,7 +298,7 @@ export function ColdCallForm({ leadId, phoneLast4, initialPhone = "", initialNam
                 </button>
               </div>
               {projects.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">Search the projects you have in the system. Nothing is invented here.</p>
+                <p className="mt-2 text-sm text-muted-foreground">Add any project the client is interested in, by name. Projects you add are saved and suggested next time.</p>
               ) : (
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {projects.map((p) => (
@@ -347,7 +353,7 @@ export function ColdCallForm({ leadId, phoneLast4, initialPhone = "", initialNam
                 <div className="mt-3 space-y-3">
                   <label className="block text-sm font-medium text-foreground">
                     When (India time)
-                    <input type="datetime-local" value={planWhen} min={toBusinessLocalInput(new Date())} onChange={(e) => setPlanWhen(e.target.value)} className={`${FIELD} mt-1.5`} />
+                    <WhenInput value={planWhen} min={toBusinessLocalInput(new Date())} onChange={setPlanWhen} className={`${FIELD} mt-1.5`} />
                   </label>
                   {planKind === "SITE_VISIT" && projects.length === 0 && <p className="text-sm text-red-700">Add the project for the site visit above.</p>}
                   <label className="block text-sm font-medium text-foreground">
@@ -466,14 +472,58 @@ function ProjectPicker({ open, onClose, chosen, onPick }: { open: boolean; onClo
     };
   }, [open, query]);
 
+  const [suggestions, setSuggestions] = useState<ProjectSearchHit[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  // Nothing typed yet: the projects added before, so a repeat is one tap.
+  useEffect(() => {
+    if (!open) return;
+    let stale = false;
+    void searchMyProjectsAction("").then((items) => !stale && setSuggestions(items)).catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [open]);
+
+  const typed = query.replace(/\s+/g, " ").trim();
+  async function addTyped() {
+    setAdding(true);
+    setAddError(null);
+    const result = await addMyTeamProjectAction(typed).catch(() => ({ ok: false as const, error: "Could not add that project. Try again." }));
+    setAdding(false);
+    if (result.ok) {
+      setQuery("");
+      onPick(result.project);
+    } else setAddError(result.error);
+  }
+
   const shown = hits?.query === query ? hits.items : null;
   return (
     <BottomSheet open={open} onClose={onClose} title="Add a project">
       <div className="space-y-3">
         <input ref={input} autoFocus type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Project, developer or place" aria-label="Search projects" className={FIELD} />
-        {query.trim().length < 2 && <p className="text-sm text-muted-foreground">Type at least two letters.</p>}
+        {query.trim().length < 2 && suggestions.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-medium text-foreground">Projects you added before</p>
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {suggestions.map((p) => {
+                const already = chosen.some((c) => c.id === p.id);
+                return (
+                  <li key={p.id}>
+                    <button type="button" disabled={already} onClick={() => onPick(p)} className="flex min-h-14 w-full flex-col items-start justify-center px-4 py-2 text-left hover:bg-muted disabled:opacity-50">
+                      <span className="text-base font-medium text-foreground">{p.name}</span>
+                      <span className="text-sm text-muted-foreground">{already ? "added" : "tap to add"}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        {query.trim().length < 2 && <p className="text-sm text-muted-foreground">Type the project name. If it is not in the list, you can add it.</p>}
         {query.trim().length >= 2 && shown === null && <p className="text-sm text-muted-foreground">Searching…</p>}
-        {shown && shown.length === 0 && <p className="text-sm text-muted-foreground">No active project matches. Projects are added by the Founder.</p>}
+        {shown && shown.length === 0 && <p className="text-sm text-muted-foreground">No saved project has that name yet.</p>}
         {shown && shown.length > 0 && (
           <ul className="divide-y divide-border rounded-lg border border-border">
             {shown.map((p) => {
@@ -489,6 +539,12 @@ function ProjectPicker({ open, onClose, chosen, onPick }: { open: boolean; onClo
             })}
           </ul>
         )}
+        {typed.length >= 2 && !(shown ?? []).some((p) => p.name.toLowerCase() === typed.toLowerCase()) && (
+          <button type="button" disabled={adding || shown === null} onClick={addTyped} className="flex min-h-14 w-full items-center justify-center rounded-lg border border-accent bg-accent/10 px-4 py-2 text-base font-semibold text-accent-hover hover:bg-accent/20 disabled:opacity-50">
+            {adding ? "Adding…" : `Add “${typed}” as a project`}
+          </button>
+        )}
+        {addError && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{addError}</p>}
       </div>
     </BottomSheet>
   );

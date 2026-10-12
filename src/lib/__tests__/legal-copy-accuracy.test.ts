@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { LEAD_COOKIE_NAME, signLeadToken, verifyLeadToken } from "../leads/gate/lead-cookie.ts";
 import { RETURNING_LEAD_TTL_DAYS } from "../leads/gate/gate-config.ts";
-import { COMMERCIAL_DISCLOSURE, gateCopy } from "../leads/gate/gate-copy.ts";
+import { COMMISSION_POLICY, gateCopy } from "../leads/gate/gate-copy.ts";
 import { LEGAL_CONFIG } from "../legal-config.ts";
 
 /**
@@ -148,35 +148,21 @@ test("cookie policy: the 'how you found us' storage is sent to the server ONLY w
 
 // --- commercial disclosure --------------------------------------------------------------------------------
 
-const PAYMENT_SENTENCE = /may receive payment from developers or others in connection with property transactions/;
-const NO_EFFECT = /no effect on how we present any developer/;
+const POLICY_PRIMARY = /charges 0% commission on primary \(new-launch\) sales/;
+const POLICY_OTHER = /On secondary \(resale\) and rental transactions, commission is applicable as per market standards/;
 
-test("commercial disclosure: the SAME approved sentence is at the point of enquiry and in the Privacy Policy, as on About, Disclaimer and FAQ", () => {
-  assert.match(COMMERCIAL_DISCLOSURE, PAYMENT_SENTENCE);
-  assert.match(COMMERCIAL_DISCLOSURE, NO_EFFECT);
-  assert.equal(gateCopy("Acme Realty").commercialDisclosure, COMMERCIAL_DISCLOSURE);
-  assert.equal(gateCopy("Acme Realty", "PHONE_CALL").commercialDisclosure, COMMERCIAL_DISCLOSURE, "shown whichever channel is chosen");
-
-  assert.match(section10A, PAYMENT_SENTENCE);
-  assert.match(section10A, NO_EFFECT);
-  for (const page of ["about/page.tsx", "disclaimer/page.tsx", "faq/page.tsx"]) {
-    const text = plain(read(appRoot, ...page.split("/")));
-    assert.match(text, PAYMENT_SENTENCE, `${page} keeps the approved disclosure`);
+test("commission policy: the SAME sentence is on the Privacy Policy, Disclaimer and FAQ — 0% on primary, market-standard commission on secondary and rent", () => {
+  assert.match(COMMISSION_POLICY, POLICY_PRIMARY);
+  assert.match(COMMISSION_POLICY, POLICY_OTHER);
+  assert.equal("commercialDisclosure" in gateCopy("Acme Realty"), false, "the enquiry form carries the buyer promise, not a payment disclosure");
+  assert.match(gateCopy("Acme Realty").buyerPromise, /0% commission on primary \(new-launch\) sales/);
+  assert.match(gateCopy("Acme Realty").buyerPromise, /secondary \(resale\) and rental deals, commission is applicable as per market standards/);
+  assert.match(section10A, /COMMISSION_POLICY/, "the Privacy Policy states the one commission policy sentence");
+  for (const page of ["disclaimer/page.tsx", "faq/page.tsx"]) {
+    const source = read(appRoot, ...page.split("/")).replace(/\s+/g, " ");
+    assert.ok(source.includes("COMMISSION_POLICY"), `${page} uses the one commission policy sentence`);
   }
-});
-
-test("commercial disclosure: states the relationship, and makes no claim about fees, independence, licensing or being a non-broker", () => {
-  const stated = COMMERCIAL_DISCLOSURE + " " + section10A.slice(section10A.indexOf("Our commercial relationship"), section10A.indexOf("Erasure:"));
-  for (const pattern of [
-    /commission[- ]free|zero[- ](commission|brokerage)|no[- ]brokerage|brokerage[- ]free/i,
-    /\bfree\b|no (fee|charge|cost)|at no cost/i,
-    /independent|impartial|unbiased|neutral/i,
-    /not (a|an) (broker|agent|intermediary)/i,
-    /licen[cs]ed|RERA[- ]registered|registered (broker|agent)/i,
-    /guarantee/i,
-  ]) {
-    assert.doesNotMatch(stated, pattern, `commercial wording matches ${pattern}`);
-  }
+  assert.doesNotMatch(section10A, /receive payment from developers/);
 });
 
 // --- privacy 10A accuracy vs. implementation -----------------------------------------------------------------

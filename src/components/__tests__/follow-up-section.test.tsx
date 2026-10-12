@@ -127,7 +127,7 @@ test("missed card: lead, follow-up type, scheduled date and time, how overdue, l
     overdueMs: (2 * 60 + 18) * 60_000,
   };
   const html = renderToStaticMarkup(<MissedCard item={item} href={`/team/leads/${lead.id}`} />);
-  for (const expected of ["Missed follow-up", "Rahul Sharma", "Call back", "11 Oct 2026, 12:00 PM", "Missed by 2h 18m", "Last contact 11 Oct 2026, 10:00 AM", "3 attempts", "Hot", "2 BHK · Thane · Self use", "Resolve"]) {
+  for (const expected of ["Missed follow-up", "Rahul Sharma", "Call back", "11 Oct 2026, 12:00 PM", "Missed by 2h 18m", "Last contact Sun 11 Oct 2026, 10:00 AM", "3 attempts", "Hot", "2 BHK · Thane · Self use", "Resolve"]) {
     assert.match(html, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), expected);
   }
   assert.match(html, /href="tel:\+919876543210"[^>]*>Call</);
@@ -167,4 +167,14 @@ test("cards: hostile text is escaped, never injected as markup", () => {
   );
   assert.doesNotMatch(html, /<img src=x|<script>alert/);
   assert.match(html, /&lt;script&gt;/);
+});
+
+test("date-time field: always spells out the day of the week, flags weekends, and says nothing for an incomplete value", async () => {
+  const { describeWhen } = await import("../leads/when-input.tsx");
+  assert.deepEqual(describeWhen("2026-10-10T10:00"), { text: "Saturday, 10 October 2026 · 10:00 AM", weekend: true });
+  assert.deepEqual(describeWhen("2026-10-11T15:05"), { text: "Sunday, 11 October 2026 · 03:05 PM", weekend: true });
+  assert.deepEqual(describeWhen("2026-10-09T00:30"), { text: "Friday, 9 October 2026 · 12:30 AM", weekend: false });
+  assert.deepEqual(describeWhen("2026-10-12T12:00"), { text: "Monday, 12 October 2026 · 12:00 PM", weekend: false });
+  assert.equal(describeWhen(""), null);
+  assert.equal(describeWhen("2026-02-31T10:00"), null);
 });

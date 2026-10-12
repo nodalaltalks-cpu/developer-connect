@@ -123,7 +123,22 @@ test("alerts: the endpoint is the signed-in team member's own, never cached, and
   assert.match(client, /navigator\.vibrate/);
   assert.match(client, /role="alertdialog"/);
   assert.match(client, /requireInteraction: true/);
-  assert.match(client, /Notification\.requestPermission\(\)/, "notifications are asked for only when the person taps the button");
+  assert.match(read("src/components/team/alerts-control.tsx"), /Notification\.requestPermission\(\)/, "notifications are asked for only when the person taps the button");
+  assert.match(client, /enableAlerts/, "the banner button uses the one shared way to turn alerts on");
   assert.match(read("public/sw.js"), /notificationclick/);
   assert.ok(!/fetch\(/.test(read("public/sw.js")), "the service worker makes no network requests");
+});
+
+test("catch-up: opening the app again alerts for everything still waiting, including alerts sent while the phone was off; only opened or dismissed ones stay quiet", async () => {
+  const { alertKey, catchUpAlerts } = await import("../follow-up-alerts.ts");
+  const due = { followUpId: "f1", leadId: "l1", name: "Asha", scheduledAt: "2026-10-12T04:30:00.000Z", kind: "DUE" as const };
+  const missed = { followUpId: "f2", leadId: "l2", name: "Ravi", scheduledAt: "2026-10-11T04:30:00.000Z", kind: "MISSED" as const };
+  const later = { followUpId: "f3", leadId: "l3", name: null, scheduledAt: "2026-10-12T06:00:00.000Z", kind: "DUE" as const };
+  // Nothing acknowledged yet (the phone was off): all three buzz, the missed one first, then the earliest due.
+  assert.deepEqual(catchUpAlerts([due, later, missed], new Set()).map((i) => i.followUpId), ["f2", "f1", "f3"]);
+  // Acknowledged (opened or dismissed) ones do not come back; the rest still do.
+  assert.deepEqual(catchUpAlerts([due, later, missed], new Set([alertKey(due)])).map((i) => i.followUpId), ["f2", "f3"]);
+  // A rescheduled follow-up is a new thing to be alerted about.
+  assert.deepEqual(catchUpAlerts([{ ...due, scheduledAt: "2026-10-13T04:30:00.000Z" }], new Set([alertKey(due)])).length, 1);
+  assert.deepEqual(catchUpAlerts([], new Set()), []);
 });

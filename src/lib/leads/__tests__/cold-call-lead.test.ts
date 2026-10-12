@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assignLead, captureAssistanceLead, changeLeadStatus, getLeadTimeline } from "../lead-service.ts";
-import { createProject, searchActiveProjects } from "../project-service.ts";
+import { addTeamProject, createProject, searchActiveProjects } from "../project-service.ts";
 import { saveColdCallLead } from "../cold-call-lead-service.ts";
 import { createInMemoryLeadRepositories } from "../memory-repository.ts";
 import { LeadNotFoundError, LeadStateError, LeadValidationError, UnauthorizedLeadActionError } from "../errors.ts";
@@ -225,6 +225,20 @@ test("project search: active projects only, by name / developer / place, no pric
   assert.deepEqual(await searchActiveProjects(w.repos, w.priyaActor, "a"), []);
   assert.deepEqual(await searchActiveProjects(w.repos, w.priyaActor, 42), []);
   await assert.rejects(searchActiveProjects(w.repos, { actorType: "BUYER", actorId: "x" }, "acme"), UnauthorizedLeadActionError);
+});
+
+test("team-added project: any name can be added, is saved once whatever the capitalisation, is found by search, suggested next time and can be attached to a lead", async () => {
+  const w = await world();
+  const first = await addTeamProject(w.repos, w.priyaActor, "  Godrej  Pali Hills ");
+  const again = await addTeamProject(w.repos, w.priyaActor, "godrej pali hills");
+  assert.equal(again.id, first.id, "the same name is the same project");
+  assert.equal(first.name, "Godrej Pali Hills");
+  assert.deepEqual((await searchActiveProjects(w.repos, w.priyaActor, "pali")).map((h) => h.name), ["Godrej Pali Hills"]);
+  assert.deepEqual((await searchActiveProjects(w.repos, w.priyaActor, "")).map((h) => h.name), ["Godrej Pali Hills"], "suggested before anything is typed");
+  const saved = await saveColdCallLead(w.repos, { phone: NEW_PHONE, interest: "INTERESTED", qualification: { outcome: "PENDING_QUALIFICATION" }, projectIds: [first.id], note: "Asked about Pali Hills" }, w.priyaActor, NOW);
+  assert.equal(saved.saved, true);
+  await assert.rejects(addTeamProject(w.repos, w.priyaActor, "  "), LeadValidationError);
+  await assert.rejects(addTeamProject(w.repos, { actorType: "BUYER", actorId: "x" }, "Anything"), UnauthorizedLeadActionError);
 });
 
 test("static: the action authorizes first, accepts no owner/source/status from the browser; the service is one transaction", () => {

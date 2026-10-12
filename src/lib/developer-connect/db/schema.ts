@@ -1205,9 +1205,8 @@ export const projects = pgTable(
   "projects",
   {
     id: uuid("id").primaryKey(),
-    developerId: uuid("developer_id")
-      .notNull()
-      .references(() => developers.id, { onDelete: "restrict" }),
+    // NULL for a project a team member typed in during a call (no developer on file); Founder-created projects always have one.
+    developerId: uuid("developer_id").references(() => developers.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     city: text("city").notNull(),
     locality: text("locality"),
@@ -1223,6 +1222,8 @@ export const projects = pgTable(
   },
   (table) => [
     uniqueIndex("projects_developer_name_key").on(table.developerId, sql`lower(${table.name})`),
+    // A project typed in by the team is saved once: the same name (any capitalisation) is found again, never duplicated.
+    uniqueIndex("projects_team_added_name_key").on(sql`lower(${table.name})`).where(sql`${table.developerId} is null`),
     index("projects_city_idx").on(table.city),
     check("projects_status_ck", sql`${table.status} in ('ACTIVE', 'INACTIVE')`),
     check("projects_price_ck", sql`(${table.priceMin} is null or ${table.priceMin} >= 0) and (${table.priceMax} is null or ${table.priceMax} >= 0) and (${table.priceMin} is null or ${table.priceMax} is null or ${table.priceMin} <= ${table.priceMax})`),

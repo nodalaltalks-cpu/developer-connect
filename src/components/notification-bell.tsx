@@ -38,6 +38,8 @@ export function NotificationBell() {
   const containerRef = useRef<HTMLDivElement>(null);
   const toggleButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // On a phone the panel is pinned to the screen edges just under the bell, so it can never run off the screen.
+  const [panelTop, setPanelTop] = useState(64);
 
   const refreshUnreadCount = useCallback(() => {
     getUnreadNotificationCountAction()
@@ -74,6 +76,8 @@ export function NotificationBell() {
 
   function handleToggle() {
     const next = !open;
+    const rect = toggleButtonRef.current?.getBoundingClientRect();
+    if (rect) setPanelTop(Math.round(rect.bottom + 8));
     setOpen(next);
     if (next) {
       startTransition(async () => {
@@ -123,24 +127,24 @@ export function NotificationBell() {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-        className="relative flex h-11 w-11 items-center justify-center rounded-md text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={`relative flex h-11 w-11 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${unreadCount > 0 ? "text-red-600" : "text-foreground"}`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth={1.75}
+          strokeWidth={unreadCount > 0 ? 2.5 : 1.75}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="h-5 w-5"
+          className={`h-6 w-6 ${unreadCount > 0 ? "origin-top animate-[wiggle_1.2s_ease-in-out_infinite]" : ""}`}
         >
           <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-accent-foreground">
-            {unreadCount > 9 ? "9+" : unreadCount}
+          <span className="absolute -right-0.5 -top-0.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-sm font-extrabold leading-none text-white shadow-md ring-2 ring-background">
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
@@ -151,10 +155,11 @@ export function NotificationBell() {
           role="dialog"
           aria-label="Notifications"
           tabIndex={-1}
-          className="absolute right-0 top-12 z-20 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-background shadow-lg focus:outline-none"
+          style={{ top: panelTop }}
+          className="fixed inset-x-3 z-50 rounded-xl border border-border bg-background shadow-2xl focus:outline-none sm:absolute sm:inset-x-auto sm:right-0 sm:!top-12 sm:z-20 sm:w-96 sm:rounded-lg"
         >
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <p className="text-sm font-semibold text-foreground">Notifications</p>
+            <p className="text-base font-extrabold text-foreground">Notifications</p>
             {unreadCount > 0 && (
               <button
                 type="button"
@@ -166,7 +171,7 @@ export function NotificationBell() {
               </button>
             )}
           </div>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[60vh] overflow-y-auto">
             {notifications === null ? (
               <p className="px-4 py-6 text-center text-sm text-muted-foreground">Loading…</p>
             ) : notifications.length === 0 ? (
@@ -181,16 +186,16 @@ export function NotificationBell() {
                       type="button"
                       onClick={() => handleNotificationClick(notification)}
                       className={`flex w-full flex-col gap-0.5 px-4 py-3 text-left hover:bg-muted ${
-                        notification.read ? "" : "bg-accent-soft/40"
+                        notification.read ? "" : "border-l-4 border-red-600 bg-red-50"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-foreground">{notification.title}</p>
+                        <p className={`text-base text-foreground ${notification.read ? "font-medium" : "font-extrabold"}`}>{notification.title}</p>
                         {!notification.read && (
-                          <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden />
+                          <span className="mt-1.5 h-3 w-3 shrink-0 rounded-full bg-red-600" aria-hidden />
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">{notification.body}</p>
+                      <p className={`text-sm ${notification.read ? "text-muted-foreground" : "font-medium text-foreground"}`}>{notification.body}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {timeAgo(notification.createdAt)}
                       </p>

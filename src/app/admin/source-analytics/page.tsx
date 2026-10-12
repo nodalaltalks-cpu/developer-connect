@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 const FIELD = "min-h-11 w-full rounded-md border border-border bg-background px-3 text-base text-foreground";
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
-const RANGE_LABEL: Record<(typeof RANGE_PRESETS)[number], string> = { today: "Today", yesterday: "Yesterday", last7: "Last 7 days", last30: "Last 30 days", custom: "Custom dates" };
+const RANGE_LABEL: Record<(typeof RANGE_PRESETS)[number], string> = { today: "Today", yesterday: "Yesterday", last7: "Last 7 days", last30: "Last 30 days", all: "Since the start", custom: "Custom dates" };
 const SOURCE_NAME = { COLD_CALL: "Cold Call", DIGITAL: "Digital" } as const;
 const SOURCE_PARAM = { COLD_CALL: "cold_call", DIGITAL: "digital" } as const;
 

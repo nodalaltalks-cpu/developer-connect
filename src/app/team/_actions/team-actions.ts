@@ -11,7 +11,7 @@ import { toCallView, type CallView } from "@/lib/leads/call-view";
 import { recordQualification } from "@/lib/leads/qualification-service";
 import { skipQueueLead } from "@/lib/leads/calling-batch-service";
 import { saveColdCallLead, type ColdCallLeadResult } from "@/lib/leads/cold-call-lead-service";
-import { searchActiveProjects, type ProjectSearchHit } from "@/lib/leads/project-service";
+import { addTeamProject, searchActiveProjects, type ProjectSearchHit } from "@/lib/leads/project-service";
 import { recordWhatsAppOpened } from "@/lib/leads/whatsapp-service";
 import { lookupColdCallNumber, prepareColdCall, type ColdCallLookup } from "@/lib/leads/cold-call-service";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
@@ -143,6 +143,19 @@ export async function skipMyQueueLeadAction(batchId: string, leadId: string): Pr
 }
 
 /** Type-ahead over the canonical ACTIVE projects. Read-only: ids and labels, no prices; nothing can be created here. */
+export type AddProjectResult = { ok: true; project: ProjectSearchHit } | { ok: false; error: string };
+
+/** Saves a project name typed during a call (once; the same name is found again) and returns it ready to attach. */
+export async function addMyTeamProjectAction(name: string): Promise<AddProjectResult> {
+  const { actor } = await requireEmployeeForAction();
+  try {
+    return { ok: true, project: await addTeamProject(createPostgresLeadRepositories(), actor, name) };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
 export async function searchMyProjectsAction(query: string): Promise<ProjectSearchHit[]> {
   const { actor } = await requireEmployeeForAction();
   try {
@@ -389,6 +402,17 @@ export async function reportMyDeviceCallAction(callId: string, report: DeviceRep
     if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: "That call could not be found.", permanent: true };
     return { ok: false, error: GENERIC_ERROR };
   }
+}
+
+/**
+ * A call placed from an ordinary phone browser: the page opened the phone's own dialer (tel:) on the member's SIM. A browser
+ * cannot read the call log, so the call is recorded as PLACED with no length and no Connected/Dialed class, never guessed.
+ * The start time is the server's own clock.
+ */
+export async function reportMyBrowserCallAction(callId: string): Promise<ReportDeviceCallResult> {
+  const { actor } = await requireEmployeeForAction();
+  if (!actor.actorId) return { ok: false, error: "That call could not be found.", permanent: true };
+  return reportMyDeviceCallAction(callId, { startedAtMs: Date.now(), durationSeconds: 0, durationUnavailable: true });
 }
 
 /** The current state of a call THIS member made on a lead they own — null for anything else (same as a missing call). */

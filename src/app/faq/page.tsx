@@ -1,3 +1,4 @@
+import { COMMISSION_POLICY } from "@/lib/leads/gate/gate-copy";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
@@ -20,7 +21,7 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "Is Developer Connects the developer, or a party to my purchase?",
     answer:
-      "No. Developer Connects is not the developer of any project and is not a party to your agreement with a developer. We help buyers research developers and connect with them through our advisory team. Developer Connects may receive payment from developers or others in connection with property transactions; this has no effect on how we present any developer.",
+      "No. Developer Connects is not the developer of any project and is not a party to your agreement with a developer. We help buyers research developers and connect with them through our advisory team. " + COMMISSION_POLICY,
   },
   {
     question: "Does Developer Connects sell properties itself?",

@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { FounderSection } from "@/components/founder-section";
 import { FOUNDER } from "@/lib/founder";
+import { BUYER_PROMISE, CREDENTIALS_LINE } from "@/lib/leads/gate/gate-copy";
 
 export const metadata: Metadata = {
   title: "About Us | Developer Connects",
@@ -67,16 +68,14 @@ export default function AboutPage() {
                 <h2 className="text-lg font-semibold">How property advisory works</h2>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
                   <li>
-                    Developer Connects is not the developer, and the developer does not require your phone number
-                    through this flow.
+                    {BUYER_PROMISE}
                   </li>
                   <li>
                     The details you share are given to Developer Connects, to help with your property enquiry
                     through the contact method you choose.
                   </li>
                   <li>
-                    Developer Connects may receive payment from developers or others in connection with property
-                    transactions. This has no effect on how we present any developer.
+                    {CREDENTIALS_LINE}
                   </li>
                 </ul>
               </section>

@@ -1,3 +1,4 @@
+import { COMMISSION_POLICY } from "@/lib/leads/gate/gate-copy";
 import type { Metadata } from "next";
 import { LegalPageLayout, LegalSection } from "@/components/legal-page-layout";
 import { LEGAL_CONFIG } from "@/lib/legal-config";
@@ -27,9 +28,7 @@ export default function DisclaimerPage() {
         <p>
           Developer Connects is not the developer of any project and is not a party to your agreement with a
           developer. Property assistance offered by Developer Connects is optional — you decide whether to
-          continue — and any purchase is a transaction between you and the developer. Developer Connects may
-          receive payment from developers or others in connection with property transactions; this has no effect
-          on how we present any developer. Always confirm the terms, any fees, and the
+          continue — and any purchase is a transaction between you and the developer. {COMMISSION_POLICY} Always confirm the terms, any fees, and the
           project&apos;s regulatory registration before you pay anything.
         </p>
       </LegalSection>

@@ -78,8 +78,9 @@ function validate(input: ProjectInput): Omit<Parameters<LeadRepositories["projec
 export async function createProject(repos: LeadRepositories, input: ProjectInput, actor: LeadActor, now: Date = new Date()): Promise<Project> {
   assertFounder(actor);
   const clean = validate(input);
-  const known = await repos.leads.developerNames([clean.developerId]);
-  if (!known[clean.developerId]) throw new LeadValidationError("developer", "Choose a developer from the list.");
+  const developerId = clean.developerId;
+  const known = developerId ? await repos.leads.developerNames([developerId]) : {};
+  if (!developerId || !known[developerId]) throw new LeadValidationError("developer", "Choose a developer from the list.");
   return repos.projects.create({ ...clean, createdBy: actor.actorId, now });
 }
 
@@ -88,7 +89,7 @@ export async function updateProject(repos: LeadRepositories, projectId: string, 
   const existing = await repos.projects.getById(projectId);
   if (!existing) throw new LeadNotFoundError("Project not found.");
   const merged = validate({
-    developerId: existing.developerId,
+    developerId: existing.developerId ?? "",
     name: input.name ?? existing.name,
     city: input.city ?? existing.city,
     locality: input.locality === undefined ? existing.locality : input.locality,
@@ -112,8 +113,35 @@ export interface ProjectWithDeveloper {
 export async function listProjectsForFounder(repos: LeadRepositories, actor: LeadActor): Promise<ProjectWithDeveloper[]> {
   assertFounder(actor);
   const projects = await repos.projects.list({ activeOnly: false, limit: MAX_PROJECTS_SHOWN });
-  const names = await repos.leads.developerNames([...new Set(projects.map((p) => p.developerId))]);
-  return projects.map((project) => ({ project, developerName: names[project.developerId] ?? "Unknown developer" }));
+  const names = await repos.leads.developerNames([...new Set(projects.flatMap((p) => (p.developerId ? [p.developerId] : [])))]);
+  return projects.map((project) => ({ project, developerName: project.developerId ? (names[project.developerId] ?? "Unknown developer") : TEAM_PROJECT_LABEL }));
+}
+
+const TEAM_PROJECT_LABEL = "Added by the team";
+const MAX_SUGGESTIONS = 8;
+
+/**
+ * A team member (or the Founder) types a project name that is not in the inventory yet. It is saved ONCE, as a normal
+ * project with no developer on file, so it can be attached to any lead, found by search and suggested next time. The same
+ * name in any capitalisation is the same project: it is found again, never duplicated.
+ */
+export async function addTeamProject(repos: LeadRepositories, actor: LeadActor, nameInput: unknown, now: Date = new Date()): Promise<ProjectSearchHit> {
+  assertWorkingActor(actor);
+  const name = text("project name", typeof nameInput === "string" ? nameInput.replace(/\s+/g, " ") : nameInput, 120, true)!;
+  if (name.length < 2) throw new LeadValidationError("project name", "Enter the project name.");
+  const findExisting = async () => (await repos.projects.list({ activeOnly: false, limit: MAX_PROJECTS_SHOWN * 5 })).find((p) => p.developerId === null && p.name.toLowerCase() === name.toLowerCase());
+  let project = await findExisting();
+  if (!project) {
+    try {
+      project = await repos.projects.create({ developerId: null, name, city: "", locality: null, propertyType: null, configurations: [], priceMin: null, priceMax: null, currency: null, createdBy: actor.actorId!, now });
+    } catch (error) {
+      // Someone added the same name a moment ago: use theirs.
+      project = await findExisting();
+      if (!project) throw error;
+    }
+  }
+  if (project.status !== "ACTIVE") project = await repos.projects.update(project.id, { status: "ACTIVE" }, now);
+  return { id: project.id, name: project.name, developerName: TEAM_PROJECT_LABEL, city: project.city, locality: project.locality };
 }
 
 export interface ProjectSearchHit {
@@ -131,12 +159,14 @@ export interface ProjectSearchHit {
 export async function searchActiveProjects(repos: LeadRepositories, actor: LeadActor, query: unknown, limit = 12): Promise<ProjectSearchHit[]> {
   assertWorkingActor(actor);
   const text = typeof query === "string" ? query.trim().toLowerCase().slice(0, 60) : "";
-  if (text.length < 2) return [];
   const projects = await repos.projects.list({ activeOnly: true, limit: MAX_PROJECTS_SHOWN });
-  const names = await repos.leads.developerNames([...new Set(projects.map((p) => p.developerId))]);
+  const names = await repos.leads.developerNames([...new Set(projects.flatMap((p) => (p.developerId ? [p.developerId] : [])))]);
+  const label = (p: Project) => (p.developerId ? (names[p.developerId] ?? "Unknown developer") : TEAM_PROJECT_LABEL);
+  // Nothing typed yet: suggest the projects the team has added before, newest first, so a repeat is one tap.
+  if (text.length < 2) return projects.filter((p) => p.developerId === null).slice(0, MAX_SUGGESTIONS).map((p) => ({ id: p.id, name: p.name, developerName: label(p), city: p.city, locality: p.locality }));
   const tokens = text.split(/\s+/).filter(Boolean);
   return projects
-    .map((p) => ({ p, developerName: names[p.developerId] ?? "Unknown developer" }))
+    .map((p) => ({ p, developerName: label(p) }))
     .filter(({ p, developerName }) => {
       const haystack = `${p.name} ${developerName} ${p.city} ${p.locality ?? ""}`.toLowerCase();
       return tokens.every((t) => haystack.includes(t));
@@ -180,8 +210,8 @@ export async function getLeadProjects(repos: LeadRepositories, actor: LeadActor,
     const p = await repos.projects.getById(id);
     if (p) known.set(id, p);
   }
-  const names = await repos.leads.developerNames([...new Set([...known.values()].map((p) => p.developerId))]);
-  const developerName = (p: Project) => names[p.developerId] ?? "Unknown developer";
+  const names = await repos.leads.developerNames([...new Set([...known.values()].flatMap((p) => (p.developerId ? [p.developerId] : [])))]);
+  const developerName = (p: Project) => (p.developerId ? (names[p.developerId] ?? "Unknown developer") : TEAM_PROJECT_LABEL);
   const active = new Map(entries.filter((e) => e.removedAt === null).map((e) => [e.projectId, e]));
 
   const rows: ProjectMatchRow[] = requirement

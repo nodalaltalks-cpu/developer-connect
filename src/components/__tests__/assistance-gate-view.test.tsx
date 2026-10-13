@@ -107,11 +107,16 @@ test("render: the name field is optional (labelled so) and the phone field is th
   assert.match(out, /Your WhatsApp or phone number/);
 });
 
-test("render: both countries the product operates in are offered, India first", () => {
+test("render: the whole world is offered, India first (the default), then the UAE, with the dialling code leading each label", () => {
   const out = html(STATES.form);
-  assert.match(out, /<option value="IN"[^>]*>India \+91<\/option>/);
-  assert.match(out, /<option value="AE"[^>]*>UAE \+971<\/option>/);
-  assert.ok(out.indexOf("India +91") < out.indexOf("UAE +971"));
+  assert.match(out, /<option value="IN"[^>]*>\+91 India<\/option>/);
+  assert.match(out, /<option value="AE"[^>]*>\+971 UAE<\/option>/);
+  assert.match(out, /<option value="GB"[^>]*>\+44 United Kingdom<\/option>/);
+  assert.match(out, /<option value="US"[^>]*>\+1 United States<\/option>/);
+  assert.ok(out.indexOf("+91 India") < out.indexOf("+971 UAE"));
+  assert.ok(out.indexOf("+971 UAE") < out.indexOf("+44 United Kingdom"));
+  assert.ok((out.match(/<option /g) ?? []).length >= 230);
+  assert.match(out, /<option value="IN" selected/);
 });
 
 test("render: there is NO way past the gate — no skip, no 'continue without', no direct link to the website", () => {
@@ -291,7 +296,7 @@ test("mobile: the country selector keeps its fixed width and the number field ta
   const select = out.match(/<select[^>]*class="([^"]*)"/)?.[1] ?? "";
   const phone = out.match(/<input id="gate-phone"[^>]*class="([^"]*)"/)?.[1] ?? "";
   const tokens = (classes: string) => classes.split(/\s+/);
-  assert.ok(tokens(select).includes("w-32"));
+  assert.ok(tokens(select).includes("w-36"));
   assert.ok(tokens(select).includes("shrink-0"));
   assert.ok(!tokens(select).includes("w-full"), "a full-width select pushes the number field off screen");
   assert.ok(tokens(phone).includes("flex-1"));

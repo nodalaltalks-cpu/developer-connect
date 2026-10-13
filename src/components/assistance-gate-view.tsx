@@ -1,6 +1,7 @@
 import { buttonClassName } from "@/components/ui/button";
 import type { GateCopy } from "@/lib/leads/gate/gate-copy";
-import type { GateContactPreference, GatePhoneCountry } from "@/lib/leads/gate/gate-config";
+import type { GateContactPreference } from "@/lib/leads/gate/gate-config";
+import { PHONE_COUNTRIES, phoneCountryLabel } from "@/lib/phone-countries";
 import type { GateState } from "@/lib/leads/gate/gate-flow";
 
 /**
@@ -15,11 +16,6 @@ import type { GateState } from "@/lib/leads/gate/gate-flow";
  * input is at least 16px (so iOS does not zoom) and every tap target is at
  * least 44px tall.
  */
-
-const COUNTRY_OPTIONS: Array<{ value: GatePhoneCountry; label: string }> = [
-  { value: "IN", label: "India +91" },
-  { value: "AE", label: "UAE +971" },
-];
 
 const inputClass =
   "block min-h-12 rounded-md border border-border bg-background px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";
@@ -156,12 +152,12 @@ export function AssistanceGateView({
                       aria-label={copy.countryLabel}
                       value={state.form.country}
                       disabled={submitting}
-                      onChange={(event) => onEdit({ country: event.target.value as GatePhoneCountry })}
-                      className={`${inputClass} w-32 shrink-0`}
+                      onChange={(event) => onEdit({ country: event.target.value })}
+                      className={`${inputClass} w-36 shrink-0 truncate`}
                     >
-                      {COUNTRY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
+                      {PHONE_COUNTRIES.map((country) => (
+                        <option key={country.iso} value={country.iso}>
+                          {phoneCountryLabel(country)}
                         </option>
                       ))}
                     </select>
@@ -171,7 +167,7 @@ export function AssistanceGateView({
                       type="tel"
                       inputMode="tel"
                       autoComplete="tel-national"
-                      placeholder="98765 43210"
+                      placeholder={state.form.country === "IN" ? "98765 43210" : "Phone number"}
                       value={state.form.phone}
                       disabled={submitting}
                       aria-invalid={phoneError}

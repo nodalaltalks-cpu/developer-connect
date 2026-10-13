@@ -6,6 +6,7 @@ import { submitEnquiryAction } from "@/app/_actions/enquiry-actions";
 import { consentTextFor } from "@/lib/leads/consent";
 import { BUSINESS_EMAIL, SOCIAL_LINKS } from "@/lib/social/links";
 import { trackSocial } from "@/lib/social/track-client";
+import { PHONE_COUNTRIES, composePhone, phoneCountryLabel } from "@/lib/phone-countries";
 import {
   BUDGETS,
   CONFIGURATIONS,
@@ -82,7 +83,7 @@ export function EnquiryForm() {
   const [step, setStep] = useState(0);
   const [a, setA] = useState<Answers>({ locations: [], configurations: [] });
   const [name, setName] = useState("");
-  const [country, setCountry] = useState<"IN" | "AE">("IN");
+  const [country, setCountry] = useState("IN");
   const [digits, setDigits] = useState("");
   const [trap, setTrap] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +122,7 @@ export function EnquiryForm() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function submit() {
-    if (digits.replace(/\D/g, "").length < 8) return setError("Enter your WhatsApp or phone number.");
+    if (digits.replace(/\D/g, "").length < 6) return setError("Enter your WhatsApp or phone number.");
     setError(null);
     const params = new URLSearchParams(window.location.search);
     start(async () => {
@@ -143,8 +144,7 @@ export function EnquiryForm() {
       const result = await submitEnquiryAction({
         answers,
         name: name.trim() || undefined,
-        phone: digits,
-        phoneCountry: country,
+        ...composePhone(country, digits),
         website: trap,
         landingPath: window.location.pathname,
         referrer: document.referrer || undefined,
@@ -278,10 +278,13 @@ export function EnquiryForm() {
           </Question>
           <Question title="Your WhatsApp or phone number">
             <div className="flex gap-2">
-              <div className="w-28 shrink-0">
-                <select aria-label="Country code" value={country} onChange={(e) => setCountry(e.target.value === "AE" ? "AE" : "IN")} className="min-h-12 w-full rounded-md border border-field-border bg-background px-3 text-base text-foreground">
-                  <option value="IN">+91</option>
-                  <option value="AE">+971</option>
+              <div className="w-36 shrink-0">
+                <select aria-label="Country code" value={country} onChange={(e) => setCountry(e.target.value)} className="min-h-12 w-full truncate rounded-md border border-field-border bg-background px-3 text-base text-foreground">
+                  {PHONE_COUNTRIES.map((c) => (
+                    <option key={c.iso} value={c.iso}>
+                      {phoneCountryLabel(c)}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="min-w-0 flex-1">

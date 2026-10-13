@@ -107,7 +107,7 @@ export function gateCopy(developerName: string, preference: GateContactPreferenc
 
 /** Error messages by code, shown to the buyer. None blames the buyer or suggests skipping the gate. */
 export const GATE_ERROR_MESSAGES = {
-  INVALID_PHONE: "Please enter a valid WhatsApp or phone number, including the country code if it isn't an Indian or UAE number.",
+  INVALID_PHONE: "Please enter a valid WhatsApp or phone number and choose its country code from the list.",
   INVALID_INPUT: "Something in the form isn't right. Please check it and try again.",
   NOT_VERIFIED: "We can't confirm this developer right now, so we can't take your request from here.",
   RATE_LIMITED: "You've tried several times in a short while. Please wait a few minutes and try again.",

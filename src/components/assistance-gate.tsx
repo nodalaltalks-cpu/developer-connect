@@ -16,6 +16,7 @@ import {
 } from "@/lib/leads/gate/gate-flow";
 import { MODAL_IDS, preemptModal, releaseModal } from "@/lib/modal-lock";
 import { AssistanceGateView } from "@/components/assistance-gate-view";
+import { composePhone } from "@/lib/phone-countries";
 
 /**
  * The property-assistance gate: shown whenever a visitor presses "Connect with
@@ -108,8 +109,7 @@ export function AssistanceGate({ developerId, developerName, sourceCta, requeste
               {
                 developerId,
                 sourceCta,
-                phone: current.form.phone,
-                phoneCountry: current.form.country,
+                ...composePhone(current.form.country, current.form.phone),
                 contactPreference: current.form.preference,
                 name: current.form.name || undefined,
                 attribution,

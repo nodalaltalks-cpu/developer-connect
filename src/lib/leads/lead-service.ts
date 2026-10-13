@@ -291,7 +291,7 @@ export async function captureAssistanceLead(
   if (!phone.ok) {
     throw new LeadValidationError(
       "phone",
-      phone.reason === "EMPTY" ? "Enter your WhatsApp or phone number." : "Enter a valid phone number, including the country code if it is not an Indian number.",
+      phone.reason === "EMPTY" ? "Enter your WhatsApp or phone number." : "Enter a valid phone number and choose its country code from the list.",
     );
   }
   const name = optionalText("name", input.name, MAX_NAME);

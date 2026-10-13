@@ -74,7 +74,8 @@ export type GateStateResponse =
 export type GatePhase = "loading" | "form" | "returning" | "submitting" | "success" | "error";
 
 export interface GateFormState {
-  country: GatePhoneCountry;
+  /** ISO 3166-1 alpha-2 of the country whose dialling code the buyer picked (India by default; any country is allowed). */
+  country: string;
   phone: string;
   preference: GateContactPreference;
   name: string;
@@ -91,7 +92,7 @@ export interface GateState {
   lastAttempt: "form" | "returning" | null;
 }
 
-export function initialGateState(country: GatePhoneCountry = "IN"): GateState {
+export function initialGateState(country = "IN"): GateState {
   return {
     phase: "loading",
     form: { country, phone: "", preference: "WHATSAPP", name: "" },

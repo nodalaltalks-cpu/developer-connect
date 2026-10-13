@@ -171,7 +171,9 @@ test("calendar: weekday names, Monday-first month grid and day arithmetic are ex
 test("wiring: the pad shows the quick outcome panel, the manual page uses the short form, and returning a lead leaves the page it would 404 on", () => {
   const pad = read("src/components/team/cold-call-pad.tsx");
   assert.match(pad, /<ColdCallResult/);
-  assert.match(pad, /CountryCodeField/);
+  assert.doesNotMatch(pad, /CountryCodeField|Country code|Other country/, "the pad has no country selector: India by default, a + typed or pasted for any other country");
+  assert.match(pad, /type="tel"/, "one plain number box");
+  assert.match(pad, /aria-label="Number to call"/);
   assert.match(read("src/components/team/cold-call-result.tsx"), /Not interested[\s\S]*Did not connect|Interested[\s\S]*Not interested/);
   assert.match(read("src/app/team/cold-call/page.tsx"), /QuickLeadScreen askPhone/);
   assert.match(read("src/components/team/quick-lead-form.tsx"), /NA/);

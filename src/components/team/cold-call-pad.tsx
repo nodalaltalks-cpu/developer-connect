@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { CallButton } from "@/components/leads/call-button";
 import { getMyCallStatusAction, lookupMyColdCallNumberAction, prepareMyColdCallAction, reportMyBrowserCallAction, setMyCallDispositionAction } from "@/app/team/_actions/team-actions";
 import { ColdCallResult } from "@/components/team/cold-call-result";
-import { CountryCodeField, DEFAULT_COUNTRY, countryReady, dialCode, maxDigits, minDigits, type CountrySelection } from "@/components/team/country-code-field";
 import type { ColdCallLookup } from "@/lib/leads/cold-call-service";
 import type { CallView } from "@/lib/leads/call-view";
 import { CALL_REPORTED_EVENT } from "@/lib/leads/native-bridge";
@@ -28,13 +27,25 @@ const KEY =
 const BTN =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
 
-function format(digits: string): string {
-  return digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+/** The most digits a phone number can have (E.164). */
+const MAX_DIGITS = 15;
+/** The fewest digits worth looking up; the server is the real judge of validity. */
+const MIN_DIGITS = 8;
+
+/**
+ * Keeps what a person can mean by a phone number: digits, with one leading "+" if they typed one. A number with no "+" is read as an
+ * Indian number by the server; a number that starts with "+" (or "00") keeps its own country. Nothing else is asked.
+ */
+function sanitize(value: string): string {
+  const raw = value.trim();
+  const international = raw.startsWith("+") || raw.startsWith("00");
+  const digits = (raw.startsWith("00") ? raw.slice(2) : raw).replace(/\D/g, "").slice(0, MAX_DIGITS);
+  return international ? `+${digits}` : digits;
 }
 
 export function ColdCallPad() {
-  const [country, setCountry] = useState<CountrySelection>(DEFAULT_COUNTRY);
-  const [digits, setDigits] = useState("");
+  // What is in the number box: digits, with a leading "+" only when the person typed or pasted one.
+  const [typed, setTyped] = useState("");
   // The answer is stored WITH the number it is about, so an old answer can never show for a different number.
   const [answer, setAnswer] = useState<{ number: string; result: ColdCallLookup | null } | null>(null);
   const [session, setSession] = useState(0); // remounts the call control for the next number
@@ -42,8 +53,9 @@ export function ColdCallPad() {
   const [finished, setFinished] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
 
-  const full = `${dialCode(country)}${digits}`;
-  const ready = countryReady(country) && digits.length >= minDigits(country);
+  const full = typed;
+  const digitCount = typed.replace(/\D/g, "").length;
+  const ready = digitCount >= MIN_DIGITS;
   const locked = prepared !== null && !finished; // a call is under way: the number cannot be edited
   const checking = ready && !prepared;
   const lookup = checking && answer?.number === full ? answer.result : null;
@@ -77,34 +89,23 @@ export function ColdCallPad() {
   function press(key: string) {
     if (locked) return;
     setSaved(null);
-    setDigits((d) => (d.length >= maxDigits(country) ? d : d + key));
+    setTyped((t) => (t.replace(/\D/g, "").length >= MAX_DIGITS ? t : t + key));
   }
 
   async function paste() {
     if (locked) return;
     try {
       const text = await navigator.clipboard.readText();
-      let cleaned = text.replace(/[^\d+]/g, "");
-      if (cleaned.startsWith("+971")) {
-        setCountry({ key: "AE", custom: "" });
-        cleaned = cleaned.slice(4);
-      } else if (cleaned.startsWith("+91")) {
-        setCountry({ key: "IN", custom: "" });
-        cleaned = cleaned.slice(3);
-      } else if (cleaned.startsWith("+")) {
-        // Another country: take a two-digit code as typed; the person can correct it in the code box.
-        const code = cleaned.slice(1, 3);
-        setCountry({ key: "OTHER", custom: code });
-        cleaned = cleaned.slice(1 + code.length);
-      }
-      setDigits(cleaned.replace(/\D/g, "").replace(/^0+/, "").slice(-14));
+      const cleaned = sanitize(text.replace(/[^\d+]/g, ""));
+      // A national number pasted with its leading zero is read without it.
+      setTyped(cleaned.startsWith("+") ? cleaned : cleaned.replace(/^0+/, ""));
     } catch {
       // clipboard blocked: the keypad still works
     }
   }
 
   function next(message: string | null = null) {
-    setDigits("");
+    setTyped("");
     setAnswer(null);
     setPrepared(null);
     setFinished(false);
@@ -122,11 +123,24 @@ export function ColdCallPad() {
         </p>
       )}
       <div className="flex items-center gap-2">
-        <CountryCodeField value={country} onChange={setCountry} disabled={locked} />
-        <p aria-label="Number to call" aria-live="polite" className="min-h-11 min-w-0 flex-1 truncate rounded-md border border-border px-3 text-right text-2xl font-medium leading-[2.75rem] tracking-wide text-foreground">
-          {digits ? format(digits) : <span className="text-base font-normal text-muted-foreground">Enter a number</span>}
-        </p>
-        <button type="button" aria-label="Delete last digit" className={`${BTN} w-11 px-0 text-lg`} disabled={locked || digits === ""} onClick={() => setDigits((d) => d.slice(0, -1))}>
+        {/* One large, plain number box across the screen. Type with the keypad, the phone's keyboard, or Paste. */}
+        <input
+          type="tel"
+          inputMode="tel"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-label="Number to call"
+          placeholder="Enter number"
+          value={typed}
+          disabled={locked}
+          onChange={(event) => {
+            setSaved(null);
+            setTyped(sanitize(event.target.value));
+          }}
+          className="min-h-14 min-w-0 flex-1 rounded-md border-2 border-field-border bg-white px-4 text-2xl font-semibold tracking-wide text-foreground placeholder:text-lg placeholder:font-normal placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+        />
+        <button type="button" aria-label="Delete last digit" className={`${BTN} min-h-14 w-14 shrink-0 px-0 text-xl`} disabled={locked || typed === ""} onClick={() => setTyped((t) => t.slice(0, -1))}>
           ⌫
         </button>
       </div>
@@ -158,7 +172,7 @@ export function ColdCallPad() {
         <button type="button" className={KEY} disabled={locked} onClick={() => press("0")} aria-label="0">
           0
         </button>
-        <button type="button" className={`${KEY} text-base`} disabled={locked || digits === ""} onClick={() => setDigits("")} aria-label="Clear number">
+        <button type="button" className={`${KEY} text-base`} disabled={locked || typed === ""} onClick={() => setTyped("")} aria-label="Clear number">
           Clear
         </button>
       </div>

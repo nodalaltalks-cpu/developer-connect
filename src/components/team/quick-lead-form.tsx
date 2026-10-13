@@ -202,7 +202,7 @@ export function QuickLeadForm({ leadId = null, askPhone = false, initialPhone = 
       <ProjectPicker open={sheetOpen} onClose={() => setSheetOpen(false)} chosen={projects} onPick={(p) => { setProjects((list) => (list.some((x) => x.id === p.id) || list.length >= 5 ? list : [...list, p])); setSheetOpen(false); }} />
 
       {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <button type="button" onClick={save} disabled={pending} className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-green-600 px-4 text-lg font-bold text-white hover:bg-green-700 disabled:opacity-60">
+      <button type="button" onClick={save} disabled={pending} className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-whatsapp px-4 text-lg font-bold text-white hover:bg-whatsapp-hover disabled:opacity-60">
         {pending ? "Saving…" : "Save lead and next number"}
       </button>
     </div>

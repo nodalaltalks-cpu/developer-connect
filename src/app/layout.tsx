@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { Bodoni_Moda, Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { AnalyticsConsentProvider } from "@/components/analytics-consent";
 import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
@@ -15,10 +15,15 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-/** The one editorial face, used sparingly for headlines on the brand pages; everything else is Geist. Two families in total. */
-const serifDisplay = Source_Serif_4({
+/**
+ * The one editorial face: Bodoni Moda, the Didone register of fashion and luxury publishing, for headlines and large numerals only
+ * (28px and up; its hairlines vanish below that). A variable font with an optical-size axis, so it thickens its hairlines at small
+ * display sizes. Everything else is Geist.
+ */
+const serifDisplay = Bodoni_Moda({
   variable: "--font-serif-display",
   subsets: ["latin"],
+  axes: ["opsz"],
   display: "swap",
 });
 
@@ -110,11 +115,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             variables: {
               colorPrimary: "#1b2a49",
               colorBackground: "#ffffff",
-              colorForeground: "#111318",
-              colorMuted: "#f7f5f1",
-              colorMutedForeground: "#6b7280",
-              colorBorder: "#e6e2da",
-              borderRadius: "0.375rem",
+              colorForeground: "#14171f",
+              colorMuted: "#efeae2",
+              colorMutedForeground: "#5b6170",
+              colorBorder: "#e2dcd1",
+              borderRadius: "0.25rem",
               fontFamily: "var(--font-geist-sans), sans-serif",
             },
           }}

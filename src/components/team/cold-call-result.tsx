@@ -53,7 +53,7 @@ export function ColdCallResult({ callId, leadId, onDone }: { callId: string; lea
 
       {view === "choose" && (
         <div className="mt-3 grid gap-3">
-          <button type="button" onClick={() => setView("yes")} className={`${BIG} border-green-600 bg-green-600 text-white hover:bg-green-700`}>Interested</button>
+          <button type="button" onClick={() => setView("yes")} className={`${BIG} border-whatsapp bg-whatsapp text-white hover:bg-whatsapp-hover`}>Interested</button>
           <button type="button" onClick={() => setView("no")} className={`${BIG} border-red-500 bg-background text-red-700 hover:bg-red-50`}>Not interested</button>
           <button type="button" onClick={() => setView("nc")} className={`${BIG} border-border bg-background text-foreground hover:bg-muted`}>Did not connect</button>
         </div>

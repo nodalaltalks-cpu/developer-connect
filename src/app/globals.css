@@ -3,16 +3,22 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces */
-  --background: #ffffff;
-  --muted: #f7f5f1;
+  /* Surfaces: warm ivory pages, white cards, stone for alternate sections. */
+  --background: #faf7f2;
+  --muted: #efeae2;
 
-  /* Text */
-  --foreground: #111318;
-  --muted-foreground: #6b7280;
+  /* Text. Secondary text is #5b6170 (5.8:1 on ivory, 5.2:1 on stone): the old #6b7280 failed AA on the muted background. */
+  --foreground: #14171f;
+  --muted-foreground: #5b6170;
 
-  /* Structure */
-  --border: #e6e2da;
+  /* Structure. --border is a decorative hairline; --field-border is for anything that must be SEEN as a boundary (inputs, chips): 3.4:1. */
+  --border: #e2dcd1;
+  --field-border: #8c8578;
+
+  /* Night Ink: the dark bands (proof, footer) and film overlays. Pearl and mist are the text colours that sit on them. */
+  --ink: #0b1220;
+  --pearl: #f3eee6;
+  --mist: #a8afbf;
 
   /* Accent: deep navy ink. Brand = navy + white + warm neutral, with one restrained gold. */
   --accent: #1b2a49;
@@ -20,10 +26,17 @@
   --accent-foreground: #ffffff;
   --accent-soft: #eef1f7;
 
-  /* Gold: a muted, matte metallic used ONLY for the private-consultation action. Never a gradient, never decoration. */
+  /* Brass: a muted, matte metallic. The CTA fill, hairline rules and large numerals on dark. Never a gradient. Brass TEXT on light uses
+     --brass-700 (5.8:1); on dark it uses --brass-300 (9.9:1). Plain --gold as text on white is only 2.9:1: never do that. */
   --gold: #b8924a;
   --gold-hover: #a58140;
   --gold-foreground: #15110a;
+  --brass-300: #d9b877;
+  --brass-700: #7a5c26;
+
+  /* WhatsApp: the only green on the site. White on it is 5.3:1 (Tailwind green-600 was 3.3:1). */
+  --whatsapp: #1f7a4d;
+  --whatsapp-hover: #17613c;
 
   /* Focus ring */
   --ring: #1b2a49;
@@ -39,6 +52,14 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-field-border: var(--field-border);
+  --color-ink: var(--ink);
+  --color-pearl: var(--pearl);
+  --color-mist: var(--mist);
+  --color-brass-300: var(--brass-300);
+  --color-brass-700: var(--brass-700);
+  --color-whatsapp: var(--whatsapp);
+  --color-whatsapp-hover: var(--whatsapp-hover);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
@@ -72,6 +93,58 @@ body {
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Brand utilities (Night Ink and Brass)
+ * ------------------------------------------------------------------------------------------------------------------ */
+
+/* Fine film grain over dark bands and imagery (about 5%): the difference between a flat render and a photograph. Decorative only. */
+.dc-grain {
+  position: relative;
+  isolation: isolate;
+}
+.dc-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Below-the-fold sections are not laid out or painted until they are near the screen. */
+.defer-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+/* One quiet entrance for the hero text: opacity and a short rise, once. Never loops. */
+@keyframes dc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dc-rise {
+  animation: dc-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--dc-delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-rise {
+    animation: none;
+  }
+}
+
+/* Large display type uses the font's optical sizing (Bodoni Moda draws finer hairlines as it gets bigger). */
+.font-serif {
+  font-optical-sizing: auto;
 }
 
 /*

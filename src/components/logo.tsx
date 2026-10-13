@@ -19,7 +19,7 @@ import Image from "next/image";
  * both call sites still render byte-identical text output, just through
  * one shared place now.
  */
-export function Logo({ size = "default" }: { size?: "default" | "sm" }) {
+export function Logo({ size = "default", tone = "default" }: { size?: "default" | "sm"; tone?: "default" | "light" }) {
   const imageSize = size === "sm" ? 20 : 24;
 
   return (
@@ -27,16 +27,18 @@ export function Logo({ size = "default" }: { size?: "default" | "sm" }) {
       <Image
         src="/developer-connects-logo.jpg"
         alt=""
-        width={1600}
-        height={1600}
-        className="shrink-0 rounded-sm"
+        width={48}
+        height={48}
+        loading="eager"
+        sizes={`${imageSize}px`}
+        className={tone === "light" ? "shrink-0 rounded-sm bg-white p-0.5" : "shrink-0 rounded-sm"}
         style={{ width: imageSize, height: imageSize }}
       />
       <span
         className={
           size === "sm"
-            ? "truncate font-semibold text-foreground"
-            : "truncate text-lg font-semibold tracking-tight text-foreground"
+            ? `truncate font-semibold ${tone === "light" ? "text-pearl" : "text-foreground"}`
+            : `truncate text-lg font-semibold tracking-tight ${tone === "light" ? "text-pearl" : "text-foreground"}`
         }
       >
         Developer Connects

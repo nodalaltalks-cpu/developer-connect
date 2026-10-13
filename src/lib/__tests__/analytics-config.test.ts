@@ -129,7 +129,7 @@ test("consent banner: Google Analytics loads only after 'Accept', is switched of
 
 test("footer: offers 'Cookie settings' in the Legal column so the choice can be changed", () => {
   const footer = read("../../components/site-footer.tsx");
-  assert.match(footer, /column\.heading === "Legal" && <CookieSettingsButton \/>/);
+  assert.match(footer, /column\.heading === "Legal" && <CookieSettingsButton/);
 });
 
 test("policies: Cookie and Privacy pages disclose optional Google Analytics and no longer claim there is none", () => {

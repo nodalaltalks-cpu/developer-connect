@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
+import { FOUNDER } from "@/lib/founder";
+import { CREDENTIALS_LINE, RERA_REGISTRATION_NUMBER } from "@/lib/leads/gate/gate-copy";
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/logo";
 import { NewsletterSignup } from "@/components/newsletter-signup";
@@ -62,7 +64,6 @@ function buildColumns(): FooterColumn[] {
       links: [
         { label: "FAQ", href: "/faq" },
         { label: "Developer research guides", href: "/buy-direct-from-developer" },
-        { label: "Blog", comingSoon: true },
       ],
     },
     {
@@ -70,11 +71,7 @@ function buildColumns(): FooterColumn[] {
       links: [
         { label: "Instagram", href: "https://www.instagram.com/developerconnects/", external: true },
         { label: "Facebook", href: "https://www.facebook.com/profile.php?id=61595466475332", external: true },
-        {
-          label: "LinkedIn",
-          href: "https://www.linkedin.com/company/nodalaltalks/?viewAsMember=true",
-          external: true,
-        },
+        { label: "LinkedIn", href: FOUNDER.linkedinUrl, external: true },
         { label: "Email", href: `mailto:${ADVISOR_CONTACT.email}` },
       ],
     },
@@ -100,61 +97,68 @@ const columns = buildColumns();
  * not an attack on an alternative.
  */
 export function SiteFooter() {
+  const link = "inline-flex min-h-11 items-center text-sm text-mist hover:text-pearl hover:underline";
   return (
-    <footer className="border-t border-border bg-muted/30">
-      <Container className="py-12">
+    <footer className="dc-grain bg-ink text-pearl">
+      <div aria-hidden="true" className="h-px bg-gold/70" />
+      <Container className="relative z-10 py-14">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="max-w-sm">
-            <Logo size="sm" />
-            <p className="mt-2 text-sm text-muted-foreground">
-              Property advisory for Mumbai, Dubai and beyond. Clear
-              information, expert guidance, at your pace.
-            </p>
+            <Logo size="sm" tone="light" />
+            <p className="mt-4 font-serif text-2xl font-medium leading-snug tracking-[-0.01em] text-pearl">Know before you buy.</p>
+            <p className="mt-2 text-sm leading-6 text-mist">Property research and advisory for Mumbai and Dubai, led by Ambish Singh.</p>
           </div>
-          <NewsletterSignup source="footer" />
+          {/* The sign-up form is built for light surfaces, so it sits on a light card. */}
+          <div className="rounded-xl bg-background p-5 text-foreground">
+            <NewsletterSignup source="footer" />
+          </div>
         </div>
 
-        <div className="mt-10 grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-12 grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
           {columns.map((column) => (
             <div key={column.heading}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {column.heading}
-              </p>
-              <ul className="mt-3 space-y-2">
-                {column.links.map((link) => (
-                  <li key={link.label}>
-                    {link.comingSoon || !link.href ? (
-                      <span className="text-sm text-muted-foreground">{link.label} — Coming Soon</span>
-                    ) : link.href.startsWith("mailto:") ? (
-                      <a href={link.href} className="inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline">
-                        {link.label}
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brass-300">{column.heading}</p>
+              <ul className="mt-3 space-y-1">
+                {column.links.map((item) => (
+                  <li key={item.label}>
+                    {item.comingSoon || !item.href ? (
+                      <span className="text-sm text-mist">{item.label}</span>
+                    ) : item.href.startsWith("mailto:") ? (
+                      <a href={item.href} className={link}>
+                        {item.label}
                       </a>
-                    ) : link.external ? (
-                      <a
-                        href={link.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline"
-                      >
-                        {link.label}
+                    ) : item.external ? (
+                      <a href={item.href} target="_blank" rel="noopener noreferrer" className={link}>
+                        {item.label}
                       </a>
                     ) : (
-                      <Link href={link.href} className="inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline">
-                        {link.label}
+                      <Link href={item.href} className={link}>
+                        {item.label}
                       </Link>
                     )}
                   </li>
                 ))}
-                {column.heading === "Legal" && <CookieSettingsButton />}
+                {column.heading === "Legal" && <CookieSettingsButton className={link} />}
               </ul>
             </div>
           ))}
         </div>
 
-        <p className="mt-10 border-t border-border pt-6 text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Developer Connects. All rights reserved. Part of the
-          NoDalalTalks ecosystem.
-        </p>
+        {/* Who we are, stated where a careful buyer looks: the registration, with a way to check it. Nothing is shown that has not been supplied. */}
+        <div className="mt-12 border-t border-white/10 pt-6 text-sm leading-6 text-mist">
+          <p>{CREDENTIALS_LINE}</p>
+          {RERA_REGISTRATION_NUMBER && (
+            <p className="mt-1">
+              MahaRERA registration no. <span className="font-semibold text-pearl">{RERA_REGISTRATION_NUMBER}</span>.{" "}
+              <a href="https://maharera.maharashtra.gov.in" target="_blank" rel="noopener noreferrer" className="font-medium text-brass-300 underline-offset-4 hover:underline">
+                Check it on the MahaRERA website
+              </a>
+            </p>
+          )}
+          <p className="mt-4 text-xs text-mist">
+            © {new Date().getFullYear()} Developer Connects. All rights reserved. Part of the NoDalalTalks ecosystem.
+          </p>
+        </div>
       </Container>
     </footer>
   );

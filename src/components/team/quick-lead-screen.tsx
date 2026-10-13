@@ -10,7 +10,7 @@ export function QuickLeadScreen({ leadId = null, askPhone = false, initialPhone 
   if (savedId) {
     return (
       <div className="rounded-2xl border border-border p-5 text-center">
-        <p aria-hidden="true" className="mx-auto flex size-14 items-center justify-center rounded-full bg-green-600 text-2xl text-white">✓</p>
+        <p aria-hidden="true" className="mx-auto flex size-14 items-center justify-center rounded-full bg-whatsapp text-2xl text-white">✓</p>
         <p className="mt-3 text-lg font-bold text-foreground">Lead saved</p>
         <p className="mt-1 text-sm text-muted-foreground">It is in your leads, with your comment and next step.</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">

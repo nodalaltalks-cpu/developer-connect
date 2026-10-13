@@ -141,7 +141,7 @@ export function AdvisorTrigger({ className = "", children = "Talk to an Advisor"
       data-cta="advisor_open"
       aria-haspopup="dialog"
       onClick={open}
-      className={`inline-flex min-h-12 items-center justify-center rounded-full px-7 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${tones[tone]} ${className}`}
+      className={`inline-flex min-h-12 items-center justify-center rounded-sm px-7 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${tones[tone]} ${className}`}
     >
       {children}
     </button>

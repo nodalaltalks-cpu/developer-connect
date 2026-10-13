@@ -116,7 +116,7 @@ test("source: the old outbound wording and component are gone from every public 
 });
 
 test("source: no public page or component hard-links to a developer's own site (every absolute href is an allowlisted Developer Connects or platform address)", () => {
-  const allowedHosts = /^https?:\/\/(developerconnects\.com|wa\.me|www\.google|www\.linkedin|www\.instagram|twitter\.com|x\.com|www\.facebook|facebook\.com|www\.youtube|mail\.google|support\.google|schema\.org|clerk\.|accounts\.)/i;
+  const allowedHosts = /^https?:\/\/(developerconnects\.com|wa\.me|www\.google|www\.linkedin|www\.instagram|twitter\.com|x\.com|www\.facebook|facebook\.com|www\.youtube|mail\.google|support\.google|schema\.org|clerk\.|accounts\.|maharera\.maharashtra\.gov\.in)/i;
   for (const file of publicSources()) {
     const source = code(readFileSync(file, "utf8"));
     for (const match of source.matchAll(/href=\{?["'`](https?:\/\/[^"'`$]+)/g)) {

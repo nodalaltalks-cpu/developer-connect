@@ -36,10 +36,10 @@ export default function LinksPage() {
             <TrackedLink
               linkKey={link.key}
               href={link.url!}
-              className={`flex min-h-14 w-full flex-col items-center justify-center rounded-xl border px-5 py-2 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${link.key === "whatsapp" ? "border-green-600 bg-green-600 text-white hover:bg-green-700" : "border-border bg-background text-foreground hover:bg-muted"}`}
+              className={`flex min-h-14 w-full flex-col items-center justify-center rounded-xl border px-5 py-2 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${link.key === "whatsapp" ? "border-whatsapp bg-whatsapp text-white hover:bg-whatsapp-hover" : "border-border bg-background text-foreground hover:bg-muted"}`}
             >
               <span className="text-base font-semibold">{link.label}</span>
-              <span className={`text-xs ${link.key === "whatsapp" ? "text-white/90" : "text-muted-foreground"}`}>{link.description}</span>
+              <span className={`text-xs ${link.key === "whatsapp" ? "text-white" : "text-muted-foreground"}`}>{link.description}</span>
             </TrackedLink>
           </li>
         ))}

@@ -71,9 +71,10 @@ test("public copy: nothing tells a buyer to go to a developer's website or promi
 
 test("homepage: the headline and sub-line present the research-first positioning, with a clear way to talk to an advisor", () => {
   const home = plain(read("app/(marketing)/page.tsx"));
-  assert.match(home, /Research first./);
-  assert.match(home, /Get expert help when you(&rsquo;|’|')re ready./);
-  assert.match(home, /Property decisions, without the usual noise./);
+  assert.match(home, /Know before you buy\./);
+  assert.match(home, /Property research and advice for Mumbai and Dubai, led by Ambish Singh\./);
+  assert.match(home, /Ambish Singh, Founder/);
+  assert.match(home, /MBA Strategy, Symbiosis International University, Dubai/);
   assert.match(home, /Talk to an Advisor/);
   assert.match(home, /Explore Developers/);
 });

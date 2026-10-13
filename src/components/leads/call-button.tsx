@@ -32,7 +32,7 @@ export type CallStatusOf = (callId: string) => Promise<CallView | null>;
 export type SetCallDisposition = (callId: string, disposition: CallDisposition, comment?: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 
 const CALL_BTN =
-  "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2 disabled:opacity-50";
+  "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-whatsapp px-4 text-sm font-semibold text-white hover:bg-whatsapp-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-whatsapp focus-visible:ring-offset-2 disabled:opacity-50";
 
 function PhoneIcon() {
   return (

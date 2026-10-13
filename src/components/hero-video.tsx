@@ -151,11 +151,11 @@ export function HeroVideo() {
           preload="none"
           tabIndex={-1}
           onPlaying={() => setReady((r) => (r[m] ? r : { ...r, [m]: true }))}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1500ms] ${shown === m ? "opacity-70" : "opacity-0"}`}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1500ms] ${shown === m ? "opacity-90" : "opacity-0"}`}
         />
       ))}
       {/* Contrast scrims keep the headline readable on any frame of the footage. */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/35 to-slate-950/85" />
+      <div className="absolute inset-0 bg-gradient-to-b from-ink/55 via-ink/35 to-ink/90" />
     </div>
   );
 }

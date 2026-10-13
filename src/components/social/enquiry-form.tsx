@@ -163,14 +163,14 @@ export function EnquiryForm() {
     const whatsapp = SOCIAL_LINKS.find((l) => l.key === "whatsapp")?.url;
     return (
       <div className="mx-auto w-full max-w-md px-5 py-12 text-center">
-        <p aria-hidden="true" className="mx-auto flex size-16 items-center justify-center rounded-full bg-green-600 text-3xl text-white">✓</p>
+        <p aria-hidden="true" className="mx-auto flex size-16 items-center justify-center rounded-full bg-whatsapp text-3xl text-white">✓</p>
         <h1 className="mt-5 font-serif text-3xl font-medium text-foreground">Thank you</h1>
         <p className="mt-3 text-base leading-7 text-foreground/80">
           We have your requirements. Our team will reach you {preference === "PHONE_CALL" ? "by phone" : "on WhatsApp"}
           {a.contactTime && a.contactTime !== "ANYTIME" ? ` in the ${CONTACT_TIMES.find((t) => t.key === a.contactTime)?.label.split(" (")[0].toLowerCase()}` : ""} shortly.
         </p>
         {whatsapp && (
-          <a href={whatsapp} target="_blank" rel="noopener noreferrer" onClick={() => trackSocial({ kind: "link_click", linkKey: "whatsapp" })} className="mt-6 flex min-h-14 items-center justify-center rounded-xl bg-green-600 px-5 text-base font-bold text-white hover:bg-green-700">
+          <a href={whatsapp} target="_blank" rel="noopener noreferrer" onClick={() => trackSocial({ kind: "link_click", linkKey: "whatsapp" })} className="mt-6 flex min-h-14 items-center justify-center rounded-xl bg-whatsapp px-5 text-base font-bold text-white hover:bg-whatsapp-hover">
             Message us on WhatsApp now
           </a>
         )}
@@ -304,7 +304,7 @@ export function EnquiryForm() {
               {step === 0 ? "Next" : "Next (or skip)"}
             </button>
           ) : (
-            <button type="button" onClick={submit} disabled={pending} className="inline-flex min-h-12 flex-1 items-center justify-center rounded-lg bg-green-600 px-4 text-base font-bold text-white hover:bg-green-700 disabled:opacity-60">
+            <button type="button" onClick={submit} disabled={pending} className="inline-flex min-h-12 flex-1 items-center justify-center rounded-lg bg-whatsapp px-4 text-base font-bold text-white hover:bg-whatsapp-hover disabled:opacity-60">
               {pending ? "Sending…" : "Send my requirements"}
             </button>
           )}

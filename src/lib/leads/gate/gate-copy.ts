@@ -64,6 +64,8 @@ export const COMMISSION_POLICY =
  * NEXT_PUBLIC_RERA_REGISTRATION is set (the number is the Founder's to supply; nothing is invented here).
  */
 const RERA_NUMBER = (process.env.NEXT_PUBLIC_RERA_REGISTRATION ?? "").trim();
+/** The registration number, or "" until the founder supplies it. Shown (with a verify link) only when set. */
+export const RERA_REGISTRATION_NUMBER = RERA_NUMBER;
 export const BUYER_PROMISE = "0% commission on primary (new-launch) sales and 0% bias. On secondary (resale) and rental deals, commission is applicable as per market standards. Our guidance is tailored to your needs: your budget, location, configuration and timeline.";
 export const CREDENTIALS_LINE = `Developer Connects is a certified, affiliated channel partner and RERA registered${RERA_NUMBER ? ` (RERA No. ${RERA_NUMBER})` : ""}.`;
 

@@ -173,7 +173,7 @@ export function AnalyticsConsentProvider({
  * Footer link that reopens the choice. Renders nothing when analytics isn't
  * configured (no choice to change), so it can sit in the footer permanently.
  */
-export function CookieSettingsButton() {
+export function CookieSettingsButton({ className = "inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline" }: { className?: string } = {}) {
   const { enabled, openSettings } = useContext(ConsentContext);
   if (!enabled) return null;
   return (
@@ -181,7 +181,7 @@ export function CookieSettingsButton() {
       <button
         type="button"
         onClick={openSettings}
-        className="inline-flex min-h-11 items-center text-sm text-foreground hover:text-accent-hover hover:underline"
+        className={className}
       >
         Cookie settings
       </button>

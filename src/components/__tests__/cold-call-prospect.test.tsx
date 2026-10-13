@@ -3,20 +3,20 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { addDaysTo, describeWhen, monthGrid } from "../../../components/leads/when-input.tsx";
-import { countryReady, dialCode, maxDigits, minDigits } from "../../../components/team/country-code-field.tsx";
-import { assignLead, captureAssistanceLead } from "../lead-service.ts";
-import { reportDeviceCall } from "../call-service.ts";
-import { finishColdCall } from "../cold-call-outcome-service.ts";
-import { lookupColdCallNumber, prepareColdCall } from "../cold-call-service.ts";
-import { saveColdCallLead } from "../cold-call-lead-service.ts";
-import { getMyCallDashboard } from "../call-analytics.ts";
-import { createInMemoryLeadRepositories } from "../memory-repository.ts";
-import { LeadValidationError } from "../errors.ts";
-import { createInMemoryStaffRepository } from "../../staff/memory-repository.ts";
-import { addStaffMember } from "../../staff/staff-service.ts";
-import { resolveEmployee } from "../../staff/employee-access.ts";
-import { FOUNDER, captureInput, minutes, T0 } from "./test-helpers.ts";
+import { addDaysTo, describeWhen, monthGrid } from "../leads/when-input.tsx";
+import { countryReady, dialCode, maxDigits, minDigits } from "../team/country-code-field.tsx";
+import { assignLead, captureAssistanceLead } from "../../lib/leads/lead-service.ts";
+import { reportDeviceCall } from "../../lib/leads/call-service.ts";
+import { finishColdCall } from "../../lib/leads/cold-call-outcome-service.ts";
+import { lookupColdCallNumber, prepareColdCall } from "../../lib/leads/cold-call-service.ts";
+import { saveColdCallLead } from "../../lib/leads/cold-call-lead-service.ts";
+import { getMyCallDashboard } from "../../lib/leads/call-analytics.ts";
+import { createInMemoryLeadRepositories } from "../../lib/leads/memory-repository.ts";
+import { LeadValidationError } from "../../lib/leads/errors.ts";
+import { createInMemoryStaffRepository } from "../../lib/staff/memory-repository.ts";
+import { addStaffMember } from "../../lib/staff/staff-service.ts";
+import { resolveEmployee } from "../../lib/staff/employee-access.ts";
+import { FOUNDER, captureInput, minutes, T0 } from "../../lib/leads/__tests__/test-helpers.ts";
 
 /**
  * The cold-call rules the Founder set: a cold call is NOT a lead. It is recorded and counted (every synced call = one dialed; more
@@ -25,7 +25,7 @@ import { FOUNDER, captureInput, minutes, T0 } from "./test-helpers.ts";
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const read = (relative: string) => readFileSync(path.resolve(here, "../../../..", relative), "utf8");
+const read = (relative: string) => readFileSync(path.resolve(here, "../../..", relative), "utf8");
 const NUMBER = "+91 98111 22334";
 const E164 = "+919811122334";
 const at = (m: number, s = 0) => new Date(minutes(m).getTime() + s * 1000);

@@ -15,7 +15,10 @@ const DURATION_MS = 900;
  */
 export function useCountUp(value: number): { ref: RefObject<HTMLElement | null>; display: number } {
   const ref = useRef<HTMLElement>(null);
-  const [display, setDisplay] = useState(0);
+  // The server renders the REAL number, so search engines, link previews and slow phones never see "0". Only a visitor whose browser
+  // has not yet scrolled the figure into view sees it roll up, and only when motion is allowed: a figure that is already on screen,
+  // or any visitor who asked for reduced motion, simply keeps the final number (nothing ever flashes to zero in front of anyone).
+  const [display, setDisplay] = useState(value);
   const hasPlayedRef = useRef(false);
 
   useEffect(() => {
@@ -23,16 +26,15 @@ export function useCountUp(value: number): { ref: RefObject<HTMLElement | null>;
     if (!node) return;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+    const rect = node.getBoundingClientRect();
+    if (rect.top < window.innerHeight * 0.95 && rect.bottom > 0) return;
+    setDisplay(0);
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting || hasPlayedRef.current) return;
         hasPlayedRef.current = true;
-
-        if (reduceMotion) {
-          setDisplay(value);
-          return;
-        }
 
         const start = performance.now();
         function tick(now: number) {

@@ -12,7 +12,7 @@ export function LeadJourney({ steps }: { steps: JourneyStep[] }) {
             <span
               aria-hidden
               className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${
-                step.state === "DONE" ? "border-green-600 bg-green-600 text-white" : step.state === "CURRENT" ? "border-accent text-accent-hover" : "border-border text-muted-foreground"
+                step.state === "DONE" ? "border-whatsapp bg-whatsapp text-white" : step.state === "CURRENT" ? "border-accent text-accent-hover" : "border-border text-muted-foreground"
               }`}
             >
               {step.state === "DONE" ? "✓" : ""}

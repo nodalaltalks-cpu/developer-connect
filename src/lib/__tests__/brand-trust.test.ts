@@ -78,10 +78,11 @@ test("founder: the credibility claims are worded as the founder gave them, shown
   assert.equal(FOUNDER_EXPERIENCE, "6+ years of hardcore real estate strategy and investment experience.");
   const section = read("src/components/founder-section.tsx");
   assert.match(section, /FOUNDER\.facts\.map/);
-  assert.match(section, /FOUNDER\.stats\.map/);
-  assert.match(section, /useCountUp/, "the headline numbers roll up like the homepage stats");
   assert.match(section, /FOUNDER\.education/);
-  assert.ok(!/platform statistics/i.test(section), "the disclaimer line is not shown");
+  const band = read("src/components/proof-band.tsx");
+  assert.match(band, /FOUNDER\.stats\.map/, "the headline figures are shown in the proof band");
+  assert.match(band, /useCountUp/, "the headline numbers can roll up like the homepage stats");
+  assert.ok(!/platform statistics/i.test(section + band.replace(/\/\*[\s\S]*?\*\//g, "")), "the disclaimer line is not shown");
   assert.ok(!/follower|connections/i.test(section));
   assert.ok(!/Harvard|Stanford|Wharton|Oxford/i.test(read("src/lib/founder.ts") + section), "no borrowed institutions");
 });

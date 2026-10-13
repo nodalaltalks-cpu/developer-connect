@@ -102,6 +102,14 @@ export default async function ConsultantCityPage({ params }: PageProps<"/propert
             <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">What it costs you</h2>
             <p className="mt-4 text-base leading-7 text-foreground/85">{COMMISSION_POLICY}</p>
 
+            {page.alsoServing && (
+              <p className="mt-8">
+                <Link href={`${CONSULTANT_PATH}/${page.alsoServing.slug}`} className="font-semibold text-accent-hover underline-offset-4 hover:underline">
+                  {page.alsoServing.label} →
+                </Link>
+              </p>
+            )}
+
             {directory && (
               <p className="mt-8">
                 <Link href={locationPath(directory)} className="font-semibold text-accent-hover underline-offset-4 hover:underline">

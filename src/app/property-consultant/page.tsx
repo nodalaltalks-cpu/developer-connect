@@ -9,9 +9,9 @@ import { CONSULTANT_PAGES, CONSULTANT_PATH, consultantPath } from "@/lib/seo/con
 import { breadcrumbSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
-const TITLE = "Property Consultant in Mumbai, Thane, Navi Mumbai and Dubai | Developer Connects";
+const TITLE = "Property Consultant in Mumbai, Thane and Dubai | Developer Connects";
 const DESCRIPTION =
-  "Developer Connects is a property research and advisory firm led by Ambish Singh, for buyers in Mumbai, Thane, Navi Mumbai and Dubai. 0% commission on new launches.";
+  "Developer Connects is a property research and advisory firm led by Ambish Singh, for buyers in Mumbai, Thane and Dubai. 0% commission on new launches.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -41,7 +41,7 @@ export default function ConsultantIndexPage() {
               Developer Connects helps buyers research before they commit: a short list that fits your brief, the regulator checks explained, and someone beside you on the site visit. Led by Ambish Singh, with 0% commission charged on new launches.
             </p>
             <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-              {CONSULTANT_PAGES.map((page) => (
+              {CONSULTANT_PAGES.filter((page) => page.inHub !== false).map((page) => (
                 <li key={page.slug}>
                   <Link href={consultantPath(page)} className="block h-full rounded-xl border border-border bg-white p-6 hover:border-gold">
                     <span className="font-serif text-2xl font-medium text-foreground">{page.name}</span>

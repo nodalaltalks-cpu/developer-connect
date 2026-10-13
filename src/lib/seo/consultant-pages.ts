@@ -27,6 +27,10 @@ export interface ConsultantPage {
   directory: { country: string; city: string };
   /** Guide slugs most useful to this city's buyer. */
   guides: readonly string[];
+  /** False for a landing page that search engines and links reach but that is not a card in the consultant hub. */
+  inHub?: boolean;
+  /** A related page this one links to in its body (for example the harbour side of Mumbai). */
+  alsoServing?: { label: string; slug: string };
   faq: readonly FaqEntry[];
 }
 
@@ -58,6 +62,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
       check: "Search the project on the MahaRERA website and match the registration number, promoter, location, completion date and bank account with what you were told.",
     },
     directory: { country: "India", city: "Mumbai" },
+    alsoServing: { label: "Buying on the Navi Mumbai side? See our Navi Mumbai property advice", slug: "navi-mumbai" },
     guides: ["how-to-buy-a-flat-in-mumbai", "hidden-costs-of-buying-property-in-mumbai", "check-a-project-on-maharera", "mumbai-vs-navi-mumbai-vs-thane"],
     faq: [
       { question: "Who is Developer Connects?", answer: "Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by founder Ambish Singh, who has more than six years of real estate strategy and investment experience." },
@@ -123,6 +128,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
       check: "Search the project on the MahaRERA website and match the registration number, promoter and completion date before paying any amount.",
     },
     directory: { country: "India", city: "Navi Mumbai" },
+    inHub: false,
     guides: ["mumbai-vs-navi-mumbai-vs-thane", "under-construction-vs-ready-to-move", "check-a-project-on-maharera", "hidden-costs-of-buying-property-in-mumbai"],
     faq: [
       { question: "Which part of Navi Mumbai should I buy in?", answer: "It depends on where you work and your budget. Established nodes like Vashi and Nerul have mature facilities; growing nodes like Kharghar and Ulwe offer newer projects. We compare them against your commute." },

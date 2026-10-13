@@ -110,3 +110,13 @@ test("structured data: one organisation entity site-wide, article and FAQ markup
   assert.ok(!/aggregateRating|reviewCount|ratingValue|streetAddress/.test(schema), "no rating or address is invented");
   assert.ok(guidePath(GUIDES[0]).startsWith("/guides/"));
 });
+
+test("navi mumbai: an indexed landing page linked from the Mumbai page, never a card in the consultant hub or the footer", () => {
+  const navi = CONSULTANT_PAGES.find((p) => p.slug === "navi-mumbai");
+  assert.ok(navi && navi.inHub === false);
+  const mumbai = CONSULTANT_PAGES.find((p) => p.slug === "mumbai");
+  assert.equal(mumbai?.alsoServing?.slug, "navi-mumbai");
+  assert.match(read("src/app/property-consultant/page.tsx"), /inHub !== false/);
+  assert.ok(!/navi-mumbai/i.test(read("src/components/site-footer.tsx")));
+  assert.match(read("src/lib/sitemap-entries.ts"), /CONSULTANT_PAGES\.map/);
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useHeroMarket } from "@/components/hero-market";
 import { FOUNDER, FOUNDER_STORIES, pickFounderStory, type FounderStory } from "@/lib/founder";
@@ -8,8 +9,7 @@ import { FOUNDER, FOUNDER_STORIES, pickFounderStory, type FounderStory } from "@
  * The founder, built for credibility: who, in his own words, with the qualification and the supporting facts. The headline figures
  * (the Rs 300 Cr+ and the rest) live in the proof band, which sits directly under the hero, so they are shown once, large, with the
  * footnote that says whose figures they are.
- * Only what lib/founder.ts contains is shown; a claim that has not been supplied by the founder is simply absent. There is no portrait
- * until a real one is supplied (a monogram is not a photo, and we do not use stock images of a real person).
+ * Only what lib/founder.ts contains is shown; a claim that has not been supplied by the founder is simply absent.
  *
  * The short story rotates between APPROVED entries by visit number (kept in the visitor's own browser). It is never rewritten.
  */
@@ -36,10 +36,15 @@ export function FounderSection() {
   return (
     <section aria-labelledby="founder-heading" className="defer-section mx-auto max-w-5xl">
       <div className="grid gap-8 rounded-xl border border-border bg-white px-6 py-10 sm:px-10 sm:py-14 lg:grid-cols-[auto_1fr] lg:gap-14">
-        <div className="flex items-center gap-4 lg:flex-col lg:items-start">
-          <span aria-hidden="true" className="flex size-16 items-center justify-center rounded-full bg-ink font-serif text-2xl font-medium text-brass-300">
-            AS
-          </span>
+        <div className="flex items-center gap-5 lg:w-64 lg:flex-col lg:items-start lg:gap-5">
+          <Image
+            src="/founder/ambish-singh.jpg"
+            alt="Ambish Singh, Founder of Developer Connects"
+            width={960}
+            height={1200}
+            sizes="(min-width: 1024px) 256px, 112px"
+            className="w-28 shrink-0 rounded-xl border border-border object-cover lg:w-full"
+          />
           <div>
             <p className="font-serif text-xl font-medium text-foreground">{FOUNDER.name}</p>
             <p className="text-sm text-muted-foreground">{FOUNDER.role}</p>

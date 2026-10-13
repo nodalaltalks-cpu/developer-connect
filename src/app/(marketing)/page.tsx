@@ -1,5 +1,6 @@
 import { SHARE_IMAGES } from "@/lib/share-image";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
@@ -108,7 +109,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   </Link>
                 </div>
                 <p className="dc-rise mt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-pearl" style={{ "--dc-delay": "380ms" } as React.CSSProperties}>
-                  <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-full border border-brass-300/60 font-serif text-sm text-brass-300">AS</span>
+                  <Image src="/founder/ambish-singh-avatar.jpg" alt="" width={40} height={40} className="size-10 rounded-full border border-brass-300/70 object-cover" />
                   <span className="font-semibold">Ambish Singh, Founder</span>
                   <span aria-hidden="true" className="text-white/40">&middot;</span>
                   <span>MBA Strategy, Symbiosis International University, Dubai</span>

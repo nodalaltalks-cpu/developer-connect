@@ -28,7 +28,6 @@ export function organizationSchema() {
     areaServed: [
       { "@type": "City", name: "Mumbai" },
       { "@type": "City", name: "Thane" },
-      { "@type": "City", name: "Navi Mumbai" },
       { "@type": "City", name: "Dubai" },
       { "@type": "Country", name: "India" },
       { "@type": "Country", name: "United Arab Emirates" },

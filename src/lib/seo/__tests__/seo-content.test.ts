@@ -49,7 +49,7 @@ test("guides: titles and descriptions fit a search result, and each page answers
 });
 
 test("consultant pages: one per city, unique, each pointing at a real directory view and real guides", () => {
-  assert.ok(CONSULTANT_PAGES.length >= 4);
+  assert.ok(CONSULTANT_PAGES.length >= 3);
   assert.equal(new Set(CONSULTANT_PAGES.map((p) => p.slug)).size, CONSULTANT_PAGES.length);
   for (const p of CONSULTANT_PAGES) {
     assert.ok(resolveLocationPage(p.directory.country, p.directory.city), `${p.slug} directory view is not an approved location`);

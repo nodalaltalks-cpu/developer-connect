@@ -5,7 +5,7 @@ What the website now does (built in code), and what only the founder can do off 
 ## 1. What is built into the site
 
 - **Buying guides** (`/guides`): 14 long-form guides answering the questions buyers search (how to buy in Mumbai, Dubai from India, hidden costs, MahaRERA check, NRI rules, loans, choosing a consultant). Each has an "In short" answer first, FAQ, Article + FAQPage + BreadcrumbList schema, a named author and a "facts checked" date.
-- **City pages** (`/property-consultant/{mumbai,thane,navi-mumbai,dubai}`): the pages that target "property consultant in {city}". Service + FAQ + breadcrumb schema, areas covered, regulator, the commission statement.
+- **City pages** (`/property-consultant/{mumbai,thane,dubai}`): the pages that target "property consultant in {city}". Service + FAQ + breadcrumb schema, areas covered, regulator, the commission statement.
 - **Entity markup**: one Organization/ProfessionalService entity and one Person (founder) site-wide, with the company's own Instagram and Facebook as `sameAs`. No rating, review count or street address is invented.
 - **AI visibility**: `/llms.txt` (index) and `/llms-full.txt` (full text of every guide and city page); `robots.txt` explicitly welcomes GPTBot, OAI-SearchBot, ChatGPT-User, PerplexityBot, ClaudeBot, Google-Extended and others.
 - **Crawl**: sitemap lists every guide and city page; the footer and home page link to them.
@@ -16,9 +16,9 @@ To add a guide: add an entry in `src/lib/seo/guides-india.ts` or `guides-dubai-a
 ## 2. What only the founder can do (in priority order)
 
 ### Week 1: get found at all
-1. **Google Search Console**: add `https://developerconnects.com`, submit `/sitemap.xml`, request indexing for `/guides`, `/property-consultant` and the four city pages. Check Pages > Why pages aren't indexed weekly.
+1. **Google Search Console**: add `https://developerconnects.com`, submit `/sitemap.xml`, request indexing for `/guides`, `/property-consultant` and the three city pages. Check Pages > Why pages aren't indexed weekly.
 2. **Bing Webmaster Tools**: import from Search Console. ChatGPT search and several assistants lean on Bing's index, so this matters for AI answers.
-3. **Google Business Profile**: create "Developer Connects" as a service-area business (no storefront needed): categories "Real estate consultant" and "Real estate agency", service areas Mumbai, Thane, Navi Mumbai, Dubai, the website, the WhatsApp number, the founder photo and logo. This is what decides the "near me" and map results. Needs verification (video or postcard).
+3. **Google Business Profile**: create "Developer Connects" as a service-area business (no storefront needed): categories "Real estate consultant" and "Real estate agency", service areas Mumbai, Thane, the website, the WhatsApp number, the founder photo and logo. This is what decides the "near me" and map results. Needs verification (video or postcard).
 4. **NAP consistency**: exactly the same business name, phone and email on the website, Google Business Profile, Instagram, Facebook, LinkedIn and every directory.
 
 ### Month 1: earn trust signals

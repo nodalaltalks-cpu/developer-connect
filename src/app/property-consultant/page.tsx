@@ -9,9 +9,9 @@ import { CONSULTANT_PAGES, CONSULTANT_PATH, consultantPath } from "@/lib/seo/con
 import { breadcrumbSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
-const TITLE = "Property Consultant in Mumbai, Thane, Navi Mumbai and Dubai | Developer Connects";
+const TITLE = "Property Consultant in Mumbai, Thane and Dubai | Developer Connects";
 const DESCRIPTION =
-  "Developer Connects is a property research and advisory firm led by Ambish Singh, for buyers in Mumbai, Thane, Navi Mumbai and Dubai. 0% commission on new launches.";
+  "Developer Connects is a property research and advisory firm led by Ambish Singh, for buyers in Mumbai, Thane and Dubai. 0% commission on new launches.";
 
 export const metadata: Metadata = {
   title: TITLE,

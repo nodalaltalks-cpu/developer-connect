@@ -35,7 +35,7 @@ export const INDIA_GUIDES: readonly Guide[] = [
         t: "ul",
         items: [
           "Island city and western suburbs: closer to the older business districts, higher prices, more resale stock.",
-          "Central and harbour suburbs, Thane and Navi Mumbai: larger homes for the same budget, newer projects, longer commute to the island city.",
+          "Central and harbour suburbs, Thane and the harbour side: larger homes for the same budget, newer projects, longer commute to the island city.",
           "Beyond the suburbs (Mira Road, Vasai-Virar, Kalyan and further): the lowest entry prices and the longest commutes.",
         ],
       },
@@ -478,42 +478,42 @@ export const INDIA_GUIDES: readonly Guide[] = [
     updated: UPDATED,
   },
   {
-    slug: "mumbai-vs-navi-mumbai-vs-thane",
+    slug: "which-part-of-mumbai-to-buy-in",
     topic: "Mumbai",
-    title: "Mumbai vs Navi Mumbai vs Thane: where should you buy?",
-    metaTitle: "Mumbai vs Navi Mumbai vs Thane: Where to Buy a Home",
+    title: "Which part of Mumbai should you buy in? Island city, suburbs and Thane",
+    metaTitle: "Which Part of Mumbai Should You Buy In? A Plain Guide",
     description:
-      "A plain comparison of the island city, Navi Mumbai and Thane for buyers: prices, commute, infrastructure, project types and who each suits.",
+      "A plain comparison of the island city, the suburbs and the Thane and harbour side of the Mumbai region: prices, commute, infrastructure and who each suits.",
     summary:
-      "Mumbai city gives proximity and prestige at the highest price. Thane gives a mature suburb with strong rail and road links and a wide price range. Navi Mumbai gives planned layouts and new infrastructure at lower prices, but with a longer trip to the island city. Choose by your commute and your budget, not by hype.",
+      "The island city and western suburbs give proximity and prestige at the highest price. The central suburbs and Thane give mature neighbourhoods with strong rail and road links and a wide price range. The harbour side gives planned layouts and newer infrastructure at lower prices, with a longer trip to the island city. Choose by your commute and your budget, not by hype.",
     market: "mumbai",
     blocks: [
       { t: "h2", text: "At a glance" },
       {
         t: "ul",
         items: [
-          "Mumbai (island city and western suburbs): the highest prices, the shortest distance to the older business districts, and mostly resale and redevelopment stock.",
-          "Thane: an established city with its own markets, schools and hospitals, a large number of new projects, and good links by rail and the eastern express highway.",
-          "Navi Mumbai: planned nodes with wide roads and open space, newer infrastructure, and lower prices than the central suburbs.",
+          "Island city and western suburbs: the highest prices, the shortest distance to the older business districts, and mostly resale and redevelopment stock.",
+          "Central suburbs and Thane: established neighbourhoods with their own markets, schools and hospitals, a large number of new projects, and good links by rail and the eastern express highway.",
+          "Harbour side (Vashi, Kharghar, Panvel and nearby): planned layouts with wide roads and open space, newer infrastructure, and lower prices than the central suburbs.",
         ],
       },
       { t: "h2", text: "Commute: decide this first" },
       {
         t: "p",
-        text: "Test your actual route at your actual hour. A cheaper home that adds two hours a day to your life has a cost that never shows on the price sheet. Think about whether you commute to the island city, to a business district in the suburbs, to Navi Mumbai itself, or work from home.",
+        text: "Test your actual route at your actual hour. A cheaper home that adds two hours a day to your life has a cost that never shows on the price sheet. Think about whether you commute to the island city, to a business district in the suburbs, to the harbour belt, or work from home.",
       },
       { t: "h2", text: "Infrastructure to follow on official sources" },
       {
         t: "p",
-        text: "Metro lines, sea links, the coastal road and the airport at Navi Mumbai change travel times. Treat projected dates with caution, check the authority's own announcements, and avoid paying a premium for infrastructure that is not yet running.",
+        text: "Metro lines, sea links, the coastal road and the new airport on the harbour side change travel times. Treat projected dates with caution, check the authority's own announcements, and avoid paying a premium for infrastructure that is not yet running.",
       },
       { t: "h2", text: "Who each suits" },
       {
         t: "ul",
         items: [
-          "Buyers who need to be close to the island city and have a larger budget: Mumbai.",
-          "Families who want space, schools and a developed city without island-city prices: Thane.",
-          "Buyers who want a planned, newer neighbourhood and are willing to pay for a longer trip to the island city: Navi Mumbai.",
+          "Buyers who need to be close to the island city and have a larger budget: the island city and western suburbs.",
+          "Families who want space, schools and a developed neighbourhood without island-city prices: the central suburbs and Thane.",
+          "Buyers who want a planned, newer neighbourhood and are willing to pay for a longer trip to the island city: the harbour side.",
         ],
       },
       {
@@ -523,8 +523,8 @@ export const INDIA_GUIDES: readonly Guide[] = [
       },
     ],
     faq: [
-      { question: "Is Thane or Navi Mumbai better for a first home?", answer: "It depends on where you work. Thane suits those who travel on the central or eastern corridor; Navi Mumbai suits those working in the harbour belt or nearby business districts. Test the commute before you decide." },
-      { question: "Are prices cheaper in Navi Mumbai than Thane?", answer: "Prices vary by node and project, and the gap changes over time. Compare carpet-area rates for the specific projects you are considering." },
+      { question: "Is Thane or the harbour side better for a first home?", answer: "It depends on where you work. Thane suits those who travel on the central or eastern corridor; the harbour side suits those working in the harbour belt or nearby business districts. Test the commute before you decide." },
+      { question: "Are prices lower away from the island city?", answer: "Generally, but the gap changes by micro-market and project. Compare carpet-area rates for the specific projects you are considering." },
     ],
     related: ["how-to-buy-a-flat-in-mumbai", "site-visit-checklist", "under-construction-vs-ready-to-move"],
     updated: UPDATED,

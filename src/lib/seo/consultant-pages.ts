@@ -51,6 +51,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     areaGroups: [
       { heading: "Island city and the western suburbs", areas: ["South Mumbai", "Worli", "Lower Parel", "Bandra", "Juhu", "Andheri", "Goregaon", "Malad", "Kandivali", "Borivali", "Dahisar"] },
       { heading: "Central and harbour suburbs", areas: ["Powai", "Ghatkopar", "Chembur", "Mulund", "Wadala", "Kurla", "Vikhroli"] },
+      { heading: "Harbour side", areas: ["Vashi", "Nerul", "Kharghar", "Ulwe", "Panvel", "Airoli"] },
       { heading: "Beyond the suburbs", areas: ["Mira Road", "Bhayandar", "Vasai", "Virar"] },
     ],
     regulator: {
@@ -58,11 +59,11 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
       check: "Search the project on the MahaRERA website and match the registration number, promoter, location, completion date and bank account with what you were told.",
     },
     directory: { country: "India", city: "Mumbai" },
-    guides: ["how-to-buy-a-flat-in-mumbai", "hidden-costs-of-buying-property-in-mumbai", "check-a-project-on-maharera", "mumbai-vs-navi-mumbai-vs-thane"],
+    guides: ["how-to-buy-a-flat-in-mumbai", "hidden-costs-of-buying-property-in-mumbai", "check-a-project-on-maharera", "which-part-of-mumbai-to-buy-in"],
     faq: [
       { question: "Who is Developer Connects?", answer: "Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by founder Ambish Singh, who has more than six years of real estate strategy and investment experience." },
       { question: "Do I pay a commission to Developer Connects in Mumbai?", answer: "Developer Connects charges 0% commission on primary (new-launch) sales. On secondary (resale) and rental transactions, commission is applicable as per market standards." },
-      { question: "Which parts of Mumbai do you cover?", answer: "The island city and the western, central and harbour suburbs, plus Mira-Bhayandar and Vasai-Virar. Thane and Navi Mumbai have their own pages." },
+      { question: "Which parts of Mumbai do you cover?", answer: "The island city and the western, central and harbour suburbs, the harbour side (Vashi, Kharghar, Panvel and nearby), plus Mira-Bhayandar and Vasai-Virar. Thane has its own page." },
       { question: "How do I start?", answer: "Message or call Ambish, or tap your requirements in the one-minute enquiry form. You will get a short list based on your brief, and there is no obligation to book anything." },
     ],
   },
@@ -91,43 +92,11 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
       check: "Search the project on the MahaRERA website and match the registration number, promoter and completion date before paying any amount.",
     },
     directory: { country: "India", city: "Thane" },
-    guides: ["mumbai-vs-navi-mumbai-vs-thane", "how-to-buy-a-flat-in-mumbai", "under-construction-vs-ready-to-move", "site-visit-checklist"],
+    guides: ["which-part-of-mumbai-to-buy-in", "how-to-buy-a-flat-in-mumbai", "under-construction-vs-ready-to-move", "site-visit-checklist"],
     faq: [
       { question: "Is Thane a good place to buy a home?", answer: "Thane is a mature city with its own schools, hospitals and markets and links to Mumbai by rail and road. Whether it suits you depends on your commute and budget, which is why we start there." },
       { question: "Do you charge a commission for new launches in Thane?", answer: "Developer Connects charges 0% commission on primary (new-launch) sales. On resale and rental transactions, commission is applicable as per market standards." },
       { question: "Can you show me projects across several developers?", answer: "Yes. The aim is to compare a handful of projects on one cost sheet, so you can see the differences clearly before you visit." },
-    ],
-  },
-  {
-    slug: "navi-mumbai",
-    name: "Navi Mumbai",
-    market: "mumbai",
-    title: "Property consultant in Navi Mumbai",
-    metaTitle: "Property Consultant in Navi Mumbai | Developer Connects",
-    description:
-      "Property advice for Navi Mumbai buyers: Kharghar, Ulwe, Panvel, Vashi and Nerul compared, MahaRERA checks and site-visit planning. 0% commission on new launches.",
-    intro:
-      "Navi Mumbai's planned nodes and new infrastructure draw buyers who want space and a modern layout. Developer Connects helps you compare the nodes, understand which projects are close to completion, and check each one before you pay.",
-    helpWith: [
-      "Comparing nodes by commute, planned infrastructure and the kind of homes on offer.",
-      "Separating projects that are close to completion from those still at an early stage.",
-      "Checking MahaRERA registrations and the project bank account details.",
-      "Costing every purchase, including GST, stamp duty, registration and deposits.",
-    ],
-    areaGroups: [
-      { heading: "Established nodes", areas: ["Vashi", "Nerul", "Belapur", "Airoli", "Seawoods"] },
-      { heading: "Growing nodes", areas: ["Kharghar", "Kamothe", "Ulwe", "Panvel", "Taloja"] },
-    ],
-    regulator: {
-      name: "Maharashtra Real Estate Regulatory Authority (MahaRERA)",
-      check: "Search the project on the MahaRERA website and match the registration number, promoter and completion date before paying any amount.",
-    },
-    directory: { country: "India", city: "Navi Mumbai" },
-    guides: ["mumbai-vs-navi-mumbai-vs-thane", "under-construction-vs-ready-to-move", "check-a-project-on-maharera", "hidden-costs-of-buying-property-in-mumbai"],
-    faq: [
-      { question: "Which part of Navi Mumbai should I buy in?", answer: "It depends on where you work and your budget. Established nodes like Vashi and Nerul have mature facilities; growing nodes like Kharghar and Ulwe offer newer projects. We compare them against your commute." },
-      { question: "Do you charge a commission for new launches in Navi Mumbai?", answer: "Developer Connects charges 0% commission on primary (new-launch) sales. On resale and rental transactions, commission is applicable as per market standards." },
-      { question: "Is infrastructure in Navi Mumbai ready?", answer: "Parts are running and parts are planned. We recommend following the authorities' own announcements and not paying a premium for something that is not yet operating." },
     ],
   },
   {

@@ -62,6 +62,10 @@ function buildColumns(): FooterColumn[] {
     {
       heading: "Resources",
       links: [
+        { label: "Buying guides", href: "/guides" },
+        { label: "Property consultant", href: "/property-consultant" },
+        { label: "Buying in Mumbai", href: "/guides/how-to-buy-a-flat-in-mumbai" },
+        { label: "Buying in Dubai from India", href: "/guides/buying-property-in-dubai-from-india" },
         { label: "FAQ", href: "/faq" },
         { label: "Developer research guides", href: "/buy-direct-from-developer" },
       ],

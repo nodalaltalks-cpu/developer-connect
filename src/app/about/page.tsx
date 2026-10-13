@@ -5,7 +5,6 @@ import { SiteFooter } from "@/components/site-footer";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { FounderSection } from "@/components/founder-section";
 import { ProofBand } from "@/components/proof-band";
-import { FOUNDER } from "@/lib/founder";
 import { BUYER_PROMISE, CREDENTIALS_LINE } from "@/lib/leads/gate/gate-copy";
 
 export const metadata: Metadata = {
@@ -23,8 +22,6 @@ const aboutStructuredData = {
   "@context": "https://schema.org",
   "@graph": [
     { "@type": "AboutPage", "@id": "https://developerconnects.com/about#page", url: "https://developerconnects.com/about", name: "About Developer Connects", about: { "@id": "https://developerconnects.com/#organization" } },
-    { "@type": "Organization", "@id": "https://developerconnects.com/#organization", name: "Developer Connects", url: "https://developerconnects.com", founder: { "@id": "https://developerconnects.com/about#founder" } },
-    { "@type": "Person", "@id": "https://developerconnects.com/about#founder", name: FOUNDER.name, jobTitle: "Founder", worksFor: { "@id": "https://developerconnects.com/#organization" }, sameAs: [FOUNDER.linkedinUrl] },
   ],
 };
 

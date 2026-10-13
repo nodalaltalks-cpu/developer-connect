@@ -3,6 +3,8 @@ import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-
 import { listVerifiedDevelopers } from "@/lib/developer-connect/search-service";
 import { approvedLocationPages, locationPath } from "@/lib/developer-connect/location-pages";
 import { buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
+import { GUIDES, guidePath } from "@/lib/seo/guides";
+import { CONSULTANT_PAGES, consultantPath } from "@/lib/seo/consultant-pages";
 
 const BASE_URL = "https://developerconnects.com";
 
@@ -35,7 +37,7 @@ const BASE_URL = "https://developerconnects.com";
  * paginated scaffolding; the sitemap should list destination content, not
  * every intermediate listing page.
  */
-const STATIC_ROUTES = ["/", "/developers", "/buy-direct-from-developer", "/about", "/advisor", "/testimonials", "/contact", "/faq", "/privacy", "/terms", "/cookies", "/disclaimer"];
+const STATIC_ROUTES = ["/", "/developers", "/buy-direct-from-developer", "/guides", "/property-consultant", "/about", "/advisor", "/testimonials", "/contact", "/faq", "/privacy", "/terms", "/cookies", "/disclaimer"];
 
 /**
  * Dynamic sitemap (App Router convention — this file's default export is
@@ -65,9 +67,12 @@ export async function buildSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // One buy-direct guide per approved market (the hub itself is in STATIC_ROUTES).
-  const guideEntries: MetadataRoute.Sitemap = buyDirectMarkets().map((market) => ({
-    url: `${BASE_URL}${buyDirectPath(market)}`,
-  }));
+  // The buyer guides and the city consultant pages join them, with the date their facts were last checked.
+  const guideEntries: MetadataRoute.Sitemap = [
+    ...buyDirectMarkets().map((market) => ({ url: `${BASE_URL}${buyDirectPath(market)}` })),
+    ...GUIDES.map((guide) => ({ url: `${BASE_URL}${guidePath(guide)}`, lastModified: guide.updated })),
+    ...CONSULTANT_PAGES.map((page) => ({ url: `${BASE_URL}${consultantPath(page)}` })),
+  ];
 
   const developerEntries: MetadataRoute.Sitemap = verifiedDevelopers.map((developer) => ({
     url: `${BASE_URL}/developers/${developer.slug}`,

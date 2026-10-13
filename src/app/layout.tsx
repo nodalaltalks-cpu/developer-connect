@@ -7,6 +7,8 @@ import { AdvisorProvider } from "@/components/advisor/advisor";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { BehaviourTracker } from "@/components/behaviour-tracker";
 import { getGaMeasurementId, getMetaPixelId } from "@/lib/analytics-config";
+import { founderSchema, organizationSchema } from "@/lib/seo/schema";
+import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 import { AnalyticsEvents } from "@/components/analytics-events";
 import "./globals.css";
 
@@ -57,33 +59,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * Organization JSON-LD for Developer Connects itself (Part: SEO entity
- * signal) — present on every page, matching Google's own guidance to
- * place Organization markup describing "your organization" site-wide, not
- * just on one page. Deliberately omits sameAs — the footer's social links
- * belong to the parent NoDalalTalks brand, not to Developer Connects
- * itself, and asserting them as this entity's own profiles would
- * misrepresent the relationship rather than clarify it. `logo` points at
- * the real brand mark (public/developer-connects-logo.jpg, 1600x1600 —
- * see components/logo.tsx), replacing the earlier placeholder favicon.ico
- * reference now that a real logo asset exists at a size Google's
- * Organization logo guidance actually accepts.
- *
- * WebSite JSON-LD is deliberately NOT here: it describes the site as a
- * whole (its search entry point), which only makes sense attached to the
- * homepage — see (marketing)/page.tsx. Developer entity markup (a
- * different Organization, describing the third-party company a developer
- * page is about) similarly lives on developers/[slug]/page.tsx, never
- * here.
+ * Organization and founder JSON-LD (lib/seo/schema.ts) is rendered once, site-wide, in the body below. It carries the company's own
+ * social profiles (not the founder's personal LinkedIn, which sits on the founder entity). WebSite JSON-LD lives on the homepage;
+ * developer entity markup lives on developers/[slug]/page.tsx.
  */
-const organizationStructuredData = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: SITE_NAME,
-  url: "https://developerconnects.com",
-  logo: "https://developerconnects.com/developer-connects-logo.jpg",
-};
-
 export const viewport: Viewport = {
   colorScheme: "light",
   width: "device-width",
@@ -107,7 +86,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationStructuredData) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd([organizationSchema(), founderSchema()]) }}
         />
         <ClerkProvider
           afterSignOutUrl="/"

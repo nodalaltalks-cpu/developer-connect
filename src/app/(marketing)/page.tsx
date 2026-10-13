@@ -16,6 +16,7 @@ import { PublishedTestimonials } from "@/components/published-testimonials";
 import { ContinueResearch } from "@/components/continue-research";
 import { BuyerJourney } from "@/components/buyer-journey";
 import { FeeTransparency } from "@/components/fee-transparency";
+import { GuidesStrip } from "@/components/guides-strip";
 import { ProofBand } from "@/components/proof-band";
 import { marketFromParams } from "@/lib/hero-market";
 import { FEATURED_DEVELOPERS, FEATURED_SELECTION_NOTE } from "@/lib/featured-developers";
@@ -138,6 +139,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </HeroMarketProvider>
 
         <PublishedTestimonials />
+
+        <GuidesStrip />
 
         {/* WATCH: the Founder's best videos, vertical and horizontal, each opening the post on Instagram */}
         <SocialVideoSection />

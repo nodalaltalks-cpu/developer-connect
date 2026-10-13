@@ -12,11 +12,15 @@ const BASE_URL = "https://developerconnects.com";
  */
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      disallow: ["/admin", "/team", "/api", "/profile", "/post-sign-in", "/testimonial"],
-    },
+    rules: [
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: ["/admin", "/team", "/api", "/profile", "/post-sign-in", "/testimonial"],
+      },
+      // The AI search and assistant crawlers are welcome on every public page: being quotable by them is the point of the guides.
+      { userAgent: ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "Claude-SearchBot", "Claude-User", "Google-Extended", "Applebot-Extended", "CCBot"], allow: "/", disallow: ["/admin", "/team", "/api", "/profile", "/post-sign-in", "/testimonial"] },
+    ],
     sitemap: `${BASE_URL}/sitemap.xml`,
   };
 }

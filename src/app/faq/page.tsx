@@ -55,7 +55,7 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "Which locations does Developer Connects cover?",
     answer:
-      "Developers across India and the UAE, including Mumbai, Bangalore, Hyderabad, Pune, Gurugram, Thane, Dubai and Abu Dhabi.",
+      "Developers across India and the UAE, including Mumbai, Bangalore, Hyderabad, Pune, Gurugram, Thane, Navi Mumbai, Dubai and Abu Dhabi.",
   },
   {
     question: "What should I check before I buy a property?",

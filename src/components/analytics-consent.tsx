@@ -144,7 +144,7 @@ export function AnalyticsConsentProvider({
         <div
           role="region"
           aria-label="Cookie choices"
-          className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background p-4 shadow-lg sm:p-5"
+          className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-3xl rounded-xl border border-border bg-background p-4 shadow-2xl sm:p-5"
         >
           <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-foreground">

@@ -85,7 +85,7 @@ test("isolation: analytics and verification code never import the lead system", 
 });
 
 test("isolation: public pages and components never import the lead storage adapters directly", () => {
-  const publicFiles = listFiles(path.join(srcRoot, "components"), (file) => /\.tsx?$/.test(file)).concat(
+  const publicFiles = listFiles(path.join(srcRoot, "components"), (file) => /\.tsx?$/.test(file) && !file.includes(`${path.sep}__tests__${path.sep}`)).concat(
     // app/admin and app/team are the two PRIVATE, session-gated areas (Founder and team member); see lib/team/__tests__/team-security.test.ts.
     listFiles(
       path.join(srcRoot, "app"),

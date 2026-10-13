@@ -109,7 +109,7 @@ export function SearchBox() {
         onChange={(event) => handleChange(event.target.value)}
         placeholder="Search a developer or website"
         aria-describedby={statusId}
-        className="w-full min-h-11 rounded-lg border border-border bg-background px-5 py-4 text-lg text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="w-full min-h-11 rounded-md border border-field-border bg-background px-5 py-4 text-lg text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
 
       <div id={statusId} aria-live="polite" className="mt-3">

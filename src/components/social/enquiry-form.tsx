@@ -28,7 +28,7 @@ import {
 
 /**
  * The one-minute enquiry form: every question is a tap. A visitor types only their number (and a name if they like). It creates a
- * real lead for the sales team and shows up on the Founder's dashboard under Enquiries. Six short screens, one decision each, and
+ * real lead for the sales team and shows up on the Founder's dashboard under Enquiries. Four short screens, and
  * every screen but the first can be skipped.
  */
 
@@ -48,8 +48,8 @@ type Answers = {
   howFound?: string;
 };
 
-const CHIP = "inline-flex min-h-12 items-center justify-center rounded-full border px-4 text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const STEPS = 6;
+const CHIP = "inline-flex min-h-12 items-center justify-center rounded-md border px-4 text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const STEPS = 4;
 
 function Chips({ options, value, onPick, multi = false, max = 99 }: { options: readonly Option[]; value: string | string[] | undefined; onPick: (key: string) => void; multi?: boolean; max?: number }) {
   const picked = (key: string) => (Array.isArray(value) ? value.includes(key) : value === key);
@@ -59,7 +59,7 @@ function Chips({ options, value, onPick, multi = false, max = 99 }: { options: r
       {options.map((o) => {
         const on = picked(o.key);
         return (
-          <button key={o.key} type="button" role={multi ? undefined : "radio"} aria-checked={multi ? undefined : on} aria-pressed={multi ? on : undefined} disabled={!on && full} onClick={() => onPick(o.key)} className={`${CHIP} ${on ? "border-accent bg-accent text-accent-foreground" : "border-border bg-background text-foreground hover:bg-muted"} disabled:opacity-40`}>
+          <button key={o.key} type="button" role={multi ? undefined : "radio"} aria-checked={multi ? undefined : on} aria-pressed={multi ? on : undefined} disabled={!on && full} onClick={() => onPick(o.key)} className={`${CHIP} ${on ? "border-accent bg-accent text-accent-foreground" : "border-field-border bg-background text-foreground hover:bg-muted"} disabled:opacity-40`}>
             {o.label}
           </button>
         );
@@ -161,6 +161,18 @@ export function EnquiryForm() {
 
   if (done) {
     const whatsapp = SOCIAL_LINKS.find((l) => l.key === "whatsapp")?.url;
+    const label = (options: readonly Option[], key?: string) => options.find((o) => o.key === key)?.label;
+    const brief = (
+      [
+        ["Looking to", label(INTENTS, a.intent)],
+        ["City", label(MARKETS, a.market)],
+        ["Areas", market ? a.locations.map((k) => label(LOCATIONS[market], k)).filter(Boolean).join(", ") : ""],
+        ["Property", label(PROPERTY_TYPES, a.propertyType)],
+        ["Size", a.configurations.map((k) => label(CONFIGURATIONS, k)).filter(Boolean).join(", ")],
+        ["Budget", label(bands, a.budget)],
+        ["Timeline", label(TIMELINES, a.timeline)],
+      ] as Array<[string, string | undefined]>
+    ).filter((row): row is [string, string] => Boolean(row[1]));
     return (
       <div className="mx-auto w-full max-w-md px-5 py-12 text-center">
         <p aria-hidden="true" className="mx-auto flex size-16 items-center justify-center rounded-full bg-whatsapp text-3xl text-white">✓</p>
@@ -169,8 +181,22 @@ export function EnquiryForm() {
           We have your requirements. Our team will reach you {preference === "PHONE_CALL" ? "by phone" : "on WhatsApp"}
           {a.contactTime && a.contactTime !== "ANYTIME" ? ` in the ${CONTACT_TIMES.find((t) => t.key === a.contactTime)?.label.split(" (")[0].toLowerCase()}` : ""} shortly.
         </p>
+        {brief.length > 0 && (
+          <div className="mt-6 rounded-xl border border-border bg-white p-5 text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brass-700">Your brief</p>
+            <dl className="mt-3 space-y-2 text-sm">
+              {brief.map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="text-right font-medium text-foreground">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-4 text-xs text-muted-foreground">Ambish will start from this, so you do not have to repeat it.</p>
+          </div>
+        )}
         {whatsapp && (
-          <a href={whatsapp} target="_blank" rel="noopener noreferrer" onClick={() => trackSocial({ kind: "link_click", linkKey: "whatsapp" })} className="mt-6 flex min-h-14 items-center justify-center rounded-xl bg-whatsapp px-5 text-base font-bold text-white hover:bg-whatsapp-hover">
+          <a href={whatsapp} target="_blank" rel="noopener noreferrer" onClick={() => trackSocial({ kind: "link_click", linkKey: "whatsapp" })} className="mt-6 flex min-h-14 items-center justify-center rounded-sm bg-whatsapp px-5 text-base font-bold text-white hover:bg-whatsapp-hover">
             Message us on WhatsApp now
           </a>
         )}
@@ -209,32 +235,25 @@ export function EnquiryForm() {
           <Question title="What type of property?">
             <Chips options={PROPERTY_TYPES} value={a.propertyType} onPick={single("propertyType")} />
           </Question>
+          <Question title="What size?" hint={`Tap up to ${MAX_CONFIGURATIONS}`}>
+            <Chips multi max={MAX_CONFIGURATIONS} options={CONFIGURATIONS} value={a.configurations} onPick={(k) => set({ configurations: toggle(a.configurations, k, MAX_CONFIGURATIONS) })} />
+          </Question>
         </>
       )}
 
       {step === 2 && (
         <>
-          <Question title="What size?" hint={`Tap up to ${MAX_CONFIGURATIONS}`}>
-            <Chips multi max={MAX_CONFIGURATIONS} options={CONFIGURATIONS} value={a.configurations} onPick={(k) => set({ configurations: toggle(a.configurations, k, MAX_CONFIGURATIONS) })} />
-          </Question>
           <Question title={selling ? "Expected price or rent?" : "What is your budget?"}>
             <Chips options={bands} value={a.budget} onPick={single("budget")} />
           </Question>
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          {buying && (
-            <Question title="Is it for you to live in, or an investment?">
-              <Chips options={PURPOSES} value={a.purpose} onPick={single("purpose")} />
-            </Question>
-          )}
           <Question title={selling ? "How soon do you want to close?" : "How soon are you planning?"}>
             <Chips options={TIMELINES} value={a.timeline} onPick={single("timeline")} />
           </Question>
           {buying && (
             <>
+              <Question title="Is it for you to live in, or an investment?">
+                <Chips options={PURPOSES} value={a.purpose} onPick={single("purpose")} />
+              </Question>
               <Question title="Ready to move in, or under construction?">
                 <Chips options={POSSESSIONS} value={a.possession} onPick={single("possession")} />
               </Question>
@@ -246,7 +265,7 @@ export function EnquiryForm() {
         </>
       )}
 
-      {step === 4 && (
+      {step === 3 && (
         <>
           <Question title="How should we reach you?">
             <Chips options={CONTACT_METHODS} value={a.contactMethod} onPick={single("contactMethod")} />
@@ -257,26 +276,21 @@ export function EnquiryForm() {
           <Question title="How did you find us?">
             <Chips options={HOW_FOUND} value={a.howFound} onPick={single("howFound")} />
           </Question>
-        </>
-      )}
-
-      {step === 5 && (
-        <>
           <Question title="Your WhatsApp or phone number">
             <div className="flex gap-2">
               <div className="w-28 shrink-0">
-                <select aria-label="Country code" value={country} onChange={(e) => setCountry(e.target.value === "AE" ? "AE" : "IN")} className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base text-foreground">
+                <select aria-label="Country code" value={country} onChange={(e) => setCountry(e.target.value === "AE" ? "AE" : "IN")} className="min-h-12 w-full rounded-md border border-field-border bg-background px-3 text-base text-foreground">
                   <option value="IN">+91</option>
                   <option value="AE">+971</option>
                 </select>
               </div>
               <div className="min-w-0 flex-1">
-                <input aria-label="Phone number" inputMode="tel" autoComplete="tel-national" placeholder="Phone number" value={digits} onChange={(e) => { touch(); setError(null); setDigits(e.target.value.replace(/[^\d\s]/g, "").slice(0, 14)); }} className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                <input aria-label="Phone number" inputMode="tel" autoComplete="tel-national" placeholder="Phone number" value={digits} onChange={(e) => { touch(); setError(null); setDigits(e.target.value.replace(/[^\d\s]/g, "").slice(0, 14)); }} className="min-h-12 w-full rounded-md border border-field-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               </div>
             </div>
           </Question>
           <Question title="Your name (optional)">
-            <input aria-label="Your name" autoComplete="name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} className="min-h-12 w-full rounded-md border border-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <input aria-label="Your name" autoComplete="name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} className="min-h-12 w-full rounded-md border border-field-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </Question>
           {/* Honeypot: invisible to people, tempting to scripts. */}
           <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
@@ -295,16 +309,16 @@ export function EnquiryForm() {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto flex max-w-md gap-3">
           {step > 0 && (
-            <button type="button" onClick={back} disabled={pending} className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border px-5 text-base font-medium text-foreground hover:bg-muted">
+            <button type="button" onClick={back} disabled={pending} className="inline-flex min-h-12 items-center justify-center rounded-sm border border-field-border px-5 text-base font-medium text-foreground hover:bg-muted">
               Back
             </button>
           )}
           {step < STEPS - 1 ? (
-            <button type="button" onClick={next} className="inline-flex min-h-12 flex-1 items-center justify-center rounded-lg bg-accent px-4 text-base font-semibold text-accent-foreground hover:bg-accent-hover">
+            <button type="button" onClick={next} className="inline-flex min-h-12 flex-1 items-center justify-center rounded-sm bg-accent px-4 text-base font-semibold text-accent-foreground hover:bg-accent-hover">
               {step === 0 ? "Next" : "Next (or skip)"}
             </button>
           ) : (
-            <button type="button" onClick={submit} disabled={pending} className="inline-flex min-h-12 flex-1 items-center justify-center rounded-lg bg-whatsapp px-4 text-base font-bold text-white hover:bg-whatsapp-hover disabled:opacity-60">
+            <button type="button" onClick={submit} disabled={pending} className="inline-flex min-h-12 flex-1 items-center justify-center rounded-sm bg-whatsapp px-4 text-base font-bold text-white hover:bg-whatsapp-hover disabled:opacity-60">
               {pending ? "Sending…" : "Send my requirements"}
             </button>
           )}

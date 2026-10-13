@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { FounderSection } from "@/components/founder-section";
+import { ProofBand } from "@/components/proof-band";
 import { FOUNDER } from "@/lib/founder";
 import { BUYER_PROMISE, CREDENTIALS_LINE } from "@/lib/leads/gate/gate-copy";
 
@@ -45,7 +46,7 @@ export default function AboutPage() {
 
             <div className="mt-8 space-y-8 text-foreground">
               <section>
-                <h2 className="text-lg font-semibold">The problem, and why we exist</h2>
+                <h2 className="font-serif text-2xl font-medium tracking-tight">The problem, and why we exist</h2>
                 <p className="mt-2 text-muted-foreground">
                   Buying a home is the largest decision most families make, yet the process is still scattered,
                   rushed and hard to read. Prices are unclear, information sits across many websites, and it is
@@ -55,7 +56,7 @@ export default function AboutPage() {
               </section>
 
               <section>
-                <h2 className="text-lg font-semibold">What we do</h2>
+                <h2 className="font-serif text-2xl font-medium tracking-tight">What we do</h2>
                 <p className="mt-2 text-muted-foreground">
                   Developer Connects is a property advisory platform. We help you compare leading developers and
                   projects, understand the location, the price and the terms, and talk to a property specialist
@@ -65,7 +66,7 @@ export default function AboutPage() {
               </section>
 
               <section>
-                <h2 className="text-lg font-semibold">How property advisory works</h2>
+                <h2 className="font-serif text-2xl font-medium tracking-tight">How property advisory works</h2>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
                   <li>
                     {BUYER_PROMISE}
@@ -81,7 +82,7 @@ export default function AboutPage() {
               </section>
 
               <section>
-                <h2 className="text-lg font-semibold">Transparency</h2>
+                <h2 className="font-serif text-2xl font-medium tracking-tight">Transparency</h2>
                 <p className="mt-2 text-muted-foreground">
                   If something on a developer&apos;s page looks wrong, you can{" "}
                   <a href="/contact" className="text-accent-hover hover:underline">
@@ -94,7 +95,7 @@ export default function AboutPage() {
               </section>
 
               <section>
-                <h2 className="text-lg font-semibold">Talk to someone</h2>
+                <h2 className="font-serif text-2xl font-medium tracking-tight">Talk to someone</h2>
                 <p className="mt-2 text-muted-foreground">When you want human help, message or call Ambish directly. No form.</p>
                 <div className="mt-4">
                   <AdvisorTrigger tone="navy">Talk to an Advisor</AdvisorTrigger>
@@ -102,7 +103,7 @@ export default function AboutPage() {
               </section>
 
               <section>
-                <h2 className="text-lg font-semibold">Part of NoDalalTalks</h2>
+                <h2 className="font-serif text-2xl font-medium tracking-tight">Part of NoDalalTalks</h2>
                 <p className="mt-2 text-muted-foreground">
                   Developer Connects is part of the NoDalalTalks ecosystem, which focuses on building simple,
                   trustworthy tools for people to research real estate directly.
@@ -111,7 +112,8 @@ export default function AboutPage() {
             </div>
           </div>
         </Container>
-        <Container className="pb-16 sm:pb-24">
+        <ProofBand />
+        <Container className="py-16 sm:py-24">
           <FounderSection />
         </Container>
       </main>

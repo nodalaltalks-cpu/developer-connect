@@ -167,12 +167,12 @@ test("mobile: the admin header wraps on a phone (brand + avatar on one row, date
 
 // --- copy rules ----------------------------------------------------------------------------------
 
-test("copy: the commission policy is one sentence, stated only in the Disclaimer, and no page promises commission-free or fee-free across the board", () => {
+test("copy: the commission policy is one sentence, stated on the Disclaimer and FAQ pages only, and no page promises commission-free or fee-free across the board", () => {
   const publicCopy = publicSources().map((file) => readFileSync(file, "utf8")).join("\n") + read("lib/developer-connect/buy-direct-guides.ts") + read("lib/leads/gate/gate-copy.ts") + read("lib/leads/consent.ts");
   assert.doesNotMatch(publicCopy, /zero[- ](commission|brokerage)|no[- ]brokerage|brokerage[- ]free|commission[- ]free|free of (cost|charge) to (buyers|you)/i);
   assert.match(read("lib/leads/gate/gate-copy.ts"), /On secondary \(resale\) and rental transactions, commission is applicable as per market standards/);
-  assert.match(read("app/disclaimer/page.tsx"), /COMMISSION_POLICY/, "the Disclaimer states the commission policy");
-  for (const file of ["app/faq/page.tsx", "app/privacy/page.tsx", "lib/developer-connect/buy-direct-guides.ts"]) assert.doesNotMatch(read(file), /COMMISSION_POLICY/, `${file} does not repeat the commission policy`);
+  for (const file of ["app/disclaimer/page.tsx", "app/faq/page.tsx"]) assert.match(read(file), /COMMISSION_POLICY/, `${file} states the commission policy`);
+  for (const file of ["app/privacy/page.tsx", "lib/developer-connect/buy-direct-guides.ts"]) assert.doesNotMatch(read(file), /COMMISSION_POLICY/, `${file} does not repeat the commission policy`);
 });
 
 test("copy: the pages that described the old flow no longer promise a link or a new tab", () => {

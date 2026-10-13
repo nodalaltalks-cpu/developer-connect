@@ -151,14 +151,15 @@ test("cookie policy: the 'how you found us' storage is sent to the server ONLY w
 const POLICY_PRIMARY = /charges 0% commission on primary \(new-launch\) sales/;
 const POLICY_OTHER = /On secondary \(resale\) and rental transactions, commission is applicable as per market standards/;
 
-test("commission policy: stated in ONE public place, the Disclaimer; the form, FAQ, Privacy Policy, About page and footer do not carry it", () => {
+test("commission policy: stated on the Disclaimer and the FAQ page only; the form, Privacy Policy, About page and footer do not carry it", () => {
   assert.match(COMMISSION_POLICY, POLICY_PRIMARY);
   assert.match(COMMISSION_POLICY, POLICY_OTHER);
   assert.equal("commercialDisclosure" in gateCopy("Acme Realty"), false, "the enquiry form carries reasons to enquire, not a payment disclosure");
   assert.doesNotMatch(gateCopy("Acme Realty").motivation.join(" "), /commission|0%|RERA|certified/i);
   assert.doesNotMatch(section10A, /COMMISSION_POLICY|commission/, "the Privacy Policy does not carry the commission policy");
   assert.ok(read(appRoot, "disclaimer", "page.tsx").includes("COMMISSION_POLICY"), "the Disclaimer states the commission policy");
-  for (const page of ["faq/page.tsx", "privacy/page.tsx", "about/page.tsx"]) {
+  assert.ok(read(appRoot, "faq", "page.tsx").includes("COMMISSION_POLICY"), "the FAQ page states the commission policy");
+  for (const page of ["privacy/page.tsx", "about/page.tsx"]) {
     const source = read(appRoot, ...page.split("/"));
     assert.ok(!/COMMISSION_POLICY|BUYER_PROMISE|CREDENTIALS_LINE|0% commission/.test(source), `${page} must not state the fees or credentials`);
   }

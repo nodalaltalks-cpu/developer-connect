@@ -78,9 +78,9 @@ test("fees: stated only in the disclaimer and legal pages (linked from the foote
   for (const file of ["src/app/property-consultant/[slug]/page.tsx", "src/app/property-consultant/page.tsx", "src/lib/seo/consultant-pages.ts"]) {
     assert.ok(!/COMMISSION_POLICY|commission|0%/i.test(read(file)), `${file} must not state fees`);
   }
-  // No guide, city page or AI-readable file carries the policy sentence: it lives only in the Disclaimer.
+  // No guide, city page or AI-readable file carries the policy sentence: it lives on the Disclaimer and FAQ pages only.
   assert.ok(!allText().includes("0% commission"), "SEO content must not state Developer Connects' fees");
-  for (const file of ["src/app/llms.txt/route.ts", "src/app/llms-full.txt/route.ts", "src/app/faq/page.tsx", "src/app/privacy/page.tsx", "src/app/about/page.tsx", "src/components/site-footer.tsx"]) {
+  for (const file of ["src/app/llms.txt/route.ts", "src/app/llms-full.txt/route.ts", "src/app/privacy/page.tsx", "src/app/about/page.tsx", "src/components/site-footer.tsx"]) {
     assert.ok(!/0% commission|COMMISSION_POLICY|CREDENTIALS_LINE|channel partner/.test(read(file)), `${file} must not state fees or credentials`);
   }
 });

@@ -92,6 +92,12 @@ export function ColdCallPad() {
     setTyped((t) => (t.replace(/\D/g, "").length >= MAX_DIGITS ? t : t + key));
   }
 
+  function plus() {
+    if (locked) return;
+    setSaved(null);
+    setTyped((t) => (t.startsWith("+") ? t : `+${t.replace(/\D/g, "")}`));
+  }
+
   async function paste() {
     if (locked) return;
     try {
@@ -123,27 +129,41 @@ export function ColdCallPad() {
         </p>
       )}
       <div className="flex items-center gap-2">
-        {/* One large, plain number box across the screen. Type with the keypad, the phone's keyboard, or Paste. */}
-        <input
-          type="tel"
-          inputMode="tel"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          aria-label="Number to call"
-          placeholder="Enter number"
-          value={typed}
-          disabled={locked}
-          onChange={(event) => {
-            setSaved(null);
-            setTyped(sanitize(event.target.value));
-          }}
-          className="min-h-14 min-w-0 flex-1 rounded-md border-2 border-field-border bg-white px-4 text-2xl font-semibold tracking-wide text-foreground placeholder:text-lg placeholder:font-normal placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-        />
-        <button type="button" aria-label="Delete last digit" className={`${BTN} min-h-14 w-14 shrink-0 px-0 text-xl`} disabled={locked || typed === ""} onClick={() => setTyped((t) => t.slice(0, -1))}>
-          ⌫
+        {/* One large number box with a blinking line, so it is plain where the number goes. Tap it to type with the phone's own
+            keyboard; use the dial pad below (it has a + key) or Paste. The real input sits invisibly on top of the display. */}
+        <div className="relative min-w-0 flex-1 rounded-md border-2 border-field-border bg-white focus-within:ring-2 focus-within:ring-ring">
+          <div aria-hidden="true" className="flex min-h-14 items-center overflow-hidden px-4">
+            {typed ? <span className="truncate text-2xl font-semibold tracking-wide text-foreground">{typed}</span> : null}
+            {!locked && <span className="dc-caret" />}
+            {!typed && <span className="ml-2 truncate text-lg text-muted-foreground">Enter number</span>}
+          </div>
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-label="Number to call"
+            value={typed}
+            disabled={locked}
+            onChange={(event) => {
+              setSaved(null);
+              setTyped(sanitize(event.target.value));
+            }}
+            className="absolute inset-0 h-full w-full cursor-text bg-transparent text-transparent opacity-0 caret-transparent focus:outline-none"
+          />
+        </div>
+        <button type="button" aria-label="Paste a number" className={`${BTN} min-h-14 shrink-0 px-4 text-base`} disabled={locked} onClick={paste}>
+          Paste
         </button>
       </div>
+      {typed !== "" && !locked && (
+        <div className="mt-1 flex justify-end">
+          <button type="button" className="inline-flex min-h-11 items-center px-2 text-sm font-medium text-accent-hover hover:underline" onClick={() => setTyped("")}>
+            Clear number
+          </button>
+        </div>
+      )}
 
       <div className="mt-2 min-h-14" aria-live="polite">
         {ready && looking && <p className="text-sm text-muted-foreground">Checking this number…</p>}
@@ -166,14 +186,14 @@ export function ColdCallPad() {
             {k}
           </button>
         ))}
-        <button type="button" className={`${KEY} text-base`} disabled={locked} onClick={paste} aria-label="Paste a number">
-          Paste
+        <button type="button" className={KEY} disabled={locked} onClick={plus} aria-label="Plus sign, for a country code">
+          +
         </button>
         <button type="button" className={KEY} disabled={locked} onClick={() => press("0")} aria-label="0">
           0
         </button>
-        <button type="button" className={`${KEY} text-base`} disabled={locked || typed === ""} onClick={() => setTyped("")} aria-label="Clear number">
-          Clear
+        <button type="button" className={`${KEY} text-xl`} disabled={locked || typed === ""} onClick={() => setTyped((t) => t.slice(0, -1))} aria-label="Delete last digit">
+          ⌫
         </button>
       </div>
 

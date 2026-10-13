@@ -174,6 +174,9 @@ test("wiring: the pad shows the quick outcome panel, the manual page uses the sh
   assert.doesNotMatch(pad, /CountryCodeField|Country code|Other country/, "the pad has no country selector: India by default, a + typed or pasted for any other country");
   assert.match(pad, /type="tel"/, "one plain number box");
   assert.match(pad, /aria-label="Number to call"/);
+  assert.match(pad, /className="dc-caret"/, "a blinking line shows where the number goes");
+  assert.match(pad, /aria-label="Plus sign, for a country code"/, "the dial pad has a + key");
+  assert.match(read("src/app/globals.css"), /\.dc-caret[\s\S]*dc-blink/);
   assert.match(read("src/components/team/cold-call-result.tsx"), /Not interested[\s\S]*Did not connect|Interested[\s\S]*Not interested/);
   assert.match(read("src/app/team/cold-call/page.tsx"), /QuickLeadScreen askPhone/);
   assert.match(read("src/components/team/quick-lead-form.tsx"), /NA/);

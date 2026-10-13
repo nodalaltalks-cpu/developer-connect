@@ -246,6 +246,32 @@ body {
   }
 }
 
+/* The blinking line in the dial pad's number box. Solid (not blinking) for visitors who ask for reduced motion. */
+@keyframes dc-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.dc-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.75rem;
+  margin-left: 1px;
+  flex-shrink: 0;
+  background: var(--accent);
+  animation: dc-blink 1.05s step-end infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-caret {
+    animation: none !important;
+  }
+}
+
 /* Below-the-fold sections are not laid out or painted until they are near the screen. */
 .defer-section {
   content-visibility: auto;

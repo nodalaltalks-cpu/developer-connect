@@ -68,7 +68,8 @@ function buildColumns(): FooterColumn[] {
     {
       heading: "Connect",
       links: [
-        { label: "Instagram", href: "https://www.instagram.com/nodalaltalks/", external: true },
+        { label: "Instagram", href: "https://www.instagram.com/developerconnects/", external: true },
+        { label: "Facebook", href: "https://www.facebook.com/profile.php?id=61595466475332", external: true },
         {
           label: "LinkedIn",
           href: "https://www.linkedin.com/company/nodalaltalks/?viewAsMember=true",

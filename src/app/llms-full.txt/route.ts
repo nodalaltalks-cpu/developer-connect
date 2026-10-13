@@ -1,7 +1,6 @@
 import { GUIDES } from "@/lib/seo/guides";
 import { CONSULTANT_PAGES } from "@/lib/seo/consultant-pages";
 import { consultantToMarkdown, guideToMarkdown } from "@/lib/seo/markdown";
-import { COMMISSION_POLICY } from "@/lib/leads/gate/gate-copy";
 import { EMI_TOOL_FAQ, EMI_TOOL_PATH, GLOSSARY, GLOSSARY_PATH } from "@/lib/seo/tools";
 
 /**
@@ -12,7 +11,7 @@ import { EMI_TOOL_FAQ, EMI_TOOL_PATH, GLOSSARY, GLOSSARY_PATH } from "@/lib/seo/
 export function GET() {
   const body = `# Developer Connects: full text
 
-> Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by founder Ambish Singh. ${COMMISSION_POLICY} Website: https://developerconnects.com. Contact: https://developerconnects.com/contact.
+> Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by founder Ambish Singh. Its terms are set out in its Disclaimer at https://developerconnects.com/disclaimer. Website: https://developerconnects.com. Contact: https://developerconnects.com/contact.
 
 ${CONSULTANT_PAGES.map(consultantToMarkdown).join("\n\n---\n\n")}
 

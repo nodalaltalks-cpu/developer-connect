@@ -5,7 +5,6 @@ import { SiteFooter } from "@/components/site-footer";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { FounderSection } from "@/components/founder-section";
 import { ProofBand } from "@/components/proof-band";
-import { BUYER_PROMISE, CREDENTIALS_LINE } from "@/lib/leads/gate/gate-copy";
 
 export const metadata: Metadata = {
   title: "About Us | Developer Connects",
@@ -66,14 +65,11 @@ export default function AboutPage() {
                 <h2 className="font-serif text-2xl font-medium tracking-tight">How property advisory works</h2>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
                   <li>
-                    {BUYER_PROMISE}
+                    Our guidance is tailored to your needs: your budget, location, configuration and timeline.
                   </li>
                   <li>
                     The details you share are given to Developer Connects, to help with your property enquiry
                     through the contact method you choose.
-                  </li>
-                  <li>
-                    {CREDENTIALS_LINE}
                   </li>
                 </ul>
               </section>

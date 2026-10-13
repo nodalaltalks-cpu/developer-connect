@@ -119,7 +119,16 @@ export function AssistanceGateView({
               </>
             )}
 
-            <p className="mt-3 rounded-md bg-muted p-3 text-sm font-medium text-foreground">{copy.buyerPromise}</p>
+            <ul className="mt-3 space-y-2 rounded-md border border-border border-l-4 border-l-gold bg-white p-4 text-sm leading-6 text-foreground">
+              {copy.motivation.map((line) => (
+                <li key={line} className="flex gap-2.5">
+                  <span aria-hidden="true" className="mt-0.5 shrink-0 font-bold text-brass-700">
+                    &#10003;
+                  </span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
 
             {state.error && (
               <p role="alert" className="mt-3 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">

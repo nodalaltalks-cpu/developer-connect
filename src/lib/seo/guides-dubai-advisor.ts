@@ -301,7 +301,7 @@ export const DUBAI_AND_ADVISOR_GUIDES: readonly Guide[] = [
       { t: "h2", text: "How Developer Connects states it" },
       {
         t: "p",
-        text: "Developer Connects charges 0% commission on primary (new-launch) sales. On secondary (resale) and rental transactions, commission is applicable as per market standards. The same statement appears in our privacy policy and disclaimer.",
+        text: "Developer Connects sets out its own commission terms in the Disclaimer, linked at the foot of every page. Whichever consultant you choose, ask for the same clarity in writing before you commit.",
       },
       {
         t: "note",

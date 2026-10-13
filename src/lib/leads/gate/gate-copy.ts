@@ -21,7 +21,8 @@ export interface GateCopy {
   title: string;
   intro: string;
   /** What the buyer can rely on, and who Developer Connects is. */
-  buyerPromise: string;
+  /** Two or three lines that say what the buyer gets by sharing a number. No fee or credential claims: those live only in the Disclaimer. */
+  motivation: readonly string[];
   phoneLabel: string;
   phoneHelp: string;
   countryLabel: string;
@@ -52,7 +53,7 @@ export interface GateCopy {
 }
 
 /**
- * The commission policy, stated once and used word for word on the Privacy Policy, Disclaimer, FAQ and the buy-direct guides:
+ * The commission policy. It appears in ONE public place, the Disclaimer (linked from the footer of every page), and nowhere else:
  * 0% on primary (new-launch) sales; on secondary (resale) and rental transactions commission applies as per market standards.
  */
 export const COMMISSION_POLICY =
@@ -66,7 +67,15 @@ export const COMMISSION_POLICY =
 const RERA_NUMBER = (process.env.NEXT_PUBLIC_RERA_REGISTRATION ?? "").trim();
 /** The registration number, or "" until the founder supplies it. Shown (with a verify link) only when set. */
 export const RERA_REGISTRATION_NUMBER = RERA_NUMBER;
-export const BUYER_PROMISE = "0% commission on primary (new-launch) sales and 0% bias. On secondary (resale) and rental deals, commission is applicable as per market standards. Our guidance is tailored to your needs: your budget, location, configuration and timeline.";
+/**
+ * What a buyer gets by sharing a number, in words that give a reason to do it. Specific and checkable: no fees, no rankings, no
+ * guarantees. The registration and fee statements are in the Disclaimer only.
+ */
+export const GATE_MOTIVATION: readonly string[] = [
+  "Your brief becomes a short list: projects that fit your budget, area and timeline, with prices, payment plans and possession dates side by side.",
+  "A real person, not a bot, walks you through the checks that protect you before you pay anything.",
+  "No pressure and no obligation. You decide every next step.",
+];
 export const CREDENTIALS_LINE = `Developer Connects is a certified, affiliated channel partner and RERA registered${RERA_NUMBER ? ` (RERA No. ${RERA_NUMBER})` : ""}.`;
 
 export function gateCopy(developerName: string, preference: GateContactPreference = "WHATSAPP"): GateCopy {
@@ -75,7 +84,7 @@ export function gateCopy(developerName: string, preference: GateContactPreferenc
     title: `Connect with ${developerName}`,
     intro:
       "You've found the developer you're interested in. Share your details with Developer Connects and we'll help connect you based on your requirement.",
-    buyerPromise: `${BUYER_PROMISE} ${CREDENTIALS_LINE}`,
+    motivation: GATE_MOTIVATION,
     phoneLabel: "Your WhatsApp or phone number",
     phoneHelp: "We'll use this to reach you about your enquiry — nothing else.",
     countryLabel: "Country code",

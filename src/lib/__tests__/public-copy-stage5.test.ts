@@ -102,8 +102,8 @@ test("buy-direct guides: still teach the useful steps (verify the developer, che
   assert.match(faq, /Developer Connects can help you connect with the developer/);
   assert.match(faq, /look-alike domains/, "the fake-website warning (useful, and SEO-relevant) is kept");
   assert.match(faq, /advisory team can help you reach the real developer/);
-  assert.match(faq, /charges 0% commission on primary \(new-launch\) sales/, "the commission policy stays in the guide FAQ");
-  assert.match(faq, /secondary \(resale\) and rental transactions, commission is applicable as per market standards/);
+  assert.doesNotMatch(faq, /0% commission|commission is applicable/, "the commission policy is in the Disclaimer only");
+  assert.match(faq, /set out in the Disclaimer/);
 });
 
 test("location pages: the title keeps its SEO pattern; the description and intro no longer send the reader to a website", () => {

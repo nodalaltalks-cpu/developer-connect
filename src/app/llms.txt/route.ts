@@ -22,7 +22,7 @@ export function GET() {
 
   const body = `# Developer Connects
 
-> Developer Connects is a property advisory platform for buyers in Mumbai, Dubai and across India and the UAE, led by founder Ambish Singh. It charges 0% commission on primary (new-launch) sales; on resale and rental deals commission is as per market standards. Buyers can compare leading real estate developers and projects, and share a WhatsApp number or phone so the Developer Connects advisory team can help them based on their requirement. Developer Connects is not the developer of any project.
+> Developer Connects is a property advisory platform for buyers in Mumbai, Dubai and across India and the UAE, led by founder Ambish Singh. Buyers can compare leading real estate developers and projects, and share a WhatsApp number or phone so the Developer Connects advisory team can help them based on their requirement. Developer Connects is not the developer of any project.
 
 Each developer page is at ${BASE_URL}/developers/{developer-slug} and states the developer's name and location and lets a buyer request a connection through the advisory team. Developer Connects does not certify a developer's legal status, licences, regulatory approvals or project quality; buyers should confirm these with the developer and the regulator.
 

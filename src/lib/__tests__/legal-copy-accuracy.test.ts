@@ -151,16 +151,16 @@ test("cookie policy: the 'how you found us' storage is sent to the server ONLY w
 const POLICY_PRIMARY = /charges 0% commission on primary \(new-launch\) sales/;
 const POLICY_OTHER = /On secondary \(resale\) and rental transactions, commission is applicable as per market standards/;
 
-test("commission policy: the SAME sentence is on the Privacy Policy, Disclaimer and FAQ — 0% on primary, market-standard commission on secondary and rent", () => {
+test("commission policy: stated in ONE public place, the Disclaimer; the form, FAQ, Privacy Policy, About page and footer do not carry it", () => {
   assert.match(COMMISSION_POLICY, POLICY_PRIMARY);
   assert.match(COMMISSION_POLICY, POLICY_OTHER);
-  assert.equal("commercialDisclosure" in gateCopy("Acme Realty"), false, "the enquiry form carries the buyer promise, not a payment disclosure");
-  assert.match(gateCopy("Acme Realty").buyerPromise, /0% commission on primary \(new-launch\) sales/);
-  assert.match(gateCopy("Acme Realty").buyerPromise, /secondary \(resale\) and rental deals, commission is applicable as per market standards/);
-  assert.match(section10A, /COMMISSION_POLICY/, "the Privacy Policy states the one commission policy sentence");
-  for (const page of ["disclaimer/page.tsx", "faq/page.tsx"]) {
-    const source = read(appRoot, ...page.split("/")).replace(/\s+/g, " ");
-    assert.ok(source.includes("COMMISSION_POLICY"), `${page} uses the one commission policy sentence`);
+  assert.equal("commercialDisclosure" in gateCopy("Acme Realty"), false, "the enquiry form carries reasons to enquire, not a payment disclosure");
+  assert.doesNotMatch(gateCopy("Acme Realty").motivation.join(" "), /commission|0%|RERA|certified/i);
+  assert.doesNotMatch(section10A, /COMMISSION_POLICY|commission/, "the Privacy Policy does not carry the commission policy");
+  assert.ok(read(appRoot, "disclaimer", "page.tsx").includes("COMMISSION_POLICY"), "the Disclaimer states the commission policy");
+  for (const page of ["faq/page.tsx", "privacy/page.tsx", "about/page.tsx"]) {
+    const source = read(appRoot, ...page.split("/"));
+    assert.ok(!/COMMISSION_POLICY|BUYER_PROMISE|CREDENTIALS_LINE|0% commission/.test(source), `${page} must not state the fees or credentials`);
   }
   assert.doesNotMatch(section10A, /receive payment from developers/);
 });

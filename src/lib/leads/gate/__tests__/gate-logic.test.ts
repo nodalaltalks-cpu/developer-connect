@@ -44,12 +44,14 @@ test("copy: the recorded consent says the buyer is sharing details with Develope
   const { consent } = gateCopy(DEV);
   assert.match(consent, /I agree that Developer Connects may contact me/);
   assert.doesNotMatch(consent, /not with the developer/);
-  const promise = gateCopy(DEV).buyerPromise;
-  assert.match(promise, /0% commission on primary \(new-launch\) sales and 0% bias/);
-  assert.match(promise, /secondary \(resale\) and rental deals, commission is applicable as per market standards/);
-  assert.match(promise, /tailored to your needs/);
-  assert.match(promise, /certified, affiliated channel partner and RERA registered/);
-  assert.doesNotMatch(promise, /payment|paid|margin|earn/i, "the form does not say how Developer Connects is paid");
+  const lines = gateCopy(DEV).motivation;
+  const promise = lines.join(" ");
+  assert.ok(lines.length >= 2 && lines.length <= 3, "two or three lines, not a wall of text");
+  assert.match(promise, /short list/);
+  assert.match(promise, /budget, area and timeline/);
+  assert.match(promise, /No pressure and no obligation/);
+  assert.doesNotMatch(promise, /commission|0%|bias|RERA|certified|channel partner/i, "fees and credentials are stated only in the Disclaimer");
+  assert.doesNotMatch(promise, /payment|paid|margin|earn|guarantee|best|#1/i, "no payment-source wording and no guarantees");
 });
 
 test("copy: says what happens next — Developer Connects contacts them; they are NOT sent to another website", () => {

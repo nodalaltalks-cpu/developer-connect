@@ -1,4 +1,3 @@
-import { COMMISSION_POLICY } from "@/lib/leads/gate/gate-copy";
 import type { Metadata } from "next";
 import { LegalPageLayout, LegalSection } from "@/components/legal-page-layout";
 import { LEGAL_CONFIG, LEGAL_ENTITY_PLACEHOLDER } from "@/lib/legal-config";
@@ -154,9 +153,6 @@ export default function PrivacyPolicyPage() {
             <code>dc_lead</code> for 30 days so we can offer to continue with the number you shared earlier. It is
             httpOnly and signed, and contains only an internal reference to your enquiry record, an expiry and a
             signature — not your name, number or email. See our Cookie Policy.
-          </li>
-          <li>
-            <strong>Our commission:</strong> {COMMISSION_POLICY}
           </li>
           <li>
             <strong>Erasure:</strong> you can ask us to erase your enquiry details by emailing{" "}

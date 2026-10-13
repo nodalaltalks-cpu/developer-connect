@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AssistanceGateView, type AssistanceGateViewProps } from "../assistance-gate-view.tsx";
-import { BUYER_PROMISE, CREDENTIALS_LINE, gateCopy } from "../../lib/leads/gate/gate-copy.ts";
+import { CREDENTIALS_LINE, GATE_MOTIVATION, gateCopy } from "../../lib/leads/gate/gate-copy.ts";
 import { gatePreference, gateReducer, initialGateState, type GateAction, type GateState } from "../../lib/leads/gate/gate-flow.ts";
 
 /**
@@ -367,21 +367,22 @@ test("privacy: no state's markup ever contains a full phone number it was not gi
 
 const decode = (markup: string) => markup.replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
 
-test("promise: every state that asks for details shows the no-cost promise and the credentials, and says nothing about how Developer Connects is paid", () => {
+test("motivation: every state that asks for details shows the reasons to enquire, and carries no fee or credential statement", () => {
   for (const key of ["form", "formTyped", "submitting", "failure", "returning", "returningSubmitting"] as const) {
     const out = decode(html(STATES[key]));
-    assert.ok(out.includes(BUYER_PROMISE), `${key}: the promise is shown`);
-    assert.ok(out.includes(CREDENTIALS_LINE), `${key}: the credentials are shown`);
+    for (const line of GATE_MOTIVATION) assert.ok(out.includes(line), `${key}: a motivation line is shown`);
+    assert.ok(!out.includes(CREDENTIALS_LINE), `${key}: the credentials line is not shown here`);
+    assert.doesNotMatch(out, /0% commission|commission is applicable|0% bias|channel partner/i, `${key}: no fee wording`);
     assert.doesNotMatch(out, /receive payment|paid by|their own margin/i, `${key}: no payment-source wording`);
   }
 });
 
-test("promise: it is not shown while loading, and the pinned button footer is unchanged", () => {
-  assert.ok(!decode(html(STATES.loading)).includes(BUYER_PROMISE));
+test("motivation: it is not shown while loading, and the pinned button footer is unchanged", () => {
+  assert.ok(!decode(html(STATES.loading)).includes(GATE_MOTIVATION[0]));
   const out = decode(html(STATES.form));
   const footerStart = out.search(/<div class="[^"]*sticky[^"]*">/);
   assert.ok(footerStart !== -1, "the sticky footer still exists");
   const footer = out.slice(footerStart, out.indexOf("</div>", footerStart));
-  assert.ok(!footer.includes(BUYER_PROMISE), "the footer holds only the button and its hint");
+  assert.ok(!footer.includes(GATE_MOTIVATION[0]), "the footer holds only the button and its hint");
   assert.match(footer, /<button type="submit" form="assistance-gate-form"/);
 });

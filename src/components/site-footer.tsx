@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
 import { FOUNDER } from "@/lib/founder";
-import { CREDENTIALS_LINE, RERA_REGISTRATION_NUMBER } from "@/lib/leads/gate/gate-copy";
+import { RERA_REGISTRATION_NUMBER } from "@/lib/leads/gate/gate-copy";
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/logo";
 import { NewsletterSignup } from "@/components/newsletter-signup";
@@ -152,7 +152,6 @@ export function SiteFooter() {
 
         {/* Who we are, stated where a careful buyer looks: the registration, with a way to check it. Nothing is shown that has not been supplied. */}
         <div className="mt-12 border-t border-white/10 pt-6 text-sm leading-6 text-mist">
-          <p>{CREDENTIALS_LINE}</p>
           {RERA_REGISTRATION_NUMBER && (
             <p className="mt-1">
               MahaRERA registration no. <span className="font-semibold text-pearl">{RERA_REGISTRATION_NUMBER}</span>.{" "}

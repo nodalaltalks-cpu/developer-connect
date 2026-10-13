@@ -112,7 +112,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   <Image src="/founder/ambish-singh-avatar.jpg" alt="" width={40} height={40} className="size-10 rounded-full border border-brass-300/70 object-cover" />
                   <span className="font-semibold">Ambish Singh, Founder</span>
                   <span aria-hidden="true" className="text-white/40">&middot;</span>
-                  <span>MBA Strategy, Symbiosis International University, Dubai</span>
+                  <span>MBA in Strategy &middot; 6+ years in real estate across India and the UAE</span>
                 </p>
               </div>
             </Container>

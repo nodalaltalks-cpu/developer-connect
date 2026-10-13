@@ -2,25 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useHeroMarket } from "@/components/hero-market";
-import { MARKETS, type Market } from "@/lib/hero-market";
+import { MARKETS, cutFor, type HeroConnection, type Market } from "@/lib/hero-market";
 
 /**
- * Cinematic background for the homepage hero: one film per city (Dubai, Mumbai), cross-fading when the visitor switches.
+ * Cinematic background for the homepage hero: one night-skyline film per city, cross-fading when the visitor switches.
+ *   - Mumbai: a lit cable-stayed sea bridge over the water at night.
+ *   - Dubai: the Burj Khalifa and the Downtown waterfront at night.
  * Purely decorative (aria-hidden, muted, no controls).
  *
- * Footage: free stock clips from Pexels (Pexels License: free for commercial use, no attribution required), re-encoded
- * to short loops in /public/video. Each city has three cuts, chosen per device:
- *   - phones (portrait screens): 720x1280, a few MB
+ * Footage: free stock clips from Pexels (Pexels License: free for commercial use, no attribution required), shot in 4K and
+ * re-encoded to short loops in /public/video. Each city has a sharp still (shown the instant the page opens, so the skyline is
+ * never missing while the film loads) and several cuts, chosen per screen and connection:
+ *   - phones (portrait screens): 1080x1920
+ *   - slow connections: 1280x720, so the film still arrives in seconds
  *   - desktops and tablets: 1920x1080
- *   - large screens on a fast connection: 2560x1440 (the ultra-sharp cut)
- * Full 4K is deliberately not used: for a background it adds tens of megabytes for no visible gain.
+ *   - large screens: 2560x1440
+ *   - 4K screens on a fast connection: 3840x2160 (the full-resolution cut)
  *
- * It is polite: the page paints first on a dark gradient; the film is only fetched once the page has loaded and the tab is
- * visible; it never loads for a visitor who asked for reduced motion, turned on Data Saver, or is on a slow connection
- * (they keep the gradient); only the chosen city's film downloads (the other one starts loading when the visitor reaches
- * for its button); it pauses when scrolled out of view or when the tab is hidden; any failure leaves the gradient.
+ * It is polite: the page paints first with the still; the film is only fetched once the page has loaded and the tab is
+ * visible; it never loads for a visitor who asked for reduced motion, turned on Data Saver, or is on a very slow connection
+ * (they keep the still); only the chosen city's film downloads (the other one starts loading when the visitor reaches for its
+ * button); it pauses when scrolled out of view or when the tab is hidden; any failure leaves the still.
  */
-type Connection = { saveData?: boolean; effectiveType?: string };
+type Connection = HeroConnection;
 
 function mayPlayVideo(): boolean {
   try {
@@ -35,18 +39,11 @@ function mayPlayVideo(): boolean {
 }
 
 function sourceFor(market: Market): string {
+  const nav = navigator as Navigator & { connection?: Connection };
   const portrait = window.matchMedia("(max-width: 767px)").matches;
-  if (portrait) return `/video/${market}-tall-720.mp4`;
-  const nav = navigator as Navigator & { connection?: Connection; deviceMemory?: number };
-  const fast = nav.connection?.effectiveType === "4g" && !nav.connection?.saveData && (nav.deviceMemory === undefined || nav.deviceMemory >= 4);
-  const large = window.innerWidth >= 1800 || window.screen.width * (window.devicePixelRatio || 1) >= 2560;
-  return `/video/${market}-wide-${fast && large ? "1440" : "1080"}.mp4`;
+  const pixelWidth = Math.max(window.innerWidth, window.screen.width) * (window.devicePixelRatio || 1);
+  return `/video/${market}-${cutFor({ portrait, pixelWidth }, nav.connection)}.mp4`;
 }
-
-const TINT: Record<Market, string> = {
-  dubai: "bg-[radial-gradient(ellipse_at_top,rgba(56,92,160,0.38),transparent_60%),linear-gradient(to_bottom,#0b1220,#0f172a)]",
-  mumbai: "bg-[radial-gradient(ellipse_at_top,rgba(20,120,140,0.38),transparent_60%),linear-gradient(to_bottom,#0a1519,#0f1d24)]",
-};
 
 export function HeroVideo() {
   const { market, warm } = useHeroMarket();
@@ -58,7 +55,7 @@ export function HeroVideo() {
     marketRef.current = market;
   }, [market]);
 
-  // 1. Decide once whether video may run at all, and when (after load, tab visible, a moment of calm).
+  // 1. Decide once whether video may run at all, and when (after load, tab visible, a short moment of calm).
   useEffect(() => {
     if (!mayPlayVideo()) return;
     let cancelled = false;
@@ -72,7 +69,7 @@ export function HeroVideo() {
     const schedule = () => {
       if (cancelled || done || document.visibilityState !== "visible") return;
       window.clearTimeout(timer);
-      timer = window.setTimeout(go, 1000);
+      timer = window.setTimeout(go, 300);
     };
     if (document.readyState === "complete") schedule();
     else window.addEventListener("load", schedule, { once: true });
@@ -130,14 +127,29 @@ export function HeroVideo() {
     };
   }, [allowed, market]);
 
-  // A film is shown only once it is really playing; until then the previous one (or the gradient) stays.
-  const other: Market = market === "dubai" ? "mumbai" : "dubai";
-  const shown: Market | null = ready[market] ? market : ready[other] ? other : null;
+  // A film is shown only once it is really playing; until then the chosen city's still shows (never the other city's film).
+  const shown: Market | null = ready[market] ? market : null;
 
   return (
-    <div aria-hidden="true" className="absolute inset-0 overflow-hidden bg-slate-950">
+    <div aria-hidden="true" className="absolute inset-0 overflow-hidden bg-ink">
+      {/* The still: the chosen city's skyline, painted with the page. The other city's still loads only once it is chosen. */}
       {MARKETS.map((m) => (
-        <div key={`tint-${m}`} className={`absolute inset-0 transition-opacity duration-[1200ms] ${TINT[m]} ${market === m ? "opacity-100" : "opacity-0"}`} />
+        <picture key={`still-${m}`} className={`absolute inset-0 transition-opacity duration-[1200ms] ${market === m ? "opacity-100" : "opacity-0"}`}>
+          {(market === m || warm === m) && (
+            <>
+              <source type="image/avif" media="(max-width: 767px)" srcSet={`/video/${m}-still-tall.avif`} />
+              <source type="image/avif" srcSet={`/video/${m}-still-1920.avif 1920w, /video/${m}-still-3840.avif 3840w`} sizes="100vw" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- stills are pre-encoded (AVIF + JPEG) at exact sizes; no optimiser round trip on the hero */}
+              <img
+                src={`/video/${m}-still-1920.jpg`}
+                alt=""
+                fetchPriority={market === m ? "high" : "low"}
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
+            </>
+          )}
+        </picture>
       ))}
       {MARKETS.map((m) => (
         <video
@@ -151,11 +163,12 @@ export function HeroVideo() {
           preload="none"
           tabIndex={-1}
           onPlaying={() => setReady((r) => (r[m] ? r : { ...r, [m]: true }))}
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1500ms] ${shown === m ? "opacity-90" : "opacity-0"}`}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1500ms] ${shown === m ? "opacity-100" : "opacity-0"}`}
         />
       ))}
-      {/* Contrast scrims keep the headline readable on any frame of the footage. */}
-      <div className="absolute inset-0 bg-gradient-to-b from-ink/55 via-ink/35 to-ink/90" />
+      {/* Contrast scrims keep the headline readable on any frame, while the city lights still glow through. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-ink/50 via-ink/25 to-ink/90" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(11,18,32,0.45)_100%)]" />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_MARKET, MARKETS, isMarket, marketFromParams } from "../hero-market.ts";
+import { DEFAULT_MARKET, HERO_CUTS, HERO_STILLS, MARKETS, cutFor, isMarket, marketFromParams } from "../hero-market.ts";
 import { CTA_IDS } from "../behaviour/events.ts";
 
 /** The homepage hero shows a city film: Dubai by default, Mumbai when the visitor (or the address) chooses it. */
@@ -32,18 +32,36 @@ test("address: ?market= and location filters pick the city; anything else says n
   assert.ok(isMarket("dubai") && isMarket("mumbai") && !isMarket("x") && !isMarket(null));
 });
 
-test("assets: every video file the player can request exists and is a sensible size", () => {
+test("assets: every film cut and still the player can request exists and is a sensible size", () => {
+  const limits: Record<string, [number, number]> = { "tall-1080": [1, 10], "wide-720": [0.5, 4], "wide-1080": [1.5, 10], "wide-1440": [3, 14], "wide-2160": [6, 24] };
   for (const market of MARKETS) {
-    for (const cut of ["tall-720", "wide-1080", "wide-1440"]) {
+    for (const cut of HERO_CUTS) {
       const file = path.join(root, "public", "video", `${market}-${cut}.mp4`);
       assert.ok(existsSync(file), `${market}-${cut}.mp4 is missing`);
       const mb = statSync(file).size / 1048576;
-      assert.ok(mb > 0.5 && mb < 12, `${market}-${cut}.mp4 is ${mb.toFixed(1)} MB`);
+      const [min, max] = limits[cut];
+      assert.ok(mb > min && mb < max, `${market}-${cut}.mp4 is ${mb.toFixed(1)} MB`);
+    }
+    for (const still of HERO_STILLS) {
+      const file = path.join(root, "public", "video", `${market}-${still}`);
+      assert.ok(existsSync(file), `${market}-${still} is missing`);
+      assert.ok(statSync(file).size < 900 * 1024, `${market}-${still} is too heavy for a first paint`);
     }
   }
   const player = read("src/components/hero-video.tsx");
-  assert.match(player, /\/video\/\$\{market\}-tall-720\.mp4/);
-  assert.match(player, /\/video\/\$\{market\}-wide-\$\{fast && large \? "1440" : "1080"\}\.mp4/);
+  assert.match(player, /\/video\/\$\{market\}-\$\{cutFor\(/);
+  assert.match(player, /-still-1920\.jpg/, "a still is painted with the page, so the skyline never waits for the film");
+});
+
+test("cuts: phones get the portrait cut, slow links the light cut, and only 4K screens on a fast link the 4K cut", () => {
+  assert.equal(cutFor({ portrait: true, pixelWidth: 1170 }, { downlink: 10 }), "tall-1080");
+  assert.equal(cutFor({ portrait: false, pixelWidth: 3840 }, { downlink: 0.6 }), "wide-720");
+  assert.equal(cutFor({ portrait: false, pixelWidth: 3840 }, { downlink: 10 }), "wide-2160");
+  assert.equal(cutFor({ portrait: false, pixelWidth: 3840 }, undefined), "wide-2160", "browsers without the API are treated as fast");
+  assert.equal(cutFor({ portrait: false, pixelWidth: 3840 }, { downlink: 7 }), "wide-1440");
+  assert.equal(cutFor({ portrait: false, pixelWidth: 3840 }, { downlink: 5 }), "wide-1080");
+  assert.equal(cutFor({ portrait: false, pixelWidth: 2560 }, { downlink: 10 }), "wide-1440");
+  assert.equal(cutFor({ portrait: false, pixelWidth: 1920 }, { downlink: 10 }), "wide-1080");
 });
 
 test("player: polite loading rules are all in place", () => {
@@ -59,7 +77,6 @@ test("player: polite loading rules are all in place", () => {
   assert.match(player, /visibilitychange/);
   assert.match(player, /onPlaying=/, "a film is only shown once it is really playing, so the cross-fade never flashes black");
   assert.doesNotMatch(player, /requestIdleCallback/, "idle callbacks may never run in a background tab");
-  assert.doesNotMatch(player, /3840|2160|uhd/i, "full 4K is deliberately not used for a background");
 });
 
 test("toggle: accessible, touch-sized, tracked, and remembers the choice only in the visitor's own browser", () => {

@@ -93,6 +93,11 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
   return (
     <div>
       <LiveRefresh />
+      {params.returned === "1" && (
+        <p role="status" className="mb-3 rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-800">
+          The lead was returned to the Founder. It is no longer in your list.
+        </p>
+      )}
       <TodayPanel today={today} />
       <SectionHeading title="My Leads" description="Leads assigned to you. Private — visible only to you and the Founder." />
       <p className="-mt-2 mb-2 sm:hidden">

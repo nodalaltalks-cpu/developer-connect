@@ -33,13 +33,13 @@ const at = (m: number, s = 0) => new Date(minutes(m).getTime() + s * 1000);
 
 // --- the honest fallback: placed, but the phone cannot read the length ---------------------------------------------------
 
-test("length unavailable: recorded as attempted with NO duration and NO classification - never Connected, never Dialed, nothing guessed", async () => {
+test("length unavailable: recorded as placed with NO duration - counted as ONE dialed call, never Connected, nothing guessed", async () => {
   const w = await world();
   const prepared = await prepareDeviceCall(w.repos, w.lead.id, w.priyaActor, {}, at(10));
   const { call, duplicate } = await reportDeviceCall(w.repos, prepared.call.id, { startedAt: at(10, 3), durationUnavailable: true, simRef: null, callLogRef: null, deviceRef: "Pixel", durationSeconds: 999 }, w.priyaActor, at(12));
   assert.equal(duplicate, false);
   assert.equal(call.status, "COMPLETED");
-  assert.equal(call.classification, null, "the server does not guess");
+  assert.equal(call.classification, "DIALED", "a synced call is one dialed call; without measured talk time it can never be connected");
   assert.equal(call.durationSeconds, null, "a duration sent alongside the flag is ignored");
   assert.equal(call.endReason, DURATION_UNAVAILABLE);
   assert.equal(toCallView(call).durationUnknown, true);
@@ -50,15 +50,15 @@ test("length unavailable: recorded as attempted with NO duration and NO classifi
   assert.equal("durationSeconds" in ended.payload, false);
 });
 
-test("length unavailable: it is not counted as dialed or connected in the employee's numbers, and a retry changes nothing", async () => {
+test("length unavailable: it is counted as one dialed call and never connected in the employee's numbers, and a retry changes nothing", async () => {
   const w = await world();
   const prepared = await prepareDeviceCall(w.repos, w.lead.id, w.priyaActor, {}, at(10));
   await reportDeviceCall(w.repos, prepared.call.id, { startedAt: at(10, 3), durationUnavailable: true }, w.priyaActor, at(12));
   const again = await reportDeviceCall(w.repos, prepared.call.id, { startedAt: at(10, 3), durationSeconds: 120 }, w.priyaActor, at(13));
   assert.equal(again.duplicate, true);
-  assert.equal(again.call.classification, null, "a later report cannot classify it");
+  assert.equal(again.call.classification, "DIALED", "a later report cannot reclassify it (and cannot make it connected)");
   const dashboard = await getMyCallDashboard(w.repos, w.priyaActor, at(60), { range: "today" });
-  assert.equal(dashboard.metrics.dialed, 0);
+  assert.equal(dashboard.metrics.dialed, 1);
   assert.equal(dashboard.metrics.connected, 0);
 });
 
@@ -85,7 +85,7 @@ test("length unavailable: validation - a real start time inside the attempt wind
   await assert.rejects(reportDeviceCall(w.repos, prepared.call.id, { startedAt: at(10, 3), durationUnavailable: true }, w.rohanActor, at(12)), LeadNotFoundError, "another employee");
   const report = { startedAt: at(10, 3), durationUnavailable: true, classification: "CONNECTED", status: "CONNECTED" } as never;
   const { call } = await reportDeviceCall(w.repos, prepared.call.id, report, w.priyaActor, at(12));
-  assert.equal(call.classification, null, "a classification sent by the client is simply not read");
+  assert.equal(call.classification, "DIALED", "a classification sent by the client is simply not read (the server counted it as dialed)");
   assert.equal(call.status, "COMPLETED");
 });
 

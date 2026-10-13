@@ -85,6 +85,9 @@ import type { Booking, Lead, LeadActivitySummary, LeadCall, LeadConsent, LeadEve
 type DbOrTx = NodePgDatabase<typeof schema>;
 
 const toLead = (row: typeof leads.$inferSelect): Lead => ({ ...row });
+
+/** A lead that exists for the sales team: personal data not erased AND not just a cold-called prospect. */
+const liveLead = and(isNull(leads.erasedAt), eq(leads.prospect, false));
 const toAutomation = (row: typeof automationActions.$inferSelect): AutomationAction => ({ ...row, status: row.status as AutomationAction["status"], detail: (row.detail ?? {}) as Record<string, unknown> });
 const toSpend = (row: typeof marketingSpend.$inferSelect): MarketingSpend => ({ ...row });
 const toCampaign = (row: typeof campaigns.$inferSelect): Campaign => ({ ...row, status: row.status === "PAUSED" ? "PAUSED" : row.status === "ENDED" ? "ENDED" : "ACTIVE" });
@@ -151,7 +154,7 @@ function viewPredicate(query: Pick<LeadListQuery, "view" | "now" | "endOfToday" 
 }
 
 function viewRules(query: Pick<LeadListQuery, "view" | "now" | "endOfToday">): SQL | undefined {
-  const notErased = isNull(leads.erasedAt);
+  const notErased = liveLead;
   const open = notInArray(leads.status, [...CLOSED_OUT_STATUSES]);
   switch (query.view) {
     case "all":
@@ -220,6 +223,7 @@ function build(db: DbOrTx): LeadRepositories {
             sourceCta: input.sourceCta,
             sessionId: input.sessionId,
             userId: input.userId,
+            prospect: input.prospect === true,
             ...(input.source
               ? {
                   sourceType: input.source.sourceType,
@@ -236,7 +240,9 @@ function build(db: DbOrTx): LeadRepositories {
           .onConflictDoUpdate({
             target: leads.phoneE164,
             targetWhere: sql`${leads.phoneE164} is not null`,
-            set: { updatedAt: sql`${leads.updatedAt}` },
+            // A real capture of a number that was only a prospect PROMOTES it (it becomes a visible lead); capturing a prospect again
+            // (another cold call) leaves it as it is.
+            set: { updatedAt: sql`${leads.updatedAt}`, prospect: input.prospect === true ? sql`${leads.prospect}` : false },
           })
           // xmax is 0 only for a row this very statement inserted.
           .returning({ id: leads.id, inserted: sql<boolean>`(xmax = 0)` });
@@ -262,7 +268,7 @@ function build(db: DbOrTx): LeadRepositories {
       },
 
       async listForQueue(limit) {
-        const open = and(isNull(leads.erasedAt), notInArray(leads.status, [...QUEUE_EXCLUDED_STATUSES]));
+        const open = and(liveLead, notInArray(leads.status, [...QUEUE_EXCLUDED_STATUSES]));
         const [withFollowUp, recent] = await Promise.all([
           db.select().from(leads).where(and(open, isNotNull(leads.nextFollowUpAt))).orderBy(asc(leads.nextFollowUpAt), asc(leads.id)).limit(limit),
           db.select().from(leads).where(open).orderBy(desc(leads.lastActivityAt), asc(leads.id)).limit(limit),
@@ -291,7 +297,7 @@ function build(db: DbOrTx): LeadRepositories {
           select count(*)::int as n
           from leads l
           where l.owner_id = ${ownerId}
-            and l.erased_at is null
+            and l.erased_at is null and l.prospect = false
             and l.status in ('CONTACTED', 'QUALIFIED', 'SHORTLISTED', 'SITE_VISIT_SCHEDULED', 'SITE_VISIT_DONE', 'NEGOTIATION')
             and not exists (select 1 from lead_requirements r where r.lead_id = l.id and r.status = 'ACTIVE')`);
         return Number((result.rows[0] as { n: number }).n);
@@ -299,7 +305,7 @@ function build(db: DbOrTx): LeadRepositories {
       async sourceFunnel(query): Promise<SourceFunnel> {
         const person = sql`(case when l.source_type = 'COLD_CALL' then l.created_by else l.owner_id end)`;
         const byOwner = query.groupBy === "OWNER";
-        const where = sql`l.erased_at is null and l.created_at >= ${query.from} and l.created_at < ${query.to}
+        const where = sql`l.erased_at is null and l.prospect = false and l.created_at >= ${query.from} and l.created_at < ${query.to}
           ${query.sourceType ? sql`and l.source_type = ${query.sourceType}` : sql``}
           ${query.personId ? sql`and ${person} = ${query.personId}` : sql``}`;
         // "Ever reached": the status event history, OR the lead's current status (a hand-created lead can start past NEW with no event).
@@ -405,16 +411,16 @@ function build(db: DbOrTx): LeadRepositories {
         const open = sql`${leads.status}::text not in (${closed})`;
         const [row] = await db
           .select({
-            total: sql<number>`count(*) filter (where ${leads.erasedAt} is null)`,
-            new: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.status} = 'NEW')`,
-            hot: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${open} and ${leads.temperature} = 'HOT')`,
-            warm: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${open} and ${leads.temperature} = 'WARM')`,
-            cold: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${open} and ${leads.temperature} = 'COLD')`,
-            overdue: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${open} and ${leads.nextFollowUpAt} < ${now})`,
-            dueToday: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${open} and ${leads.nextFollowUpAt} >= ${now} and ${leads.nextFollowUpAt} < ${endOfToday})`,
-            qualified: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.status} = 'QUALIFIED')`,
-            siteVisitScheduled: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.status} = 'SITE_VISIT_SCHEDULED')`,
-            booked: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.status} = 'BOOKED')`,
+            total: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false)`,
+            new: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${leads.status} = 'NEW')`,
+            hot: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'HOT')`,
+            warm: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'WARM')`,
+            cold: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'COLD')`,
+            overdue: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.nextFollowUpAt} < ${now})`,
+            dueToday: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.nextFollowUpAt} >= ${now} and ${leads.nextFollowUpAt} < ${endOfToday})`,
+            qualified: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${leads.status} = 'QUALIFIED')`,
+            siteVisitScheduled: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${leads.status} = 'SITE_VISIT_SCHEDULED')`,
+            booked: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${leads.status} = 'BOOKED')`,
           })
           .from(leads)
           .where(sourceType ? eq(leads.sourceType, sourceType) : undefined);
@@ -437,7 +443,7 @@ function build(db: DbOrTx): LeadRepositories {
             booked: sql<number>`(count(*) filter (where ${leads.status} = 'BOOKED'))::int`,
           })
           .from(leads)
-          .where(and(isNotNull(leads.ownerId), isNull(leads.erasedAt)))
+          .where(and(isNotNull(leads.ownerId), liveLead))
           .groupBy(leads.ownerId);
         return Object.fromEntries(rows.flatMap((row) => (row.ownerId ? [[row.ownerId, { qualified: row.qualified, siteVisit: row.siteVisit, booked: row.booked }]] : [])));
       },
@@ -446,7 +452,7 @@ function build(db: DbOrTx): LeadRepositories {
         const rows = await db
           .select()
           .from(leads)
-          .where(and(isNotNull(leads.returnedAt), isNull(leads.ownerId), isNull(leads.erasedAt)))
+          .where(and(isNotNull(leads.returnedAt), isNull(leads.ownerId), liveLead))
           .orderBy(desc(leads.returnedAt), asc(leads.id))
           .limit(limit);
         return rows.map(toLead);
@@ -456,7 +462,7 @@ function build(db: DbOrTx): LeadRepositories {
         const rows = await db
           .select({ ownerId: leads.ownerId, total: count() })
           .from(leads)
-          .where(and(isNotNull(leads.ownerId), isNull(leads.erasedAt)))
+          .where(and(isNotNull(leads.ownerId), liveLead))
           .groupBy(leads.ownerId);
         return Object.fromEntries(rows.flatMap((row) => (row.ownerId ? [[row.ownerId, Number(row.total)]] : [])));
       },
@@ -469,7 +475,7 @@ function build(db: DbOrTx): LeadRepositories {
             select count(*)::int as reached,
                    (count(*) filter (where exists (select 1 from bookings b where b.lead_id = l.id and b.status = 'BOOKED')))::int as booked
             from leads l
-            where l.erased_at is null
+            where l.erased_at is null and l.prospect = false
               and (l.status::text = any(${atOrAfter})
                    or exists (select 1 from lead_events e where e.lead_id = l.id and e.event_type = 'STATUS_CHANGED' and e.to_status::text = any(${atOrAfter})))`);
           const row = (result.rows as Array<{ reached: number; booked: number }>)[0];
@@ -481,7 +487,7 @@ function build(db: DbOrTx): LeadRepositories {
         const rows = await db
           .select()
           .from(leads)
-          .where(and(isNull(leads.erasedAt), notInArray(leads.status, [...CLOSED_OUT_STATUSES]), isNotNull(leads.ownerId), lt(leads.lastActivityAt, staleBefore)))
+          .where(and(liveLead, notInArray(leads.status, [...CLOSED_OUT_STATUSES]), isNotNull(leads.ownerId), lt(leads.lastActivityAt, staleBefore)))
           .orderBy(asc(leads.lastActivityAt))
           .limit(limit);
         return rows.map(toLead);
@@ -494,7 +500,7 @@ function build(db: DbOrTx): LeadRepositories {
           .innerJoin(analyticsEvents, eq(analyticsEvents.userId, leads.userId))
           .where(
             and(
-              isNull(leads.erasedAt),
+              liveLead,
               notInArray(leads.status, [...CLOSED_OUT_STATUSES]),
               isNotNull(leads.ownerId),
               eq(analyticsEvents.eventName, "page_viewed"),
@@ -511,7 +517,7 @@ function build(db: DbOrTx): LeadRepositories {
         const rows = await db
           .select()
           .from(leads)
-          .where(and(isNull(leads.erasedAt), notInArray(leads.status, [...CLOSED_OUT_STATUSES]), isNull(leads.ownerId), isNull(leads.returnedAt)))
+          .where(and(liveLead, notInArray(leads.status, [...CLOSED_OUT_STATUSES]), isNull(leads.ownerId), isNull(leads.returnedAt)))
           .orderBy(asc(leads.createdAt))
           .limit(limit);
         return rows.map(toLead);
@@ -520,16 +526,16 @@ function build(db: DbOrTx): LeadRepositories {
         const rows = await db
           .select({ ownerId: leads.ownerId, n: count() })
           .from(leads)
-          .where(and(isNull(leads.erasedAt), isNotNull(leads.ownerId), notInArray(leads.status, [...CLOSED_OUT_STATUSES])))
+          .where(and(liveLead, isNotNull(leads.ownerId), notInArray(leads.status, [...CLOSED_OUT_STATUSES])))
           .groupBy(leads.ownerId);
         return Object.fromEntries(rows.flatMap((r) => (r.ownerId ? [[r.ownerId, Number(r.n)]] : [])));
       },
       async statusCounts() {
-        const rows = await db.select({ status: leads.status, n: count() }).from(leads).where(isNull(leads.erasedAt)).groupBy(leads.status);
+        const rows = await db.select({ status: leads.status, n: count() }).from(leads).where(liveLead).groupBy(leads.status);
         return Object.fromEntries(rows.map((r) => [r.status, Number(r.n)])) as Partial<Record<LeadStatus, number>>;
       },
       async exceptionCounts({ unassignedOlderThan, staleBefore }) {
-        const open = and(isNull(leads.erasedAt), notInArray(leads.status, [...CLOSED_OUT_STATUSES]));
+        const open = and(liveLead, notInArray(leads.status, [...CLOSED_OUT_STATUSES]));
         const [row] = await db
           .select({
             unassignedOpen: sql<number>`(count(*) filter (where ${leads.ownerId} is null))::int`,
@@ -1030,7 +1036,7 @@ function build(db: DbOrTx): LeadRepositories {
             and(
               eq(leadFollowUps.status, "SCHEDULED"),
               lt(leadFollowUps.scheduledAt, now),
-              inArray(leadFollowUps.leadId, db.select({ id: leads.id }).from(leads).where(isNull(leads.erasedAt))),
+              inArray(leadFollowUps.leadId, db.select({ id: leads.id }).from(leads).where(liveLead)),
               scope.ownerId !== undefined ? eq(leadFollowUps.ownerId, scope.ownerId) : undefined,
               scope.leadId !== undefined ? eq(leadFollowUps.leadId, scope.leadId) : undefined,
             ),
@@ -1045,7 +1051,7 @@ function build(db: DbOrTx): LeadRepositories {
           .innerJoin(leads, eq(leads.id, leadFollowUps.leadId))
           .where(
             and(
-              isNull(leads.erasedAt),
+              liveLead,
               or(eq(leadFollowUps.status, "MISSED"), and(eq(leadFollowUps.status, "SCHEDULED"), lt(leadFollowUps.scheduledAt, query.now))),
               query.ownerId !== undefined ? eq(leadFollowUps.ownerId, query.ownerId) : undefined,
               query.leadId !== undefined ? eq(leadFollowUps.leadId, query.leadId) : undefined,
@@ -1067,7 +1073,7 @@ function build(db: DbOrTx): LeadRepositories {
           .innerJoin(leads, eq(leads.id, leadFollowUps.leadId))
           .where(
             and(
-              isNull(leads.erasedAt),
+              liveLead,
               eq(leadFollowUps.status, "SCHEDULED"),
               gte(leadFollowUps.scheduledAt, query.from),
               lt(leadFollowUps.scheduledAt, query.to),
@@ -1089,7 +1095,7 @@ function build(db: DbOrTx): LeadRepositories {
               isNull(leadFollowUps.dueNotifiedAt),
               isNotNull(leadFollowUps.ownerId),
               lte(leadFollowUps.scheduledAt, upTo),
-              inArray(leadFollowUps.leadId, db.select({ id: leads.id }).from(leads).where(isNull(leads.erasedAt))),
+              inArray(leadFollowUps.leadId, db.select({ id: leads.id }).from(leads).where(liveLead)),
               scope.ownerId !== undefined ? eq(leadFollowUps.ownerId, scope.ownerId) : undefined,
               scope.leadId !== undefined ? eq(leadFollowUps.leadId, scope.leadId) : undefined,
             ),
@@ -1119,7 +1125,7 @@ function build(db: DbOrTx): LeadRepositories {
           .where(
             and(
               isNotNull(leadFollowUps.ownerId),
-              isNull(leads.erasedAt),
+              liveLead,
               or(eq(leadFollowUps.status, "MISSED"), and(eq(leadFollowUps.status, "SCHEDULED"), lt(leadFollowUps.scheduledAt, now))),
             ),
           )

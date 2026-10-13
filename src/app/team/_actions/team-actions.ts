@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireEmployeeForAction } from "@/lib/team/session";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { LeadNotFoundError, LeadStateError, LeadValidationError, UnauthorizedLeadActionError } from "@/lib/leads/errors";
@@ -10,6 +11,7 @@ import { getCallForActor, placeCall, prepareDeviceCall, reportDeviceCall, setCal
 import { toCallView, type CallView } from "@/lib/leads/call-view";
 import { recordQualification } from "@/lib/leads/qualification-service";
 import { skipQueueLead } from "@/lib/leads/calling-batch-service";
+import { finishColdCall, type ColdCallOutcomeInput } from "@/lib/leads/cold-call-outcome-service";
 import { saveColdCallLead, type ColdCallLeadResult } from "@/lib/leads/cold-call-lead-service";
 import { addTeamProject, searchActiveProjects, type ProjectSearchHit } from "@/lib/leads/project-service";
 import { recordWhatsAppOpened } from "@/lib/leads/whatsapp-service";
@@ -44,7 +46,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 const NOT_FOUND = "That lead could not be found.";
 
-async function run(leadId: string, work: (actor: LeadActor, notifier: ReturnType<typeof createLeadNotifier>) => Promise<unknown>): Promise<TeamActionResult> {
+async function run(leadId: string, work: (actor: LeadActor, notifier: ReturnType<typeof createLeadNotifier>) => Promise<unknown>, thenGoTo?: string): Promise<TeamActionResult> {
   // Authorization first, before anything else — including input checks.
   const { actor } = await requireEmployeeForAction();
   if (typeof leadId !== "string" || !UUID.test(leadId)) return { ok: false, error: NOT_FOUND };
@@ -59,6 +61,9 @@ async function run(leadId: string, work: (actor: LeadActor, notifier: ReturnType
   revalidatePath(`/team/leads/${leadId}`);
   revalidatePath("/team");
   revalidatePath("/team/missed");
+  // An action that ends the member's ownership (returning a lead) must LEAVE the lead page: re-rendering it for someone who no
+  // longer owns the lead is a "Page not found". Redirecting from the action means the old page is never rendered again.
+  if (thenGoTo) redirect(thenGoTo);
   return { ok: true };
 }
 
@@ -122,6 +127,27 @@ export async function saveMyColdCallLeadAction(payload: ColdCallFormPayload): Pr
   } catch (error) {
     if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
     if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: NOT_FOUND };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+export type FinishColdCallResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * The quick end of a cold call that does NOT make a lead: "not interested" (with a comment) or "did not connect". One tap, then the
+ * next number. The number stays a hidden prospect; it is not a lead and anyone may call it again. The call was already recorded and
+ * counted when it was synced. The browser sends only the call id and the choice.
+ */
+export async function finishMyColdCallAction(callId: string, input: ColdCallOutcomeInput): Promise<FinishColdCallResult> {
+  const { actor } = await requireEmployeeForAction();
+  if (typeof callId !== "string" || !UUID.test(callId)) return { ok: false, error: "That call could not be found." };
+  try {
+    await finishColdCall(createPostgresLeadRepositories(), callId, input, actor);
+    revalidatePath("/team/calls");
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: "That call could not be found." };
     return { ok: false, error: GENERIC_ERROR };
   }
 }
@@ -229,7 +255,7 @@ export async function cancelMyLeadFollowUpAction(leadId: string, followUpId: str
 
 /** Sends a lead the signed-in team member owns back to the Founder queue. The reason is mandatory. */
 export async function returnMyLeadAction(leadId: string, reason: ReturnReason, note?: string): Promise<TeamActionResult> {
-  return run(leadId, (actor, notifier) => returnLeadToFounder(createPostgresLeadRepositories(), leadId, reason, note, actor, new Date(), notifier));
+  return run(leadId, (actor, notifier) => returnLeadToFounder(createPostgresLeadRepositories(), leadId, reason, note, actor, new Date(), notifier), "/team?returned=1");
 }
 
 export async function createMyRequirementAction(leadId: string, input: RequirementInput): Promise<TeamActionResult> {
@@ -332,7 +358,7 @@ export async function prepareMyDeviceCallAction(leadId: string, batchId?: string
   }
 }
 
-export type PrepareColdCallResult = { ok: true; callId: string; phone: string; leadId: string; createdLead: boolean } | { ok: false; error: string };
+export type PrepareColdCallResult = { ok: true; callId: string; phone: string; leadId: string; createdLead: boolean; prospect: boolean } | { ok: false; error: string };
 
 /**
  * Cold call, step 1: the signed-in team member typed a number. The server finds the lead with that number or creates a
@@ -345,7 +371,7 @@ export async function prepareMyColdCallAction(phone: string, deviceRef?: string 
   try {
     const prepared = await prepareColdCall(createPostgresLeadRepositories(), { phone, deviceRef: typeof deviceRef === "string" ? deviceRef : null }, actor);
     revalidatePath("/team");
-    return { ok: true, callId: prepared.call.id, phone: prepared.toE164, leadId: prepared.leadId, createdLead: prepared.createdLead };
+    return { ok: true, callId: prepared.call.id, phone: prepared.toE164, leadId: prepared.leadId, createdLead: prepared.createdLead, prospect: prepared.prospect };
   } catch (error) {
     if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
     if (error instanceof LeadNotFoundError || error instanceof UnauthorizedLeadActionError) return { ok: false, error: "That number could not be called from here." };

@@ -41,6 +41,8 @@ export function canViewLead(actor: LeadActor, lead: Lead): boolean {
 export function assertMayAct(actor: LeadActor, lead: Lead, capability: LeadCapability): void {
   assertWorkingActor(actor);
   if (actor.actorType === "FOUNDER") return;
+  // A cold-called prospect belongs to nobody: any team member may CALL it (and nothing else) until someone qualifies it as a lead.
+  if (lead.prospect && !lead.erasedAt && capability === "PLACE_CALL") return;
   if (!(EMPLOYEE_CAPABILITIES as readonly string[]).includes(capability)) {
     throw new UnauthorizedLeadActionError("That lead action is not available to team members.");
   }

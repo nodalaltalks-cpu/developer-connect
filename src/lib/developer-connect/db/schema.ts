@@ -676,6 +676,10 @@ export const leads = pgTable(
     // Set when the buyer's personal details were erased. The row, its
     // events, consents and attribution pointers survive as an anonymous skeleton.
     erasedAt: timestamp("erased_at", { withTimezone: true }),
+    // A number an employee has only COLD CALLED: calls are recorded against it (so they count as dialed / connected) but it is NOT
+    // a lead. It is hidden from every lead list and count until an employee marks the client interested and fills the short
+    // details, which flips this to false and makes it that employee's lead.
+    prospect: boolean("prospect").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

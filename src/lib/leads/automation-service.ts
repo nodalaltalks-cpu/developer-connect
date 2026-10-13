@@ -70,7 +70,7 @@ export async function runAutomations(repos: LeadRepositories, staff: StaffReposi
       await perform(repos, { rule: "SITE_VISIT_REMINDERS", subjectType: "SITE_VISIT", subjectId: visit.id, dedupeKey: visitReminderKey(visit.id, visit.scheduledAt, window) }, now, results.SITE_VISIT_REMINDERS, async () => {
         const lead = await repos.leads.getById(visit.leadId);
         // Reminded: whoever owns the lead NOW. A lead nobody owns (or an erased one) has no one to remind.
-        if (!lead || lead.erasedAt !== null || !lead.ownerId) return "SKIPPED";
+        if (!lead || lead.erasedAt !== null || lead.prospect || !lead.ownerId) return "SKIPPED";
         const note: LeadNotification = { userId: lead.ownerId, type: "SITE_VISIT_DUE", title: "Site visit coming up", body: `A site visit on one of your leads is in about ${window === "2h" ? "2 hours" : "a day"}.`, targetRoute: `/team/leads/${lead.id}` };
         await notifier.notify(note);
         return "DONE";
@@ -135,7 +135,7 @@ export async function runAutomations(repos: LeadRepositories, staff: StaffReposi
         const assigned = await repos.transaction(async (tx) => {
           const fresh = await tx.leads.getById(lead.id);
           // Re-check inside the transaction: someone may have assigned, returned or erased it since the list was read.
-          if (!fresh || fresh.erasedAt !== null || fresh.ownerId !== null || fresh.returnedAt !== null) return false;
+          if (!fresh || fresh.erasedAt !== null || fresh.prospect || fresh.ownerId !== null || fresh.returnedAt !== null) return false;
           await tx.events.append({ leadId: lead.id, eventType: "OWNER_CHANGED", actorType: "SYSTEM", actorId: null, developerId: null, fromStatus: null, toStatus: null, payload: { from: null, to: choice.member.userId, via: "AUTO_ROUTING", openLeadsAtChoice: choice.openLeads }, createdAt: now });
           await tx.leads.update(lead.id, { ownerId: choice.member.userId, lastActivityAt: now }, now);
           return true;

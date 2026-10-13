@@ -131,7 +131,11 @@ export function createInMemoryLeadRepositories(
       },
       async upsertByPhone(input: NewLeadInput) {
         const existing = [...state.leads.values()].find((lead) => lead.phoneE164 === input.phoneE164);
-        if (existing) return { lead: { ...existing }, created: false };
+        if (existing) {
+          // A real capture of a number that was only a prospect promotes it; another prospect call leaves it as it is.
+          if (existing.prospect && input.prospect !== true) existing.prospect = false;
+          return { lead: { ...existing }, created: false };
+        }
         const lead: Lead = {
           id: randomUUID(),
           name: input.name,
@@ -166,6 +170,7 @@ export function createInMemoryLeadRepositories(
           nextFollowUpAt: null,
           lastActivityAt: input.now,
           erasedAt: null,
+          prospect: input.prospect === true,
           createdAt: input.now,
           updatedAt: input.now,
         };
@@ -188,7 +193,7 @@ export function createInMemoryLeadRepositories(
         return { ...lead };
       },
       async listForQueue(limit) {
-        const open = [...state.leads.values()].filter((lead) => !lead.erasedAt && !QUEUE_EXCLUDED_STATUSES.includes(lead.status));
+        const open = [...state.leads.values()].filter((lead) => !lead.erasedAt && !lead.prospect && !QUEUE_EXCLUDED_STATUSES.includes(lead.status));
         const withFollowUp = open
           .filter((lead) => lead.nextFollowUpAt)
           .sort((a, b) => a.nextFollowUpAt!.getTime() - b.nextFollowUpAt!.getTime())
@@ -210,14 +215,14 @@ export function createInMemoryLeadRepositories(
       },
       async countOpenWithoutRequirement(ownerId) {
         const stages = ["CONTACTED", "QUALIFIED", "SHORTLISTED", "SITE_VISIT_SCHEDULED", "SITE_VISIT_DONE", "NEGOTIATION"];
-        return [...state.leads.values()].filter((l) => l.ownerId === ownerId && l.erasedAt === null && stages.includes(l.status) && ![...state.requirements.values()].some((r) => r.leadId === l.id && r.status === "ACTIVE")).length;
+        return [...state.leads.values()].filter((l) => l.ownerId === ownerId && l.erasedAt === null && !l.prospect && stages.includes(l.status) && ![...state.requirements.values()].some((r) => r.leadId === l.id && r.status === "ACTIVE")).length;
       },
       async sourceFunnel(query) {
         const byOwner = query.groupBy === "OWNER";
         const personOf = (l: Lead) => (l.sourceType === "COLD_CALL" ? l.createdBy : l.ownerId) ?? null;
         const ever = (l: Lead, statuses: string[]) => statuses.includes(l.status) || state.events.some((e) => e.leadId === l.id && e.toStatus !== null && statuses.includes(e.toStatus));
         const cohort = [...state.leads.values()].filter(
-          (l) => l.erasedAt === null && l.createdAt >= query.from && l.createdAt < query.to && (!query.sourceType || l.sourceType === query.sourceType) && (!query.personId || personOf(l) === query.personId),
+          (l) => l.erasedAt === null && !l.prospect && l.createdAt >= query.from && l.createdAt < query.to && (!query.sourceType || l.sourceType === query.sourceType) && (!query.personId || personOf(l) === query.personId),
         );
         const rows = new Map<string, SourceFunnelRow>();
         const revenue = new Map<string, SourceRevenueRow>();
@@ -283,7 +288,7 @@ export function createInMemoryLeadRepositories(
       },
       async listReturned(limit) {
         return [...state.leads.values()]
-          .filter((lead) => lead.returnedAt !== null && lead.ownerId === null && lead.erasedAt === null)
+          .filter((lead) => lead.returnedAt !== null && lead.ownerId === null && lead.erasedAt === null && !lead.prospect)
           .sort((a, b) => b.returnedAt!.getTime() - a.returnedAt!.getTime() || a.id.localeCompare(b.id))
           .slice(0, limit)
           .map((lead) => ({ ...lead }));
@@ -291,7 +296,7 @@ export function createInMemoryLeadRepositories(
       async countByOwner() {
         const counts: Record<string, number> = {};
         for (const lead of state.leads.values()) {
-          if (lead.ownerId && lead.erasedAt === null) counts[lead.ownerId] = (counts[lead.ownerId] ?? 0) + 1;
+          if (lead.ownerId && lead.erasedAt === null && !lead.prospect) counts[lead.ownerId] = (counts[lead.ownerId] ?? 0) + 1;
         }
         return counts;
       },
@@ -307,7 +312,7 @@ export function createInMemoryLeadRepositories(
           let reached = 0;
           let booked = 0;
           for (const l of state.leads.values()) {
-            if (l.erasedAt !== null) continue;
+            if (l.erasedAt !== null || l.prospect) continue;
             if (reachedStage(l.id, l.status) >= forward.indexOf(stage)) {
               reached += 1;
               if ([...state.bookings.values()].some((b) => b.leadId === l.id && b.status === "BOOKED")) booked += 1;
@@ -318,7 +323,7 @@ export function createInMemoryLeadRepositories(
       },
       async listStale({ staleBefore, limit }) {
         return [...state.leads.values()]
-          .filter((l) => l.erasedAt === null && !CLOSED_OUT_STATUSES.includes(l.status) && l.ownerId !== null && l.lastActivityAt < staleBefore)
+          .filter((l) => l.erasedAt === null && !l.prospect && !CLOSED_OUT_STATUSES.includes(l.status) && l.ownerId !== null && l.lastActivityAt < staleBefore)
           .sort((a, b) => a.lastActivityAt.getTime() - b.lastActivityAt.getTime())
           .slice(0, limit)
           .map((l) => ({ ...l }));
@@ -326,7 +331,7 @@ export function createInMemoryLeadRepositories(
       async listReturnVisits({ since, minLeadAgeMs, limit }) {
         const out: Array<{ lead: Lead; viewedAt: Date }> = [];
         for (const l of state.leads.values()) {
-          if (l.erasedAt !== null || CLOSED_OUT_STATUSES.includes(l.status) || l.ownerId === null || l.userId === null) continue;
+          if (l.erasedAt !== null || l.prospect || CLOSED_OUT_STATUSES.includes(l.status) || l.ownerId === null || l.userId === null) continue;
           const views = state.pageViews.filter((v) => v.userId === l.userId && v.at >= since && v.at.getTime() >= l.createdAt.getTime() + minLeadAgeMs);
           if (views.length > 0) out.push({ lead: { ...l }, viewedAt: new Date(Math.max(...views.map((v) => v.at.getTime()))) });
         }
@@ -334,23 +339,23 @@ export function createInMemoryLeadRepositories(
       },
       async listUnassignedOpen(limit) {
         return [...state.leads.values()]
-          .filter((l) => l.erasedAt === null && !CLOSED_OUT_STATUSES.includes(l.status) && l.ownerId === null && l.returnedAt === null)
+          .filter((l) => l.erasedAt === null && !l.prospect && !CLOSED_OUT_STATUSES.includes(l.status) && l.ownerId === null && l.returnedAt === null)
           .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
           .slice(0, limit)
           .map((l) => ({ ...l }));
       },
       async countOpenByOwner() {
         const out: Record<string, number> = {};
-        for (const l of state.leads.values()) if (l.erasedAt === null && l.ownerId !== null && !CLOSED_OUT_STATUSES.includes(l.status)) out[l.ownerId] = (out[l.ownerId] ?? 0) + 1;
+        for (const l of state.leads.values()) if (l.erasedAt === null && !l.prospect && l.ownerId !== null && !CLOSED_OUT_STATUSES.includes(l.status)) out[l.ownerId] = (out[l.ownerId] ?? 0) + 1;
         return out;
       },
       async statusCounts() {
         const out: Partial<Record<LeadStatus, number>> = {};
-        for (const l of state.leads.values()) if (l.erasedAt === null) out[l.status] = (out[l.status] ?? 0) + 1;
+        for (const l of state.leads.values()) if (l.erasedAt === null && !l.prospect) out[l.status] = (out[l.status] ?? 0) + 1;
         return out;
       },
       async exceptionCounts({ unassignedOlderThan, staleBefore }) {
-        const open = (l: Lead) => l.erasedAt === null && !CLOSED_OUT_STATUSES.includes(l.status);
+        const open = (l: Lead) => l.erasedAt === null && !l.prospect && !CLOSED_OUT_STATUSES.includes(l.status);
         let unassignedOpen = 0;
         let unassignedOld = 0;
         let staleOpen = 0;
@@ -765,7 +770,7 @@ export function createInMemoryLeadRepositories(
           if (scope.ownerId !== undefined && f.ownerId !== scope.ownerId) continue;
           if (scope.leadId !== undefined && f.leadId !== scope.leadId) continue;
           const lead = state.leads.get(f.leadId);
-          if (!lead || lead.erasedAt) continue;
+          if (!lead || lead.erasedAt || lead.prospect) continue;
           f.status = "MISSED";
           f.missedCount += 1;
           f.lastMissedAt = now;
@@ -785,7 +790,7 @@ export function createInMemoryLeadRepositories(
           if (query.scheduledTo && f.scheduledAt.getTime() >= query.scheduledTo.getTime()) continue;
           if (query.overdueForAtLeastMs !== undefined && query.now.getTime() - f.scheduledAt.getTime() < query.overdueForAtLeastMs) continue;
           const lead = state.leads.get(f.leadId);
-          if (!lead || lead.erasedAt) continue;
+          if (!lead || lead.erasedAt || lead.prospect) continue;
           if (query.temperature !== undefined && lead.temperature !== query.temperature) continue;
           if (query.status !== undefined && lead.status !== query.status) continue;
           out.push({ followUp: { ...f }, lead: { ...lead } });
@@ -800,7 +805,7 @@ export function createInMemoryLeadRepositories(
           if (query.ownerId !== undefined && f.ownerId !== query.ownerId) continue;
           if (query.leadId !== undefined && f.leadId !== query.leadId) continue;
           const lead = state.leads.get(f.leadId);
-          if (!lead || lead.erasedAt) continue;
+          if (!lead || lead.erasedAt || lead.prospect) continue;
           out.push({ followUp: { ...f }, lead: { ...lead } });
         }
         return out.sort((a, b) => a.followUp.scheduledAt.getTime() - b.followUp.scheduledAt.getTime() || a.followUp.id.localeCompare(b.followUp.id)).slice(0, query.limit);
@@ -813,7 +818,7 @@ export function createInMemoryLeadRepositories(
           if (scope.ownerId !== undefined && f.ownerId !== scope.ownerId) continue;
           if (scope.leadId !== undefined && f.leadId !== scope.leadId) continue;
           const lead = state.leads.get(f.leadId);
-          if (!lead || lead.erasedAt) continue;
+          if (!lead || lead.erasedAt || lead.prospect) continue;
           f.dueNotifiedAt = now;
           changed.push({ ...f });
         }

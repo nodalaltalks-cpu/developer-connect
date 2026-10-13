@@ -74,15 +74,13 @@ test("skip: only the batch's own employee, only a lead not yet called, only a le
   assert.equal((await getCallingQueue(w.repos, w.priyaActor, w.batchId))!.counts.skipped, 0);
 });
 
-test("attempted: a call whose length the phone could not read counts the lead as CALLED (so it is not offered again) but never as connected or not-connected", async () => {
+test("unmeasured length: a call whose length the phone could not read counts the lead as CALLED and DIALED (so it is not offered again) but never as connected", async () => {
   const w = await world();
   await call(w, w.leads[0].id, "unavailable", 10);
   const queue = (await getCallingQueue(w.repos, w.priyaActor, w.batchId))!;
-  assert.equal(queue.rows[0].state, "ATTEMPTED");
-  assert.equal(queue.counts.attempted, 1);
+  assert.equal(queue.rows[0].state, "DIALED", "every synced call is one dialed call");
   assert.equal(queue.counts.completed, 1, "it was called");
-  assert.equal(queue.counts.connected, 0);
-  assert.equal(queue.counts.notConnected, 0, "nothing is guessed about it");
+  assert.equal(queue.counts.connected, 0, "connected needs measured talk time of more than 10 seconds");
   assert.equal(queue.counts.pending, 4);
   assert.equal(queue.next!.progress.lead.id, w.leads[1].id, "the attempted lead is not offered again");
 });

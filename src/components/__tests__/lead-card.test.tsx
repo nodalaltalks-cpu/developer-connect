@@ -49,6 +49,7 @@ function lead(overrides: Partial<Lead> = {}): Lead {
     nextFollowUpAt: null,
     lastActivityAt: new Date(NOW.getTime() - 3 * 3_600_000),
     erasedAt: null,
+    prospect: false,
     createdAt: new Date(NOW.getTime() - 5 * 3_600_000),
     updatedAt: NOW,
     ...overrides,

@@ -154,8 +154,8 @@ export interface DeviceCallReport {
   notPlaced?: boolean;
   /**
    * True when the call WAS placed but this phone/build cannot measure how long it lasted (no call-log access). The server
-   * then records the call as placed with NO duration and NO classification: it is never counted as Connected or Dialed, and
-   * nothing is guessed. The employee states the outcome themselves.
+   * then records the call as placed with NO duration: it counts as one DIALED call (never Connected: that needs measured talk time
+   * of more than 10 seconds), and nothing is guessed. The employee states the outcome themselves.
    */
   durationUnavailable?: boolean;
 }
@@ -230,8 +230,9 @@ export async function reportDeviceCall(
         throw new LeadValidationError("startedAt", "The call time does not match this call attempt.");
       }
       if (now.getTime() - call.initiatedAt.getTime() > MAX_REPORT_DELAY_MS) throw new LeadValidationError("startedAt", "This call attempt is too old to report.");
-      // Placed, but the phone cannot say how long it lasted: no duration, no classification, never counted as Connected or Dialed.
-      patch = { status: "COMPLETED", startedAt: report.startedAt, endReason: DURATION_UNAVAILABLE, reportedAt: now, simRef: evidence.simRef, deviceRef: cleanRef(report.deviceRef, 64) ?? call.deviceRef };
+      // Placed, but the phone cannot say how long it lasted: no duration, so it can never be Connected (that needs more than 10 seconds
+      // of measured talk time), but it WAS a call: every synced call counts as one dialed call.
+      patch = { status: "COMPLETED", startedAt: report.startedAt, endReason: DURATION_UNAVAILABLE, classification: "DIALED", reportedAt: now, simRef: evidence.simRef, deviceRef: cleanRef(report.deviceRef, 64) ?? call.deviceRef };
     } else {
       const startedMs = report.startedAt.getTime();
       if (startedMs < call.initiatedAt.getTime() - CLOCK_SKEW_MS || startedMs > now.getTime() + CLOCK_SKEW_MS) {

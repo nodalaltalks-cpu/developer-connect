@@ -156,6 +156,8 @@ export interface Lead {
   nextFollowUpAt: Date | null;
   lastActivityAt: Date;
   erasedAt: Date | null;
+  /** A cold-called number that is not (yet) a lead: hidden from lists and counts; calls are still recorded against it. */
+  prospect: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

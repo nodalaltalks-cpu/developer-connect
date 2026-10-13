@@ -49,7 +49,7 @@ export interface LeadListQuery {
 const open = (lead: Lead) => !CLOSED_OUT_STATUSES.includes(lead.status);
 
 export function matchesView(lead: Lead, view: LeadListQuery["view"], now: Date, endOfToday: Date): boolean {
-  if (lead.erasedAt) return false;
+  if (lead.erasedAt || lead.prospect) return false;
   const due = lead.nextFollowUpAt;
   switch (view) {
     case "all":
@@ -74,7 +74,7 @@ export function matchesView(lead: Lead, view: LeadListQuery["view"], now: Date, 
 }
 
 export function countLeads(leads: Lead[], now: Date, endOfToday: Date): LeadCounts {
-  const live = leads.filter((lead) => !lead.erasedAt);
+  const live = leads.filter((lead) => !lead.erasedAt && !lead.prospect);
   const n = (view: LeadListQuery["view"]) => live.filter((lead) => matchesView(lead, view, now, endOfToday)).length;
   return {
     total: live.length,

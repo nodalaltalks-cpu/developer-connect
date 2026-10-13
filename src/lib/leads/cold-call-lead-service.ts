@@ -1,6 +1,6 @@
 import { LeadNotFoundError, LeadValidationError } from "./errors.ts";
 import { assertNoMissedFollowUps } from "./follow-up-service.ts";
-import { lookupColdCallNumber, parseColdCallNumber } from "./cold-call-service.ts";
+import { claimProspect, lookupColdCallNumber, parseColdCallNumber } from "./cold-call-service.ts";
 import { guardLeadAction, scheduleFollowUp } from "./follow-up-service.ts";
 import { assertWorkingActor } from "./lead-access.ts";
 import { createSelfGeneratedLead } from "./lead-import-service.ts";
@@ -125,13 +125,15 @@ export async function saveColdCallLead(repos: LeadRepositories, input: ColdCallL
 
   // ---- one transaction: all of it, or none of it ------------------------------------------------------------------------
   return repos.transaction(async (tx): Promise<ColdCallLeadResult> => {
-    let leadId: string;
+    let leadId = "";
     let createdLead = false;
 
     if (typeof input.leadId === "string" && input.leadId) {
       if (!UUID.test(input.leadId)) throw new LeadNotFoundError("Lead not found.");
-      const lead = await tx.leads.getById(input.leadId);
-      if (!lead) throw new LeadNotFoundError("Lead not found.");
+      const found = await tx.leads.getById(input.leadId);
+      if (!found) throw new LeadNotFoundError("Lead not found.");
+      // A cold-called prospect becomes THIS member's lead the moment they save it as interested.
+      const lead = await claimProspect(tx, found, actor, now);
       await guardLeadAction(tx, actor, lead, "QUALIFY_LEAD", now); // a lead the caller may not act on looks like a lead that does not exist
       leadId = lead.id;
     } else {
@@ -140,6 +142,16 @@ export async function saveColdCallLead(repos: LeadRepositories, input: ColdCallL
       const existing = await lookupColdCallNumber(tx, parsed.e164, actor, now);
       if (existing.kind === "YOURS") return { saved: false, reason: "EXISTS_YOURS", leadId: existing.leadId, leadName: existing.leadName };
       if (existing.kind === "NOT_YOURS") return { saved: false, reason: "EXISTS_NOT_YOURS" };
+      // The number may already be a cold-called prospect: qualify THAT row (it keeps its call history) instead of creating another.
+      const prospect = await tx.leads.findByPhone(parsed.e164);
+      if (prospect?.prospect) {
+        leadId = (await claimProspect(tx, prospect, actor, now)).id;
+        createdLead = true;
+      }
+    }
+    if (!leadId) {
+      const parsed = parseColdCallNumber(input.phone);
+      if (!parsed.ok) throw new LeadValidationError("phone", "Enter a valid phone number.");
       const made = await createSelfGeneratedLead(tx, { phone: parsed.e164, name, email, creationMethod: "COLD_CALLING", sourceDetail: "Cold call" }, actor, now);
       if (!made.created) {
         // Someone added the same number a moment ago: report it, never create a second lead.

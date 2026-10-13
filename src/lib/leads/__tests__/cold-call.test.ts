@@ -51,21 +51,31 @@ test("parse: typed numbers become E.164; junk is refused", () => {
   for (const bad of ["", "abc", "123", "00000", "+91 12345", 12345, null, undefined, "9".repeat(40)]) assert.equal(parseColdCallNumber(bad).ok, false, `${String(bad)}`);
 });
 
-test("new number: becomes a self-generated lead owned by the caller, with a call attempt - created visibly, not classified yet", async () => {
+test("new number: is only a hidden PROSPECT with a call attempt - NOT a lead, in nobody's list, not classified yet", async () => {
   const w = await world();
   const prepared = await prepareColdCall(w.repos, { phone: NEW_NUMBER }, w.priyaActor, at(10));
-  assert.equal(prepared.createdLead, true);
+  assert.equal(prepared.createdLead, false, "a cold call never creates a lead by itself");
+  assert.equal(prepared.prospect, true);
   assert.equal(prepared.toE164, NEW_E164);
   assert.equal(prepared.call.method, "ANDROID_SIM");
   assert.equal(prepared.call.classification, null, "nothing is classified until the phone reports");
   assert.equal(prepared.call.staffUserId, w.priyaActor.actorId);
   const lead = (await w.repos.leads.findByPhone(NEW_E164))!;
   assert.equal(lead.id, prepared.leadId);
-  assert.equal(lead.ownerId, w.priyaActor.actorId, "the caller owns the lead they created");
-  assert.equal(lead.sourceType, "COLD_CALL", "lead SOURCE stays self-generated; it is not confused with the calling method");
+  assert.equal(lead.prospect, true);
+  assert.equal(lead.ownerId, null, "a prospect belongs to nobody");
+  assert.equal(lead.sourceType, "COLD_CALL");
   assert.equal(lead.creationMethod, "DIALER_GENERATED");
   const events = (await getLeadTimeline(w.repos, lead.id)).map((e) => e.eventType);
-  assert.ok(events.includes("LEAD_CREATED") && events.includes("CALL_PLACED"));
+  assert.ok(events.includes("CALL_PLACED") && !events.includes("LEAD_CREATED"), "no lead was created");
+  // Hidden everywhere leads are listed or counted.
+  assert.ok(!(await w.repos.leads.listForQueue(100)).some((l) => l.id === lead.id), "not in the Founder's queue");
+  const mine = await w.repos.leads.list({ view: "all", limit: 100, offset: 0, ownerId: w.priyaActor.actorId } as never).catch(() => null);
+  if (mine) assert.ok(!mine.leads.some((l) => l.id === lead.id), "not in the member's lead list");
+  // Anyone may call a prospect again: a colleague's call attaches to the same record.
+  const other = await prepareColdCall(w.repos, { phone: NEW_NUMBER }, w.rohanActor, at(20));
+  assert.equal(other.leadId, lead.id);
+  assert.equal(other.call.staffUserId, w.rohanActor.actorId);
 });
 
 test("no silent duplicates: calling the same number again, or at the same moment, uses the one lead", async () => {
@@ -75,8 +85,8 @@ test("no silent duplicates: calling the same number again, or at the same moment
   assert.equal(second.leadId, first.leadId);
   assert.equal(second.createdLead, false);
   const both = await Promise.all([prepareColdCall(w.repos, { phone: "+91 98222 33445" }, w.priyaActor, at(12)), prepareColdCall(w.repos, { phone: "+91 98222 33445" }, w.priyaActor, at(12))]);
-  assert.equal(both[0].leadId, both[1].leadId, "two simultaneous cold calls to one number make one lead");
-  assert.equal([...both].filter((b) => b.createdLead).length, 1);
+  assert.equal(both[0].leadId, both[1].leadId, "two simultaneous cold calls to one number use one record");
+  assert.equal([...both].filter((b) => b.createdLead).length, 0, "and neither creates a lead");
 });
 
 test("existing lead of the caller: the call attaches to it, nothing is created", async () => {
@@ -144,7 +154,8 @@ test("static: the action authorizes the employee first, takes only a number, and
   const service = read("src/lib/leads/cold-call-service.ts").replace(/\/\*[\s\S]*?\*\//g, "");
   assert.doesNotMatch(service, /classifyCallDuration|CONNECTED_THRESHOLD/, "the cold-call service classifies nothing");
   assert.match(service, /prepareDeviceCall\(/);
-  assert.match(service, /createSelfGeneratedLead\(/);
+  assert.match(service, /prospect: true/, "a new number is kept as a hidden prospect, not created as a lead");
+  assert.doesNotMatch(service, /createSelfGeneratedLead\(/);
 });
 
 test("static: the screen is team-only, mobile-sized, and honest in an ordinary browser", () => {

@@ -9,7 +9,7 @@ const skip = !hasTestDatabase;
 
 const mobile = () => "+919" + String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, "0");
 
-test("integration: skip is stored, 'attempted' counts as called, measured calls classify, and the database refuses a half-recorded skip", { skip }, async () => {
+test("integration: skip is stored, an unmeasured call counts as called and dialed, measured calls classify, and the database refuses a half-recorded skip", { skip }, async () => {
   const [leadPg, svc, batches, calls, followUps, client, drizzle] = await Promise.all([
     import("../postgres-repository.ts"),
     import("../../lead-import-service.ts"),
@@ -49,10 +49,10 @@ test("integration: skip is stored, 'attempted' counts as called, measured calls 
   const queue = (await batches.getCallingQueue(repos, employee, batch.id))!;
   const state = (i: number) => queue.rows.find((r) => r.progress.lead.id === leads[i].id)!.state;
   assert.equal(state(0), "SKIPPED");
-  assert.equal(state(1), "ATTEMPTED");
+  assert.equal(state(1), "DIALED", "an unmeasured call is still one dialed call (never connected)");
   assert.equal(state(2), "DIALED", "a measured 0-second call is classified Dialed");
   assert.equal(state(3), "PENDING");
-  assert.deepEqual([queue.counts.assigned, queue.counts.completed, queue.counts.attempted, queue.counts.notConnected, queue.counts.skipped, queue.counts.callback, queue.counts.pending], [4, 2, 1, 1, 1, 1, 1]);
+  assert.deepEqual([queue.counts.assigned, queue.counts.completed, queue.counts.attempted, queue.counts.notConnected, queue.counts.skipped, queue.counts.callback, queue.counts.pending], [4, 2, 0, 2, 1, 1, 1]);
   assert.equal(queue.next!.progress.lead.id, leads[3].id, "the untouched lead is next, before the skipped one");
 
   // The database refuses a half-recorded skip (skipped_at without skipped_by).

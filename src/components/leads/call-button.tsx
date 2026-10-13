@@ -69,9 +69,12 @@ export function CallButton({
   onStatus,
   onDisposition,
   compact = false,
+  hideOutcome = false,
 }: {
   /** In list cards: no explanatory caption (the lead page carries it). */
   compact?: boolean;
+  /** The screen shows its own "how did it go?" panel (a cold-called prospect), so this control stops at "call placed". */
+  hideOutcome?: boolean;
   telHref: string | null;
   /** Whether the internal dialer is connected to a telephony provider (decided on the server). */
   configured: boolean;
@@ -291,7 +294,7 @@ export function CallButton({
               )}
             </div>
           )}
-          {finished && !call?.disposition && (
+          {finished && !call?.disposition && !hideOutcome && (
             <>
               {!shared && (
                 <label className="mt-2 block text-sm font-semibold text-foreground">

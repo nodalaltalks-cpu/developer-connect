@@ -1,0 +1,1 @@
+ALTER TABLE "leads" ADD COLUMN "prospect" boolean DEFAULT false NOT NULL;

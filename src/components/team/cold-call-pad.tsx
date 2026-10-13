@@ -4,27 +4,23 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CallButton } from "@/components/leads/call-button";
 import { getMyCallStatusAction, lookupMyColdCallNumberAction, prepareMyColdCallAction, reportMyBrowserCallAction, setMyCallDispositionAction } from "@/app/team/_actions/team-actions";
+import { ColdCallResult } from "@/components/team/cold-call-result";
+import { CountryCodeField, DEFAULT_COUNTRY, countryReady, dialCode, maxDigits, minDigits, type CountrySelection } from "@/components/team/country-code-field";
 import type { ColdCallLookup } from "@/lib/leads/cold-call-service";
 import type { CallView } from "@/lib/leads/call-view";
 import { CALL_REPORTED_EVENT } from "@/lib/leads/native-bridge";
 
 /**
- * Cold Call: type a number, call it from your own SIM, and have the call counted like any other.
+ * Cold Call: type a number, call it from your own SIM, and have the call counted.
  *
- * The pad only edits a number. Everything that matters happens on the server: it finds the lead with that number or
- * creates your own self-generated lead (never a duplicate), issues the call attempt, and later classifies the phone's
- * reported duration (more than 10 seconds = CONNECTED). The call itself runs through the existing CallButton, so a cold
- * call has exactly the lifecycle of a call from a lead: attempt, SIM call, result, outcome.
+ * A cold call is NOT a lead. The number is kept as a hidden prospect so the call can be recorded and counted: every synced call is
+ * one dialed call, and one that the phone measured at more than 10 seconds is also connected. After the call the employee taps what
+ * happened: Not interested (a few words, nothing else), Did not connect (one tap), or Interested (the short lead form). Only
+ * Interested creates a lead. Then the pad clears for the next number. Anyone may call the same prospect again, as often as they like.
  *
- * In the Android app the phone's call log gives the real talk time. In an ordinary phone browser the green Call button opens
- * the phone's own dialer on its SIM: the call and the lead are still recorded, but no talk time (a browser cannot read it).
+ * In the Android app the phone's call log gives the real talk time. In an ordinary phone browser the green Call button opens the
+ * phone's own dialer on its SIM: the call is still recorded and counted as dialed, but no talk time (a browser cannot read it).
  */
-
-const COUNTRIES = [
-  { code: "+91", label: "India +91", minDigits: 10 },
-  { code: "+971", label: "UAE +971", minDigits: 8 },
-] as const;
-type Country = (typeof COUNTRIES)[number];
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
 const KEY =
@@ -37,22 +33,23 @@ function format(digits: string): string {
 }
 
 export function ColdCallPad() {
-  const [country, setCountry] = useState<Country>(COUNTRIES[0]);
+  const [country, setCountry] = useState<CountrySelection>(DEFAULT_COUNTRY);
   const [digits, setDigits] = useState("");
   // The answer is stored WITH the number it is about, so an old answer can never show for a different number.
   const [answer, setAnswer] = useState<{ number: string; result: ColdCallLookup | null } | null>(null);
   const [session, setSession] = useState(0); // remounts the call control for the next number
-  const [prepared, setPrepared] = useState<{ callId: string; leadId: string; createdLead: boolean } | null>(null);
+  const [prepared, setPrepared] = useState<{ callId: string; leadId: string; prospect: boolean } | null>(null);
   const [finished, setFinished] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
 
-  const full = `${country.code}${digits}`;
-  const ready = digits.length >= country.minDigits;
+  const full = `${dialCode(country)}${digits}`;
+  const ready = countryReady(country) && digits.length >= minDigits(country);
   const locked = prepared !== null && !finished; // a call is under way: the number cannot be edited
   const checking = ready && !prepared;
   const lookup = checking && answer?.number === full ? answer.result : null;
   const looking = checking && answer?.number !== full;
 
-  // Before dialing: is this number new, already yours, or someone else's? (Debounced; the server decides.)
+  // Before dialing: is this number new, already yours, or someone else's lead? (Debounced; the server decides.)
   useEffect(() => {
     if (!checking) return;
     let stale = false;
@@ -66,7 +63,7 @@ export function ColdCallPad() {
     };
   }, [full, checking]);
 
-  // The server accepted the phone's report for this call: it is over, so the next number may be dialed.
+  // The server accepted the phone's report for this call: it is over, so the outcome panel can open.
   useEffect(() => {
     if (!prepared) return;
     const onReported = (event: Event) => {
@@ -79,7 +76,8 @@ export function ColdCallPad() {
 
   function press(key: string) {
     if (locked) return;
-    setDigits((d) => (d.length >= 12 ? d : d + key));
+    setSaved(null);
+    setDigits((d) => (d.length >= maxDigits(country) ? d : d + key));
   }
 
   async function paste() {
@@ -87,24 +85,30 @@ export function ColdCallPad() {
     try {
       const text = await navigator.clipboard.readText();
       let cleaned = text.replace(/[^\d+]/g, "");
-      for (const c of COUNTRIES) {
-        if (cleaned.startsWith(c.code)) {
-          setCountry(c);
-          cleaned = cleaned.slice(c.code.length);
-          break;
-        }
+      if (cleaned.startsWith("+971")) {
+        setCountry({ key: "AE", custom: "" });
+        cleaned = cleaned.slice(4);
+      } else if (cleaned.startsWith("+91")) {
+        setCountry({ key: "IN", custom: "" });
+        cleaned = cleaned.slice(3);
+      } else if (cleaned.startsWith("+")) {
+        // Another country: take a two-digit code as typed; the person can correct it in the code box.
+        const code = cleaned.slice(1, 3);
+        setCountry({ key: "OTHER", custom: code });
+        cleaned = cleaned.slice(1 + code.length);
       }
-      setDigits(cleaned.replace(/\D/g, "").replace(/^0+/, "").slice(-12));
+      setDigits(cleaned.replace(/\D/g, "").replace(/^0+/, "").slice(-14));
     } catch {
       // clipboard blocked: the keypad still works
     }
   }
 
-  function next() {
+  function next(message: string | null = null) {
     setDigits("");
     setAnswer(null);
     setPrepared(null);
     setFinished(false);
+    setSaved(message);
     setSession((n) => n + 1);
   }
 
@@ -112,24 +116,14 @@ export function ColdCallPad() {
 
   return (
     <div className="mx-auto w-full max-w-sm">
+      {saved && (
+        <p role="status" className="mb-3 rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-800">
+          {saved}
+        </p>
+      )}
       <div className="flex items-center gap-2">
-        <label className="sr-only" htmlFor="cold-call-country">
-          Country code
-        </label>
-        <select
-          id="cold-call-country"
-          value={country.code}
-          disabled={locked}
-          onChange={(e) => setCountry(COUNTRIES.find((c) => c.code === e.target.value) ?? COUNTRIES[0])}
-          className="min-h-11 rounded-md border border-border bg-background px-2 text-base text-foreground disabled:opacity-50"
-        >
-          {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-        <p aria-label="Number to call" aria-live="polite" className="min-h-11 flex-1 truncate rounded-md border border-border px-3 text-right text-2xl font-medium leading-[2.75rem] tracking-wide text-foreground">
+        <CountryCodeField value={country} onChange={setCountry} disabled={locked} />
+        <p aria-label="Number to call" aria-live="polite" className="min-h-11 min-w-0 flex-1 truncate rounded-md border border-border px-3 text-right text-2xl font-medium leading-[2.75rem] tracking-wide text-foreground">
           {digits ? format(digits) : <span className="text-base font-normal text-muted-foreground">Enter a number</span>}
         </p>
         <button type="button" aria-label="Delete last digit" className={`${BTN} w-11 px-0 text-lg`} disabled={locked || digits === ""} onClick={() => setDigits((d) => d.slice(0, -1))}>
@@ -139,9 +133,7 @@ export function ColdCallPad() {
 
       <div className="mt-2 min-h-14" aria-live="polite">
         {ready && looking && <p className="text-sm text-muted-foreground">Checking this number…</p>}
-        {ready && !looking && lookup?.kind === "NEW" && !prepared && (
-          <p className="rounded-md bg-muted px-3 py-2 text-sm text-foreground">New number. Calling it creates a new lead owned by you.</p>
-        )}
+        {ready && !looking && lookup?.kind === "NEW" && !prepared && <p className="rounded-md bg-muted px-3 py-2 text-sm text-foreground">New number. It is only a call until you mark the client interested.</p>}
         {ready && !looking && lookup?.kind === "YOURS" && !prepared && (
           <p className="rounded-md bg-muted px-3 py-2 text-sm text-foreground">
             Already your lead{lookup.leadName ? `: ${lookup.leadName}` : ""}. This call is added to it.{" "}
@@ -150,9 +142,8 @@ export function ColdCallPad() {
             </Link>
           </p>
         )}
-        {ready && !looking && blocked && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">This number is already in the system and is not assigned to you, so you cannot call it from here.</p>}
+        {ready && !looking && blocked && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">This number is already a lead assigned to someone else, so you cannot call it from here.</p>}
         {ready && !looking && lookup?.kind === "INVALID" && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">Check the number: it does not look valid.</p>}
-        {prepared?.createdLead && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">A new lead was created for this number and it is yours.</p>}
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-3">
@@ -174,44 +165,47 @@ export function ColdCallPad() {
 
       <div className="mt-4">
         <fieldset data-lock-lead={prepared ? undefined : "new"} disabled={!ready || blocked || lookup?.kind === "INVALID" || looking} className="disabled:opacity-60">
-            <CallButton
-              key={session}
-              configured={false}
-              telHref={null}
-              onPlace={async () => ({ ok: false, error: "Calls are placed from your phone." })}
-              onPrepare={async () => {
-                const result = await prepareMyColdCallAction(full, null);
-                if (!result.ok) return result;
-                setPrepared({ callId: result.callId, leadId: result.leadId, createdLead: result.createdLead });
-                return { ok: true, callId: result.callId, phone: result.phone };
-              }}
-              onReportBrowserCall={reportMyBrowserCallAction}
-              onStatus={getMyCallStatusAction}
-              onDisposition={setMyCallDispositionAction}
-            />
-          </fieldset>
+          <CallButton
+            key={session}
+            configured={false}
+            telHref={null}
+            hideOutcome={prepared?.prospect === true}
+            onPlace={async () => ({ ok: false, error: "Calls are placed from your phone." })}
+            onPrepare={async () => {
+              const result = await prepareMyColdCallAction(full, null);
+              if (!result.ok) return result;
+              setSaved(null);
+              setPrepared({ callId: result.callId, leadId: result.leadId, prospect: result.prospect });
+              return { ok: true, callId: result.callId, phone: result.phone };
+            }}
+            onReportBrowserCall={reportMyBrowserCallAction}
+            onStatus={getMyCallStatusAction}
+            onDisposition={setMyCallDispositionAction}
+          />
+        </fieldset>
       </div>
+
+      {/* A cold-called prospect: how did it go? (Not interested / did not connect / interested.) */}
+      {prepared?.prospect && finished && <ColdCallResult callId={prepared.callId} leadId={prepared.leadId} onDone={(message) => next(message)} />}
+
+      {/* A number that is already this member's own lead keeps the usual lead outcome flow. */}
+      {prepared && !prepared.prospect && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href={`/team/leads/${prepared.leadId}`} className={BTN}>
+            View lead
+          </Link>
+          <button type="button" className={BTN} disabled={!finished} onClick={() => next()}>
+            {finished ? "Next number" : "Next number (after the call)"}
+          </button>
+        </div>
+      )}
 
       {!prepared && ready && lookup?.kind !== "NOT_YOURS" && lookup?.kind !== "INVALID" && (
         <p className="mt-3 text-center text-sm">
           <Link href={`/team/cold-call?phone=${encodeURIComponent(full)}`} className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
-            Record a cold call lead without dialing
+            Add a lead without calling
           </Link>
         </p>
-      )}
-
-      {prepared && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link href={`/team/cold-call/${prepared.leadId}`} className={`${BTN} border-accent bg-accent/10`}>
-            Add call details
-          </Link>
-          <Link href={`/team/leads/${prepared.leadId}`} className={BTN}>
-            View lead
-          </Link>
-          <button type="button" className={BTN} disabled={!finished} onClick={next}>
-            {finished ? "Next number" : "Next number (after the call)"}
-          </button>
-        </div>
       )}
     </div>
   );

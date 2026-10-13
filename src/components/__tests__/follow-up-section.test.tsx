@@ -37,7 +37,8 @@ test("follow-up section: with none scheduled it asks for a TYPE and an exact dat
   assert.match(html, /No follow-up scheduled/);
   assert.match(html, /Call back/);
   assert.match(html, /Site visit follow up/);
-  assert.match(html, /type="datetime-local"/);
+  assert.match(html, /aria-haspopup="dialog"/, "the day-and-time calendar opens from this field");
+  assert.doesNotMatch(html, /type="datetime-local"/, "the plain phone picker (no weekday) is gone");
   assert.match(html, /Date and exact time \(India time\)/);
   assert.doesNotMatch(html, /type="date"/);
   assert.match(html, /Schedule follow-up/);

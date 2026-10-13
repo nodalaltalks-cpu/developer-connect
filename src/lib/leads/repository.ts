@@ -58,6 +58,8 @@ export interface NewLeadInput {
   sourceCta: string | null;
   sessionId: string | null;
   userId: string | null;
+  /** Create the row as a hidden prospect (a cold-called number), not a lead. Capturing the same number later as a real lead promotes it. */
+  prospect?: boolean;
   /** Where it came from. Omitted = a website lead (DIGITAL via the gate), exactly as before. */
   source?: {
     sourceType: LeadSourceType;

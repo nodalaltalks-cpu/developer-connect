@@ -90,7 +90,7 @@ export async function getIntelligence(repos: LeadRepositories, actor: LeadActor,
   const steps: Intelligence["steps"] = [];
   for (const entry of queue) {
     const lead = await repos.leads.getById(entry.leadId);
-    if (!lead || lead.erasedAt !== null) continue;
+    if (!lead || lead.erasedAt !== null || lead.prospect) continue;
     steps.push({ leadId: lead.id, name: lead.name, status: lead.status, step: nextStep(await getLeadActionContext(repos, lead, now)) });
   }
 

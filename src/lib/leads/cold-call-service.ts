@@ -3,10 +3,9 @@ import { assertNoMissedFollowUps } from "./follow-up-service.ts";
 import { prepareDeviceCall, type PreparedDeviceCall } from "./call-service.ts";
 import { guardLeadAction } from "./follow-up-service.ts";
 import { assertWorkingActor } from "./lead-access.ts";
-import { createSelfGeneratedLead } from "./lead-import-service.ts";
 import { normalizePhone } from "./phone.ts";
 import type { LeadRepositories } from "./repository.ts";
-import type { LeadActor } from "./types.ts";
+import type { Lead, LeadActor } from "./types.ts";
 
 /**
  * COLD CALL: a team member types a number and calls it from their own SIM, with the call counted like any other.
@@ -44,6 +43,8 @@ export async function lookupColdCallNumber(repos: LeadRepositories, input: unkno
   if (!parsed.ok) return { kind: "INVALID" };
   const lead = await repos.leads.findByPhone(parsed.e164);
   if (!lead) return { kind: "NEW", e164: parsed.e164 };
+  // A number that has only ever been cold called is nobody's lead: anyone may call it again, and it is "new" until someone qualifies it.
+  if (lead.prospect && !lead.erasedAt) return { kind: "NEW", e164: parsed.e164 };
   if (lead.erasedAt) return { kind: "NOT_YOURS", e164: parsed.e164 };
   try {
     await repos.transaction((tx) => guardLeadAction(tx, actor, lead, "PLACE_CALL", now));
@@ -57,8 +58,26 @@ export async function lookupColdCallNumber(repos: LeadRepositories, input: unkno
 
 export interface PreparedColdCall extends PreparedDeviceCall {
   leadId: string;
-  /** True when this call created the lead (the number was not in the system). */
+  /** Always false now: a cold call never creates a lead by itself (see `prospect`). Kept so older callers keep working. */
   createdLead: boolean;
+  /** True when the number is only a prospect (called, but not a lead). The employee decides after the call: interested makes it their lead. */
+  prospect: boolean;
+}
+
+/**
+ * An employee marks a cold-called prospect INTERESTED and saves the short details: only now does it become a lead, owned by them.
+ * The call history on it (every call anyone made to that number) stays. The missed-follow-up lock applies, exactly as for any new lead.
+ */
+export async function claimProspect(tx: LeadRepositories, lead: Lead, actor: LeadActor, now: Date): Promise<Lead> {
+  if (!lead.prospect) return lead;
+  if (lead.erasedAt) throw new LeadNotFoundError("Lead not found.");
+  const ownerId = actor.actorType === "EMPLOYEE" ? actor.actorId! : null;
+  if (ownerId) await assertNoMissedFollowUps(tx, ownerId, now);
+  await tx.events.append({ leadId: lead.id, eventType: "LEAD_CREATED", actorType: actor.actorType, actorId: actor.actorId!, developerId: null, fromStatus: null, toStatus: null, payload: { via: "COLD_CALL_QUALIFIED" }, createdAt: now });
+  if (ownerId) {
+    await tx.events.append({ leadId: lead.id, eventType: "OWNER_CHANGED", actorType: actor.actorType, actorId: actor.actorId!, developerId: null, fromStatus: null, toStatus: null, payload: { from: null, to: ownerId, via: "COLD_CALL_QUALIFIED" }, createdAt: now });
+  }
+  return tx.leads.update(lead.id, { prospect: false, ownerId, lastActivityAt: now }, now);
 }
 
 export async function prepareColdCall(
@@ -72,24 +91,30 @@ export async function prepareColdCall(
   if (!parsed.ok) throw new LeadValidationError("phone", "Enter a valid phone number.");
 
   let lead = await repos.leads.findByPhone(parsed.e164);
-  let createdLead = false;
   if (!lead) {
-    // The lock: a team member with unresolved missed follow-ups cannot start a new lead until those are cleared.
+    // The lock: a team member with unresolved missed follow-ups cannot start new work until those are cleared.
     if (actor.actorType === "EMPLOYEE" && actor.actorId) await assertNoMissedFollowUps(repos, actor.actorId, now);
-    const made = await createSelfGeneratedLead(repos, { phone: parsed.e164, creationMethod: "DIALER_GENERATED", sourceDetail: "Cold call" }, actor, now);
-    if (made.created) {
-      lead = made.lead;
-      createdLead = true;
-    } else {
-      // Someone added the same number a moment ago: use theirs, never a second lead.
-      lead = await repos.leads.findByPhone(parsed.e164);
-    }
+    // A cold call is NOT a lead: the number is kept as a hidden prospect so the call can be recorded and counted. It becomes a lead
+    // only when the employee marks the client interested. Anyone may call a prospect, and as many times as they like.
+    const made = await repos.leads.upsertByPhone({
+      phoneE164: parsed.e164,
+      name: null,
+      email: null,
+      contactPreference: "PHONE_CALL",
+      developerId: null,
+      sourceCta: null,
+      sessionId: null,
+      userId: null,
+      prospect: true,
+      source: { sourceType: "COLD_CALL", sourceDetail: "Cold call", creationMethod: "DIALER_GENERATED", importBatchId: null, createdBy: actor.actorId! },
+      now,
+    });
+    lead = made.lead;
   }
-  if (!lead) throw new LeadStateError("That number could not be prepared. Please try again.");
 
   try {
     const prepared = await prepareDeviceCall(repos, lead.id, actor, { deviceRef: input.deviceRef ?? null }, now);
-    return { ...prepared, leadId: lead.id, createdLead };
+    return { ...prepared, leadId: lead.id, createdLead: false, prospect: lead.prospect };
   } catch (error) {
     // A lead this person may not call is reported without a hint of whose it is.
     if (error instanceof UnauthorizedLeadActionError || error instanceof LeadNotFoundError) {

@@ -109,7 +109,7 @@ function isStale(summary: LeadActivitySummary | null, lead: Lead, now: Date): bo
 
 function classify(input: TodayQueueInput, now: Date): Candidate | null {
   const { lead, summary, developerName } = input;
-  if (lead.erasedAt) return null;
+  if (lead.erasedAt || lead.prospect) return null;
   if (QUEUE_EXCLUDED_STATUSES.includes(lead.status)) return null;
 
   const dormant = QUEUE_DORMANT_STATUSES.includes(lead.status);

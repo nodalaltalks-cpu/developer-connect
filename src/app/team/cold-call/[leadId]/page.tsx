@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEmployee } from "@/lib/team/session";
 import { SectionHeading } from "@/components/admin/empty-state";
-import { ColdCallForm } from "@/components/team/cold-call-form";
+import { QuickLeadScreen } from "@/components/team/quick-lead-screen";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { canViewLead } from "@/lib/leads/lead-access";
 
@@ -21,16 +21,16 @@ export default async function ColdCallDetailsPage({ params }: PageProps<"/team/c
   const { leadId } = await params;
   if (!UUID.test(leadId)) notFound();
   const lead = await createPostgresLeadRepositories().leads.getById(leadId);
-  // A lead the signed-in person may not see looks exactly like a lead that does not exist.
-  if (!lead || !canViewLead(actor, lead)) notFound();
+  // A lead the signed-in person may not see looks exactly like a lead that does not exist. A cold-called prospect (not yet a lead) may be
+  // qualified by any team member: saving this form is what makes it theirs.
+  if (!lead || (!canViewLead(actor, lead) && !(lead.prospect && !lead.erasedAt))) notFound();
   return (
     <div>
-      <SectionHeading title="Call details" description="Add what you learned on the call. Everything is saved to this lead's history together." />
-      <ColdCallForm leadId={lead.id} phoneLast4={lead.phoneE164 ? lead.phoneE164.slice(-4) : null} initialName={lead.name} initialEmail={lead.email} />
-      {/* The Save bar is fixed to the bottom on phones (and grows with a hint or error), so keep this link clear of it. */}
-      <p className="mt-2 pb-48 text-center text-sm sm:mt-6 sm:pb-0">
-        <Link href={`/team/leads/${lead.id}`} className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
-          ← Back to the lead
+      <SectionHeading title="Call details" description="Tap the answers; use NA where the client did not say. Saving makes this your lead." />
+      <QuickLeadScreen leadId={lead.id} />
+      <p className="mt-4 pb-24 text-center text-sm sm:pb-0">
+        <Link href={lead.prospect ? "/team/dial" : `/team/leads/${lead.id}`} className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
+          {lead.prospect ? "← Back to the dial pad" : "← Back to the lead"}
         </Link>
       </p>
     </div>

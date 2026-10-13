@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { requireEmployee } from "@/lib/team/session";
 import { SectionHeading } from "@/components/admin/empty-state";
-import { ColdCallForm } from "@/components/team/cold-call-form";
+import { QuickLeadScreen } from "@/components/team/quick-lead-screen";
 import { parseColdCallNumber } from "@/lib/leads/cold-call-service";
 
 export const metadata = {
-  title: "New cold call lead | Developer Connects",
+  title: "Add a lead | Developer Connects",
   robots: { index: false, follow: false },
 };
 
@@ -22,10 +22,10 @@ export default async function NewColdCallLeadPage({ searchParams }: PageProps<"/
   const carried = parseColdCallNumber(first(params.phone));
   return (
     <div>
-      <SectionHeading title="New cold call lead" description="Record what you learned on the call. It is saved to your leads as a Cold Call lead." />
-      <ColdCallForm initialPhone={carried.ok ? carried.e164 : ""} />
-      {/* The Save bar is fixed to the bottom on phones (and grows with a hint or error), so keep this link clear of it. */}
-      <p className="mt-2 pb-48 text-center text-sm sm:mt-6 sm:pb-0">
+      <SectionHeading title="Add a lead" description="For a client you spoke to without using the dial pad. Tap the answers; use NA where they did not say." />
+      <QuickLeadScreen askPhone initialPhone={carried.ok ? carried.e164 : ""} />
+      {/* The Save button is a plain in-page button, so the back link only needs room above the phone's bottom bar. */}
+      <p className="mt-4 pb-24 text-center text-sm sm:pb-0">
         <Link href="/team/dial" className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
           ← Back to the dial pad
         </Link>

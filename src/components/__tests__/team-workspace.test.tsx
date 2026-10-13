@@ -48,6 +48,7 @@ const lead = {
   createdAt: new Date("2026-10-05T08:00:00.000Z"),
   updatedAt: new Date("2026-10-06T08:00:00.000Z"),
   erasedAt: null,
+  prospect: false,
 } as Lead;
 const item = { lead, developerName: "Acme Realty", followUp: "TODAY", attention: null, summary: null } as unknown as LeadListItem;
 

@@ -15,10 +15,14 @@ function Figure({ stat }: { stat: FounderStat }) {
   const { ref, display } = useCountUp(stat.value);
   return (
     <div ref={ref as RefObject<HTMLDivElement>} className="border-t border-white/10 pt-6 first:border-t-0 first:pt-0 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0 sm:first:border-l-0 sm:first:pl-0">
-      <p className="font-serif text-[clamp(3rem,2rem+5vw,4.5rem)] font-medium leading-none tracking-[-0.02em] text-brass-300 [font-variant-numeric:tabular-nums]">
+      <p className="whitespace-nowrap font-serif text-[clamp(2.75rem,1.6rem+3.6vw,4rem)] font-medium leading-none tracking-[-0.02em] text-brass-300 [font-variant-numeric:tabular-nums]">
         {stat.prefix}
         {display.toLocaleString("en-IN")}
-        {stat.suffix}
+        {/* The "+" is set in the sans at a heavier weight: a serif plus is a hairline at display size and reads as missing. */}
+        {stat.suffix?.replace(/\+$/, "")}
+        {stat.suffix?.endsWith("+") && (
+          <span className="ml-1 inline-block -translate-y-[0.08em] align-baseline font-sans text-[0.72em] font-semibold">+</span>
+        )}
       </p>
       <p className="mt-3 max-w-[16rem] text-sm leading-6 text-pearl">{stat.label}</p>
       {stat.note && (

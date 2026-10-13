@@ -7,9 +7,9 @@
   --background: #faf7f2;
   --muted: #efeae2;
 
-  /* Text. Secondary text is #5b6170 (5.8:1 on ivory, 5.2:1 on stone): the old #6b7280 failed AA on the muted background. */
+  /* Text. Secondary text is #4a5161 (7.6:1 on ivory, 6.8:1 on stone): easy reading at small sizes, still clearly secondary. */
   --foreground: #14171f;
-  --muted-foreground: #5b6170;
+  --muted-foreground: #4a5161;
 
   /* Structure. --border is a decorative hairline; --field-border is for anything that must be SEEN as a boundary (inputs, chips): 3.4:1. */
   --border: #e2dcd1;
@@ -83,6 +83,28 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  /* Kerning and ligatures on, legibility-first rendering, and a touch more line spacing for long reading. */
+  font-kerning: normal;
+  font-feature-settings: "kern", "liga", "calt";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+/* Long-form copy wraps without orphans; headings balance their lines. Only the wrap STYLE is set (not the `text-wrap` shorthand,
+   which would also reset wrap mode and override utilities such as whitespace-nowrap), and it sits in the base layer so any
+   utility class still wins. */
+@layer base {
+  p,
+  li {
+    text-wrap-style: pretty;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap-style: balance;
+  }
 }
 
 ::selection {
@@ -142,9 +164,17 @@ body {
   }
 }
 
-/* Large display type uses the font's optical sizing (Bodoni Moda draws finer hairlines as it gets bigger). */
+/* Display type uses the font's optical sizing (finer detail as it gets bigger, sturdier strokes as it gets smaller), and lining
+   figures so prices, "+" and "%" sit on the same line as the digits. */
 .font-serif {
   font-optical-sizing: auto;
+  font-variant-numeric: lining-nums proportional-nums;
+  font-feature-settings: "kern", "liga", "lnum";
+}
+
+/* Figures that count up keep a fixed width so the line does not jitter. */
+.font-serif[class*="tabular-nums"] {
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 /*

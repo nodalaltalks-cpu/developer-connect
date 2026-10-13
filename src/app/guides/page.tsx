@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { AdviceCta, Breadcrumb } from "@/components/seo/article-parts";
 import { SHARE_IMAGES } from "@/lib/share-image";
 import { GUIDES_PATH, guidePath, guidesByTopic } from "@/lib/seo/guides";
+import { EMI_TOOL_PATH, GLOSSARY_PATH } from "@/lib/seo/tools";
 import { breadcrumbSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
@@ -63,6 +64,23 @@ export default function GuidesPage() {
                 </ul>
               </section>
             ))}
+            <section className="mt-12">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-brass-700">Tools and reference</h2>
+              <ul className="mt-4 divide-y divide-border border-y border-border">
+                <li>
+                  <Link href={EMI_TOOL_PATH} className="block py-5 hover:bg-muted/60">
+                    <span className="font-serif text-xl font-medium text-foreground">Home loan EMI calculator</span>
+                    <span className="mt-1 block text-sm leading-6 text-muted-foreground">Your EMI, total interest and how much you can borrow, in rupees or dirhams.</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href={GLOSSARY_PATH} className="block py-5 hover:bg-muted/60">
+                    <span className="font-serif text-xl font-medium text-foreground">Property glossary</span>
+                    <span className="mt-1 block text-sm leading-6 text-muted-foreground">Carpet area, MahaRERA, OC, Oqood, escrow and the other terms on your paperwork, in plain words.</span>
+                  </Link>
+                </li>
+              </ul>
+            </section>
             <AdviceCta />
           </div>
         </Container>

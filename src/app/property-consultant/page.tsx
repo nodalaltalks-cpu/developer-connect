@@ -11,7 +11,7 @@ import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content"
 
 const TITLE = "Property Consultant in Mumbai, Thane and Dubai | Developer Connects";
 const DESCRIPTION =
-  "Developer Connects is a property research and advisory firm led by Ambish Singh, for buyers in Mumbai, Thane and Dubai. 0% commission on new launches.";
+  "Developer Connects is a property research and advisory firm led by Ambish Singh, for buyers in Mumbai, Thane and Dubai: short lists, regulator checks and site visits.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -38,7 +38,7 @@ export default function ConsultantIndexPage() {
             <Breadcrumb items={[{ name: "Home", href: "/" }, { name: "Property consultant" }]} />
             <h1 className="mt-4 text-balance font-serif text-4xl font-medium tracking-tight text-foreground sm:text-5xl">Property consultant for Mumbai and Dubai</h1>
             <p className="mt-4 text-lg leading-8 text-muted-foreground">
-              Developer Connects helps buyers research before they commit: a short list that fits your brief, the regulator checks explained, and someone beside you on the site visit. Led by Ambish Singh, with 0% commission charged on new launches.
+              Developer Connects helps buyers research before they commit: a short list that fits your brief, the regulator checks explained, and someone beside you on the site visit. Led by Ambish Singh.
             </p>
             <ul className="mt-10 grid gap-4 sm:grid-cols-2">
               {CONSULTANT_PAGES.filter((page) => page.inHub !== false).map((page) => (

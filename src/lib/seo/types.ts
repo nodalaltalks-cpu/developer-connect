@@ -17,7 +17,7 @@ export interface FaqEntry {
   answer: string;
 }
 
-export type GuideTopic = "Buying process" | "Costs and money" | "Mumbai" | "Dubai" | "NRI and overseas" | "Choosing an advisor";
+export type GuideTopic = "Buying process" | "Costs and money" | "Mumbai" | "Mumbai neighbourhoods" | "Dubai" | "Dubai communities" | "NRI and overseas" | "Choosing an advisor";
 
 export interface Guide {
   slug: string;
@@ -33,6 +33,8 @@ export interface Guide {
   market: "mumbai" | "dubai" | "both";
   blocks: readonly Block[];
   faq: readonly FaqEntry[];
+  /** For a neighbourhood guide: the area name exactly as it appears in a city page's "Areas we cover" list, which then links here. */
+  area?: string;
   /** Slugs of other guides to link to at the end. */
   related: readonly string[];
   /** ISO date the facts in the guide were last checked. Shown on the page and used as dateModified. */

@@ -43,6 +43,7 @@ export function FounderSection() {
             width={960}
             height={1200}
             sizes="(min-width: 1024px) 256px, 112px"
+            quality={92}
             className="w-28 shrink-0 rounded-xl border border-border object-cover lg:w-full"
           />
           <div>

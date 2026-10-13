@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Bodoni_Moda, Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { AnalyticsConsentProvider } from "@/components/analytics-consent";
-import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
 import { AdvisorProvider } from "@/components/advisor/advisor";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { BehaviourTracker } from "@/components/behaviour-tracker";
@@ -18,11 +17,12 @@ const geistSans = Geist({
 });
 
 /**
- * The one editorial face: Bodoni Moda, the Didone register of fashion and luxury publishing, for headlines and large numerals only
- * (28px and up; its hairlines vanish below that). A variable font with an optical-size axis, so it thickens its hairlines at small
- * display sizes. Everything else is Geist.
+ * The one editorial face: Newsreader, a transitional serif in the register of private-bank and luxury-hotel identities. Its contrast is
+ * moderate, so every stroke (the "+", the "%", the rupee sign) stays visible on any screen, where a Didone's hairlines disappear. A
+ * variable font with an optical-size axis: large headlines get the finer display cut, small ones the sturdier text cut. Everything
+ * else is Geist.
  */
-const serifDisplay = Bodoni_Moda({
+const serifDisplay = Newsreader({
   variable: "--font-serif-display",
   subsets: ["latin"],
   axes: ["opsz"],

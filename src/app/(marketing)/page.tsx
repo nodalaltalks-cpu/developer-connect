@@ -15,7 +15,6 @@ import { FounderSection } from "@/components/founder-section";
 import { PublishedTestimonials } from "@/components/published-testimonials";
 import { ContinueResearch } from "@/components/continue-research";
 import { BuyerJourney } from "@/components/buyer-journey";
-import { FeeTransparency } from "@/components/fee-transparency";
 import { GuidesStrip } from "@/components/guides-strip";
 import { ProofBand } from "@/components/proof-band";
 import { marketFromParams } from "@/lib/hero-market";
@@ -33,7 +32,7 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 
 const TITLE = "Developer Connects | Know before you buy. Property advice for Mumbai and Dubai";
 const DESCRIPTION =
-  "Know before you buy. Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by Ambish Singh: 0% commission on new launches, and every price, payment plan and possession date laid out before you commit.";
+  "Know before you buy. Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by Ambish Singh: every price, payment plan and possession date laid out before you commit.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -120,7 +119,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           </section>
 
           <ProofBand />
-          <FeeTransparency />
           <BuyerJourney />
 
           {/* RESEARCH: featured developers, then the way into everything else */}

@@ -22,7 +22,8 @@ export function organizationSchema() {
     logo: { "@type": "ImageObject", url: `${SITE_URL}/developer-connects-logo.jpg` },
     image: `${SITE_URL}/founder/ambish-singh.jpg`,
     description:
-      "Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by Ambish Singh. 0% commission on primary (new-launch) sales.",
+      "Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by Ambish Singh. It helps buyers compare projects, check the regulator's records, plan site visits and understand every cost before they commit.",
+    alternateName: "DeveloperConnects",
     slogan: "Know before you buy.",
     founder: { "@id": `${SITE_URL}/about#founder` },
     areaServed: [
@@ -33,7 +34,20 @@ export function organizationSchema() {
       { "@type": "Country", name: "India" },
       { "@type": "Country", name: "United Arab Emirates" },
     ],
-    knowsAbout: ["Real estate advisory", "New launch property", "RERA", "Dubai off-plan property", "NRI property investment"],
+    knowsAbout: [
+      "Real estate advisory",
+      "Buying a flat in Mumbai",
+      "New launch property",
+      "Under-construction and ready-to-move homes",
+      "MahaRERA project registration",
+      "Home loans in India",
+      "Stamp duty and registration in Maharashtra",
+      "Buying property in Dubai",
+      "Dubai off-plan property",
+      "Dubai Land Department and escrow",
+      "UAE Golden Visa through property",
+      "NRI property investment",
+    ],
     sameAs,
     contactPoint: [
       { "@type": "ContactPoint", contactType: "customer service", telephone: ADVISOR_CONTACT.india.e164, areaServed: "IN", availableLanguage: ["English", "Hindi"] },
@@ -53,6 +67,8 @@ export function founderSchema() {
     image: `${SITE_URL}/founder/ambish-singh.jpg`,
     worksFor: { "@id": `${SITE_URL}/#organization` },
     alumniOf: { "@type": "CollegeOrUniversity", name: "Symbiosis International University" },
+    description: "Founder of Developer Connects, a property research and advisory firm for buyers in Mumbai and Dubai. MBA in Strategy, Symbiosis International University, Dubai.",
+    knowsAbout: ["Real estate strategy", "Residential property in Mumbai", "Residential property in Dubai", "Property investment"],
     sameAs: [FOUNDER.linkedinUrl],
   };
 }
@@ -87,5 +103,8 @@ export function articleSchema(guide: Guide) {
     dateModified: guide.updated,
     mainEntityOfPage: url,
     inLanguage: "en-IN",
+    ...(guide.area
+      ? { about: { "@type": "Place", name: guide.area, containedInPlace: { "@type": "City", name: guide.market === "dubai" ? "Dubai" : guide.area === "Ghodbunder Road" ? "Thane" : "Mumbai" } } }
+      : {}),
   };
 }

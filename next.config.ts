@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // AVIF first (about half the bytes of WebP at the same quality), WebP as the fallback. Next requires the allowed qualities to be listed.
-  images: { formats: ["image/avif", "image/webp"], qualities: [55, 75, 85] },
+  images: { formats: ["image/avif", "image/webp"], qualities: [55, 75, 85, 92] },
   // The old "How we verify" page no longer exists; keep old links and search results working.
   // Hero footage never changes under the same name; let browsers and the CDN keep it for a week.
   async headers() {

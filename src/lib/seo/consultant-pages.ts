@@ -42,7 +42,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     title: "Property consultant in Mumbai",
     metaTitle: "Property Consultant in Mumbai | Developer Connects",
     description:
-      "Property advice for buyers in Mumbai, led by Ambish Singh: project comparison, RERA checks, site visits and paperwork help. 0% commission on new launches.",
+      "Property advice for buyers in Mumbai, led by Ambish Singh: project comparison, MahaRERA checks, site visits, loans and paperwork, from the first short list to possession.",
     intro:
       "Developer Connects helps buyers in Mumbai research the project before they commit. You get a short list that fits your budget and area, with prices, payment plans and possession dates side by side, the MahaRERA checks explained, and someone alongside you on the site visit.",
     helpWith: [
@@ -63,10 +63,9 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     },
     directory: { country: "India", city: "Mumbai" },
     alsoServing: { label: "Buying on the Navi Mumbai side? See our Navi Mumbai property advice", slug: "navi-mumbai" },
-    guides: ["how-to-buy-a-flat-in-mumbai", "hidden-costs-of-buying-property-in-mumbai", "check-a-project-on-maharera", "mumbai-vs-navi-mumbai-vs-thane"],
+    guides: ["how-to-buy-a-flat-in-mumbai", "hidden-costs-of-buying-property-in-mumbai", "check-a-project-on-maharera", "buying-property-in-goregaon-east", "buying-property-in-powai", "buying-property-in-andheri", "mumbai-vs-navi-mumbai-vs-thane"],
     faq: [
       { question: "Who is Developer Connects?", answer: "Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by founder Ambish Singh, who has more than six years of real estate strategy and investment experience." },
-      { question: "Do I pay a commission to Developer Connects in Mumbai?", answer: "Developer Connects charges 0% commission on primary (new-launch) sales. On secondary (resale) and rental transactions, commission is applicable as per market standards." },
       { question: "Which parts of Mumbai do you cover?", answer: "The island city and the western, central and harbour suburbs, plus Mira-Bhayandar and Vasai-Virar. Thane and Navi Mumbai have their own pages." },
       { question: "How do I start?", answer: "Message or call Ambish, or tap your requirements in the one-minute enquiry form. You will get a short list based on your brief, and there is no obligation to book anything." },
     ],
@@ -78,7 +77,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     title: "Property consultant in Thane",
     metaTitle: "Property Consultant in Thane | Developer Connects",
     description:
-      "Help buying a home in Thane: compare projects on Ghodbunder Road, Majiwada and Kolshet, check MahaRERA registrations and plan site visits. 0% commission on new launches.",
+      "Help buying a home in Thane: compare projects on Ghodbunder Road, Majiwada and Kolshet, check MahaRERA registrations and plan site visits in one day.",
     intro:
       "Thane has some of the widest choices in the Mumbai region, from established neighbourhoods to large new townships. Developer Connects helps you compare them on the same terms, check each project's registration, and visit with a plan.",
     helpWith: [
@@ -96,10 +95,9 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
       check: "Search the project on the MahaRERA website and match the registration number, promoter and completion date before paying any amount.",
     },
     directory: { country: "India", city: "Thane" },
-    guides: ["mumbai-vs-navi-mumbai-vs-thane", "how-to-buy-a-flat-in-mumbai", "under-construction-vs-ready-to-move", "site-visit-checklist"],
+    guides: ["buying-property-in-thane-west", "mumbai-vs-navi-mumbai-vs-thane", "how-to-buy-a-flat-in-mumbai", "under-construction-vs-ready-to-move", "site-visit-checklist"],
     faq: [
       { question: "Is Thane a good place to buy a home?", answer: "Thane is a mature city with its own schools, hospitals and markets and links to Mumbai by rail and road. Whether it suits you depends on your commute and budget, which is why we start there." },
-      { question: "Do you charge a commission for new launches in Thane?", answer: "Developer Connects charges 0% commission on primary (new-launch) sales. On resale and rental transactions, commission is applicable as per market standards." },
       { question: "Can you show me projects across several developers?", answer: "Yes. The aim is to compare a handful of projects on one cost sheet, so you can see the differences clearly before you visit." },
     ],
   },
@@ -110,7 +108,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     title: "Property consultant in Navi Mumbai",
     metaTitle: "Property Consultant in Navi Mumbai | Developer Connects",
     description:
-      "Property advice for Navi Mumbai buyers: Kharghar, Ulwe, Panvel, Vashi and Nerul compared, MahaRERA checks and site-visit planning. 0% commission on new launches.",
+      "Property advice for Navi Mumbai buyers: Kharghar, Ulwe, Panvel, Vashi and Nerul compared, MahaRERA checks, site-visit planning and costs explained.",
     intro:
       "Navi Mumbai's planned nodes and new infrastructure draw buyers who want space and a modern layout. Developer Connects helps you compare the nodes, understand which projects are close to completion, and check each one before you pay.",
     helpWith: [
@@ -132,7 +130,6 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     guides: ["mumbai-vs-navi-mumbai-vs-thane", "under-construction-vs-ready-to-move", "check-a-project-on-maharera", "hidden-costs-of-buying-property-in-mumbai"],
     faq: [
       { question: "Which part of Navi Mumbai should I buy in?", answer: "It depends on where you work and your budget. Established nodes like Vashi and Nerul have mature facilities; growing nodes like Kharghar and Ulwe offer newer projects. We compare them against your commute." },
-      { question: "Do you charge a commission for new launches in Navi Mumbai?", answer: "Developer Connects charges 0% commission on primary (new-launch) sales. On resale and rental transactions, commission is applicable as per market standards." },
       { question: "Is infrastructure in Navi Mumbai ready?", answer: "Parts are running and parts are planned. We recommend following the authorities' own announcements and not paying a premium for something that is not yet operating." },
     ],
   },
@@ -143,7 +140,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     title: "Property consultant in Dubai for Indian buyers",
     metaTitle: "Property Consultant in Dubai for Indian Buyers | Developer Connects",
     description:
-      "Dubai property advice for buyers from India and the UAE, led by Ambish Singh: off-plan and ready, costs explained in rupees and dirhams, escrow and registration checks. 0% commission on new launches.",
+      "Dubai property advice for buyers from India and the UAE, led by Ambish Singh: off-plan and ready, costs explained in rupees and dirhams, escrow and registration checks.",
     intro:
       "Buying in Dubai from India means a different regulator, different costs and different risks. Developer Connects helps you compare Dubai projects, explains every cost in dirhams and rupees, and shows you what to check on the Dubai Land Department's system before you pay a booking amount.",
     helpWith: [
@@ -162,10 +159,9 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
       check: "Confirm the project's registration, the developer's licence and the escrow account, and match the advertising permit number on the listing.",
     },
     directory: { country: "United Arab Emirates", city: "Dubai" },
-    guides: ["buying-property-in-dubai-from-india", "dubai-off-plan-property-guide", "dubai-golden-visa-property", "nri-buying-property-in-india"],
+    guides: ["buying-property-in-dubai-from-india", "dubai-off-plan-property-guide", "buying-property-in-dubai-marina", "buying-property-in-downtown-dubai", "buying-property-in-dubai-hills-estate", "buying-property-in-jvc-dubai", "dubai-golden-visa-property", "nri-buying-property-in-india"],
     faq: [
       { question: "Can Indians buy property in Dubai?", answer: "Yes. Foreign nationals, including Indians, can buy freehold property in designated areas of Dubai." },
-      { question: "Do you charge a commission for new launches in Dubai?", answer: "Developer Connects charges 0% commission on primary (new-launch) sales. On resale and rental transactions, commission is applicable as per market standards." },
       { question: "Can I buy a Dubai property without visiting?", answer: "A remote purchase is possible with careful document handling, but many buyers still visit once. We can plan a short, productive trip around a short list of projects." },
       { question: "How do I start?", answer: "Message or call Ambish on the UAE number, or tap your requirements in the one-minute enquiry form. You will get a short list, and there is no obligation to book." },
     ],

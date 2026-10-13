@@ -37,7 +37,7 @@ const BASE_URL = "https://developerconnects.com";
  * paginated scaffolding; the sitemap should list destination content, not
  * every intermediate listing page.
  */
-const STATIC_ROUTES = ["/", "/developers", "/buy-direct-from-developer", "/guides", "/property-consultant", "/about", "/advisor", "/testimonials", "/contact", "/faq", "/privacy", "/terms", "/cookies", "/disclaimer"];
+const STATIC_ROUTES = ["/", "/developers", "/buy-direct-from-developer", "/guides", "/property-consultant", "/tools/home-loan-emi-calculator", "/property-glossary", "/about", "/advisor", "/testimonials", "/contact", "/faq", "/privacy", "/terms", "/cookies", "/disclaimer"];
 
 /**
  * Dynamic sitemap (App Router convention — this file's default export is

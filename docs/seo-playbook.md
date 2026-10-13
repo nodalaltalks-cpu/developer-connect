@@ -6,6 +6,10 @@ What the website now does (built in code), and what only the founder can do off 
 
 - **Buying guides** (`/guides`): 14 long-form guides answering the questions buyers search (how to buy in Mumbai, Dubai from India, hidden costs, MahaRERA check, NRI rules, loans, choosing a consultant). Each has an "In short" answer first, FAQ, Article + FAQPage + BreadcrumbList schema, a named author and a "facts checked" date.
 - **City pages** (`/property-consultant/{mumbai,thane,navi-mumbai,dubai}`): the pages that target "property consultant in {city}". Service + FAQ + breadcrumb schema, areas covered, regulator, the commission statement.
+- **Neighbourhood guides** (`src/lib/seo/guides-areas.ts`): Powai, Goregaon East, Andheri, Thane West / Ghodbunder Road, Dubai Marina, Downtown Dubai, JVC, Dubai Hills Estate. Each `area` matches a city page's area chip, which links to it. No prices, rents or yields (a test blocks them). Add more only with real, specific content.
+- **Free tools**: `/tools/home-loan-emi-calculator` (EMI and affordability, INR or AED, WebApplication + FAQ schema) and `/property-glossary` (28 terms, DefinedTermSet schema, one anchor per term). Calculators and glossaries earn links and are quoted by AI assistants.
+- **Fees** appear only in the Disclaimer, Privacy, FAQ and the "how consultants get paid" guide, never on the home page or the city landing pages (founder's decision, 2026-10-13; enforced by a test).
+- **IndexNow**: after each deploy, new URLs are pinged to api.indexnow.org (key in `src/lib/indexnow.ts`), which Bing, and through it ChatGPT search and Copilot, pick up within minutes.
 - **Entity markup**: one Organization/ProfessionalService entity and one Person (founder) site-wide, with the company's own Instagram and Facebook as `sameAs`. No rating, review count or street address is invented.
 - **AI visibility**: `/llms.txt` (index) and `/llms-full.txt` (full text of every guide and city page); `robots.txt` explicitly welcomes GPTBot, OAI-SearchBot, ChatGPT-User, PerplexityBot, ClaudeBot, Google-Extended and others.
 - **Crawl**: sitemap lists every guide and city page; the footer and home page link to them.

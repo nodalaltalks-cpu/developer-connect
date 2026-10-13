@@ -7,9 +7,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { AdvisorPageContext } from "@/components/advisor/advisor";
 import { AdviceCta, Breadcrumb, FaqList, GENERAL_INFO_NOTE } from "@/components/seo/article-parts";
 import { SHARE_IMAGES } from "@/lib/share-image";
-import { COMMISSION_POLICY } from "@/lib/leads/gate/gate-copy";
 import { CONSULTANT_PAGES, CONSULTANT_PATH, consultantPath, getConsultantPage } from "@/lib/seo/consultant-pages";
-import { getGuide, guidePath } from "@/lib/seo/guides";
+import { getGuide, guideForArea, guidePath } from "@/lib/seo/guides";
 import { breadcrumbSchema, faqSchema, SITE_URL } from "@/lib/seo/schema";
 import { resolveLocationPage, locationPath } from "@/lib/developer-connect/location-pages";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
@@ -84,11 +83,20 @@ export default async function ConsultantCityPage({ params }: PageProps<"/propert
               <div key={group.heading} className="mt-5">
                 <h3 className="text-sm font-semibold text-foreground">{group.heading}</h3>
                 <ul className="mt-2 flex flex-wrap gap-2">
-                  {group.areas.map((area) => (
-                    <li key={area} className="rounded-sm border border-field-border bg-white px-3 py-1.5 text-sm text-foreground">
-                      {area}
-                    </li>
-                  ))}
+                  {group.areas.map((area) => {
+                    const areaGuide = guideForArea(area);
+                    return areaGuide ? (
+                      <li key={area}>
+                        <Link href={guidePath(areaGuide)} className="inline-flex rounded-sm border border-brass-700/60 bg-white px-3 py-1.5 text-sm font-medium text-accent-hover underline-offset-4 hover:border-gold hover:underline">
+                          {area} guide →
+                        </Link>
+                      </li>
+                    ) : (
+                      <li key={area} className="rounded-sm border border-field-border bg-white px-3 py-1.5 text-sm text-foreground">
+                        {area}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}
@@ -98,9 +106,6 @@ export default async function ConsultantCityPage({ params }: PageProps<"/propert
               <p className="font-semibold text-foreground">{page.regulator.name}</p>
               <p className="mt-2 text-sm leading-6 text-foreground/80">{page.regulator.check}</p>
             </div>
-
-            <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">What it costs you</h2>
-            <p className="mt-4 text-base leading-7 text-foreground/85">{COMMISSION_POLICY}</p>
 
             {page.alsoServing && (
               <p className="mt-8">

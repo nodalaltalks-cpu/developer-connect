@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { GUIDES, getGuide, guidePath } from "../guides.ts";
+import { GUIDES, getGuide, guideForArea, guidePath } from "../guides.ts";
+import { emiFor, loanForEmi } from "../emi.ts";
+import { GLOSSARY } from "../tools.ts";
 import { CONSULTANT_PAGES, consultantPath } from "../consultant-pages.ts";
 import { guideToMarkdown, consultantToMarkdown } from "../markdown.ts";
 import { resolveLocationPage } from "../../developer-connect/location-pages.ts";
@@ -67,16 +69,17 @@ test("copy rules: no broker, independence, ranking, rating or verification claim
   }
 });
 
-test("commission wording: every statement of the policy matches the one approved sentence", () => {
-  const text = allText();
-  assert.ok(text.includes("0% commission on primary (new-launch) sales"));
-  for (const p of CONSULTANT_PAGES) {
-    for (const f of p.faq.filter((x) => /commission/i.test(x.question))) {
-      assert.ok(f.answer.startsWith("Developer Connects charges 0% commission on primary (new-launch) sales."), p.slug);
-    }
-  }
+test("fees: stated only in the disclaimer and legal pages (linked from the footer), never on the home page or the city landing pages", () => {
   assert.ok(COMMISSION_POLICY.startsWith("Developer Connects charges 0% commission on primary (new-launch) sales."));
-  assert.ok(read("src/app/property-consultant/[slug]/page.tsx").includes("COMMISSION_POLICY"));
+  assert.match(read("src/app/disclaimer/page.tsx"), /COMMISSION_POLICY/);
+  assert.match(read("src/components/site-footer.tsx"), /href: "\/disclaimer"/);
+  const home = read("src/app/(marketing)/page.tsx");
+  assert.ok(!/FeeTransparency|commission|0%/i.test(home), "no fees on the home page");
+  for (const file of ["src/app/property-consultant/[slug]/page.tsx", "src/app/property-consultant/page.tsx", "src/lib/seo/consultant-pages.ts"]) {
+    assert.ok(!/COMMISSION_POLICY|commission|0%/i.test(read(file)), `${file} must not state fees`);
+  }
+  // The one guide about how consultants are paid still quotes the approved sentence word for word.
+  assert.ok(allText().includes("Developer Connects charges 0% commission on primary (new-launch) sales."));
 });
 
 test("facts that change are never stated as exact current rates", () => {
@@ -119,4 +122,34 @@ test("navi mumbai: an indexed landing page linked from the Mumbai page, never a 
   assert.match(read("src/app/property-consultant/page.tsx"), /inHub !== false/);
   assert.ok(!/navi-mumbai/i.test(read("src/components/site-footer.tsx")));
   assert.match(read("src/lib/sitemap-entries.ts"), /CONSULTANT_PAGES\.map/);
+});
+
+test("neighbourhood guides: each names an area a city page covers, so the area chip links to it; no prices, rents or yields quoted", () => {
+  const areaGuides = GUIDES.filter((g) => g.area);
+  assert.ok(areaGuides.length >= 8);
+  const covered = new Set(CONSULTANT_PAGES.flatMap((p) => p.areaGroups.flatMap((a) => [...a.areas])));
+  for (const g of areaGuides) {
+    assert.ok(covered.has(g.area as string), `${g.slug}: "${g.area}" is not in any city page's areas`);
+    assert.equal(guideForArea(g.area as string)?.slug, g.slug);
+    const text = guideToMarkdown(g);
+    assert.ok(!/(₹|Rs\.?|INR|AED)\s?\d|\d+(\.\d+)?\s?%|per cent|percent|yield of|crore|lakh/i.test(text), `${g.slug} quotes a figure that changes`);
+  }
+  assert.match(read("src/app/property-consultant/[slug]/page.tsx"), /guideForArea\(area\)/);
+});
+
+test("tools: EMI maths is the standard reducing-balance formula, and the tools and glossary are crawlable", () => {
+  const { emi, totalInterest } = emiFor(1_000_000, 12, 1);
+  assert.ok(Math.abs(emi - 88848.79) < 0.01, `EMI ${emi}`);
+  assert.ok(Math.abs(totalInterest - (emi * 12 - 1_000_000)) < 0.001);
+  assert.equal(emiFor(120_000, 0, 1).emi, 10_000);
+  assert.ok(Math.abs(loanForEmi(emi, 12, 1) - 1_000_000) < 0.01, "affordability is the exact inverse");
+  assert.deepEqual(emiFor(0, 8, 20), { emi: 0, totalInterest: 0, totalPayable: 0 });
+  assert.equal(new Set(GLOSSARY.map((t) => t.id)).size, GLOSSARY.length);
+  const sitemap = read("src/lib/sitemap-entries.ts");
+  for (const path of ["/tools/home-loan-emi-calculator", "/property-glossary"]) {
+    assert.ok(sitemap.includes(`"${path}"`), `${path} in sitemap`);
+    assert.ok(read("src/components/site-footer.tsx").includes(path), `${path} in footer`);
+  }
+  assert.match(read("src/app/property-glossary/page.tsx"), /DefinedTermSet/);
+  assert.match(read("src/app/tools/home-loan-emi-calculator/page.tsx"), /WebApplication/);
 });

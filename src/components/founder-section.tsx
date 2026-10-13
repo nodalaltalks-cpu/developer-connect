@@ -49,7 +49,7 @@ export function FounderSection() {
           <div>
             <p className="font-serif text-xl font-medium text-foreground">{FOUNDER.name}</p>
             <p className="text-sm text-muted-foreground">{FOUNDER.role}</p>
-            <p className="mt-2 inline-block rounded-sm bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-hover">{FOUNDER.education}</p>
+            <p className="mt-2 max-w-xs rounded-sm bg-accent-soft px-3 py-2 text-sm font-semibold leading-5 text-accent-hover">{FOUNDER.education}</p>
           </div>
         </div>
         <div>

@@ -63,7 +63,7 @@ test("founder: the credibility claims are worded as the founder gave them, shown
     "Worked at Square Yards for 4 years.",
     "MBA in Strategy from Symbiosis International University, Dubai.",
   ]);
-  assert.equal(FOUNDER.education, "MBA Strategy \u00b7 Symbiosis International University, Dubai");
+  assert.equal(FOUNDER.education, "MBA in Strategy \u00b7 6+ years of experience in real estate across India & UAE");
   const [transacted, years, network] = FOUNDER.stats;
   assert.deepEqual({ value: transacted.value, prefix: transacted.prefix, suffix: transacted.suffix }, { value: 300, prefix: "\u20b9", suffix: " Cr+" });
   assert.match(transacted.label, /property transactions successfully executed/);

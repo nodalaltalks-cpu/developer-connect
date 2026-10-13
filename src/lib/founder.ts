@@ -42,7 +42,7 @@ export const FOUNDER = {
     "MBA in Strategy from Symbiosis International University, Dubai.",
   ],
   /** The qualification as a short badge for the card. */
-  education: "MBA Strategy · Symbiosis International University, Dubai",
+  education: "MBA in Strategy · 6+ years of experience in real estate across India & UAE",
   linkedinUrl: "https://www.linkedin.com/in/ambishsingh",
 } as const;
 

@@ -304,6 +304,8 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "LEAD_STALE",
   // Migration 0029: a buyer with an open lead came back to the site.
   "LEAD_REVISITED",
+  // Migration 0038: a buyer rated the service (stars and an optional comment); sent to the Founder.
+  "SERVICE_RATING",
 ]);
 
 export const inaccuracyReportCategoryEnum = pgEnum("inaccuracy_report_category", [
@@ -1596,4 +1598,36 @@ export const enquirySubmissions = pgTable(
     landingPath: text("landing_path"),
   },
   (table) => [index("enquiry_submissions_time_idx").on(table.createdAt), index("enquiry_submissions_lead_idx").on(table.leadId)],
+);
+
+/**
+ * A signed-in buyer's own enquiry history, and the rating they may leave on each entry. One row per time they reached out:
+ * connecting with a developer, sending the enquiry form, or contacting an advisor on WhatsApp, call or email. It holds what the
+ * buyer saw (a title and detail), never a phone number. The rating is 1 to 5 stars with an optional comment; it can be changed
+ * and the Founder is told each time. `userId` is a Clerk user id (the same convention as profiles and notifications).
+ */
+export const buyerEnquiries = pgTable(
+  "buyer_enquiries",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    leadId: uuid("lead_id").references(() => leads.id, { onDelete: "restrict" }),
+    kind: text("kind").notNull(),
+    developerId: uuid("developer_id"),
+    title: text("title").notNull(),
+    detail: text("detail"),
+    /** The buyer's name as shown to them at the time, so the Founder's list never needs a lookup. */
+    raterName: text("rater_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    rating: smallint("rating"),
+    comment: text("comment"),
+    ratedAt: timestamp("rated_at", { withTimezone: true }),
+    /** When the Founder marked this rating as read. */
+    seenAt: timestamp("seen_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("buyer_enquiries_user_created_idx").on(table.userId, table.createdAt),
+    index("buyer_enquiries_rated_idx").on(table.ratedAt).where(sql`${table.ratedAt} is not null`),
+    check("buyer_enquiries_rating_range_ck", sql`${table.rating} is null or (${table.rating} between 1 and 5)`),
+  ],
 );

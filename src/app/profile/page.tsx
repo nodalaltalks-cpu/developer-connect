@@ -4,6 +4,8 @@ import { currentUser } from "@/lib/auth";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { ProfileEditor } from "@/components/profile/profile-editor";
+import { EnquiryHistory } from "@/components/profile/enquiry-history";
+import { getMyEnquiriesAction } from "@/app/_actions/enquiry-history-actions";
 import { requireUserId } from "@/lib/auth";
 import { isPrimaryEmailVerified } from "@/lib/profile/account-signals";
 import { createPostgresProfileRepository } from "@/lib/profile/db/postgres-repository";
@@ -41,6 +43,8 @@ export default async function ProfilePage({
   });
 
   const firstName = user?.firstName?.trim();
+  // The buyer's own enquiry history. A failure here must never stop the profile from loading.
+  const enquiries = await getMyEnquiriesAction().catch(() => []);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -68,6 +72,10 @@ export default async function ProfilePage({
                   {firstName ? `Good to have you here, ${firstName}.` : user?.fullName}
                 </p>
               </div>
+            </div>
+
+            <div className="mt-6">
+              <EnquiryHistory initial={enquiries} />
             </div>
 
             <p className="mb-6 mt-4 text-sm text-muted-foreground">

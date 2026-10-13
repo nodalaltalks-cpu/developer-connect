@@ -267,6 +267,13 @@
       "when": 1791854011311,
       "tag": "0037_prospect_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791929600659,
+      "tag": "0038_buyer_enquiry_ratings",
+      "breakpoints": true
     }
   ]
 }

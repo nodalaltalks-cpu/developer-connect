@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ADVISOR_CONTACT, callHref, contextFromPath, mailtoHref, whatsappHref, type AdvisorContext, type AdvisorRegion } from "@/lib/advisor-contact";
 import { MARKET_STORAGE_KEY, isMarket, type Market } from "@/lib/hero-market";
+import { recordAdvisorContactAction } from "@/app/_actions/enquiry-history-actions";
 
 /**
  * "Talk to an Advisor": ONE sheet, ONE bar, ONE trigger, used everywhere on the public site. It replaces the old enquiry form: the
@@ -88,6 +89,12 @@ const ROW =
 export function AdvisorChoices({ context, onChoose }: { context: AdvisorContext; onChoose?: () => void }) {
   const first: AdvisorRegion = context.region;
   const second: AdvisorRegion = first === "india" ? "uae" : "india";
+  const subject = context.project ?? context.developer ?? context.article ?? context.location ?? "";
+  // Recorded for a signed-in visitor so it shows in their history (a no-op for anyone else). Never delays the contact itself.
+  const choose = (channel: "whatsapp" | "call" | "email") => () => {
+    void recordAdvisorContactAction(channel, subject).catch(() => {});
+    onChoose?.();
+  };
   return (
     <div>
       <p className="text-sm leading-6 text-muted-foreground">
@@ -103,11 +110,11 @@ export function AdvisorChoices({ context, onChoose }: { context: AdvisorContext;
                 {contact.label} <span className="font-normal normal-case tracking-normal">· {contact.display}</span>
               </p>
               <div className="grid grid-cols-1 gap-2">
-                <a href={whatsappHref(ctx)} target="_blank" rel="noopener noreferrer" data-cta="advisor_whatsapp" onClick={onChoose} className={`${ROW} ${index === 0 ? "border-accent bg-accent text-accent-foreground hover:bg-accent-hover" : ""}`}>
+                <a href={whatsappHref(ctx)} target="_blank" rel="noopener noreferrer" data-cta="advisor_whatsapp" onClick={choose("whatsapp")} className={`${ROW} ${index === 0 ? "border-accent bg-accent text-accent-foreground hover:bg-accent-hover" : ""}`}>
                   <span className="font-medium">WhatsApp {contact.label}</span>
                   <span aria-hidden="true">↗</span>
                 </a>
-                <a href={callHref(region)} data-cta="advisor_call" onClick={onChoose} className={ROW}>
+                <a href={callHref(region)} data-cta="advisor_call" onClick={choose("call")} className={ROW}>
                   <span className="font-medium text-foreground">Call {contact.display}</span>
                   <span aria-hidden="true" className="text-muted-foreground">→</span>
                 </a>
@@ -116,7 +123,7 @@ export function AdvisorChoices({ context, onChoose }: { context: AdvisorContext;
           );
         })}
       </ul>
-      <a href={mailtoHref(context)} data-cta="advisor_email" onClick={onChoose} className={`${ROW} mt-4`}>
+      <a href={mailtoHref(context)} data-cta="advisor_email" onClick={choose("email")} className={`${ROW} mt-4`}>
         <span className="min-w-0">
           <span className="block font-medium text-foreground">Email</span>
           <span className="block truncate text-xs text-muted-foreground">{ADVISOR_CONTACT.email}</span>

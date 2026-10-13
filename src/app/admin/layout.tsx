@@ -5,6 +5,7 @@ import { currentUser } from "@/lib/auth";
 import { AlertsMessage, AlertsPill } from "@/components/team/alerts-control";
 import { FollowUpAlerts } from "@/components/team/follow-up-alerts";
 import { NotificationBell } from "@/components/notification-bell";
+import { RatingAlerts } from "@/components/admin/rating-alerts";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getFounderAttention } from "@/lib/leads/follow-up-reads";
 import { requireFounder } from "@/lib/auth";
@@ -55,6 +56,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           </div>
           <div className="order-2 flex shrink-0 items-center gap-2 sm:order-3">
             <AlertsPill />
+            <RatingAlerts />
             <NotificationBell />
             <UserButton appearance={{ elements: { userButtonTrigger: { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" } } }} />
           </div>

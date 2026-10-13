@@ -6,6 +6,8 @@ import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-
 import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analytics-sink";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
+import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
+import { recordEnquiry } from "@/lib/enquiries/service";
 import { RETURNING_LEAD_TTL_DAYS } from "@/lib/leads/gate/gate-config";
 import { LEAD_COOKIE_NAME, signLeadToken, verifyLeadToken } from "@/lib/leads/gate/lead-cookie";
 import {
@@ -51,6 +53,7 @@ async function buildGate(): Promise<{ deps: GateDeps; ctx: GateContext; leadId: 
       leads: createPostgresLeadRepositories(),
       analytics: postgresAnalyticsSink,
       now,
+      enquiries: { record: (entry) => recordEnquiry(createPostgresBuyerEnquiryRepository(), entry) },
     },
     ctx: { sessionId, userId: userId ?? null, deviceType },
     leadId,

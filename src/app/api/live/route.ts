@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth";
 import { isFounder } from "@/lib/authorization";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
+import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
 import { getEmployee } from "@/lib/team/session";
 
 /**
@@ -19,8 +20,17 @@ export async function GET(): Promise<Response> {
   try {
     const user = await currentUser();
     if (user && isFounder(user)) {
-      const cursor = await createPostgresLeadRepositories().events.latestSeq({});
-      return Response.json({ cursor }, { headers: NO_STORE });
+      const events = await createPostgresLeadRepositories().events.latestSeq({});
+      // A new or changed buyer rating also moves the cursor, so the Founder's pages refresh when one arrives. Both parts only ever
+      // grow, so their sum changes whenever either does. Best effort: ratings being unreachable never stops the live cursor.
+      let ratings = 0;
+      try {
+        const latest = await createPostgresBuyerEnquiryRepository().latestRatedAt();
+        ratings = latest ? Math.floor(latest.getTime() / 1000) : 0;
+      } catch {
+        ratings = 0;
+      }
+      return Response.json({ cursor: events + ratings }, { headers: NO_STORE });
     }
     const employee = user ? await getEmployee() : null;
     if (employee?.actor.actorId) {

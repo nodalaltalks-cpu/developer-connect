@@ -219,10 +219,6 @@ export default async function DeveloperPage({
                     sourceCta="developer_page"
                   />
                 </div>
-                <p className="mt-4 text-xs text-muted-foreground">
-                  Developer Connects is not the developer. Confirm prices, approvals and terms with the developer
-                  and the regulator before you pay anything.
-                </p>
               </div>
             ) : (
               <div className="mt-8 rounded-lg border border-border bg-muted p-6">

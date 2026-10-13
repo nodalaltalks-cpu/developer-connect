@@ -25,7 +25,8 @@ export type NotificationType =
   | "LEAD_ASSIGNED"
   | "SITE_VISIT_DUE"
   | "LEAD_STALE"
-  | "LEAD_REVISITED";
+  | "LEAD_REVISITED"
+  | "SERVICE_RATING";
 
 export interface Notification {
   id: string;

@@ -5,6 +5,8 @@ import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-reposito
 import { submitEnquiry } from "@/lib/social/enquiry-service";
 import { postgresEnquiryStore } from "@/lib/social/db/postgres-social";
 import { getOrCreateSessionId } from "@/lib/session";
+import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
+import { recordEnquiry } from "@/lib/enquiries/service";
 
 /**
  * The public tap-to-select enquiry form. The browser sends only the tapped answers, the optional name, the number and how the
@@ -51,6 +53,22 @@ export async function submitEnquiryAction(payload: EnquiryPayload): Promise<Enqu
         },
       },
     );
+    if (result.ok && userId) {
+      try {
+        const answers = (payload.answers && typeof payload.answers === "object" ? payload.answers : {}) as Record<string, unknown>;
+        const city = answers.market === "DUBAI" ? "Dubai" : answers.market === "MUMBAI" ? "Mumbai" : null;
+        await recordEnquiry(createPostgresBuyerEnquiryRepository(), {
+          userId,
+          leadId: result.leadId,
+          kind: "QUICK_ENQUIRY",
+          title: city ? `Property enquiry for ${city}` : "Property enquiry",
+          detail: "Sent through the enquiry form",
+          createdAt: new Date(),
+        });
+      } catch {
+        // history is a convenience; the enquiry itself is saved
+      }
+    }
     return result.ok ? { ok: true } : { ok: false, message: result.message, field: result.field };
   } catch {
     return { ok: false, message: "We could not save your enquiry. Please try again." };

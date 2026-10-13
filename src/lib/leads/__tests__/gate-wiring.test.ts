@@ -249,10 +249,10 @@ test("modals: the sign-in prompt's click counter is fed AFTER the gate completes
 
 const PAGE = "app/developers/[slug]/page.tsx";
 
-test("page: no verification badge, date or claim remains; the not-the-developer note replaces them", () => {
+test("page: no verification badge, date or claim remains, and no standing disclaimer line sits under the buttons", () => {
   const page = read(PAGE);
   assert.doesNotMatch(page, /OfficialWebsiteVerifiedBadge|Last verified|how-we-verify|approved this website/);
-  assert.match(page, /Developer Connects is not the developer\. Confirm prices, approvals and terms with the developer/);
+  assert.doesNotMatch(page, /Confirm prices, approvals and terms with the developer/);
 });
 
 test("page: the developer's website is NOT published — no domain text, no link, no JSON-LD url — and the structured data is otherwise intact", () => {

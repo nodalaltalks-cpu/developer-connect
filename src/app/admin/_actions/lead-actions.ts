@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { eraseLeadOnFounderRequest } from "@/lib/leads/erasure";
+import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
 import { LeadNotFoundError, LeadStateError, LeadValidationError } from "@/lib/leads/errors";
 import { cancelLeadFollowUp, completeLeadFollowUp, rescheduleFollowUp, scheduleFollowUp } from "@/lib/leads/follow-up-service";
 import { getCallForActor, placeCall, setCallDisposition } from "@/lib/leads/call-service";
@@ -148,7 +149,16 @@ export async function updateLeadRequirementAction(leadId: string, requirement: R
  * authorization; there is no public equivalent of this action.
  */
 export async function eraseLeadAction(leadId: string, confirmation: string): Promise<LeadActionResult> {
-  return run(leadId, (actor) => eraseLeadOnFounderRequest(createPostgresLeadRepositories(), leadId, confirmation, actor));
+  return run(leadId, async (actor) => {
+    const erased = await eraseLeadOnFounderRequest(createPostgresLeadRepositories(), leadId, confirmation, actor);
+    // The buyer's rating comments and name go with the rest of their personal data (the stars stay, anonymously).
+    try {
+      await createPostgresBuyerEnquiryRepository().scrubForLead(leadId);
+    } catch {
+      // the lead itself is erased; a retry of the scrub is harmless
+    }
+    return erased;
+  });
 }
 
 /**

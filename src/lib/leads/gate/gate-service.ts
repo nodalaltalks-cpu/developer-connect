@@ -6,6 +6,7 @@ import { captureAssistanceLead } from "../lead-service.ts";
 import { maskPhone } from "../phone.ts";
 import type { LeadRepositories } from "../repository.ts";
 import type { ContactPreference, TouchInput } from "../types.ts";
+import type { NewBuyerEnquiry } from "../../enquiries/types.ts";
 import { GATE_ERROR_MESSAGES, type GateErrorCode } from "./gate-copy.ts";
 import {
   GATE_CONTACT_PREFERENCES,
@@ -41,6 +42,8 @@ export interface GateDeps {
   leads: LeadRepositories;
   analytics: AnalyticsEventSink;
   now: () => Date;
+  /** Adds the request to the signed-in buyer's own enquiry history. Optional and best effort: it never affects the request. */
+  enquiries?: { record(entry: NewBuyerEnquiry): Promise<unknown> };
 }
 
 export interface GateContext {
@@ -200,6 +203,22 @@ async function captureRequest(
     contactPreference: details.contactPreference,
     newLead: captured.created,
   });
+
+  if (ctx.userId && deps.enquiries) {
+    try {
+      await deps.enquiries.record({
+        userId: ctx.userId,
+        leadId: captured.lead.id,
+        kind: "DEVELOPER_CONNECT",
+        developerId: resolved.developer.id,
+        title: `Connect with ${resolved.developer.displayName}`,
+        detail: details.contactPreference === "PHONE_CALL" ? "You asked for a phone call" : "You asked for WhatsApp",
+        createdAt: now,
+      });
+    } catch {
+      // the history is a convenience for the buyer; the request itself is already saved
+    }
+  }
 
   return {
     leadId: captured.lead.id,

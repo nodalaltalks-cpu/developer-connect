@@ -134,3 +134,35 @@ export async function findClerkUserByEmail(email: string): Promise<ClerkUserSumm
     return null;
   }
 }
+
+interface ClerkFounderProbe {
+  id: string;
+  private_metadata?: { role?: unknown } | null;
+}
+
+let founderCache: { ids: string[]; at: number } | null = null;
+const FOUNDER_CACHE_MS = 10 * 60_000;
+
+/**
+ * The Clerk ids of every founder account (privateMetadata.role === "founder"), for sending the Founder a notification. Read from
+ * Clerk's backend list (privateMetadata is never available to the browser) and cached for ten minutes. Founder-side use only;
+ * returns [] rather than throwing when Clerk cannot be reached.
+ */
+export async function listFounderUserIds(): Promise<string[]> {
+  if (founderCache && Date.now() - founderCache.at < FOUNDER_CACHE_MS) return founderCache.ids;
+  const ids: string[] = [];
+  try {
+    let offset = 0;
+    for (;;) {
+      const page = (await clerkFetch(`/users?limit=${CLERK_PAGE_SIZE}&offset=${offset}`)) as ClerkFounderProbe[];
+      if (!Array.isArray(page) || page.length === 0) break;
+      for (const user of page) if (user.private_metadata?.role === "founder") ids.push(user.id);
+      offset += page.length;
+      if (page.length < CLERK_PAGE_SIZE || offset >= MAX_USERS_TO_FETCH) break;
+    }
+  } catch {
+    return founderCache?.ids ?? [];
+  }
+  founderCache = { ids, at: Date.now() };
+  return ids;
+}

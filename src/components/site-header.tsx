@@ -5,6 +5,7 @@ import { SignInButton } from "@clerk/nextjs";
 import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/logo";
 import { NotificationBell } from "@/components/notification-bell";
+import { RatingAlerts } from "@/components/admin/rating-alerts";
 import { ProfileHeaderLink } from "@/components/profile-header-link";
 import { AccountMenu } from "@/components/account-menu";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
@@ -74,6 +75,7 @@ export async function SiteHeader() {
                 </Link>
               )}
               {completion && <ProfileHeaderLink completion={completion} verified={verified} />}
+              {showDashboard && <RatingAlerts />}
               <NotificationBell />
               <AccountMenu profilePercentage={completion?.percentage ?? null} verified={verified} showDashboard={showDashboard} />
             </>

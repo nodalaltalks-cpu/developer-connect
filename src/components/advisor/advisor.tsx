@@ -127,11 +127,15 @@ export function AdvisorChoices({ context, onChoose }: { context: AdvisorContext;
   );
 }
 
-/** The gold "Talk to an Advisor" button. `data-cta` makes the click a tracked first-party event. */
-export function AdvisorTrigger({ className = "", children = "Talk to an Advisor", tone = "gold" }: { className?: string; children?: ReactNode; tone?: "gold" | "light" | "navy" }) {
+/**
+ * The "Talk to an Advisor" button. `data-cta` makes the click a tracked first-party event. The gold tone is the page's primary
+ * call to action: brass fill with a travelling light round its edge, a sheen and a glow (see .dc-cta in globals.css), plus a
+ * small arrow that nudges toward the click. `size="hero"` is the larger version for the top of a page.
+ */
+export function AdvisorTrigger({ className = "", children = "Talk to an Advisor", tone = "gold", size = "default" }: { className?: string; children?: ReactNode; tone?: "gold" | "light" | "navy"; size?: "default" | "hero" }) {
   const { open } = useAdvisor();
   const tones = {
-    gold: "bg-gold text-gold-foreground hover:bg-gold-hover",
+    gold: "dc-cta text-gold-foreground",
     light: "border border-white/40 text-white hover:bg-white/10",
     navy: "bg-accent text-accent-foreground hover:bg-accent-hover",
   } as const;
@@ -141,9 +145,14 @@ export function AdvisorTrigger({ className = "", children = "Talk to an Advisor"
       data-cta="advisor_open"
       aria-haspopup="dialog"
       onClick={open}
-      className={`inline-flex min-h-12 items-center justify-center rounded-sm px-7 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${tones[tone]} ${className}`}
+      className={`inline-flex ${size === "hero" ? "min-h-14 px-9 text-base" : "min-h-12 px-7 text-sm"} items-center justify-center rounded-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${tone === "gold" ? "" : "transition-colors"} ${tones[tone]} ${className}`}
     >
       {children}
+      {tone === "gold" && (
+        <span aria-hidden="true" className="dc-cta-arrow">
+          &rarr;
+        </span>
+      )}
     </button>
   );
 }

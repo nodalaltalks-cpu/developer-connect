@@ -74,7 +74,8 @@ test("homepage: the headline and sub-line present the research-first positioning
   assert.match(home, /Know before you buy\./);
   assert.match(home, /Property research and advice for Mumbai and Dubai, led by Ambish Singh\./);
   assert.match(home, /Ambish Singh, Founder/);
-  assert.match(home, /MBA in Strategy &middot; 6\+ years in real estate across India and the UAE/);
+  assert.match(home, /MBA in Strategy/);
+  assert.match(home, /6\+ years of experience in real estate across India (&|&amp;) UAE/);
   assert.match(home, /Talk to an Advisor/);
   assert.match(home, /Explore Developers/);
 });

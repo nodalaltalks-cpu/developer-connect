@@ -100,7 +100,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   Property research and advice for Mumbai and Dubai, led by Ambish Singh.
                 </p>
                 <div className="dc-rise mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row" style={{ "--dc-delay": "280ms" } as React.CSSProperties}>
-                  <AdvisorTrigger className="w-full sm:w-auto">Talk to an Advisor</AdvisorTrigger>
+                  <AdvisorTrigger size="hero" className="w-full sm:w-auto">Talk to an Advisor</AdvisorTrigger>
                   <Link
                     href="/developers"
                     className="inline-flex min-h-12 w-full items-center justify-center rounded-sm border border-white/60 px-7 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 sm:w-auto"
@@ -108,12 +108,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                     Explore Developers
                   </Link>
                 </div>
-                <p className="dc-rise mt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-pearl" style={{ "--dc-delay": "380ms" } as React.CSSProperties}>
-                  <Image src="/founder/ambish-singh-avatar.jpg" alt="" width={40} height={40} className="size-10 rounded-full border border-brass-300/70 object-cover" />
-                  <span className="font-semibold">Ambish Singh, Founder</span>
-                  <span aria-hidden="true" className="text-white/40">&middot;</span>
-                  <span>MBA in Strategy &middot; 6+ years in real estate across India and the UAE</span>
-                </p>
+                <div className="dc-rise mt-9 flex flex-col items-center gap-2" style={{ "--dc-delay": "380ms" } as React.CSSProperties}>
+                  <p className="flex items-center gap-3 text-sm text-pearl">
+                    <Image src="/founder/ambish-singh-avatar.jpg" alt="" width={40} height={40} className="size-10 rounded-full border border-brass-300/70 object-cover" />
+                    <span className="font-semibold">Ambish Singh, Founder</span>
+                  </p>
+                  <ul className="flex flex-col items-center gap-0.5 text-sm text-pearl sm:flex-row sm:gap-3">
+                    <li>MBA in Strategy</li>
+                    <li aria-hidden="true" className="hidden text-white/40 sm:block">&middot;</li>
+                    <li>6+ years of experience in real estate across India &amp; UAE</li>
+                  </ul>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-brass-300">No pressure &middot; No obligation</p>
+                </div>
               </div>
             </Container>
           </section>

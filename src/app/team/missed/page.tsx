@@ -26,11 +26,11 @@ export default async function TeamMissedPage() {
     <div>
       <SectionHeading title="Missed follow-ups" description="Follow-ups whose time passed. Resolve each one: complete it, reschedule it, cancel it with a reason, or return the lead." />
       {items.length === 0 ? (
-        <EmptyState title="Nothing overdue" description="You have no missed follow-ups. Your leads are open." />
+        <EmptyState title="No missed leads" description="You have no missed leads. Your leads are open." />
       ) : (
         <>
           <p role="status" className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
-            {items.length === 1 ? "1 follow-up is overdue." : `${items.length} follow-ups are overdue.`} Other leads are closed until you resolve {items.length === 1 ? "it" : "them"}.
+            {items.length === 1 ? "1 missed lead." : `${items.length} missed leads.`} Other leads are closed until you resolve {items.length === 1 ? "it" : "them"}.
           </p>
           <ul className="grid gap-3">
             {items.map((item) => (

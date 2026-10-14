@@ -44,11 +44,11 @@ export function TodayPanel({ today }: { today: MyToday }) {
       <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Tile label="Calls remaining" value={tiles.callsRemaining} href="/team/queue" />
         <Tile label="Follow-ups due" value={tiles.followUpsDue} href="/team/follow-ups" />
-        <Tile label="Missed" value={tiles.missed} href="/team/follow-ups?tab=missed" alert />
-        <Tile label="New leads" value={tiles.newLeads} href="/team?view=new" />
-        <Tile label="Hot leads" value={tiles.hotLeads} href="/team?view=hot" />
+        <Tile label="Missed leads" value={tiles.missed} href="/team/follow-ups?tab=missed" alert />
+        <Tile label="New leads" value={tiles.newLeads} href="/team?view=new#my-leads-list" />
+        <Tile label="Hot leads" value={tiles.hotLeads} href="/team?view=hot#my-leads-list" />
         <Tile label="Site visits today" value={tiles.siteVisitsToday} href="/team/visits" />
-        <Tile label="Need a requirement" value={tiles.requirementsNeeded} href="/team" />
+        <Tile label="Need a requirement" value={tiles.requirementsNeeded} href="/team#my-leads-list" />
       </ul>
 
       {next ? (

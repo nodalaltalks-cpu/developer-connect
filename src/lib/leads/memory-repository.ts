@@ -829,8 +829,10 @@ export function createInMemoryLeadRepositories(
         const row = (id: string) => (out[id] ??= { created: 0, completed: 0, missedNow: 0 });
         for (const f of state.followUps.values()) {
           const inRange = (d: Date | null) => d !== null && d.getTime() >= from.getTime() && d.getTime() < to.getTime();
-          if (inRange(f.createdAt)) row(f.createdBy).created += 1;
-          if (f.completedBy && inRange(f.completedAt)) row(f.completedBy).completed += 1;
+          const owner = state.leads.get(f.leadId);
+          const live = !!owner && !owner.erasedAt && !owner.prospect;
+          if (live && inRange(f.createdAt)) row(f.createdBy).created += 1;
+          if (live && f.completedBy && inRange(f.completedAt)) row(f.completedBy).completed += 1;
           const open = f.status === "MISSED" || (f.status === "SCHEDULED" && f.scheduledAt.getTime() < now.getTime());
           if (open && f.ownerId && !state.leads.get(f.leadId)?.erasedAt) row(f.ownerId).missedNow += 1;
         }

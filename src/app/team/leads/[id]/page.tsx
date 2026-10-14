@@ -103,7 +103,7 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
               detail.followUp === "OVERDUE" ? "text-red-700" : detail.followUp === "TODAY" ? "text-amber-700" : "text-muted-foreground"
             }`}
           >
-            {detail.followUp === "OVERDUE" ? "Follow-up overdue — was due " : "Follow-up "}
+            {detail.followUp === "OVERDUE" ? "Missed — was due " : "Follow-up "}
             {formatDateTimeFull(lead.nextFollowUpAt)}
           </p>
         )}

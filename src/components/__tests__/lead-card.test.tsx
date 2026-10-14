@@ -119,7 +119,7 @@ test("card: no layout that forces sideways scrolling on a phone", () => {
 test("next action: overdue and due-today follow-ups are called out; otherwise the queue reason; otherwise the honest 'none set'", () => {
   const due = new Date("2026-10-06T08:00:00.000Z");
   assert.equal(nextActionLine(item({ followUp: "OVERDUE" }, { nextFollowUpAt: due })).tone, "alert");
-  assert.match(nextActionLine(item({ followUp: "OVERDUE" }, { nextFollowUpAt: due })).text, /overdue/i);
+  assert.match(nextActionLine(item({ followUp: "OVERDUE" }, { nextFollowUpAt: due })).text, /^Missed/);
   assert.equal(nextActionLine(item({ followUp: "TODAY" }, { nextFollowUpAt: new Date("2026-10-06T12:00:00Z") })).tone, "soon");
   assert.equal(nextActionLine(item({ attention: { bucket: "NEW_LEAD", reasons: ["New lead"], summary: "New lead from Acme" } })).text, "New lead from Acme");
   assert.equal(nextActionLine(item()).text, "No follow-up set");

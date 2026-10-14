@@ -8,7 +8,7 @@ import { TeamCallButton } from "@/components/team/team-call-button";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { whatsappHref } from "@/lib/leads/contact-links";
 import { formatDateTimeWithDay, formatDuration, formatEnumLabel, formatOverdue } from "@/lib/leads/format";
-import { FOLLOW_UP_TABS, getMyFollowUpBoard, parseFollowUpTab, type FollowUpTab } from "@/lib/leads/follow-up-board";
+import { getMyFollowUpBoard, parseFollowUpTab, type FollowUpTab } from "@/lib/leads/follow-up-board";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
 import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
 
@@ -20,46 +20,57 @@ export const metadata = {
 // Private, live data: never cached or prerendered.
 export const dynamic = "force-dynamic";
 
-const LABEL: Record<FollowUpTab, string> = { today: "Today", overdue: "Overdue", upcoming: "Upcoming", missed: "Missed" };
+// A follow-up that slipped today and one from an earlier day are one thing to the person doing the work: a missed lead. One list, one name.
+const LABEL: Record<FollowUpTab, string> = { today: "Today", overdue: "Missed leads", upcoming: "Upcoming", missed: "Missed leads" };
+const SHOWN_TABS: readonly FollowUpTab[] = ["today", "upcoming", "missed"];
 const HELP: Record<FollowUpTab, string> = {
   today: "Due for the rest of today, including calls due right now.",
-  overdue: "The time passed today and it is not resolved yet.",
+  overdue: "The follow-up time has passed and it is not resolved yet.",
   upcoming: "Scheduled after today, in the next two weeks.",
-  missed: "The time passed on an earlier day. Resolve these first: until you do, other leads are closed.",
+  missed: "The follow-up time has passed. Resolve these first: until you do, other leads are closed.",
 };
 const EMPTY: Record<FollowUpTab, { title: string; description: string }> = {
   today: { title: "Nothing left for today", description: "No follow-ups are waiting for the rest of today." },
-  overdue: { title: "Nothing overdue", description: "You have no follow-ups that slipped today." },
+  overdue: { title: "No missed leads", description: "You have no missed leads. Your leads are open." },
   upcoming: { title: "Nothing coming up", description: "No follow-ups are scheduled in the next two weeks." },
-  missed: { title: "Nothing missed", description: "You have no missed follow-ups. Your leads are open." },
+  missed: { title: "No missed leads", description: "You have no missed leads. Your leads are open." },
 };
 
 export default async function TeamFollowUpsPage({ searchParams }: PageProps<"/team/follow-ups">) {
   // The scope (my own) comes from the verified session, never from the URL.
   const { actor, member } = await requireEmployee();
   const params = await searchParams;
-  const tab = parseFollowUpTab(params.tab);
+  // The old "overdue" address opens the same single list.
+  const tab: FollowUpTab = parseFollowUpTab(params.tab) === "overdue" ? "missed" : parseFollowUpTab(params.tab);
   const now = new Date();
-  const board = await getMyFollowUpBoard(createPostgresLeadRepositories(), actor, tab, now, createLeadNotifier(createPostgresNotificationRepository()));
+  const repos = createPostgresLeadRepositories();
+  const notifier = createLeadNotifier(createPostgresNotificationRepository());
+  const board = await getMyFollowUpBoard(repos, actor, tab, now, notifier);
+  // The missed list is both kinds together (an earlier day first, then what slipped today).
+  if (tab === "missed") {
+    const slipped = await getMyFollowUpBoard(repos, actor, "overdue", now, notifier);
+    board.items = [...board.items, ...slipped.items];
+  }
   const unresolved = board.counts.overdue + board.counts.missed;
+  board.counts.missed = unresolved;
 
   return (
     <div>
       <LiveRefresh />
       <SectionHeading title="Follow-ups" description="What to do, in time order. One tap to call, WhatsApp, finish or move it." />
 
-      {unresolved > 0 && tab !== "missed" && tab !== "overdue" && (
+      {unresolved > 0 && tab !== "missed" && (
         <p role="status" className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
-          {unresolved} {unresolved === 1 ? "follow-up needs" : "follow-ups need"} resolving.{" "}
-          <Link href={`/team/follow-ups?tab=${board.counts.missed > 0 ? "missed" : "overdue"}`} className="underline">
-            Open {board.counts.missed > 0 ? "missed" : "overdue"}
+          {unresolved} missed {unresolved === 1 ? "lead needs" : "leads need"} resolving.{" "}
+          <Link href="/team/follow-ups?tab=missed" className="underline">
+            Open missed leads
           </Link>
         </p>
       )}
 
       <nav aria-label="Follow-up lists">
         <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
-          {FOLLOW_UP_TABS.map((t) => (
+          {SHOWN_TABS.map((t) => (
             <li key={t} className="shrink-0">
               <Link
                 href={t === "today" ? "/team/follow-ups" : `/team/follow-ups?tab=${t}`}
@@ -67,7 +78,7 @@ export default async function TeamFollowUpsPage({ searchParams }: PageProps<"/te
                 className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm transition-colors ${t === tab ? "border-accent bg-accent-soft font-medium text-accent-hover" : "border-border text-foreground hover:bg-muted"}`}
               >
                 {LABEL[t]}
-                <span className={`rounded-full px-2 py-0.5 text-xs ${(t === "missed" || t === "overdue") && board.counts[t] > 0 ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground"}`}>{board.counts[t]}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${t === "missed" && board.counts[t] > 0 ? "bg-red-100 text-red-800" : "bg-muted text-muted-foreground"}`}>{board.counts[t]}</span>
               </Link>
             </li>
           ))}

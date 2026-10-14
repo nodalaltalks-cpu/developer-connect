@@ -32,13 +32,13 @@ function parsePage(value: string | string[] | undefined): number {
 }
 
 const EMPTY_COPY: Record<LeadView, { title: string; description: string }> = {
-  attention: { title: "Nothing needs you right now", description: "No overdue follow-ups, new leads or returning buyers waiting. New leads appear here the moment they arrive." },
+  attention: { title: "Nothing needs you right now", description: "No missed leads, new leads or returning buyers waiting. New leads appear here the moment they arrive." },
   all: { title: "No leads yet", description: "Leads appear here when a visitor shares their details to open a developer's official website." },
   new: { title: "No new leads", description: "Every lead has been picked up." },
   hot: { title: "No hot leads", description: "Mark a lead Hot from its page when the buyer is ready to move." },
   warm: { title: "No warm leads", description: "Leads you mark Warm appear here." },
   cold: { title: "No cold leads", description: "Leads you mark Cold appear here." },
-  overdue: { title: "No overdue follow-ups", description: "Nothing is past its follow-up time." },
+  overdue: { title: "No missed leads", description: "No lead is past its follow-up time." },
   due_today: { title: "No follow-ups due today", description: "Nothing is scheduled for the rest of today." },
   qualified: { title: "No qualified leads", description: "Leads you move to Qualified appear here." },
 };
@@ -68,6 +68,8 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
     pagination = { page: result.page, pageCount: result.pageCount, total: result.total };
   }
 
+  // Every tile opens the list it counts, scrolled straight to it.
+  const tileHref = (target: LeadView) => `/admin/leads?view=${target}${source === "all" ? "" : `&source=${source}`}#lead-list`;
   const href = (nextPage: number) => `/admin/leads?view=${view}&page=${nextPage}${source === "all" ? "" : `&source=${source}`}`;
 
   return (
@@ -76,16 +78,16 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
       <SectionHeading title="Leads" description="Buyers who asked to be helped. Private — visible only to you." />
 
       <StatGrid>
-        <StatTile label="Total leads" value={counts.total} />
-        <StatTile label="New" value={counts.new} />
-        <StatTile label="Hot" value={counts.hot} />
-        <StatTile label="Warm" value={counts.warm} />
-        <StatTile label="Cold" value={counts.cold} />
-        <StatTile label="Overdue follow-ups" value={counts.overdue} />
-        <StatTile label="Due today" value={counts.dueToday} />
-        <StatTile label="Qualified" value={counts.qualified} />
-        <StatTile label="Site visits scheduled" value={counts.siteVisitScheduled} />
-        <StatTile label="Booked" value={counts.booked} />
+        <StatTile label="Total leads" value={counts.total} href={tileHref("all")} />
+        <StatTile label="New" value={counts.new} href={tileHref("new")} />
+        <StatTile label="Hot" value={counts.hot} href={tileHref("hot")} />
+        <StatTile label="Warm" value={counts.warm} href={tileHref("warm")} />
+        <StatTile label="Cold" value={counts.cold} href={tileHref("cold")} />
+        <StatTile label="Missed leads" value={counts.overdue} href={tileHref("overdue")} />
+        <StatTile label="Due today" value={counts.dueToday} href={tileHref("due_today")} />
+        <StatTile label="Qualified" value={counts.qualified} href={tileHref("qualified")} />
+        <StatTile label="Site visits scheduled" value={counts.siteVisitScheduled} href="/admin/site-visits" />
+        <StatTile label="Booked" value={counts.booked} href="/admin/finance" />
       </StatGrid>
       <p className="mt-2 text-xs text-muted-foreground">
         Counts only — no conversion rates until there are enough leads to mean something. Hot, warm, cold and follow-up counts exclude closed-out leads.
@@ -98,7 +100,7 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
         <LeadsViewTabs active={view} source={source} />
       </div>
 
-      <h2 className="mt-4 text-sm font-medium text-foreground">
+      <h2 id="lead-list" className="mt-4 scroll-mt-4 text-sm font-medium text-foreground">
         {source === "all" ? "" : `${SOURCE_FILTER_LABEL[source]} · `}
         {VIEW_LABELS[view]}
         {pagination ? ` · ${pagination.total}` : items.length ? ` · ${items.length}` : ""}

@@ -7,7 +7,7 @@ export const VIEW_LABELS: Record<LeadView, string> = {
   hot: "Hot",
   warm: "Warm",
   cold: "Cold",
-  overdue: "Overdue",
+  overdue: "Missed leads",
   due_today: "Due today",
   qualified: "Qualified",
   all: "All",

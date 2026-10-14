@@ -6,7 +6,7 @@ export const MY_VIEW_LABELS: Record<MyLeadView, string> = {
   new: "New",
   follow_up_due: "Follow-up due",
   hot: "Hot",
-  missed: "Missed",
+  missed: "Missed leads",
 };
 
 const ORDER: MyLeadView[] = ["all", "new", "follow_up_due", "hot"];

@@ -152,7 +152,7 @@ export function LeadActionsPanel(props: LeadPanelProps) {
         )}
       </Section>
 
-      <Section title="Temperature">
+      <Section title="Lead status">
         <div className="grid grid-cols-3 gap-2">
           {LEAD_TEMPERATURES.map((t) => (
             <button
@@ -172,16 +172,16 @@ export function LeadActionsPanel(props: LeadPanelProps) {
             type="button"
             disabled={pending}
             className="mt-2 min-h-11 text-sm text-muted-foreground underline"
-            onClick={() => perform(() => setLeadTemperatureAction(leadId, null), "Temperature cleared.")}
+            onClick={() => perform(() => setLeadTemperatureAction(leadId, null), "Lead status cleared.")}
           >
-            Clear temperature
+            Clear lead status
           </button>
         )}
       </Section>
 
-      <Section title="Status">
+      <Section title="Stage">
         <label className="sr-only" htmlFor="lead-status">
-          Status
+          Stage
         </label>
         <select id="lead-status" value={status} onChange={(e) => setStatus(e.target.value as LeadStatus)} className={FIELD}>
           {LEAD_STATUSES.map((s) => (
@@ -203,9 +203,9 @@ export function LeadActionsPanel(props: LeadPanelProps) {
           type="button"
           disabled={pending || status === props.status}
           className={`${BTN_PRIMARY} mt-2 w-full`}
-          onClick={() => perform(() => changeLeadStatusAction(leadId, status, status === "LOST" ? reason : undefined), "Status updated.")}
+          onClick={() => perform(() => changeLeadStatusAction(leadId, status, status === "LOST" ? reason : undefined), "Stage updated.")}
         >
-          Update status
+          Update stage
         </button>
       </Section>
 

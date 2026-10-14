@@ -15,7 +15,7 @@ const ACTION_PRIMARY =
 /** The one line that answers "what do I do with this lead?" */
 export function nextActionLine(item: LeadListItem): { text: string; tone: "alert" | "soon" | "plain" } {
   const { lead, followUp, attention } = item;
-  if (followUp === "OVERDUE" && lead.nextFollowUpAt) return { text: `Follow-up overdue — was due ${formatDateTime(lead.nextFollowUpAt)}`, tone: "alert" };
+  if (followUp === "OVERDUE" && lead.nextFollowUpAt) return { text: `Missed — was due ${formatDateTime(lead.nextFollowUpAt)}`, tone: "alert" };
   if (followUp === "TODAY" && lead.nextFollowUpAt) return { text: `Follow-up today at ${formatDateTime(lead.nextFollowUpAt)}`, tone: "soon" };
   if (attention) return { text: attention.summary, tone: "soon" };
   if (followUp === "UPCOMING" && lead.nextFollowUpAt) return { text: `Follow-up ${formatDateTime(lead.nextFollowUpAt)}`, tone: "plain" };

@@ -1106,16 +1106,19 @@ function build(db: DbOrTx): LeadRepositories {
       async statsByStaff(from, to, now) {
         const out: Record<string, { created: number; completed: number; missedNow: number }> = {};
         const row = (id: string) => (out[id] ??= { created: 0, completed: 0, missedNow: 0 });
+        // An erased lead (or a bare cold-call prospect) is not part of anyone's figures.
         const created = await db
           .select({ id: leadFollowUps.createdBy, total: sql<number>`count(*)::int` })
           .from(leadFollowUps)
-          .where(and(gte(leadFollowUps.createdAt, from), lt(leadFollowUps.createdAt, to)))
+          .innerJoin(leads, eq(leads.id, leadFollowUps.leadId))
+          .where(and(liveLead, gte(leadFollowUps.createdAt, from), lt(leadFollowUps.createdAt, to)))
           .groupBy(leadFollowUps.createdBy);
         for (const r of created) row(r.id).created = r.total;
         const completed = await db
           .select({ id: leadFollowUps.completedBy, total: sql<number>`count(*)::int` })
           .from(leadFollowUps)
-          .where(and(isNotNull(leadFollowUps.completedBy), gte(leadFollowUps.completedAt, from), lt(leadFollowUps.completedAt, to)))
+          .innerJoin(leads, eq(leads.id, leadFollowUps.leadId))
+          .where(and(liveLead, isNotNull(leadFollowUps.completedBy), gte(leadFollowUps.completedAt, from), lt(leadFollowUps.completedAt, to)))
           .groupBy(leadFollowUps.completedBy);
         for (const r of completed) if (r.id) row(r.id).completed = r.total;
         const missed = await db

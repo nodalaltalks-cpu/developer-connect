@@ -78,3 +78,30 @@ test("trail: leaves out bookkeeping, shows a note as a Comment with its day, dat
   assert.match(source, /formatDateTimeWithDay\(line\.at\)/);
   assert.match(source, /\.reverse\(\)/);
 });
+
+test("missed leads: one name everywhere (no separate 'overdue'), tiles open the list they count, hot/warm/cold is the lead status", () => {
+  const founderLeads = read("src/app/admin/leads/page.tsx");
+  assert.match(founderLeads, /label="Missed leads"/);
+  assert.doesNotMatch(founderLeads, /Overdue follow-ups|No overdue follow-ups/);
+  for (const view of ["all", "new", "hot", "warm", "cold", "overdue", "due_today", "qualified"]) assert.ok(founderLeads.includes(`tileHref("${view}")`), `${view} tile is a link`);
+  assert.match(founderLeads, /id="lead-list"/);
+  assert.match(read("src/components/admin/stat-tile.tsx"), /href\?: string/);
+  const today = read("src/components/team/today-panel.tsx");
+  assert.match(today, /label="Missed leads"/);
+  assert.doesNotMatch(today, /label="Missed"/);
+  assert.match(read("src/app/team/page.tsx"), /id="my-leads-list"/);
+  assert.match(read("src/components/admin/leads/leads-view-tabs.tsx"), /overdue: "Missed leads"/);
+  const panel = read("src/components/admin/leads/lead-actions-panel.tsx");
+  assert.match(panel, /<Section title="Lead status">/);
+  assert.doesNotMatch(panel, /<Section title="Temperature">|Clear temperature/);
+  for (const file of ["src/app/admin/leads/[id]/page.tsx", "src/app/team/leads/[id]/page.tsx", "src/components/admin/leads/lead-card.tsx"]) {
+    assert.doesNotMatch(read(file), /Follow-up overdue/, `${file} says Missed, not overdue`);
+  }
+});
+
+test("erased leads: follow-ups of an erased lead are not counted as created or completed", () => {
+  const sql = read("src/lib/leads/db/postgres-repository.ts");
+  const stats = sql.slice(sql.indexOf("async statsByStaff(from, to, now)"), sql.indexOf("async eraseForLead(leadId) {\n        await db.update(leadFollowUps)"));
+  assert.equal((stats.match(/liveLead/g) ?? []).length, 3, "created, completed and missed all exclude erased leads");
+  assert.match(read("src/lib/leads/memory-repository.ts"), /const live = !!owner && !owner\.erasedAt && !owner\.prospect;/);
+});

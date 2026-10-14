@@ -72,7 +72,7 @@ export default async function AdminMissedLeadsPage({ searchParams }: PageProps<"
           </select>
         </label>
         <label className="text-sm text-foreground">
-          Overdue by at least
+          Missed for at least
           <select name="minHours" defaultValue={first(params.minHours) ?? ""} className={`${FIELD} mt-1`}>
             <option value="">Any</option>
             <option value="1">1 hour</option>
@@ -81,7 +81,7 @@ export default async function AdminMissedLeadsPage({ searchParams }: PageProps<"
           </select>
         </label>
         <label className="text-sm text-foreground">
-          Temperature
+          Lead status
           <select name="temperature" defaultValue={first(params.temperature) ?? ""} className={`${FIELD} mt-1`}>
             <option value="">Any</option>
             {LEAD_TEMPERATURES.map((t) => (
@@ -110,7 +110,7 @@ export default async function AdminMissedLeadsPage({ searchParams }: PageProps<"
       <h2 className="text-sm font-medium text-foreground">Unresolved · {items.length}</h2>
       {items.length === 0 ? (
         <div className="mt-3">
-          <EmptyState title="Nothing missed" description="No follow-up is overdue for these filters." />
+          <EmptyState title="Nothing missed" description="No lead is missed for these filters." />
         </div>
       ) : (
         <ul className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">

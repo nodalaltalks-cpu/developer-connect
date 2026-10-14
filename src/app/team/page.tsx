@@ -37,9 +37,9 @@ function parsePage(value: string | string[] | undefined): number {
 const EMPTY_COPY: Record<MyLeadView, { title: string; description: string }> = {
   all: { title: "No leads assigned to you yet", description: "When the Founder assigns you a lead, it appears here." },
   new: { title: "No new leads", description: "Every lead assigned to you has been picked up." },
-  follow_up_due: { title: "No follow-ups due", description: "Nothing of yours is overdue or due today." },
+  follow_up_due: { title: "No follow-ups due", description: "Nothing of yours is missed or due today." },
   hot: { title: "No hot leads", description: "Leads the Founder marks Hot appear here." },
-  missed: { title: "Nothing overdue", description: "You have no missed follow-ups." },
+  missed: { title: "No missed leads", description: "You have no missed leads." },
 };
 
 function DueRow({ item }: { item: MyWorkItem }) {
@@ -73,9 +73,9 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
   if (work.blocked) {
     return (
       <div>
-        <SectionHeading title="My Leads" description="Resolve your overdue follow-ups first." />
+        <SectionHeading title="My Leads" description="Resolve your missed leads first." />
         <p role="alert" className="mb-3 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm font-medium text-red-800">
-          {work.missed.length === 1 ? "1 follow-up is overdue." : `${work.missed.length} follow-ups are overdue.`} Your other leads are closed until you resolve{" "}
+          {work.missed.length === 1 ? "1 missed lead." : `${work.missed.length} missed leads.`} Your other leads are closed until you resolve{" "}
           {work.missed.length === 1 ? "it" : "them"}: complete it, reschedule it, cancel it with a reason, or return the lead.
         </p>
         <ul className="grid gap-3">
@@ -136,7 +136,7 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
       </div>
       <MyLeadsTabs active={view} source={source} />
 
-      <h2 className="mt-4 text-sm font-medium text-foreground">
+      <h2 id="my-leads-list" className="mt-4 scroll-mt-4 text-sm font-medium text-foreground">
         {MY_VIEW_LABELS[view]} · {result.total}
       </h2>
 

@@ -105,7 +105,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
           <Stat label="Connected" value={sales.calls.connected} />
           <Stat label="Talk time" value={minutes(sales.calls.talkSeconds)} />
           <Stat label="Follow-ups done" value={`${sales.followUps.completed}/${sales.followUps.created}`} />
-          <Stat label="Follow-ups overdue" value={sales.followUps.missedNow} />
+          <Stat label="Missed leads" value={sales.followUps.missedNow} />
           <Stat label="Requirements" value={sales.requirementsCreated} />
           <Stat label="Projects shortlisted" value={sales.projectsShortlisted} />
           <Stat label="Site visits done" value={`${sales.siteVisits.completed}/${sales.siteVisits.scheduled}`} />

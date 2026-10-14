@@ -95,7 +95,7 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
         )}
         {detail.followUp && lead.nextFollowUpAt && (
           <p className={`mt-2 text-sm font-medium ${detail.followUp === "OVERDUE" ? "text-red-700" : detail.followUp === "TODAY" ? "text-amber-700" : "text-muted-foreground"}`}>
-            {detail.followUp === "OVERDUE" ? "Follow-up overdue — was due " : "Follow-up "}
+            {detail.followUp === "OVERDUE" ? "Missed — was due " : "Follow-up "}
             {formatDateTimeFull(lead.nextFollowUpAt)}
           </p>
         )}

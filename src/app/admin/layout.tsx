@@ -4,6 +4,7 @@ import { UserButton } from "@clerk/nextjs";
 import { currentUser } from "@/lib/auth";
 import { AlertsMessage, AlertsPill } from "@/components/team/alerts-control";
 import { FollowUpAlerts } from "@/components/team/follow-up-alerts";
+import { NewLeadAlerts } from "@/components/team/new-lead-alerts";
 import { NotificationBell } from "@/components/notification-bell";
 import { RatingAlerts } from "@/components/admin/rating-alerts";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
@@ -81,6 +82,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
 
         <main className="min-w-0 flex-1">
           {/* The Founder also works leads, so the same strong follow-up alerts run here (the banner is the header pill). */}
+          <NewLeadAlerts />
           <AlertsMessage />
           <FollowUpAlerts showBanner={false} />
           {children}

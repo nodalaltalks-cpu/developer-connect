@@ -25,18 +25,20 @@ const KIND_TITLE = {
 const OPEN =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-border px-3 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-function Tile({ label, value, href, alert = false }: { label: string; value: number; href: string; alert?: boolean }) {
+function Tile({ label, value, href, alert = false, green = false }: { label: string; value: number; href: string; alert?: boolean; green?: boolean }) {
+  const hot = alert && value > 0;
+  const fresh = green && value > 0;
   return (
     <li>
-      <Link href={href} className={`flex min-h-16 flex-col justify-center rounded-lg border px-3 py-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${alert && value > 0 ? "border-red-200 bg-red-50" : "border-border"}`}>
-        <span className={`text-xl font-semibold ${alert && value > 0 ? "text-red-700" : "text-foreground"}`}>{value}</span>
-        <span className="text-xs text-muted-foreground">{label}</span>
+      <Link href={href} className={`flex min-h-16 flex-col justify-center rounded-lg border px-3 py-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${hot ? "border-red-200 bg-red-50" : fresh ? "border-green-400 bg-green-50" : "border-border"}`}>
+        <span className={`text-xl font-semibold ${hot ? "text-red-700" : fresh ? "text-green-800" : "text-foreground"}`}>{value}</span>
+        <span className={`text-xs ${fresh ? "font-semibold text-green-800" : "text-muted-foreground"}`}>{label}</span>
       </Link>
     </li>
   );
 }
 
-export function TodayPanel({ today }: { today: MyToday }) {
+export function TodayPanel({ today, waitingEnquiries = 0 }: { today: MyToday; waitingEnquiries?: number }) {
   const { tiles, next } = today;
   return (
     <section aria-label="Today" className="mb-5">
@@ -45,7 +47,8 @@ export function TodayPanel({ today }: { today: MyToday }) {
         <Tile label="Calls remaining" value={tiles.callsRemaining} href="/team/queue" />
         <Tile label="Follow-ups due" value={tiles.followUpsDue} href="/team/follow-ups" />
         <Tile label="Missed leads" value={tiles.missed} href="/team/follow-ups?tab=missed" alert />
-        <Tile label="New leads" value={tiles.newLeads} href="/team?view=new#my-leads-list" />
+        {waitingEnquiries > 0 && <Tile label="New enquiries waiting" value={waitingEnquiries} href="/admin/leads?view=new&source=digital#lead-list" alert />}
+        <Tile label="New leads" value={tiles.newLeads} href="/team?view=new#my-leads-list" green />
         <Tile label="Hot leads" value={tiles.hotLeads} href="/team?view=hot#my-leads-list" />
         <Tile label="Site visits today" value={tiles.siteVisitsToday} href="/team/visits" />
         <Tile label="Need a requirement" value={tiles.requirementsNeeded} href="/team#my-leads-list" />

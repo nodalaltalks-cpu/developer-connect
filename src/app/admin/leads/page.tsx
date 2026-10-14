@@ -58,6 +58,9 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
 
   const owners = staffNameMap(await createPostgresStaffRepository().list());
   const counts = await getLeadCounts(repos, now, sourceType);
+  // New leads per bucket, so a bucket that holds one is marked green even when another is open.
+  const [digitalCounts, coldCounts] = await Promise.all([getLeadCounts(repos, now, "DIGITAL"), getLeadCounts(repos, now, "COLD_CALL")]);
+  const newCounts = { all: digitalCounts.new + coldCounts.new, digital: digitalCounts.new, cold_call: coldCounts.new };
   let items: LeadListItem[];
   let pagination: { page: number; pageCount: number; total: number } | null = null;
   if (view === "attention") {
@@ -79,7 +82,7 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
 
       <StatGrid>
         <StatTile label="Total leads" value={counts.total} href={tileHref("all")} />
-        <StatTile label="New" value={counts.new} href={tileHref("new")} />
+        <StatTile label="New" value={counts.new} href={tileHref("new")} tone={counts.new > 0 ? "green" : undefined} />
         <StatTile label="Hot" value={counts.hot} href={tileHref("hot")} />
         <StatTile label="Warm" value={counts.warm} href={tileHref("warm")} />
         <StatTile label="Cold" value={counts.cold} href={tileHref("cold")} />
@@ -94,7 +97,7 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
       </p>
 
       <div className="mt-6">
-        <LeadSourceTabs active={source} hrefFor={(filter) => `/admin/leads?view=${view}${filter === "all" ? "" : `&source=${filter}`}`} />
+        <LeadSourceTabs active={source} newCounts={newCounts} hrefFor={(filter) => `/admin/leads?view=${view}${filter === "all" ? "" : `&source=${filter}`}`} />
       </div>
       <div className="mt-3">
         <LeadsViewTabs active={view} source={source} />

@@ -5,6 +5,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { DeviceCallSync } from "@/components/team/device-call-sync";
 import { AlertsPill } from "@/components/team/alerts-control";
 import { FollowUpAlerts } from "@/components/team/follow-up-alerts";
+import { NewLeadAlerts } from "@/components/team/new-lead-alerts";
 import { MissedLock } from "@/components/team/missed-lock";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getMyWorkState } from "@/lib/leads/follow-up-reads";
@@ -62,6 +63,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
       <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:pb-6">
         <DeviceCallSync />
         <TeamNav founder={founderView} />
+        <NewLeadAlerts />
         <FollowUpAlerts />
         <MissedLock missed={missed} />
         <main className="min-w-0">{children}</main>

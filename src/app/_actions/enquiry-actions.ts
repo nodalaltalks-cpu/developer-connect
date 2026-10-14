@@ -7,6 +7,8 @@ import { postgresEnquiryStore } from "@/lib/social/db/postgres-social";
 import { getOrCreateSessionId } from "@/lib/session";
 import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
 import { recordEnquiry } from "@/lib/enquiries/service";
+import { createNewEnquiryNotifier } from "@/lib/leads/new-lead-notifier";
+import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
 
 /**
  * The public tap-to-select enquiry form. The browser sends only the tapped answers, the optional name, the number and how the
@@ -53,6 +55,13 @@ export async function submitEnquiryAction(payload: EnquiryPayload): Promise<Enqu
         },
       },
     );
+    if (result.ok) {
+      try {
+        await createNewEnquiryNotifier(createPostgresNotificationRepository()).received({ leadId: result.leadId, ownerId: null, developerName: null, created: result.created });
+      } catch {
+        // the lead is saved; the alert is a convenience
+      }
+    }
     if (result.ok && userId) {
       try {
         const answers = (payload.answers && typeof payload.answers === "object" ? payload.answers : {}) as Record<string, unknown>;

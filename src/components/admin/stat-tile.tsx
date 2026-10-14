@@ -7,11 +7,14 @@ export function StatTile({
   value,
   hint,
   href,
+  tone,
 }: {
   label: string;
   value: ReactNode;
   hint?: string;
   href?: string;
+  /** "green" marks something new that needs picking up. */
+  tone?: "green";
 }) {
   const body = (
     <>
@@ -20,9 +23,10 @@ export function StatTile({
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </>
   );
-  if (!href) return <div className="rounded-lg border border-border p-4">{body}</div>;
+  const colour = tone === "green" ? "border-green-400 bg-green-50" : "border-border";
+  if (!href) return <div className={`rounded-lg border p-4 ${colour}`}>{body}</div>;
   return (
-    <Link href={href} className="block rounded-lg border border-border p-4 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link href={href} className={`block rounded-lg border p-4 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${colour}`}>
       {body}
     </Link>
   );

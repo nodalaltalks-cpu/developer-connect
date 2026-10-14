@@ -19,7 +19,7 @@ export function TemperatureBadge({ temperature }: { temperature: LeadTemperature
 }
 
 const STATUS_CLASS: Partial<Record<LeadStatus, string>> = {
-  NEW: "bg-accent-soft text-accent-hover",
+  NEW: "bg-green-100 font-semibold text-green-800 ring-1 ring-green-300",
   BOOKED: "bg-green-50 text-green-700",
   CLOSED: "bg-muted text-muted-foreground",
   LOST: "bg-muted text-muted-foreground",

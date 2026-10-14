@@ -112,5 +112,5 @@ test("static: the panel links every tile to the list it counts and the page load
   assert.match(panel, /Next best action/);
   const page = read("src/app/team/page.tsx");
   assert.match(page, /getMyToday\(repos, actor, work, now\)/);
-  assert.match(page, /<TodayPanel today=\{today\} \/>/);
+  assert.match(page, /<TodayPanel today=\{today\} waitingEnquiries=\{waitingEnquiries\} \/>/);
 });

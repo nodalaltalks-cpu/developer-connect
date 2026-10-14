@@ -15,6 +15,8 @@ import { createLeadNotifier } from "@/lib/leads/lead-notifier";
 import { formatDateTimeWithDay, formatEnumLabel } from "@/lib/leads/format";
 import { getMyLeadsPage, MY_LEAD_VIEWS, type MyLeadView } from "@/lib/leads/lead-reads";
 import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
+import { currentUser, isFounder } from "@/lib/auth";
+import { endOfDayIn } from "@/lib/leads/lead-views";
 
 export const metadata = {
   title: "My Leads | Developer Connects",
@@ -88,6 +90,17 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
   }
 
   const [result, today] = await Promise.all([getMyLeadsPage(repos, actor, view, page, now, undefined, sourceTypeOf(source)), getMyToday(repos, actor, work, now)]);
+  // New leads in each bucket, so a bucket holding one is marked green, and (Founder only) every enquiry still waiting to be contacted.
+  const endOfToday = endOfDayIn(now);
+  const newIn = async (sourceType?: "DIGITAL" | "COLD_CALL") =>
+    (await repos.leads.list({ view: "new", ownerId: actor.actorId!, ...(sourceType ? { sourceType } : {}), limit: 1, offset: 0, now, endOfToday })).total;
+  const founderView = isFounder(await currentUser());
+  const [newDigital, newCold, waitingEnquiries] = await Promise.all([
+    newIn("DIGITAL"),
+    newIn("COLD_CALL"),
+    founderView ? repos.leads.list({ view: "new", sourceType: "DIGITAL", limit: 1, offset: 0, now, endOfToday }).then((r) => r.total) : Promise.resolve(0),
+  ]);
+  const newCounts = { all: newDigital + newCold, digital: newDigital, cold_call: newCold };
   const href = (nextPage: number) => `/team?view=${view}&page=${nextPage}${source === "all" ? "" : `&source=${source}`}`;
 
   return (
@@ -98,7 +111,7 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
           The lead was returned to the Founder. It is no longer in your list.
         </p>
       )}
-      <TodayPanel today={today} />
+      <TodayPanel today={today} waitingEnquiries={waitingEnquiries} />
       <SectionHeading title="My Leads" description="Leads assigned to you. Private — visible only to you and the Founder." />
       <p className="-mt-2 mb-2 sm:hidden">
         <Link href="/team/visits" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
@@ -132,7 +145,7 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
       )}
 
       <div className="mb-3">
-        <LeadSourceTabs active={source} hrefFor={(filter) => `/team?view=${view}${filter === "all" ? "" : `&source=${filter}`}`} />
+        <LeadSourceTabs active={source} newCounts={newCounts} hrefFor={(filter) => `/team?view=${view}${filter === "all" ? "" : `&source=${filter}`}#my-leads-list`} />
       </div>
       <MyLeadsTabs active={view} source={source} />
 

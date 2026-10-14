@@ -7,6 +7,7 @@ import { maskPhone } from "../phone.ts";
 import type { LeadRepositories } from "../repository.ts";
 import type { ContactPreference, TouchInput } from "../types.ts";
 import type { NewBuyerEnquiry } from "../../enquiries/types.ts";
+import type { NewEnquiryNotifier } from "../new-lead-notifier.ts";
 import { GATE_ERROR_MESSAGES, type GateErrorCode } from "./gate-copy.ts";
 import {
   GATE_CONTACT_PREFERENCES,
@@ -44,6 +45,8 @@ export interface GateDeps {
   now: () => Date;
   /** Adds the request to the signed-in buyer's own enquiry history. Optional and best effort: it never affects the request. */
   enquiries?: { record(entry: NewBuyerEnquiry): Promise<unknown> };
+  /** Tells the Founder (and the lead's owner) the moment an enquiry arrives. Optional and best effort: it never affects the request. */
+  newLead?: NewEnquiryNotifier;
 }
 
 export interface GateContext {
@@ -217,6 +220,14 @@ async function captureRequest(
       });
     } catch {
       // the history is a convenience for the buyer; the request itself is already saved
+    }
+  }
+
+  if (deps.newLead) {
+    try {
+      await deps.newLead.received({ leadId: captured.lead.id, ownerId: captured.lead.ownerId ?? null, developerName: resolved.developer.displayName, created: captured.created });
+    } catch {
+      // the alert is a convenience on top of the saved lead; the enquiry itself is already recorded
     }
   }
 

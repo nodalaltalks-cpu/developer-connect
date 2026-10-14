@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { FounderMoreSheet } from "@/components/admin/founder-more-sheet";
 
 /**
  * The employee's navigation. On a phone it is a bottom bar in thumb reach (home-indicator safe area respected); from
@@ -19,6 +21,7 @@ const ITEMS = [
 
 export function TeamNav({ founder = false }: { founder?: boolean }) {
   const pathname = usePathname();
+  const [more, setMore] = useState(false);
   return (
     <>
       <nav aria-label="Team workspace" className="mb-4 hidden gap-x-4 sm:flex">
@@ -28,9 +31,14 @@ export function TeamNav({ founder = false }: { founder?: boolean }) {
           </Link>
         ))}
         {founder && (
-          <Link href="/admin" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
-            Founder dashboard
-          </Link>
+          <>
+            <Link href="/admin" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
+              Founder dashboard
+            </Link>
+            <button type="button" onClick={() => setMore(true)} aria-haspopup="dialog" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
+              More
+            </button>
+          </>
         )}
       </nav>
       <nav aria-label="Team quick navigation" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
@@ -46,8 +54,17 @@ export function TeamNav({ founder = false }: { founder?: boolean }) {
               </li>
             );
           })}
+          {founder && (
+            <li className="flex flex-1">
+              <button type="button" onClick={() => setMore(true)} aria-haspopup="dialog" className="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-[11px] font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                <span aria-hidden="true" className="h-1 w-6 rounded-full bg-transparent" />
+                More
+              </button>
+            </li>
+          )}
         </ul>
       </nav>
+      {founder && <FounderMoreSheet open={more} onClose={() => setMore(false)} />}
     </>
   );
 }

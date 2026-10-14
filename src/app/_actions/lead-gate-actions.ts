@@ -8,6 +8,8 @@ import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-reposito
 import { getOrCreateSessionId, getDeviceType } from "@/lib/session";
 import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
 import { recordEnquiry } from "@/lib/enquiries/service";
+import { createNewEnquiryNotifier } from "@/lib/leads/new-lead-notifier";
+import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
 import { RETURNING_LEAD_TTL_DAYS } from "@/lib/leads/gate/gate-config";
 import { LEAD_COOKIE_NAME, signLeadToken, verifyLeadToken } from "@/lib/leads/gate/lead-cookie";
 import {
@@ -54,6 +56,7 @@ async function buildGate(): Promise<{ deps: GateDeps; ctx: GateContext; leadId: 
       analytics: postgresAnalyticsSink,
       now,
       enquiries: { record: (entry) => recordEnquiry(createPostgresBuyerEnquiryRepository(), entry) },
+      newLead: createNewEnquiryNotifier(createPostgresNotificationRepository()),
     },
     ctx: { sessionId, userId: userId ?? null, deviceType },
     leadId,

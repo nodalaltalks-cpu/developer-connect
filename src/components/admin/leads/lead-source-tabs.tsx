@@ -8,7 +8,8 @@ import Link from "next/link";
 export { SOURCE_FILTERS, SOURCE_FILTER_LABEL, parseSourceFilter, sourceTypeOf, type SourceFilter } from "@/lib/leads/source-filter";
 import { SOURCE_FILTERS, SOURCE_FILTER_LABEL, type SourceFilter } from "@/lib/leads/source-filter";
 
-export function LeadSourceTabs({ active, hrefFor }: { active: SourceFilter; hrefFor: (filter: SourceFilter) => string }) {
+/** `newCounts`: how many NEW leads each bucket holds. A bucket with new leads shows a green badge so they are never overlooked. */
+export function LeadSourceTabs({ active, hrefFor, newCounts }: { active: SourceFilter; hrefFor: (filter: SourceFilter) => string; newCounts?: Partial<Record<SourceFilter, number>> }) {
   return (
     <nav aria-label="Lead source">
       <ul className="inline-flex rounded-full border border-border p-1">
@@ -22,6 +23,9 @@ export function LeadSourceTabs({ active, hrefFor }: { active: SourceFilter; href
               }`}
             >
               {SOURCE_FILTER_LABEL[filter]}
+              {(newCounts?.[filter] ?? 0) > 0 && (
+                <span className="ml-2 rounded-full bg-green-600 px-2 py-0.5 text-xs font-bold text-white">{newCounts?.[filter]} new</span>
+              )}
             </Link>
           </li>
         ))}

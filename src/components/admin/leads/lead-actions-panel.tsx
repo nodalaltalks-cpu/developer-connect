@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionBar } from "@/components/leads/section-bar";
 import { useState, useTransition, type ReactNode } from "react";
 import {
   addLeadNoteAction,
@@ -49,7 +50,7 @@ const FIELD =
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-lg border border-border p-4">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <SectionBar title={title} />
       <div className="mt-3">{children}</div>
     </section>
   );

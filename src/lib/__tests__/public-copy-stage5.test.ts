@@ -96,7 +96,7 @@ test("buy-direct guides: still teach the useful steps (verify the developer, che
 
   const body = BUY_DIRECT_STEPS.map((step) => step.title + " " + step.body).join(" ");
   assert.match(body, /Reach the developer through a channel you trust/);
-  assert.match(body, /our property team can help you reach them/);
+  assert.match(body, /Tell Developer Connects what you need/);
 
   const faq = buyDirectFaq().map((item) => item.question + " " + item.answer).join(" ");
   assert.match(faq, /Developer Connects can help you connect with the developer/);

@@ -89,7 +89,10 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
 
       <header className="mt-1">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight text-foreground">{lead.name ?? "Unnamed lead"}</h1>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Lead name</p>
+            <h1 className="break-words text-xl font-semibold tracking-tight text-foreground">{lead.name ?? "Unnamed lead"}</h1>
+          </div>
           <TemperatureBadge temperature={lead.temperature} />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">

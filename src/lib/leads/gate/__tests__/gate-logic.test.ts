@@ -33,7 +33,7 @@ const allCopy = (preference: "WHATSAPP" | "PHONE_CALL" = "WHATSAPP") => Object.v
 
 test("copy: says plainly that this is a Developer Connects enquiry to be connected with the developer", () => {
   const copy = gateCopy(DEV);
-  assert.equal(copy.title, `Connect with ${DEV}`);
+  assert.equal(copy.title, "Connect with Developer Connects");
   assert.match(copy.intro, /You've found the developer you're interested in/);
   assert.match(copy.intro, /Share your details with Developer Connects/);
   assert.match(copy.intro, /help connect you based on your requirement/);

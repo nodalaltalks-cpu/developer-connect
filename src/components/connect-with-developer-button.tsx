@@ -54,7 +54,7 @@ export function ConnectWithDeveloperButton({
         aria-haspopup="dialog"
         className={buttonClassName("primary", size === "primary" ? "w-full sm:w-auto text-base px-6 py-3.5" : "w-full")}
       >
-        Connect with {developerName}
+        Connect with Developer Connects
       </button>
       {openedAt &&
         createPortal(

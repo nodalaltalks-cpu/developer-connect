@@ -1,3 +1,4 @@
+import { SectionBar } from "@/components/leads/section-bar";
 import { formatCallDuration } from "@/lib/leads/call-analytics";
 import type { CallView } from "@/lib/leads/call-view";
 import { describeCall, wasConnected } from "@/lib/leads/call-view";
@@ -17,9 +18,7 @@ export function CallHistoryCard({ calls, names }: { calls: CallView[]; names?: R
 
   return (
     <section className="rounded-lg border border-border p-4" aria-labelledby="call-history-heading">
-      <h2 id="call-history-heading" className="text-sm font-semibold text-foreground">
-        Calls
-      </h2>
+      <SectionBar id="call-history-heading" title="Calls" />
       {chronological.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">No tracked calls yet. Only calls made through the internal dialer appear here.</p>
       ) : (

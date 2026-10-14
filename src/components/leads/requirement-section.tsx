@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionBar } from "@/components/leads/section-bar";
 import { useState, useTransition } from "react";
 import { ProjectPicker, type AddProject, type SearchProjects } from "@/components/team/project-picker";
 import { formatDateTime, formatEnumLabel, formatMoney } from "@/lib/leads/format";
@@ -187,10 +188,8 @@ export function RequirementSection({
 
   return (
     <section className="rounded-lg border border-border p-4" aria-labelledby="buyer-requirement-heading">
-      <div className="flex items-start justify-between gap-3">
-        <h2 id="buyer-requirement-heading" className="text-sm font-semibold text-foreground">
-          Buyer requirement
-        </h2>
+      <SectionBar id="buyer-requirement-heading" title="Buyer requirement" />
+      <div className="flex items-start justify-end gap-3">
         {current && (
           <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground">{STATUS_LABEL[current.status]}</span>
         )}

@@ -3,6 +3,7 @@ import type { FaqEntry } from "./types.ts";
 /** The free tools and the glossary: their paths and the words they publish, shared by the pages, the sitemap and llms-full.txt. */
 
 export const EMI_TOOL_PATH = "/tools/home-loan-emi-calculator";
+export const BASIC_CALCULATOR_PATH = "/tools/calculator";
 export const GLOSSARY_PATH = "/property-glossary";
 
 export const EMI_TOOL_FAQ: readonly FaqEntry[] = [

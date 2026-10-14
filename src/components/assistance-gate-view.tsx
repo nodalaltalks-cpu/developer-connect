@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { buttonClassName } from "@/components/ui/button";
 import type { GateCopy } from "@/lib/leads/gate/gate-copy";
 import type { GateContactPreference } from "@/lib/leads/gate/gate-config";
@@ -49,6 +50,15 @@ export function AssistanceGateView({
     state.phase === "returning" || (state.phase === "error" && state.lastAttempt === "returning") || (submitting && state.lastAttempt === "returning");
   const done = state.phase === "success";
   const phoneError = state.error?.field === "phone" || state.error?.code === "INVALID_PHONE";
+  const nameError = state.error?.field === "name";
+  const nameRef = useRef<HTMLInputElement>(null);
+  // A number without a name: take the buyer to the name box, so the next thing they do is type it.
+  useEffect(() => {
+    if (nameError) {
+      nameRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      nameRef.current?.focus({ preventScroll: true });
+    }
+  }, [nameError, state.error]);
 
   return (
     <div
@@ -182,7 +192,7 @@ export function AssistanceGateView({
                       aria-invalid={phoneError}
                       aria-describedby="gate-phone-help"
                       onChange={(event) => onEdit({ phone: event.target.value })}
-                      className={`${inputClass} min-w-0 flex-1`}
+                      className={`${inputClass} min-w-0 flex-1 !min-h-14 !border-2 !border-accent bg-white text-xl font-bold tracking-wide shadow-[0_0_0_4px_rgba(184,146,74,0.22)] placeholder:font-semibold`}
                     />
                   </div>
                   <p id="gate-phone-help" className="mt-1.5 text-xs text-muted-foreground">
@@ -224,15 +234,20 @@ export function AssistanceGateView({
                     {copy.nameLabel}
                   </label>
                   <input
+                    ref={nameRef}
                     id="gate-name"
                     name="name"
                     type="text"
                     autoComplete="name"
+                    required
+                    aria-required="true"
+                    aria-invalid={nameError}
+                    placeholder="Your full name"
                     value={state.form.name}
                     disabled={submitting}
                     maxLength={100}
                     onChange={(event) => onEdit({ name: event.target.value })}
-                    className={`${inputClass} mt-1.5 w-full`}
+                    className={`${inputClass} mt-1.5 w-full ${nameError ? "border-2 border-red-600 ring-2 ring-red-200" : ""}`}
                   />
                 </div>
 

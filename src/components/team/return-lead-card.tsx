@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionBar } from "@/components/leads/section-bar";
 import { useState, useTransition } from "react";
 import { formatEnumLabel } from "@/lib/leads/format";
 import { RETURN_REASONS, type ReturnReason } from "@/lib/leads/types";
@@ -39,7 +40,7 @@ export function ReturnLeadCard({ onReturn }: { onReturn: ReturnLead }) {
 
   return (
     <section className="rounded-lg border border-border p-4">
-      <h2 className="text-sm font-semibold text-foreground">Return lead</h2>
+      <SectionBar title="Return lead" />
       <p className="mt-1 text-sm text-muted-foreground">Send this lead back to the Founder if you cannot move it forward. Your history on it is kept.</p>
       {!open ? (
         <button type="button" className={`${BTN} mt-3`} onClick={() => setOpen(true)}>

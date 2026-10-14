@@ -27,6 +27,8 @@ export interface GateCopy {
   phoneHelp: string;
   countryLabel: string;
   nameLabel: string;
+  /** Shown when a number is entered without a name. */
+  nameMissing: string;
   preferenceLegend: string;
   preferenceWhatsApp: string;
   preferenceWhatsAppHint: string;
@@ -81,14 +83,15 @@ export const CREDENTIALS_LINE = `Developer Connects is a certified, affiliated c
 export function gateCopy(developerName: string, preference: GateContactPreference = "WHATSAPP"): GateCopy {
   const channelWords = preference === "WHATSAPP" ? "on WhatsApp" : "by phone call";
   return {
-    title: `Connect with ${developerName}`,
+    title: "Connect with Developer Connects",
     intro:
       "You've found the developer you're interested in. Share your details with Developer Connects and we'll help connect you based on your requirement.",
     motivation: GATE_MOTIVATION,
     phoneLabel: "Your WhatsApp or phone number",
     phoneHelp: "We'll use this to reach you about your enquiry — nothing else.",
     countryLabel: "Country code",
-    nameLabel: "Your name (optional)",
+    nameLabel: "Your name (required)",
+    nameMissing: "Please enter your name, so our advisor knows who to ask for.",
     preferenceLegend: "How should we contact you?",
     preferenceWhatsApp: "WhatsApp",
     preferenceWhatsAppHint: "Recommended",

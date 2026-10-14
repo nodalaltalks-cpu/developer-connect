@@ -931,7 +931,7 @@ export function createInMemoryLeadRepositories(
         for (const call of state.calls.values()) {
           const lead = state.leads.get(call.leadId);
           if (!lead || !callMatches(call, lead, filter)) continue;
-          out.push({ call: { ...call }, lead: { id: lead.id, name: lead.name, sourceType: lead.sourceType, creationMethod: lead.creationMethod, erasedAt: lead.erasedAt } });
+          out.push({ call: { ...call }, lead: { id: lead.id, name: lead.name, sourceType: lead.sourceType, creationMethod: lead.creationMethod, erasedAt: lead.erasedAt, prospect: lead.prospect, phoneE164: lead.phoneE164 } });
         }
         return out.sort((a, b) => b.call.initiatedAt.getTime() - a.call.initiatedAt.getTime() || b.call.id.localeCompare(a.call.id)).slice(0, filter.limit);
       },

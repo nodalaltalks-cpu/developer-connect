@@ -60,6 +60,13 @@ export default function EmiCalculatorPage() {
             </p>
 
             <EmiCalculator />
+            <p className="mt-4 text-sm text-muted-foreground">
+              Need an ordinary calculator for other sums?{" "}
+              <Link href="/tools/calculator" className="font-semibold text-accent-hover underline underline-offset-4">
+                Open the calculator
+              </Link>
+              .
+            </p>
 
             <div className="mx-auto mt-16 max-w-2xl">
               <h2 className="font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">How the EMI is worked out</h2>

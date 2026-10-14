@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionBar } from "@/components/leads/section-bar";
 import { useState, useTransition } from "react";
 import { WhenInput } from "@/components/leads/when-input";
 import { useInteractionComment } from "@/components/team/interaction-comment";
@@ -108,9 +109,7 @@ export function FollowUpSection({
 
   return (
     <section className="rounded-lg border border-border p-4" aria-labelledby="follow-up-heading">
-      <h2 id="follow-up-heading" className="text-sm font-semibold text-foreground">
-        Follow-up
-      </h2>
+      <SectionBar id="follow-up-heading" title="Follow-up" />
 
       {message && (
         <p role="status" className={`mt-3 rounded-md px-3 py-2 text-sm ${message.tone === "ok" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>

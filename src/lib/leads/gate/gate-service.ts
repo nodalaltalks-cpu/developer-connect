@@ -269,6 +269,8 @@ export async function submitGate(deps: GateDeps, ctx: GateContext, input: GateSu
   const contactPreference = oneOf(input.contactPreference, GATE_CONTACT_PREFERENCES);
   const phoneCountry = oneOf(input.phoneCountry, GATE_PHONE_COUNTRIES);
   if (!sourceCta || !contactPreference || !phoneCountry || typeof input.phone !== "string") return fail("INVALID_INPUT");
+  // The name is required: an advisor should know who to ask for. The form checks it too; this is the check that cannot be skipped.
+  if (typeof input.name !== "string" || input.name.trim().length < 2) return fail("INVALID_INPUT", "name");
 
   let resolved: ResolvedDeveloper | null;
   try {

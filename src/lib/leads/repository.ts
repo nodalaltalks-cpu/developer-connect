@@ -431,7 +431,7 @@ export interface CallFilter {
 
 export interface CallWithLead {
   call: LeadCall;
-  lead: Pick<Lead, "id" | "name" | "sourceType" | "creationMethod" | "erasedAt">;
+  lead: Pick<Lead, "id" | "name" | "sourceType" | "creationMethod" | "erasedAt" | "prospect" | "phoneE164">;
 }
 
 /** How a set of calls is grouped. Hours, days and the larger periods are ALL the same aggregation with a different bucket. */

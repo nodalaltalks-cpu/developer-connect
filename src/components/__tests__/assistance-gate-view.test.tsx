@@ -50,7 +50,7 @@ const STATES = {
 
 test("render: the form states the purpose and the developer's name, with no 'does not require your phone number' block", () => {
   const out = html(STATES.form);
-  assert.match(out, /Connect with Acme Realty/);
+  assert.match(out, /Connect with Developer Connects/);
   assert.match(out, /You&#x27;ve found the developer you&#x27;re interested in/);
   assert.match(out, /Share your details with Developer Connects and we&#x27;ll help connect you based on your requirement/);
   assert.doesNotMatch(out, /does not require your phone number/);
@@ -101,9 +101,9 @@ test("render: typed values are shown back in the fields", () => {
   assert.match(out, /value="Asha"/);
 });
 
-test("render: the name field is optional (labelled so) and the phone field is the only required-looking input", () => {
+test("render: the name field is required (labelled so) beside the phone field", () => {
   const out = html(STATES.form);
-  assert.match(out, /Your name \(optional\)/);
+  assert.match(out, /Your name \(required\)/);
   assert.match(out, /Your WhatsApp or phone number/);
 });
 

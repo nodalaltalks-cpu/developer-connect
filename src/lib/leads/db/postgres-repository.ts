@@ -1190,13 +1190,13 @@ function build(db: DbOrTx): LeadRepositories {
       },
       async listRecent(filter: CallFilter): Promise<CallWithLead[]> {
         const rows = await db
-          .select({ call: leadCalls, leadId: leads.id, name: leads.name, sourceType: leads.sourceType, creationMethod: leads.creationMethod, erasedAt: leads.erasedAt })
+          .select({ call: leadCalls, leadId: leads.id, name: leads.name, sourceType: leads.sourceType, creationMethod: leads.creationMethod, erasedAt: leads.erasedAt, prospect: leads.prospect, phoneE164: leads.phoneE164 })
           .from(leadCalls)
           .innerJoin(leads, eq(leads.id, leadCalls.leadId))
           .where(callWhere(filter))
           .orderBy(desc(leadCalls.initiatedAt), desc(leadCalls.id))
           .limit(filter.limit);
-        return rows.map((row) => ({ call: toCall(row.call), lead: { id: row.leadId, name: row.name, sourceType: row.sourceType, creationMethod: row.creationMethod, erasedAt: row.erasedAt } }));
+        return rows.map((row) => ({ call: toCall(row.call), lead: { id: row.leadId, name: row.name, sourceType: row.sourceType, creationMethod: row.creationMethod, erasedAt: row.erasedAt, prospect: row.prospect, phoneE164: row.phoneE164 } }));
       },
       async aggregate(query: CallAggregateQuery): Promise<CallAggregateRow[]> {
         // The zone is validated and written as a literal so every use of the bucket expression is the SAME expression

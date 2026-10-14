@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionBar } from "@/components/leads/section-bar";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useInteractionComment } from "@/components/team/interaction-comment";
@@ -63,7 +64,7 @@ export function QualificationCard({
 
   return (
     <section aria-label="Qualification" className="rounded-xl border border-border p-4">
-      <h2 className="text-base font-semibold text-foreground">Qualification</h2>
+      <SectionBar title="Qualification" />
       <p className="mt-1 text-sm text-muted-foreground">
         Status now: <span className="font-medium text-foreground">{formatEnumLabel(status)}</span>
         {latest ? ` · last recorded: ${formatEnumLabel(latest.outcome)}${latest.reason ? ` (${formatEnumLabel(latest.reason)})` : ""}, ${latest.atLabel}` : ""}

@@ -260,8 +260,8 @@ export const BUY_DIRECT_STEPS: { title: string; body: string }[] = [
     body: "Confirm the project is registered with the real estate regulator for its location, and that the developer named in the registration is the one you are dealing with.",
   },
   {
-    title: "Speak to the developer's own sales team",
-    body: "A developer's own sales team can share pricing, payment plans, floor plans and availability. Through Developer Connects, our property team can help you reach them; however you are put in touch, confirm the sales office and phone numbers before you pay or share documents.",
+    title: "Go through someone who knows the market, early",
+    body: "Pricing, payment plans and availability move fast, and buyers who wait often hear about a good unit after it is gone. Tell Developer Connects what you need and a property specialist will come back to you with what is available now, so you decide with the facts in front of you instead of finding out too late.",
   },
   {
     title: "Get every term in writing",

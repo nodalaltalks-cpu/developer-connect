@@ -67,6 +67,7 @@ function buildColumns(): FooterColumn[] {
         { label: "Buying in Mumbai", href: "/guides/how-to-buy-a-flat-in-mumbai" },
         { label: "Buying in Dubai from India", href: "/guides/buying-property-in-dubai-from-india" },
         { label: "EMI calculator", href: "/tools/home-loan-emi-calculator" },
+        { label: "Calculator", href: "/tools/calculator" },
         { label: "Property glossary", href: "/property-glossary" },
         { label: "FAQ", href: "/faq" },
         { label: "Developer research guides", href: "/buy-direct-from-developer" },

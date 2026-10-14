@@ -245,8 +245,8 @@ export default async function DeveloperPage({
                 </h2>
                 <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
                   <li>
-                    Ask {developer.displayName}&apos;s sales team for prices, payment terms and project details in
-                    writing.
+                    Tell Developer Connects what you need, today. Availability and payment plans change quickly, and the unit you like can be
+                    gone by the time you ask.
                   </li>
                   <li>Check the project is registered with the real estate regulator for its location.</li>
                   <li>Get prices and payment terms in writing, and pay only into the project account named in your agreement.</li>

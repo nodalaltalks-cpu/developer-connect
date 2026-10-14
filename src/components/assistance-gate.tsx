@@ -100,6 +100,12 @@ export function AssistanceGate({ developerId, developerName, sourceCta, requeste
         dispatch({ type: "SUBMIT_ERROR", code: "INVALID_PHONE", message: GATE_ERROR_MESSAGES.INVALID_PHONE, field: "phone" });
         return;
       }
+      if (attempt === "form" && current.form.name.trim().length < 2) {
+        // A number without a name goes straight to the name box, with a plain reason.
+        dispatch({ type: "SUBMIT_START", attempt });
+        dispatch({ type: "SUBMIT_ERROR", code: "INVALID_INPUT", message: copy.nameMissing, field: "name" });
+        return;
+      }
       dispatch({ type: "SUBMIT_START", attempt });
       const attribution = readAttributionForSubmit();
       const work =
@@ -124,7 +130,7 @@ export function AssistanceGate({ developerId, developerName, sourceCta, requeste
         if (result.kind !== "error") onCompleted();
       });
     },
-    [developerId, sourceCta, requestedAt, onCompleted],
+    [developerId, sourceCta, requestedAt, onCompleted, copy.nameMissing],
   );
 
   const onEdit = useCallback(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { emiFor, formatMoney, loanForEmi, type LoanCurrency } from "@/lib/seo/emi";
 
 /**
@@ -18,19 +18,32 @@ const EXAMPLES: Record<LoanCurrency, { amount: number; rate: number; years: numb
 const FIELD =
   "mt-1 block min-h-12 w-full rounded-sm border border-field-border bg-white px-3 text-base text-foreground [font-variant-numeric:tabular-nums] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30";
 
-function NumberField({ id, label, value, onChange, step, suffix, hint }: { id: string; label: string; value: number; onChange: (v: number) => void; step: number; suffix?: string; hint?: string }) {
+function NumberField({ id, label, value, onChange, suffix, hint }: { id: string; label: string; value: number; onChange: (v: number) => void; step: number; suffix?: string; hint?: string }) {
+  // The box keeps what the person is typing as text, so clearing it leaves it EMPTY (not a stuck "0") and a fresh number can be typed.
+  const [text, setText] = useState(value === 0 ? "" : String(value));
+  // An outside change (the currency was switched, so new example figures) replaces the text; the person's own typing never does.
+  useEffect(() => {
+    setText((current) => (Number(current === "" ? 0 : current) === value ? current : value === 0 ? "" : String(value)));
+  }, [value]);
   return (
     <label htmlFor={id} className="block">
       <span className="text-sm font-semibold text-foreground">{label}</span>
       <span className="relative block">
         <input
           id={id}
-          type="number"
+          type="text"
           inputMode="decimal"
-          min={0}
-          step={step}
-          value={Number.isFinite(value) ? value : ""}
-          onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+          autoComplete="off"
+          placeholder="0"
+          value={text}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => {
+            // Digits and one decimal point only.
+            const cleaned = e.target.value.replace(/[^0-9.]/g, "").replace(/^(\d*\.?\d*).*$/, "$1");
+            setText(cleaned);
+            const parsed = Number(cleaned);
+            onChange(cleaned === "" || !Number.isFinite(parsed) ? 0 : parsed);
+          }}
           className={`${FIELD} ${suffix ? "pr-16" : ""}`}
         />
         {suffix && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">{suffix}</span>}

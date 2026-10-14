@@ -1,3 +1,4 @@
+import { SectionBar } from "@/components/leads/section-bar";
 import type { ReactNode } from "react";
 import { ExternalDomainLink } from "@/components/external-domain-link";
 import { formatBudget, formatDateTime, formatDateTimeWithDay, formatEnumLabel, formatMoney } from "@/lib/leads/format";
@@ -9,7 +10,7 @@ import type { Booking, Lead, LeadConsent, LeadEvent, MarketingTouch } from "@/li
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-lg border border-border p-4">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <SectionBar title={title} />
       <div className="mt-3">{children}</div>
     </section>
   );

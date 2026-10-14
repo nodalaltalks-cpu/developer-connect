@@ -375,8 +375,8 @@ body:has(dialog[open]) {
 }
 
 html {
-  /* No grey flash on tap; text stays at the size the user chose when the phone rotates. */
-  -webkit-tap-highlight-color: transparent;
+  /* A visible gold flash on tap, so a person always sees exactly what they touched; text stays at the size the user chose when the phone rotates. */
+  -webkit-tap-highlight-color: rgba(184, 146, 74, 0.38);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   /* A focused field is never hidden under a sticky header or bottom bar. */
@@ -426,4 +426,31 @@ a {
 }
 @media (prefers-reduced-motion: reduce) {
   [class*="animate-[wiggle"] { animation: none !important; }
+}
+
+/* Press feedback: whatever is tapped dims and sinks for a moment and shows a gold ring, on every control, so no tap is ever a guess. */
+a[href],
+button:not(:disabled),
+[role="button"],
+summary,
+label:has(input[type="radio"], input[type="checkbox"]),
+select {
+  transition: filter 90ms ease, transform 90ms ease, box-shadow 90ms ease;
+}
+a[href]:active,
+button:not(:disabled):active,
+[role="button"]:active,
+summary:active,
+label:has(input[type="radio"], input[type="checkbox"]):active {
+  filter: brightness(0.9);
+  transform: scale(0.98);
+  box-shadow: 0 0 0 3px rgba(184, 146, 74, 0.55);
+}
+@media (prefers-reduced-motion: reduce) {
+  a[href]:active,
+  button:not(:disabled):active,
+  [role="button"]:active,
+  summary:active {
+    transform: none;
+  }
 }

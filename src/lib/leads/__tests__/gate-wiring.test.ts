@@ -163,7 +163,7 @@ test("analytics: the existing click event still fires when the button is pressed
 test("button: 'Connect with {Developer}' is a real <button> with no URL, no href and no target — the browser is never handed a developer website", () => {
   const button = code(read("components/connect-with-developer-button.tsx"));
   assert.match(button, /<button\b/);
-  assert.match(button, /Connect with \{developerName\}/);
+  assert.match(button, /Connect with Developer Connects/);
   assert.doesNotMatch(button, /\bhref\s*=/);
   assert.doesNotMatch(button, /target\s*=/);
   assert.doesNotMatch(button, /window\.open|location\./);

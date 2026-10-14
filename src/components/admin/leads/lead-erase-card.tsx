@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionBar } from "@/components/leads/section-bar";
 import { useState, useTransition } from "react";
 import { eraseLeadAction } from "@/app/admin/_actions/lead-actions";
 
@@ -47,7 +48,7 @@ export function LeadEraseCard({ leadId }: { leadId: string }) {
 
   return (
     <section className="rounded-lg border border-border p-4">
-      <h2 className="text-sm font-semibold text-foreground">Erase personal data</h2>
+      <SectionBar title="Erase personal data" />
       <p className="mt-1 text-sm text-muted-foreground">Use this when the buyer has asked us to erase their details.</p>
 
       {!open ? (

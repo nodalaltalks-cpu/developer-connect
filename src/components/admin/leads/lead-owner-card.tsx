@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionBar } from "@/components/leads/section-bar";
 import { useState, useTransition } from "react";
 import { assignLeadAction } from "@/app/admin/_actions/lead-actions";
 
@@ -54,7 +55,7 @@ export function LeadOwnerCard({
 
   return (
     <section className="rounded-lg border border-border p-4">
-      <h2 className="text-sm font-semibold text-foreground">Owner</h2>
+      <SectionBar title="Owner" />
       <p className="mt-1 text-sm text-muted-foreground">
         Currently: <span className="font-medium text-foreground">{currentOwnerName ?? "Founder (my queue)"}</span>
         {ownerInactive ? " — no longer active. Reassign this lead." : ""}

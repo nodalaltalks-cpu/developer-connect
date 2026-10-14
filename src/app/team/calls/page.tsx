@@ -118,9 +118,10 @@ export default async function TeamCallsPage({ searchParams }: PageProps<"/team/c
         <ul className="mt-3 space-y-2">
           {calls.slice(0, 100).map(({ call, lead }) => (
             <li key={call.id}>
-              <Link href={`/team/leads/${lead.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border px-3 py-2 hover:bg-muted">
+              {/* A cold-called prospect is not a lead yet, so it has no lead screen: it opens the call-details form instead. */}
+              <Link href={lead.prospect ? `/team/cold-call/${lead.id}` : `/team/leads/${lead.id}`} className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-border px-3 py-2 hover:bg-muted">
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-foreground">{lead.name ?? "Unnamed lead"}</span>
+                  <span className="block truncate text-sm font-medium text-foreground">{lead.name ?? (lead.prospect ? lead.phoneE164 : "Unnamed lead")}</span>
                   <span className="block text-xs text-muted-foreground">{formatDateTimeWithDay(call.initiatedAt)}</span>
                 </span>
                 <span className="shrink-0 text-right text-xs text-foreground">

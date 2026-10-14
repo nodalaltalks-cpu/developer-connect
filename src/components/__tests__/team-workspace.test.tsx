@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LeadCard } from "../admin/leads/lead-card.tsx";
 import { MyLeadsTabs } from "../team/my-leads-tabs.tsx";
@@ -8,6 +9,7 @@ import type { LeadListItem } from "../../lib/leads/lead-reads.ts";
 import type { Lead } from "../../lib/leads/types.ts";
 
 /** The team member's screens (pure rendering): what they see and — as important — what they are never offered. */
+const read = (relative: string) => readFileSync(new URL(`../../../${relative}`, import.meta.url), "utf8");
 
 const NOW = new Date("2026-10-06T10:00:00.000Z");
 
@@ -77,16 +79,18 @@ test("my leads filters: exactly All, New, Follow-up due and Hot, each a 44px tap
   assert.match(html, /min-h-11/);
 });
 
-test("team lead actions: offers Call/WhatsApp and a note — and NO founder controls (the follow-up and return controls have their own sections)", () => {
+test("team lead actions: offers Call/WhatsApp, no separate note box (the one Comments box is on the page) — and NO founder controls", () => {
   const html = renderToStaticMarkup(
     <TeamLeadActions leadId={lead.id} telHref="tel:+919876543210" whatsappHref="https://wa.me/919876543210" prefersWhatsApp />,
   );
-  for (const expected of ["WhatsApp", "Call", "Add note"]) assert.match(html, new RegExp(expected));
+  for (const expected of ["WhatsApp", "Call"]) assert.match(html, new RegExp(expected));
+  assert.doesNotMatch(html, /Add a note|Add note/, "the separate note box is gone; comments are written in the Comments box");
   for (const forbidden of ["Temperature", "Status", "Update status", "Requirement", "Owner", "Assign", "Erase", "Booking", "Commission"]) {
     assert.doesNotMatch(html, new RegExp(forbidden), `an employee must not be offered "${forbidden}"`);
   }
-  assert.match(html, /text-base/, "16px inputs — no iOS zoom");
   assert.match(html, /min-h-11/, "44px tap targets");
+  // The only text field here (the comment on a contact) appears after a channel is chosen and uses 16px text (no iOS zoom).
+  assert.match(read("src/components/team/team-lead-actions.tsx"), /min-h-11 w-full rounded-md border border-border bg-background px-3 text-base/);
 });
 
 test("team lead actions: with no phone there is no Call or WhatsApp button", () => {

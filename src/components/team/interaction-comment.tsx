@@ -31,7 +31,7 @@ export function useInteractionComment(): CommentState | null {
 
 const FIELD = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-export function CommentBox({ label = "Comment on this interaction", help = "Required. Saved with the date, time and day. The lead is not updated without it." }: { label?: string; help?: string }) {
+export function CommentBox({ label = "Comments", help = "Required after every call. Saved with the date, time and day in this lead's history. The lead is not updated without it." }: { label?: string; help?: string }) {
   const state = useInteractionComment();
   if (!state) return null;
   return (

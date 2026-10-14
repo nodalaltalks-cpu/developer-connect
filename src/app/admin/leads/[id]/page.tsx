@@ -1,5 +1,3 @@
-import { LeadJourney } from "@/components/leads/lead-journey";
-import { getLeadJourney } from "@/lib/leads/lead-journey";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireFounder } from "@/lib/auth";
@@ -11,18 +9,9 @@ import { CallHistoryCard } from "@/components/leads/call-history";
 import { FollowUpSection } from "@/components/leads/follow-up-section";
 import { RequirementSection } from "@/components/leads/requirement-section";
 import { FounderLeadProjectsAndVisits } from "@/app/admin/leads/_components/lead-projects-visits";
-import { FounderLeadBookings } from "@/app/admin/leads/_components/lead-bookings";
 import { SourceBadge, StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
 import { QualificationCard } from "@/components/leads/qualification-card";
-import {
-  AttributionCard,
-  AuditCard,
-  BookingsCard,
-  ConsentCard,
-  InterestCard,
-  RequirementCard,
-  TimelineCard,
-} from "@/components/admin/leads/lead-detail-sections";
+import { InterestCard, RequirementCard, TrailCard } from "@/components/admin/leads/lead-detail-sections";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { telHref, whatsappHref } from "@/lib/leads/contact-links";
@@ -67,7 +56,6 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
   const detail = await getLeadDetail(createPostgresLeadRepositories(), id, now);
   if (!detail) notFound();
   const { lead } = detail;
-  const journey = await getLeadJourney(createPostgresLeadRepositories(), lead);
   const team = await createPostgresStaffRepository().list();
   const names = staffNameMap(team);
   const ownerName = lead.ownerId ? (names[lead.ownerId] ?? "Team member") : undefined;
@@ -131,7 +119,6 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
         )}
 
         <div className="space-y-4">
-          {!erased && <LeadJourney steps={journey} />}
           {!erased && (
             <LeadOwnerCard
               leadId={lead.id}
@@ -173,11 +160,12 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
           )}
           {!erased && <FounderLeadProjectsAndVisits leadId={lead.id} />}
           <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} developerWebsite={developerWebsite} />
-          <AttributionCard firstTouch={detail.firstTouch} lastTouch={detail.lastTouch} sourceCta={lead.sourceCta} />
-          {erased ? <BookingsCard bookings={detail.bookings} /> : <FounderLeadBookings leadId={lead.id} bookings={detail.bookings} />}
-          <TimelineCard events={detail.events} names={names} />
-          <ConsentCard consents={detail.consents} />
-          <AuditCard lead={lead} ownerName={ownerName} />
+          <TrailCard events={detail.events} names={names} />
+          <p className="text-sm">
+            <Link href={`/admin/leads/${lead.id}/details`} className="inline-flex min-h-11 items-center font-medium text-accent-hover hover:underline">
+              Booking and commission, source, consent, record and full log →
+            </Link>
+          </p>
           {!erased && <LeadEraseCard leadId={lead.id} />}
         </div>
       </div>

@@ -261,7 +261,24 @@ export async function getMyLeadsPage(
   };
 }
 
-/** What a team member sees of one lead: contact, requirement, interest, timeline and follow-up — no attribution, consent records or bookings. */
+/**
+ * The start of a team member's part of a lead's history: the moment the lead was last assigned to them (an OWNER_CHANGED event
+ * whose new owner is them). Everything before that is the Founder's to see. A lead with no such event (an older record) falls back
+ * to what this person wrote themselves. Pure.
+ */
+export function assignmentStart(events: ReadonlyArray<Pick<LeadEvent, "eventType" | "payload" | "createdAt">>, ownerId: string): Date | null {
+  const times = events.filter((e) => e.eventType === "OWNER_CHANGED" && e.payload.to === ownerId).map((e) => e.createdAt.getTime());
+  return times.length ? new Date(Math.max(...times)) : null;
+}
+
+/** The events a team member may see: those from the day the lead was assigned to them on (or, with no assignment record, their own). Pure. */
+export function eventsFromAssignment<T extends Pick<LeadEvent, "eventType" | "payload" | "createdAt" | "actorId">>(events: T[], ownerId: string): T[] {
+  const since = assignmentStart(events, ownerId);
+  if (!since) return events.filter((e) => e.actorId === ownerId);
+  return events.filter((e) => e.createdAt.getTime() >= since.getTime());
+}
+
+/** What a team member sees of one lead: contact, requirement, interest, history since it was assigned to them and follow-up — no attribution, consent records or bookings. */
 export interface MyLeadDetail {
   lead: Lead;
   contactBasis: ContactBasisView;
@@ -303,11 +320,19 @@ export async function getMyLeadDetail(
     contactBasis: detail.contactBasis,
     qualification: detail.qualification,
     developerName: detail.developerName,
-    // Booking events carry money figures; those stay the Founder's.
-    events: detail.events.filter((event) => event.eventType !== "BOOKING_CREATED" && event.eventType !== "BOOKING_UPDATED"),
+    // Booking events carry money figures; those stay the Founder's. The history before the lead was assigned to this person is
+    // also the Founder's alone: they see the trail from the day it became theirs.
+    events: eventsFromAssignment(
+      detail.events.filter((event) => event.eventType !== "BOOKING_CREATED" && event.eventType !== "BOOKING_UPDATED"),
+      actor.actorId,
+    ),
     requirements: detail.requirements,
     followUps: detail.followUps,
-    calls: detail.calls,
+    // Calls made before the lead was theirs are part of the earlier history; their own calls always show.
+    calls: (() => {
+      const since = assignmentStart(detail.events, actor.actorId);
+      return detail.calls.filter((call) => call.staffUserId === actor.actorId || (since !== null && call.initiatedAt.getTime() >= since.getTime()));
+    })(),
     developersViewed: detail.developersViewed,
     followUp: detail.followUp,
   };

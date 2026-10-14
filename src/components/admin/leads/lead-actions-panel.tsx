@@ -119,11 +119,11 @@ export function LeadActionsPanel(props: LeadPanelProps) {
                 <button
                   key={outcome}
                   type="button"
-                  disabled={pending}
+                  disabled={pending || contactNote.trim().length < 3}
                   className={BTN}
                   onClick={() =>
                     perform(
-                      () => logLeadContactAction(leadId, channel, outcome, contactNote || undefined),
+                      () => logLeadContactAction(leadId, channel, outcome, contactNote.trim()),
                       "Recorded.",
                       () => {
                         setChannel(null);
@@ -139,11 +139,12 @@ export function LeadActionsPanel(props: LeadPanelProps) {
             <input
               value={contactNote}
               onChange={(e) => setContactNote(e.target.value)}
-              placeholder="Optional note"
+              placeholder="Comment on this contact (required)"
               maxLength={2000}
               className={`${FIELD} mt-2`}
-              aria-label="Optional note about this contact"
+              aria-label="Comment on this contact"
             />
+            {contactNote.trim().length < 3 && <p className="mt-1 text-xs text-muted-foreground">Add a comment to record the outcome. It is saved in the history with the date, time and day.</p>}
             <button type="button" className="mt-2 min-h-11 text-sm text-muted-foreground underline" onClick={() => setChannel(null)}>
               Don&apos;t record
             </button>
@@ -208,24 +209,25 @@ export function LeadActionsPanel(props: LeadPanelProps) {
         </button>
       </Section>
 
-      <Section title="Add a note">
+      <Section title="Comments">
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={3}
           maxLength={2000}
-          placeholder="What did you learn?"
+          placeholder="What was said, what the client wants, what happens next"
           className={`${FIELD} py-2`}
-          aria-label="Note"
+          aria-label="Comment"
         />
         <button
           type="button"
-          disabled={pending || note.trim() === ""}
+          disabled={pending || note.trim().length < 3}
           className={`${BTN_PRIMARY} mt-2 w-full`}
-          onClick={() => perform(() => addLeadNoteAction(leadId, note), "Note added.", () => setNote(""))}
+          onClick={() => perform(() => addLeadNoteAction(leadId, note), "Comment saved.", () => setNote(""))}
         >
-          Add note
+          Save comment
         </button>
+        <p className="mt-1 text-xs text-muted-foreground">Saved in the history with the date, time and day.</p>
       </Section>
 
     </div>

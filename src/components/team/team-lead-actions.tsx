@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { addMyLeadNoteAction, logMyLeadContactAction, type TeamActionResult } from "@/app/team/_actions/team-actions";
+import { logMyLeadContactAction, type TeamActionResult } from "@/app/team/_actions/team-actions";
 import { useInteractionComment } from "@/components/team/interaction-comment";
 import { formatEnumLabel } from "@/lib/leads/format";
 import { WhatsAppOpenLink } from "@/components/leads/whatsapp-open-link";
@@ -54,7 +54,6 @@ export function TeamLeadActions(props: TeamLeadActionsProps) {
   const [contactNote, setContactNote] = useState("");
   const shared = useInteractionComment();
   const contactComment = contactNote.trim() || shared?.comment || "";
-  const [note, setNote] = useState("");
 
   function perform(work: () => Promise<TeamActionResult>, success: string, then?: () => void) {
     setMessage(null);
@@ -138,26 +137,6 @@ export function TeamLeadActions(props: TeamLeadActionsProps) {
             </button>
           </div>
         )}
-      </Section>
-
-      <Section title="Add a note">
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={3}
-          maxLength={2000}
-          placeholder="What did you learn?"
-          className={`${FIELD} py-2`}
-          aria-label="Note"
-        />
-        <button
-          type="button"
-          disabled={pending || note.trim() === ""}
-          className={`${BTN_PRIMARY} mt-2 w-full`}
-          onClick={() => perform(() => addMyLeadNoteAction(leadId, note), "Note added.", () => setNote(""))}
-        >
-          Add note
-        </button>
       </Section>
     </div>
   );

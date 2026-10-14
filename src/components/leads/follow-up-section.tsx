@@ -37,20 +37,12 @@ function TimeFields({
   setWhen,
   type,
   setType,
-  nowIso,
 }: {
   when: string;
   setWhen: (value: string) => void;
   type: FollowUpType;
   setType: (value: FollowUpType) => void;
-  nowIso: string;
 }) {
-  const now = new Date(nowIso);
-  const presets = [
-    { label: "Tomorrow 10 AM", days: 1 },
-    { label: "In 3 days", days: 3 },
-    { label: "Next week", days: 7 },
-  ];
   return (
     <div className="grid gap-2">
       <label className="text-sm font-medium text-foreground" htmlFor="fu-type">
@@ -63,13 +55,6 @@ function TimeFields({
           </option>
         ))}
       </select>
-      <div className="grid grid-cols-3 gap-2">
-        {presets.map((preset) => (
-          <button key={preset.label} type="button" className={BTN} onClick={() => setWhen(businessPresetLocal(now, preset.days))}>
-            {preset.label}
-          </button>
-        ))}
-      </div>
       <label className="text-sm font-medium text-foreground" htmlFor="fu-when">
         Date and exact time (India time)
       </label>
@@ -167,7 +152,7 @@ export function FollowUpSection({
 
           {mode === "reschedule" && (
             <div className="mt-3 grid gap-3">
-              <TimeFields when={when} setWhen={setWhen} type={type} setType={setType} nowIso={nowIso} />
+              <TimeFields when={when} setWhen={setWhen} type={type} setType={setType} />
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -218,7 +203,7 @@ export function FollowUpSection({
       ) : (
         <div className="mt-3 grid gap-3">
           <p className="text-sm text-muted-foreground">No follow-up scheduled.</p>
-          <TimeFields when={when} setWhen={setWhen} type={type} setType={setType} nowIso={nowIso} />
+          <TimeFields when={when} setWhen={setWhen} type={type} setType={setType} />
           <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="What to follow up on (optional)" className={FIELD} aria-label="Follow-up note" />
           <button
             type="button"

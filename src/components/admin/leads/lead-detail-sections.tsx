@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ExternalDomainLink } from "@/components/external-domain-link";
-import { formatBudget, formatDateTime, formatDateTimeFull, formatDateTimeWithDay, formatEnumLabel, formatMoney } from "@/lib/leads/format";
+import { formatBudget, formatDateTime, formatDateTimeWithDay, formatEnumLabel, formatMoney } from "@/lib/leads/format";
 import { describeTimeline } from "@/lib/leads/timeline";
 import type { Booking, Lead, LeadConsent, LeadEvent, MarketingTouch } from "@/lib/leads/types";
 
@@ -162,6 +162,47 @@ export function AuditCard({ lead, ownerName }: { lead: Lead; ownerName?: string 
         ]}
       />
       <p className="mt-2 text-xs text-muted-foreground">History is append-only: changes are added, never edited or deleted.</p>
+    </Card>
+  );
+}
+
+/** What the trail leaves out: system bookkeeping that says nothing a person did or decided. The full log keeps all of it. */
+const TRAIL_HIDDEN = new Set<LeadEvent["eventType"]>([
+  "CONSENT_GIVEN",
+  "CONTACT_PREFERENCE_SELECTED",
+  "OFFICIAL_WEBSITE_CLICKED",
+  "DEVELOPER_WEBSITE_REDIRECTED",
+  "WHATSAPP_OPENED",
+  "CALL_PLACED",
+  "CONTACT_DETAILS_UPDATED",
+]);
+
+/**
+ * THE trail of a lead: one list, newest first, of what was done, with the comment written on it, and the day, date, time and year.
+ * Nothing else is shown, so it can be read in seconds. (The complete append-only log is on the Founder's details page.)
+ */
+export function TrailCard({ events, names }: { events: LeadEvent[]; names?: Record<string, string> }) {
+  const visible = events.filter((event) => !TRAIL_HIDDEN.has(event.eventType));
+  const isComment = new Set(visible.filter((event) => event.eventType === "NOTE_ADDED").map((event) => event.id));
+  const lines = describeTimeline(visible, names)
+    .map((line) => (isComment.has(line.id) ? { ...line, headline: "Comment" } : line))
+    .reverse();
+  return (
+    <Card title="History">
+      {lines.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nothing yet.</p>
+      ) : (
+        <ol className="space-y-3">
+          {lines.map((line) => (
+            <li key={line.id} className="border-l-2 border-border pl-3">
+              <p className="text-xs font-medium text-muted-foreground">{formatDateTimeWithDay(line.at)}</p>
+              <p className="mt-0.5 text-sm font-medium text-foreground">{line.headline}</p>
+              {line.detail && <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground">{line.detail}</p>}
+              <p className="mt-0.5 text-xs text-muted-foreground">by {line.by}</p>
+            </li>
+          ))}
+        </ol>
+      )}
     </Card>
   );
 }

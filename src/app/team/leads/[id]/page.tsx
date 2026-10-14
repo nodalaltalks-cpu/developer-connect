@@ -1,13 +1,11 @@
-import { LeadJourney } from "@/components/leads/lead-journey";
 import { CommentBox, InteractionCommentProvider } from "@/components/team/interaction-comment";
-import { getLeadJourney } from "@/lib/leads/lead-journey";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEmployee } from "@/lib/team/session";
 import { TeamLeadActions } from "@/components/team/team-lead-actions";
 import { SourceBadge, StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
 import { QualificationCard } from "@/components/leads/qualification-card";
-import { InterestCard, TimelineCard } from "@/components/admin/leads/lead-detail-sections";
+import { InterestCard, TrailCard } from "@/components/admin/leads/lead-detail-sections";
 import { CallHistoryCard } from "@/components/leads/call-history";
 import { FollowUpSection } from "@/components/leads/follow-up-section";
 import { RequirementSection } from "@/components/leads/requirement-section";
@@ -76,7 +74,6 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
   }
   if (!detail) notFound();
   const { lead } = detail;
-  const journey = await getLeadJourney(createPostgresLeadRepositories(), lead);
 
   return (
     <div>
@@ -130,7 +127,6 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
             Add call details
           </Link>
         )}
-        <LeadJourney steps={journey} />
         <QualificationCard
           status={lead.status}
           latest={detail.qualification ? { outcome: detail.qualification.outcome, reason: detail.qualification.reason, atLabel: formatDateTimeFull(detail.qualification.at) } : null}
@@ -155,7 +151,7 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
         />
         <TeamLeadProjectsAndVisits leadId={lead.id} actor={actor} />
         <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} />
-        <TimelineCard events={detail.events} names={{ [member.userId]: member.displayName }} />
+        <TrailCard events={detail.events} names={{ [member.userId]: member.displayName }} />
         <ReturnLeadCard onReturn={returnMyLeadAction.bind(null, lead.id)} />
       </div>
       </InteractionCommentProvider>

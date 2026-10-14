@@ -47,6 +47,8 @@ export interface GateDeps {
   enquiries?: { record(entry: NewBuyerEnquiry): Promise<unknown> };
   /** Tells the Founder (and the lead's owner) the moment an enquiry arrives. Optional and best effort: it never affects the request. */
   newLead?: NewEnquiryNotifier;
+  /** Hands a lead that has no owner to the Founder while they are the only active team member (see solo-assignment). Returns the owner id, or null. */
+  assignNewLead?: (leadId: string, now: Date) => Promise<string | null>;
 }
 
 export interface GateContext {
@@ -223,9 +225,18 @@ async function captureRequest(
     }
   }
 
+  let ownerId = captured.lead.ownerId ?? null;
+  if (!ownerId && deps.assignNewLead) {
+    try {
+      ownerId = await deps.assignNewLead(captured.lead.id, now);
+    } catch {
+      // the lead stays in the Founder's queue; nothing is lost
+    }
+  }
+
   if (deps.newLead) {
     try {
-      await deps.newLead.received({ leadId: captured.lead.id, ownerId: captured.lead.ownerId ?? null, developerName: resolved.developer.displayName, created: captured.created });
+      await deps.newLead.received({ leadId: captured.lead.id, ownerId, developerName: resolved.developer.displayName, created: captured.created });
     } catch {
       // the alert is a convenience on top of the saved lead; the enquiry itself is already recorded
     }

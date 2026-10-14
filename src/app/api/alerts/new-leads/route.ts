@@ -3,6 +3,9 @@ import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-reposito
 import { endOfDayIn } from "@/lib/leads/lead-views";
 import type { NewLeadItem } from "@/lib/leads/new-lead-alert";
 import { getEmployee } from "@/lib/team/session";
+import { assignToSoloOwner } from "@/lib/leads/solo-assignment";
+import { listFounderUserIds } from "@/lib/admin-analytics/clerk-users";
+import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 
 /**
  * The new-enquiry alerts. It returns the digital leads that are still NEW (nobody has contacted the buyer yet): for the Founder every
@@ -31,6 +34,14 @@ export async function GET(): Promise<Response> {
       now,
       endOfToday: endOfDayIn(now),
     });
+    if (founder) {
+      // Anything still without an owner goes to the Founder while they are the only active team member (a no-op once a team exists).
+      const unowned = result.leads.filter((lead) => lead.ownerId === null && lead.returnedAt === null);
+      if (unowned.length > 0) {
+        const staff = createPostgresStaffRepository();
+        for (const lead of unowned) await assignToSoloOwner(repos, staff, listFounderUserIds, lead.id, now).catch(() => null);
+      }
+    }
     const developerIds = [...new Set(result.leads.flatMap((l) => (l.developerId ? [l.developerId] : [])))];
     const names = developerIds.length ? await repos.leads.developerNames(developerIds) : {};
     const items: NewLeadItem[] = result.leads.map((lead) => ({

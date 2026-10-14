@@ -8,6 +8,9 @@ import { getOrCreateSessionId } from "@/lib/session";
 import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
 import { recordEnquiry } from "@/lib/enquiries/service";
 import { createNewEnquiryNotifier } from "@/lib/leads/new-lead-notifier";
+import { assignToSoloOwner } from "@/lib/leads/solo-assignment";
+import { listFounderUserIds } from "@/lib/admin-analytics/clerk-users";
+import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 import { createPostgresNotificationRepository } from "@/lib/notifications/db/postgres-repository";
 
 /**
@@ -57,7 +60,9 @@ export async function submitEnquiryAction(payload: EnquiryPayload): Promise<Enqu
     );
     if (result.ok) {
       try {
-        await createNewEnquiryNotifier(createPostgresNotificationRepository()).received({ leadId: result.leadId, ownerId: null, developerName: null, created: result.created });
+        // While the Founder is the only active team member the enquiry becomes theirs at once (it is New in their own list).
+        const ownerId = await assignToSoloOwner(createPostgresLeadRepositories(), createPostgresStaffRepository(), listFounderUserIds, result.leadId, new Date()).catch(() => null);
+        await createNewEnquiryNotifier(createPostgresNotificationRepository()).received({ leadId: result.leadId, ownerId, developerName: null, created: result.created });
       } catch {
         // the lead is saved; the alert is a convenience
       }

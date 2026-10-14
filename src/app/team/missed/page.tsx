@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { requireEmployee } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
@@ -24,6 +25,7 @@ export default async function TeamMissedPage() {
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Missed follow-ups" description="Follow-ups whose time passed. Resolve each one: complete it, reschedule it, cancel it with a reason, or return the lead." />
       {items.length === 0 ? (
         <EmptyState title="No missed leads" description="You have no missed leads. Your leads are open." />

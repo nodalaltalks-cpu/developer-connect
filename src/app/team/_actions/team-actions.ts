@@ -13,7 +13,7 @@ import { recordQualification } from "@/lib/leads/qualification-service";
 import { skipQueueLead } from "@/lib/leads/calling-batch-service";
 import { finishColdCall, type ColdCallOutcomeInput } from "@/lib/leads/cold-call-outcome-service";
 import { saveColdCallLead, type ColdCallLeadResult } from "@/lib/leads/cold-call-lead-service";
-import { addTeamProject, searchActiveProjects, type ProjectSearchHit } from "@/lib/leads/project-service";
+import { addTeamProject, saveRequirementWithProjects, searchActiveProjects, type ProjectSearchHit } from "@/lib/leads/project-service";
 import { recordWhatsAppOpened } from "@/lib/leads/whatsapp-service";
 import { lookupColdCallNumber, prepareColdCall, type ColdCallLookup } from "@/lib/leads/cold-call-service";
 import { createLeadNotifier } from "@/lib/leads/lead-notifier";
@@ -260,6 +260,11 @@ export async function returnMyLeadAction(leadId: string, reason: ReturnReason, n
 
 export async function createMyRequirementAction(leadId: string, input: RequirementInput): Promise<TeamActionResult> {
   return run(leadId, (actor) => createRequirement(createPostgresLeadRepositories(), leadId, input, actor));
+}
+
+/** One save for the requirement AND the projects the buyer will be sent (at least one project is required). */
+export async function saveMyRequirementAction(leadId: string, requirementId: string | null, input: RequirementInput, projectIds: string[]): Promise<TeamActionResult> {
+  return run(leadId, (actor) => saveRequirementWithProjects(createPostgresLeadRepositories(), leadId, requirementId, input, projectIds, actor));
 }
 
 export async function updateMyRequirementAction(leadId: string, requirementId: string, input: RequirementInput): Promise<TeamActionResult> {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ProjectPicker, type AddProject, type SearchProjects } from "@/components/team/project-picker";
 import { formatDateTime, formatEnumLabel, formatMoney } from "@/lib/leads/format";
 import {
   CONFIGURATION_SUGGESTIONS,
@@ -33,6 +34,15 @@ export type RequirementActionResult = { ok: true } | { ok: false; error: string 
 export type CreateRequirement = (input: RequirementInput) => Promise<RequirementActionResult>;
 export type UpdateRequirement = (requirementId: string, input: RequirementInput) => Promise<RequirementActionResult>;
 export type SetRequirementStatus = (requirementId: string, status: RequirementStatus) => Promise<RequirementActionResult>;
+/** One save for the requirement and the projects the buyer will be sent details of (the requirement id is null for a new one). */
+export type SaveRequirementWithProjects = (requirementId: string | null, input: RequirementInput, projectIds: string[]) => Promise<RequirementActionResult>;
+
+/** A project chosen for this buyer. */
+export interface ChosenProjectView {
+  projectId: string;
+  name: string;
+  developerName: string;
+}
 
 const BTN =
   "inline-flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
@@ -76,16 +86,21 @@ function Summary({ r }: { r: RequirementView }) {
 export function RequirementSection({
   requirements,
   prefill,
-  onCreate,
-  onUpdate,
+  onSave,
   onSetStatus,
+  projects,
+  searchProjects,
+  addProject,
 }: {
   requirements: RequirementView[];
   /** Details the lead already carries, offered as the starting point when there is no structured requirement yet. */
   prefill: RequirementInput;
-  onCreate: CreateRequirement;
-  onUpdate: UpdateRequirement;
+  onSave: SaveRequirementWithProjects;
   onSetStatus: SetRequirementStatus;
+  /** The projects currently chosen for this buyer (saved with the requirement). */
+  projects: ChosenProjectView[];
+  searchProjects: SearchProjects;
+  addProject: AddProject;
 }) {
   const { current, history } = splitRequirements(requirements);
   const [pending, startTransition] = useTransition();
@@ -102,8 +117,12 @@ export function RequirementSection({
   const [purpose, setPurpose] = useState<LeadPurpose | "">("");
   const [timeline, setTimeline] = useState<LeadTimeline | "">("");
   const [notes, setNotes] = useState("");
+  const [chosen, setChosen] = useState<ChosenProjectView[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   function open(next: "edit" | "new") {
+    setChosen(projects);
+    setPickerOpen(false);
     const from: RequirementInput = next === "edit" && current ? current : current?.status === "ACTIVE" ? {} : prefill;
     setLocations(from.locations ?? []);
     setLocationDraft("");
@@ -151,8 +170,14 @@ export function RequirementSection({
       timeline: timeline || null,
       notes: notes || null,
     };
-    if (mode === "edit" && current) perform(() => onUpdate(current.id, input), "Requirement saved.", () => setMode("view"));
-    else perform(() => onCreate(input), "Requirement added.", () => setMode("view"));
+    if (chosen.length === 0) {
+      setMessage({ tone: "error", text: "Add at least one project: the one whose details you will send this buyer." });
+      return;
+    }
+    const ids = chosen.map((p) => p.projectId);
+    // "Start a new one" begins a fresh requirement; editing changes the current one. Either way the projects are saved with it.
+    if (mode === "edit" && current) perform(() => onSave(current.id, input, ids), "Saved.", () => setMode("view"));
+    else perform(() => onSave(null, input, ids), "Saved.", () => setMode("view"));
   }
 
   const hint = (value: string) => {
@@ -182,6 +207,20 @@ export function RequirementSection({
           {current ? (
             <>
               <Summary r={current} />
+              <div className="mt-3 border-t border-border pt-3">
+                <p className="text-sm text-muted-foreground">Projects to send details of</p>
+                {projects.length === 0 ? (
+                  <p className="mt-1 text-sm font-medium text-red-700">None yet. Edit to add the project: it is required.</p>
+                ) : (
+                  <ul className="mt-1 flex flex-wrap gap-2">
+                    {projects.map((p) => (
+                      <li key={p.projectId} className="rounded-full border border-accent bg-accent/10 px-3 py-1 text-sm text-foreground">
+                        {p.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <p className="mt-2 text-xs text-muted-foreground">Updated {formatDateTime(new Date(current.updatedAt))}</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button type="button" className={BTN_PRIMARY} onClick={() => open("edit")} disabled={pending}>
@@ -227,6 +266,42 @@ export function RequirementSection({
 
       {mode !== "view" && (
         <div className="mt-3 grid gap-3">
+          <div className="rounded-lg border-2 border-accent/50 p-3">
+            <p className="text-sm font-semibold text-foreground">
+              Project to send details of <span className="font-normal text-red-700">(required)</span>
+            </p>
+            {chosen.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {chosen.map((p) => (
+                  <li key={p.projectId}>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-accent bg-accent/10 px-3 text-sm text-foreground hover:bg-accent/20"
+                      aria-label={`Remove ${p.name}`}
+                      onClick={() => setChosen(chosen.filter((c) => c.projectId !== p.projectId))}
+                    >
+                      {p.name} <span aria-hidden="true">×</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button type="button" className={`${BTN} mt-2 w-full`} onClick={() => setPickerOpen(true)}>
+              {chosen.length === 0 ? "+ Add a project" : "+ Add another project"}
+            </button>
+            {chosen.length === 0 && <p className="mt-1 text-xs text-muted-foreground">Search the list, or type the project name and add it.</p>}
+          </div>
+          <ProjectPicker
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            search={searchProjects}
+            add={addProject}
+            chosen={chosen.map((p) => ({ id: p.projectId, name: p.name, developerName: p.developerName, city: "", locality: null }))}
+            onPick={(hit) => {
+              setChosen((list) => (list.some((c) => c.projectId === hit.id) ? list : [...list, { projectId: hit.id, name: hit.name, developerName: hit.developerName }]));
+              setPickerOpen(false);
+            }}
+          />
           <div>
             <label htmlFor="req-location" className="block text-sm font-medium text-foreground">
               Preferred locations

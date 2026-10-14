@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
@@ -37,6 +38,7 @@ export default async function FinancePage({ searchParams }: PageProps<"/admin/fi
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title={`Finance — ${range.label}`} description="What the money bought: spend, leads, bookings and commission, per currency. INR and AED are never mixed or converted." />
       <nav aria-label="Range" className="mb-3 flex flex-wrap gap-2">
         {RANGES.map((r) => (

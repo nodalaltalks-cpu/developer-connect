@@ -58,10 +58,10 @@ test("lead pages: short and quick; the removed sections live on the founder's de
   assert.match(founder, /\/admin\/leads\/\$\{lead\.id\}\/details/, "the founder reaches the removed sections from the lead");
   const details = read("src/app/admin/leads/[id]/details/page.tsx");
   for (const piece of ["requireFounder()", "FounderLeadBookings", "LeadJourney", "AttributionCard", "ConsentCard", "AuditCard", "TimelineCard"]) assert.ok(details.includes(piece), `details page has ${piece}`);
-  for (const wrapper of ["src/app/team/_components/lead-projects-visits.tsx", "src/app/admin/leads/_components/lead-projects-visits.tsx"]) {
-    const source = read(wrapper);
-    assert.doesNotMatch(source, /NextStepCard|SiteVisitsSection/, `${wrapper}: no recommended-next-step card, no duplicate site-visit block`);
-    assert.match(source, /ProjectsSection/);
+  for (const page of [team, founder]) {
+    assert.doesNotMatch(page, /NextStepCard|SiteVisitsSection|ProjectsSection|ProjectsAndVisits/, "no separate Projects card, no recommended-next-step card, no duplicate site-visit block");
+    assert.match(page, /<RequirementSection/);
+    assert.match(page, /searchProjects=\{/, "the project is chosen inside the buyer requirement");
   }
   assert.doesNotMatch(read("src/components/leads/follow-up-section.tsx"), /Tomorrow 10 AM|In 3 days|Next week/, "no quick-time suggestion chips");
   assert.doesNotMatch(read("src/components/team/team-lead-actions.tsx"), /Add a note|addMyLeadNoteAction/);
@@ -74,9 +74,11 @@ test("trail: leaves out bookkeeping, shows a note as a Comment with its day, dat
   const source = read("src/components/admin/leads/lead-detail-sections.tsx");
   assert.match(source, /export function TrailCard/);
   for (const hidden of ["CONSENT_GIVEN", "CONTACT_PREFERENCE_SELECTED", "WHATSAPP_OPENED", "CALL_PLACED"]) assert.ok(source.includes(`"${hidden}"`), `${hidden} is hidden from the trail`);
-  assert.match(source, /headline: "Comment"/);
-  assert.match(source, /formatDateTimeWithDay\(line\.at\)/);
-  assert.match(source, /\.reverse\(\)/);
+  assert.match(source, /entry\.comment/, "a note is shown as the comment of its entry");
+  assert.match(source, /formatDateTimeWithDay\(entry\.at\)/);
+  assert.match(source, /entries\.reverse\(\)/);
+  assert.match(source, /<details open=\{defaultOpen\}>/, "folded away until tapped");
+  assert.match(source, /SAVE_WINDOW_MS/, "one save is one entry, not a line per field");
 });
 
 test("missed leads: one name everywhere (no separate 'overdue'), tiles open the list they count, hot/warm/cold is the lead status", () => {
@@ -104,4 +106,26 @@ test("erased leads: follow-ups of an erased lead are not counted as created or c
   const stats = sql.slice(sql.indexOf("async statsByStaff(from, to, now)"), sql.indexOf("async eraseForLead(leadId) {\n        await db.update(leadFollowUps)"));
   assert.equal((stats.match(/liveLead/g) ?? []).length, 3, "created, completed and missed all exclude erased leads");
   assert.match(read("src/lib/leads/memory-repository.ts"), /const live = !!owner && !owner\.erasedAt && !owner\.prospect;/);
+});
+
+test("requirement with projects: at least one project is required, and the founder can see leads project by project", () => {
+  const service = read("src/lib/leads/project-service.ts");
+  assert.match(service, /export async function saveRequirementWithProjects/);
+  assert.match(service, /ids\.length === 0\) throw new LeadValidationError\("projects", PROJECT_REQUIRED_MESSAGE\)/);
+  assert.match(service, /advanceStatus: false/, "choosing a project does not move the lead's status");
+  assert.match(read("src/components/leads/requirement-section.tsx"), /Add at least one project/);
+  assert.match(read("src/app/team/_actions/team-actions.ts"), /saveRequirementWithProjects\(createPostgresLeadRepositories\(\), leadId, requirementId, input, projectIds, actor\)/);
+  assert.match(read("src/app/admin/projects/page.tsx"), /countActiveByProject\(\)/);
+  assert.match(read("src/app/admin/projects/[id]/page.tsx"), /requireFounder\(\)/);
+  assert.match(read("src/lib/leads/timeline.ts"), /Lead status: /, "history says lead status, not temperature");
+});
+
+test("real time: every lead-driven dashboard screen refreshes itself, and the overview shows the leads", () => {
+  for (const page of [
+    "src/app/admin/page.tsx", "src/app/admin/leads/page.tsx", "src/app/admin/leads/[id]/page.tsx", "src/app/admin/missed-leads/page.tsx",
+    "src/app/admin/returned-leads/page.tsx", "src/app/admin/staff/page.tsx", "src/app/admin/employee-insights/page.tsx", "src/app/admin/finance/page.tsx",
+    "src/app/admin/projects/page.tsx", "src/app/admin/ratings/page.tsx", "src/app/team/page.tsx", "src/app/team/leads/[id]/page.tsx",
+  ]) assert.match(read(page), /<LiveRefresh \/>/, `${page} refreshes live`);
+  assert.match(read("src/app/admin/page.tsx"), /getLeadCounts\(/);
+  assert.match(read("src/app/api/live/route.ts"), /latestRatedAt\(\)/, "a new rating moves the live cursor");
 });

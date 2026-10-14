@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { HistoryList, ProfileActions } from "@/components/admin/employee-profile-actions";
@@ -19,6 +20,7 @@ const minutes = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.flo
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-lg border border-border p-3">
+      <LiveRefresh />
       <dd className="text-lg font-semibold tabular-nums text-foreground">{value}</dd>
       <dt className="text-xs text-muted-foreground">{label}</dt>
     </div>

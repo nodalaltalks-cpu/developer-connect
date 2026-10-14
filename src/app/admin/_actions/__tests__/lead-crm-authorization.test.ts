@@ -31,7 +31,7 @@ test("lead actions: every exported action goes through run(), and run() authoriz
   assert.ok(exported.length >= 7, "the CRM actions exist");
   // The dialer and import actions return richer results than run() can (a call id, counts), so they authorize the
   // Founder THEMSELVES — as their very first statement, before any argument is looked at.
-  const DIRECT = ["placeLeadCallAction", "getLeadCallStatusAction", "setLeadCallDispositionAction", "importLeadsAction", "createCrmCallingBatchAction", "createProjectAction", "setProjectStatusAction"];
+  const DIRECT = ["placeLeadCallAction", "getLeadCallStatusAction", "setLeadCallDispositionAction", "importLeadsAction", "createCrmCallingBatchAction", "createProjectAction", "setProjectStatusAction", "searchLeadProjectsAction", "addLeadProjectAction"];
   for (const name of exported) {
     const body = code(actions).slice(code(actions).indexOf(`export async function ${name}(`));
     const end = body.indexOf("\nexport async function", 10);
@@ -193,7 +193,7 @@ test("temperature, status and follow-up controls exist and call the matching fou
   // founder requirement actions (the legacy single-field editor is gone, so there is one source of truth).
   assert.doesNotMatch(panel, /updateLeadRequirementAction|Edit requirement/);
   const page = read("app/admin/leads/[id]/page.tsx");
-  for (const action of ["createRequirementAction", "updateRequirementDetailsAction", "setRequirementStatusAction"]) {
+  for (const action of ["saveRequirementWithProjectsAction", "setRequirementStatusAction"]) {
     assert.ok(page.includes(`${action}.bind(null, lead.id)`), `${action} is wired into the founder lead page`);
   }
   // Follow-ups likewise live in their own section now (exact time, type, reschedule, cancel with a reason).

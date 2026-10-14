@@ -2,9 +2,10 @@ import { LeadNotFoundError, LeadStateError, LeadValidationError, UnauthorizedLea
 import { guardLeadAction } from "./follow-up-service.ts";
 import { assertWorkingActor, canViewLead } from "./lead-access.ts";
 import { advanceLeadStatus } from "./pipeline.ts";
+import { createRequirement, updateRequirementDetails } from "./requirement-service.ts";
 import { matchRequirementToProject, rankMatches, type ProjectMatch } from "./project-matching.ts";
 import type { LeadRepositories } from "./repository.ts";
-import { LEAD_CURRENCIES, type Lead, type LeadActor, type LeadCurrency, type LeadRequirement, type Project, type ShortlistEntry } from "./types.ts";
+import { LEAD_CURRENCIES, type Lead, type LeadActor, type LeadCurrency, type LeadRequirement, type Project, type RequirementInput, type ShortlistEntry } from "./types.ts";
 
 /**
  * Projects (Founder-maintained inventory), explainable matching and the buyer's shortlist. Framework-free;
@@ -265,4 +266,97 @@ export async function removeFromShortlist(repos: LeadRepositories, leadId: strin
     await tx.leads.update(leadId, { lastActivityAt: now }, now);
     return removed;
   });
+}
+
+// --- the buyer requirement together with the projects the buyer will be sent ------------------------
+
+/** A project chosen for a buyer: what the requirement section shows, and what a save keeps. */
+export interface ChosenProject {
+  projectId: string;
+  entryId: string;
+  name: string;
+  developerName: string;
+}
+
+export const PROJECT_REQUIRED_MESSAGE = "Add at least one project: the one whose details you will send this buyer.";
+export const MAX_CHOSEN_PROJECTS = 8;
+
+/** The projects currently chosen for a lead (active shortlist entries), oldest first. Read-only; the lead must be viewable. */
+export async function getChosenProjects(repos: LeadRepositories, actor: LeadActor, leadId: string): Promise<ChosenProject[]> {
+  const view = await getLeadProjects(repos, actor, leadId);
+  return view.history.filter((h) => h.entry.removedAt === null).map((h) => ({ projectId: h.entry.projectId, entryId: h.entry.id, name: h.projectName, developerName: h.developerName }));
+}
+
+/** Project names for a set of ids (history lines show names, not ids). Unknown ids are simply absent. */
+export async function projectNames(repos: LeadRepositories, ids: readonly string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const id of [...new Set(ids)]) {
+    const project = await repos.projects.getById(id);
+    if (project) out[id] = project.name;
+  }
+  return out;
+}
+
+/**
+ * ONE save for the buyer requirement AND the projects the buyer will be sent details of. At least one project is mandatory. The
+ * requirement is created or updated, projects not yet chosen are added, and projects taken off the list are removed. The status of the
+ * lead is not moved by choosing projects here (the person's own qualification stays the status). The lead's history reads this as
+ * one save, because every event shares the save's moment.
+ */
+export async function saveRequirementWithProjects(
+  repos: LeadRepositories,
+  leadId: string,
+  requirementId: string | null,
+  input: RequirementInput,
+  projectIds: unknown,
+  actor: LeadActor,
+  now: Date = new Date(),
+): Promise<void> {
+  assertWorkingActor(actor);
+  const ids = [...new Set(Array.isArray(projectIds) ? projectIds.filter((id): id is string => typeof id === "string" && id.length > 0) : [])];
+  if (ids.length === 0) throw new LeadValidationError("projects", PROJECT_REQUIRED_MESSAGE);
+  if (ids.length > MAX_CHOSEN_PROJECTS) throw new LeadValidationError("projects", `Choose at most ${MAX_CHOSEN_PROJECTS} projects.`);
+  // Check every project before anything is changed, so a bad choice never leaves a half-saved lead.
+  for (const id of ids) {
+    const project = await repos.projects.getById(id);
+    if (!project) throw new LeadValidationError("projects", "One of the projects could not be found. Choose it again.");
+    if (project.status !== "ACTIVE") throw new LeadValidationError("projects", `${project.name} is not active, so it cannot be chosen.`);
+  }
+
+  if (requirementId) await updateRequirementDetails(repos, leadId, requirementId, input, actor, now);
+  else await createRequirement(repos, leadId, input, actor, now);
+
+  const entries = (await repos.shortlist.listByLead(leadId)).filter((e) => e.removedAt === null);
+  for (const id of ids) {
+    if (!entries.some((e) => e.projectId === id)) await shortlistProject(repos, leadId, id, actor, now, { advanceStatus: false });
+  }
+  for (const entry of entries) {
+    if (!ids.includes(entry.projectId)) await removeFromShortlist(repos, leadId, entry.id, actor, now);
+  }
+}
+
+// --- project-wise leads (Founder) --------------------------------------------------------------------
+
+export interface ProjectLeadRow {
+  leadId: string;
+  name: string | null;
+  status: Lead["status"];
+  ownerId: string | null;
+  chosenAt: Date;
+  createdAt: Date;
+}
+
+/** The leads currently being sent one project's details, newest first. Founder only. */
+export async function getLeadsForProject(repos: LeadRepositories, actor: LeadActor, projectId: string): Promise<{ project: Project; developerName: string; leads: ProjectLeadRow[] } | null> {
+  assertFounder(actor);
+  const project = await repos.projects.getById(projectId);
+  if (!project) return null;
+  const names = project.developerId ? await repos.leads.developerNames([project.developerId]) : {};
+  const entries = await repos.shortlist.listActiveByProject(projectId);
+  const rows: ProjectLeadRow[] = [];
+  for (const entry of entries) {
+    const lead = await repos.leads.getById(entry.leadId);
+    if (lead && !lead.erasedAt && !lead.prospect) rows.push({ leadId: lead.id, name: lead.name, status: lead.status, ownerId: lead.ownerId, chosenAt: entry.shortlistedAt, createdAt: lead.createdAt });
+  }
+  return { project, developerName: project.developerId ? (names[project.developerId] ?? "Unknown developer") : TEAM_PROJECT_LABEL, leads: rows };
 }

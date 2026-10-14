@@ -10,7 +10,7 @@ import { cancelLeadFollowUp, completeLeadFollowUp, rescheduleFollowUp, scheduleF
 import { getCallForActor, placeCall, setCallDisposition } from "@/lib/leads/call-service";
 import { toCallView, type CallView } from "@/lib/leads/call-view";
 import { createCallingBatch } from "@/lib/leads/calling-batch-service";
-import { createProject, removeFromShortlist, shortlistProject, updateProject, type ProjectInput } from "@/lib/leads/project-service";
+import { addTeamProject, createProject, removeFromShortlist, saveRequirementWithProjects, searchActiveProjects, shortlistProject, updateProject, type ProjectInput, type ProjectSearchHit } from "@/lib/leads/project-service";
 import { changeSiteVisit, scheduleSiteVisit } from "@/lib/leads/site-visit-service";
 import type { VisitChange as VisitChangeInput } from "@/components/leads/site-visits-section";
 import { importLeadsFromCsv } from "@/lib/leads/lead-import-service";
@@ -178,6 +178,34 @@ export async function assignLeadAction(leadId: string, assigneeStaffId: string |
  */
 export async function createRequirementAction(leadId: string, input: RequirementInput): Promise<LeadActionResult> {
   return run(leadId, (actor) => createRequirement(createPostgresLeadRepositories(), leadId, input, actor));
+}
+
+/** One save for the requirement AND the projects the buyer will be sent (at least one project is required). */
+export async function saveRequirementWithProjectsAction(leadId: string, requirementId: string | null, input: RequirementInput, projectIds: string[]): Promise<LeadActionResult> {
+  return run(leadId, (actor) => saveRequirementWithProjects(createPostgresLeadRepositories(), leadId, requirementId, input, projectIds, actor));
+}
+
+/** The Founder's project search for the requirement section (read-only: ids and labels). */
+export async function searchLeadProjectsAction(query: string): Promise<ProjectSearchHit[]> {
+  const founderId = await requireFounderForAction();
+  try {
+    return await searchActiveProjects(createPostgresLeadRepositories(), { actorType: "FOUNDER", actorId: founderId }, query);
+  } catch {
+    return [];
+  }
+}
+
+/** The Founder types a project name that is not in the inventory yet; it is saved once and returned ready to choose. */
+export type AddLeadProjectResult = { ok: true; project: ProjectSearchHit } | { ok: false; error: string };
+
+export async function addLeadProjectAction(name: string): Promise<AddLeadProjectResult> {
+  const founderId = await requireFounderForAction();
+  try {
+    return { ok: true, project: await addTeamProject(createPostgresLeadRepositories(), { actorType: "FOUNDER", actorId: founderId }, name) };
+  } catch (error) {
+    if (error instanceof LeadValidationError || error instanceof LeadStateError) return { ok: false, error: error.message };
+    return { ok: false, error: GENERIC_ERROR };
+  }
 }
 
 export async function updateRequirementDetailsAction(leadId: string, requirementId: string, input: RequirementInput): Promise<LeadActionResult> {

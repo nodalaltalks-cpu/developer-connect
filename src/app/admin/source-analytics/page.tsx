@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { currentUser, requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
@@ -39,6 +40,7 @@ export default async function SourceAnalyticsPage({ searchParams }: PageProps<"/
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading
         title="Cold Call vs Digital"
         description={`Leads created in the range (${range.label}), and how far each source got. Every number is a count of real records; a percentage appears only once a source has at least ${MIN_SAMPLE} leads.`}

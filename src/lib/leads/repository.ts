@@ -719,6 +719,8 @@ export interface ShortlistRepository {
   listByLead(leadId: string): Promise<ShortlistEntry[]>;
   /** Active shortlist entries per project (how many buyers currently have it shortlisted). */
   countActiveByProject(): Promise<Record<string, number>>;
+  /** The active entries of one project, newest first: which leads are being sent that project's details. */
+  listActiveByProject(projectId: string): Promise<ShortlistEntry[]>;
   /** Sets the removal columns once. Throws LeadStateError if it was already removed. */
   remove(id: string, removedBy: string, at: Date): Promise<ShortlistEntry>;
 }

@@ -52,7 +52,7 @@ function ownerHeadline(payload: Record<string, unknown>, names?: Record<string, 
   return "Owner cleared (back to your queue)";
 }
 
-function headlineFor(event: LeadEvent, names?: Record<string, string>): { headline: string; detail: string | null } {
+function headlineFor(event: LeadEvent, names?: Record<string, string>, projects?: Record<string, string>): { headline: string; detail: string | null } {
   const p = event.payload;
   switch (event.eventType) {
     case "LEAD_CREATED":
@@ -91,7 +91,7 @@ function headlineFor(event: LeadEvent, names?: Record<string, string>): { headli
     case "WHATSAPP_OPENED":
       return { headline: "Opened WhatsApp (the message itself is not tracked)", detail: null };
     case "TEMPERATURE_CHANGED":
-      return { headline: `Temperature: ${label(p.from)} → ${label(p.to)}`, detail: null };
+      return { headline: `Lead status: ${label(p.from)} → ${label(p.to)}`, detail: null };
     case "OWNER_CHANGED":
       return { headline: ownerHeadline(p, names), detail: null };
     case "NOTE_ADDED":
@@ -116,9 +116,9 @@ function headlineFor(event: LeadEvent, names?: Record<string, string>): { headli
     case "CALL_DISPOSITION_SET":
       return { headline: `Call outcome — ${sentence(label(p.disposition))}`, detail: null };
     case "PROJECT_SHORTLISTED":
-      return { headline: "Project shortlisted", detail: null };
+      return { headline: `Project: ${typeof p.projectId === "string" && projects?.[p.projectId] ? projects[p.projectId] : "added"}`, detail: null };
     case "PROJECT_SHORTLIST_REMOVED":
-      return { headline: "Project removed from shortlist", detail: null };
+      return { headline: `Project removed: ${typeof p.projectId === "string" && projects?.[p.projectId] ? projects[p.projectId] : "a project"}`, detail: null };
     case "SITE_VISIT_SCHEDULED":
       return { headline: `Site visit scheduled for ${when(p.scheduledAt)}`, detail: null };
     case "SITE_VISIT_UPDATED":
@@ -146,9 +146,9 @@ function headlineFor(event: LeadEvent, names?: Record<string, string>): { headli
   }
 }
 
-export function describeTimeline(events: LeadEvent[], names?: Record<string, string>): TimelineLine[] {
+export function describeTimeline(events: LeadEvent[], names?: Record<string, string>, projects?: Record<string, string>): TimelineLine[] {
   return events.map((event) => {
-    const { headline, detail } = headlineFor(event, names);
+    const { headline, detail } = headlineFor(event, names, projects);
     const by =
       event.actorType === "BUYER"
         ? "Buyer"

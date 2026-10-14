@@ -28,9 +28,22 @@ const ACTIVE: RequirementView = {
 };
 const OLD: RequirementView = { ...ACTIVE, id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", status: "CLOSED", locations: ["Pune"], notes: null };
 
-function render(requirements: RequirementView[], prefill = {}) {
-  return renderToStaticMarkup(<RequirementSection requirements={requirements} prefill={prefill} onCreate={noop} onUpdate={noop} onSetStatus={noop} />);
+const NO_HITS = async () => [];
+const NO_ADD = async () => ({ ok: false as const, error: "not used" });
+
+function render(requirements: RequirementView[], prefill = {}, projects: Array<{ projectId: string; name: string; developerName: string }> = []) {
+  return renderToStaticMarkup(
+    <RequirementSection requirements={requirements} prefill={prefill} onSave={noop} onSetStatus={noop} projects={projects} searchProjects={NO_HITS} addProject={NO_ADD} />,
+  );
 }
+
+test("requirement section: the chosen projects are shown with the requirement, and a missing project is called out as required", () => {
+  const withProjects = render([ACTIVE], {}, [{ projectId: "p1", name: "Godrej Reserve", developerName: "Godrej Properties" }]);
+  assert.match(withProjects, /Projects to send details of/);
+  assert.match(withProjects, /Godrej Reserve/);
+  const without = render([ACTIVE]);
+  assert.match(without, /None yet\. Edit to add the project: it is required\./);
+});
 
 test("requirement section: the current requirement reads top to bottom — location, budget, configuration, type, purpose, timeline, notes", () => {
   const html = render([ACTIVE]);

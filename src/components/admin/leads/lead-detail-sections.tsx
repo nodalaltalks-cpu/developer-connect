@@ -70,8 +70,7 @@ export function InterestCard({
         ]}
       />
       <p className="mt-2 text-xs text-muted-foreground">
-        The website is internal: buyers are never sent to it. Share it with a buyer yourself when it is the right next step. Projects are
-        not captured yet — only developers.
+        The website is internal: buyers are never sent to it. Share it with a buyer yourself when it is the right next step.
       </p>
     </Card>
   );
@@ -177,33 +176,69 @@ const TRAIL_HIDDEN = new Set<LeadEvent["eventType"]>([
   "CONTACT_DETAILS_UPDATED",
 ]);
 
+/** Changes by one person within this long of each other are ONE save: a lead is recorded once, not field by field. */
+const SAVE_WINDOW_MS = 3 * 60_000;
+
+interface TrailEntry {
+  key: string;
+  at: Date;
+  by: string;
+  comment: string | null;
+  changes: string[];
+}
+
 /**
- * THE trail of a lead: one list, newest first, of what was done, with the comment written on it, and the day, date, time and year.
- * Nothing else is shown, so it can be read in seconds. (The complete append-only log is on the Founder's details page.)
+ * THE history of a lead, one entry per save. Everything one person did within a few minutes (their comment, the requirement, the
+ * projects, the lead status) reads as ONE entry with the comment on top and the changes beneath, newest first, with the day, date, time
+ * and year. System bookkeeping is left out; the complete append-only log is on the Founder's details page. It is folded away until it
+ * is tapped, so it never lengthens the screen a lead is made or updated on.
  */
-export function TrailCard({ events, names }: { events: LeadEvent[]; names?: Record<string, string> }) {
+export function TrailCard({ events, names, projectNames, defaultOpen = false }: { events: LeadEvent[]; names?: Record<string, string>; projectNames?: Record<string, string>; defaultOpen?: boolean }) {
   const visible = events.filter((event) => !TRAIL_HIDDEN.has(event.eventType));
-  const isComment = new Set(visible.filter((event) => event.eventType === "NOTE_ADDED").map((event) => event.id));
-  const lines = describeTimeline(visible, names)
-    .map((line) => (isComment.has(line.id) ? { ...line, headline: "Comment" } : line))
-    .reverse();
+  const lines = describeTimeline(visible, names, projectNames);
+  const byId = new Map(visible.map((event) => [event.id, event]));
+  const entries: TrailEntry[] = [];
+  let last: { actor: string; at: number; entry: TrailEntry } | null = null;
+  for (const line of lines) {
+    const event = byId.get(line.id)!;
+    const actor = `${event.actorType}:${event.actorId ?? ""}`;
+    const at = line.at.getTime();
+    const sameSave = last !== null && last.actor === actor && Math.abs(at - last.at) <= SAVE_WINDOW_MS && event.actorType !== "BUYER" && event.actorType !== "SYSTEM";
+    const entry: TrailEntry = sameSave ? last!.entry : { key: line.id, at: line.at, by: line.by, comment: null, changes: [] };
+    if (event.eventType === "NOTE_ADDED") entry.comment = entry.comment ? `${entry.comment}\n${line.detail ?? ""}` : (line.detail ?? "");
+    else entry.changes.push(line.detail ? `${line.headline}: ${line.detail}` : line.headline);
+    if (!sameSave) entries.push(entry);
+    last = { actor, at, entry };
+  }
+  entries.reverse();
   return (
-    <Card title="History">
-      {lines.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing yet.</p>
-      ) : (
-        <ol className="space-y-3">
-          {lines.map((line) => (
-            <li key={line.id} className="border-l-2 border-border pl-3">
-              <p className="text-xs font-medium text-muted-foreground">{formatDateTimeWithDay(line.at)}</p>
-              <p className="mt-0.5 text-sm font-medium text-foreground">{line.headline}</p>
-              {line.detail && <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground">{line.detail}</p>}
-              <p className="mt-0.5 text-xs text-muted-foreground">by {line.by}</p>
-            </li>
-          ))}
-        </ol>
-      )}
-    </Card>
+    <section className="rounded-lg border border-border p-4">
+      <details open={defaultOpen}>
+        <summary className="min-h-11 cursor-pointer py-2.5 text-sm font-semibold text-foreground">
+          History <span className="font-normal text-muted-foreground">({entries.length}) · India time</span>
+        </summary>
+        {entries.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">Nothing yet.</p>
+        ) : (
+          <ol className="mt-3 space-y-4">
+            {entries.map((entry) => (
+              <li key={entry.key} className="border-l-2 border-border pl-3">
+                <p className="text-xs font-medium text-muted-foreground">{formatDateTimeWithDay(entry.at)}</p>
+                {entry.comment && <p className="mt-1 whitespace-pre-wrap break-words text-sm font-medium text-foreground">&ldquo;{entry.comment}&rdquo;</p>}
+                {entry.changes.length > 0 && (
+                  <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-foreground marker:text-muted-foreground">
+                    {entry.changes.map((change, i) => (
+                      <li key={i}>{change}</li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">by {entry.by}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </details>
+    </section>
   );
 }
 

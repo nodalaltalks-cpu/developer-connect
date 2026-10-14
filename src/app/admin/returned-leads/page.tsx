@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import { requireFounder } from "@/lib/auth";
 import { currentUser } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
@@ -26,6 +27,7 @@ export default async function AdminReturnedLeadsPage() {
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Returned leads" description="Leads a team member sent back to you, with why — until you assign them again. Their full history is kept on each lead." />
       <h2 className="text-sm font-medium text-foreground">Waiting for you · {items.length}</h2>
       {items.length === 0 ? (

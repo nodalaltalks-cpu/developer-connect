@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { listEnquiries } from "@/lib/social/db/postgres-social";
@@ -12,6 +13,7 @@ export default async function EnquiriesPage() {
   const rows = await listEnquiries(100).catch(() => null);
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Enquiries" description="Each one came from the tap-to-select enquiry form (developerconnects.com/enquire). It is already a lead in Leads; here you see everything the person tapped." />
       <p className="mb-4 text-sm text-muted-foreground">
         Form address to put in every bio: <span className="font-medium text-foreground">developerconnects.com/enquire</span> · links page: <span className="font-medium text-foreground">developerconnects.com/links</span>

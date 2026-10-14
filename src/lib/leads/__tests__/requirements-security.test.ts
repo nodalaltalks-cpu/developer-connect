@@ -84,8 +84,8 @@ test("requirements security: the shared requirement UI imports no server actions
   assert.doesNotMatch(ui, /_actions|lib\/leads\/db|memory-repository|requirement-service|@clerk|next\/headers/);
   assert.match(ui, /^"use client";/);
   for (const [page, actions] of [
-    ["src/app/admin/leads/[id]/page.tsx", ["createRequirementAction", "updateRequirementDetailsAction", "setRequirementStatusAction"]],
-    ["src/app/team/leads/[id]/page.tsx", ["createMyRequirementAction", "updateMyRequirementAction", "setMyRequirementStatusAction"]],
+    ["src/app/admin/leads/[id]/page.tsx", ["saveRequirementWithProjectsAction", "setRequirementStatusAction"]],
+    ["src/app/team/leads/[id]/page.tsx", ["saveMyRequirementAction", "setMyRequirementStatusAction"]],
   ] as const) {
     const text = read(page);
     for (const action of actions) assert.ok(text.includes(`${action}.bind(null, lead.id)`), `${page} binds ${action} to its own lead`);

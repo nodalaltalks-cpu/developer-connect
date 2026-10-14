@@ -2,16 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { addMyTeamProjectAction, searchMyProjectsAction } from "@/app/team/_actions/team-actions";
 import type { ProjectSearchHit } from "@/lib/leads/project-service";
+
+export type SearchProjects = (query: string) => Promise<ProjectSearchHit[]>;
+export type AddProject = (name: string) => Promise<{ ok: true; project: ProjectSearchHit } | { ok: false; error: string }>;
 
 const FIELD = "min-h-12 w-full rounded-md border border-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";
 
 /**
  * Pick a project the client is interested in: search the inventory, or type ANY project name and add it (it is saved once and
- * suggested next time). Used as an optional row, never a required step.
+ * suggested next time). The search and add functions are passed in, so the team's and the Founder's own actions are used as they should be.
  */
-export function ProjectPicker({ open, onClose, chosen, onPick }: { open: boolean; onClose: () => void; chosen: ProjectSearchHit[]; onPick: (project: ProjectSearchHit) => void }) {
+export function ProjectPicker({ open, onClose, chosen, onPick, search, add }: { open: boolean; onClose: () => void; chosen: ProjectSearchHit[]; onPick: (project: ProjectSearchHit) => void; search: SearchProjects; add: AddProject }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<{ query: string; items: ProjectSearchHit[] } | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -20,14 +22,14 @@ export function ProjectPicker({ open, onClose, chosen, onPick }: { open: boolean
     if (!open || query.trim().length < 2) return;
     let stale = false;
     const timer = setTimeout(async () => {
-      const items = await searchMyProjectsAction(query).catch(() => []);
+      const items = await search(query).catch(() => []);
       if (!stale) setHits({ query, items });
     }, 250);
     return () => {
       stale = true;
       clearTimeout(timer);
     };
-  }, [open, query]);
+  }, [open, query, search]);
 
   const [suggestions, setSuggestions] = useState<ProjectSearchHit[]>([]);
   const [adding, setAdding] = useState(false);
@@ -37,17 +39,17 @@ export function ProjectPicker({ open, onClose, chosen, onPick }: { open: boolean
   useEffect(() => {
     if (!open) return;
     let stale = false;
-    void searchMyProjectsAction("").then((items) => !stale && setSuggestions(items)).catch(() => {});
+    void search("").then((items) => !stale && setSuggestions(items)).catch(() => {});
     return () => {
       stale = true;
     };
-  }, [open]);
+  }, [open, search]);
 
   const typed = query.replace(/\s+/g, " ").trim();
   async function addTyped() {
     setAdding(true);
     setAddError(null);
-    const result = await addMyTeamProjectAction(typed).catch(() => ({ ok: false as const, error: "Could not add that project. Try again." }));
+    const result = await add(typed).catch(() => ({ ok: false as const, error: "Could not add that project. Try again." }));
     setAdding(false);
     if (result.ok) {
       setQuery("");

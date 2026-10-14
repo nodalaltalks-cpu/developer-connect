@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
@@ -34,6 +35,7 @@ export default async function IntelligencePage() {
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Intelligence" description="Decision support built on your own history. It says plainly what is a rule, what is a statistic, and when there is too little data to say anything. Nothing here is a black box." />
 
       <section aria-labelledby="steps-heading">

@@ -1,4 +1,7 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import { getExecutiveOverview } from "@/lib/admin-analytics/queries";
+import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
+import { getLeadCounts } from "@/lib/leads/lead-reads";
 import { DATE_RANGE_OPTIONS, parseDateRangeKey, resolveDateRange } from "@/lib/admin-analytics/date-range";
 import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { SectionHeading } from "@/components/admin/empty-state";
@@ -12,14 +15,31 @@ export default async function AdminOverviewPage({
   const resolvedSearchParams = await searchParams;
   const range = resolveDateRange(parseDateRangeKey(resolvedSearchParams.range));
   const overview = await getExecutiveOverview(range);
+  // The buyers themselves, live: this page is otherwise about visitors and verification, so leads are shown here too.
+  const leads = await getLeadCounts(createPostgresLeadRepositories(), new Date()).catch(() => null);
   const previousPeriodNoun = DATE_RANGE_OPTIONS.find((o) => o.key === range.key)!.label.toLowerCase();
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading
         title="Overview"
         description={`Real counts from the database — nothing here is estimated or fabricated. Search/engagement figures below reflect ${range.label}; developer/verification status counts are always the current, live state.`}
       />
+
+      {leads && (
+        <section aria-labelledby="overview-leads" className="mb-6">
+          <h2 id="overview-leads" className="mb-3 text-base font-semibold text-foreground">
+            Leads right now
+          </h2>
+          <StatGrid>
+            <StatTile label="New (not yet contacted)" value={leads.new} href="/admin/leads?view=new#lead-list" tone={leads.new > 0 ? "green" : undefined} />
+            <StatTile label="Missed leads" value={leads.overdue} href="/admin/leads?view=overdue#lead-list" />
+            <StatTile label="Due today" value={leads.dueToday} href="/admin/leads?view=due_today#lead-list" />
+            <StatTile label="Total leads" value={leads.total} href="/admin/leads?view=all#lead-list" />
+          </StatGrid>
+        </section>
+      )}
 
       <div className="mb-6">
         <PlatformHealthSummaryCard />

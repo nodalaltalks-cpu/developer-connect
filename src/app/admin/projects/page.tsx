@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { LiveRefresh } from "@/components/live-refresh";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
@@ -19,14 +21,20 @@ export default async function ProjectsPage() {
   // The layout also gates /admin, but a layout is not re-run on every client navigation.
   await requireFounder();
   const user = await currentUser();
-  const [projects, developers] = await Promise.all([
-    listProjectsForFounder(createPostgresLeadRepositories(), { actorType: "FOUNDER", actorId: user!.id }),
+  const repos = createPostgresLeadRepositories();
+  const [projects, developers, leadCounts] = await Promise.all([
+    listProjectsForFounder(repos, { actorType: "FOUNDER", actorId: user!.id }),
     createPostgresRepositories().developers.list({ status: "ACTIVE" }),
+    // Leads currently being sent each project's details (erased leads are not counted).
+    repos.shortlist.countActiveByProject(),
   ]);
+  const totalChosen = Object.values(leadCounts).reduce((sum, n) => sum + n, 0);
 
   return (
     <div>
-      <SectionHeading title="Projects" description="The inventory the matcher reads. Only what you enter is used: a blank field is treated as Unknown, never guessed." />
+      <LiveRefresh />
+      <SectionHeading title="Projects" description="The inventory the matcher reads, and how many leads are being sent each project's details. Tap a project to see those leads." />
+      {totalChosen > 0 && <p className="-mt-3 mb-4 text-sm text-muted-foreground">{totalChosen} project {totalChosen === 1 ? "choice" : "choices"} across your leads.</p>}
 
       {projects.length === 0 ? (
         <EmptyState title="No projects yet" description="Add a project below. Team members can then see how well it fits each buyer's requirement." />
@@ -49,7 +57,10 @@ export default async function ProjectsPage() {
                     : "Price not recorded"}
                 </p>
               </div>
-              <div className="shrink-0">
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <Link href={`/admin/projects/${project.id}`} className="inline-flex min-h-11 items-center rounded-full border border-border px-3 text-sm font-semibold text-accent-hover hover:bg-muted">
+                  {leadCounts[project.id] ?? 0} {(leadCounts[project.id] ?? 0) === 1 ? "lead" : "leads"}
+                </Link>
                 <ProjectStatusButton projectId={project.id} status={project.status} />
               </div>
             </li>

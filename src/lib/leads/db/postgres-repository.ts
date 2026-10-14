@@ -1290,8 +1290,23 @@ function build(db: DbOrTx): LeadRepositories {
         return rows.map(toShortlist);
       },
       async countActiveByProject() {
-        const rows = await db.select({ projectId: leadProjectShortlist.projectId, n: count() }).from(leadProjectShortlist).where(isNull(leadProjectShortlist.removedAt)).groupBy(leadProjectShortlist.projectId);
+        // Erased leads are not part of anyone's figures.
+        const rows = await db
+          .select({ projectId: leadProjectShortlist.projectId, n: count() })
+          .from(leadProjectShortlist)
+          .innerJoin(leads, eq(leads.id, leadProjectShortlist.leadId))
+          .where(and(isNull(leadProjectShortlist.removedAt), liveLead))
+          .groupBy(leadProjectShortlist.projectId);
         return Object.fromEntries(rows.map((r) => [r.projectId, Number(r.n)]));
+      },
+      async listActiveByProject(projectId) {
+        const rows = await db
+          .select({ entry: leadProjectShortlist })
+          .from(leadProjectShortlist)
+          .innerJoin(leads, eq(leads.id, leadProjectShortlist.leadId))
+          .where(and(eq(leadProjectShortlist.projectId, projectId), isNull(leadProjectShortlist.removedAt), liveLead))
+          .orderBy(desc(leadProjectShortlist.shortlistedAt));
+        return rows.map((r) => toShortlist(r.entry));
       },
       async remove(id, removedBy, at) {
         const [row] = await db.update(leadProjectShortlist).set({ removedBy, removedAt: at }).where(and(eq(leadProjectShortlist.id, id), isNull(leadProjectShortlist.removedAt))).returning();
@@ -1352,15 +1367,15 @@ function build(db: DbOrTx): LeadRepositories {
         await db.update(siteVisits).set({ notes: null, nextAction: null }).where(eq(siteVisits.leadId, leadId));
       },
       async countByProject(from, to) {
-        const rows = await db.select({ projectId: siteVisits.projectId, n: count() }).from(siteVisits).where(and(isNotNull(siteVisits.projectId), isNull(siteVisits.rescheduledFrom), gte(siteVisits.createdAt, from), lt(siteVisits.createdAt, to))).groupBy(siteVisits.projectId);
+        const rows = await db.select({ projectId: siteVisits.projectId, n: count() }).from(siteVisits).innerJoin(leads, eq(leads.id, siteVisits.leadId)).where(and(liveLead, isNotNull(siteVisits.projectId), isNull(siteVisits.rescheduledFrom), gte(siteVisits.createdAt, from), lt(siteVisits.createdAt, to))).groupBy(siteVisits.projectId);
         return Object.fromEntries(rows.flatMap((r) => (r.projectId ? [[r.projectId, Number(r.n)]] : [])));
       },
       async statsByStaff(from, to) {
         const out: Record<string, SiteVisitStats> = {};
         const row = (id: string) => (out[id] ??= { scheduled: 0, completed: 0, noShow: 0 });
-        const created = await db.select({ id: siteVisits.staffUserId, n: count() }).from(siteVisits).where(and(isNull(siteVisits.rescheduledFrom), gte(siteVisits.createdAt, from), lt(siteVisits.createdAt, to))).groupBy(siteVisits.staffUserId);
+        const created = await db.select({ id: siteVisits.staffUserId, n: count() }).from(siteVisits).innerJoin(leads, eq(leads.id, siteVisits.leadId)).where(and(liveLead, isNull(siteVisits.rescheduledFrom), gte(siteVisits.createdAt, from), lt(siteVisits.createdAt, to))).groupBy(siteVisits.staffUserId);
         for (const r of created) row(r.id).scheduled = Number(r.n);
-        const done = await db.select({ id: siteVisits.staffUserId, status: siteVisits.status, n: count() }).from(siteVisits).where(and(inArray(siteVisits.status, ["COMPLETED", "NO_SHOW"]), gte(siteVisits.completedAt, from), lt(siteVisits.completedAt, to))).groupBy(siteVisits.staffUserId, siteVisits.status);
+        const done = await db.select({ id: siteVisits.staffUserId, status: siteVisits.status, n: count() }).from(siteVisits).innerJoin(leads, eq(leads.id, siteVisits.leadId)).where(and(liveLead, inArray(siteVisits.status, ["COMPLETED", "NO_SHOW"]), gte(siteVisits.completedAt, from), lt(siteVisits.completedAt, to))).groupBy(siteVisits.staffUserId, siteVisits.status);
         for (const r of done) {
           if (r.status === "COMPLETED") row(r.id).completed = Number(r.n);
           else row(r.id).noShow = Number(r.n);

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { saveMyColdCallLeadAction } from "@/app/team/_actions/team-actions";
 import { WhenInput } from "@/components/leads/when-input";
 import { ProjectPicker } from "@/components/team/project-picker";
+import { addMyTeamProjectAction, searchMyProjectsAction } from "@/app/team/_actions/team-actions";
 import type { ProjectSearchHit } from "@/lib/leads/project-service";
 import { CountryCodeField, DEFAULT_COUNTRY, countryReady, dialCode, maxDigits, minDigits, type CountrySelection } from "@/components/team/country-code-field";
 import { BUDGETS, CONFIGURATIONS, TIMELINES } from "@/lib/social/enquiry-options";
@@ -199,7 +200,7 @@ export function QuickLeadForm({ leadId = null, askPhone = false, initialPhone = 
         <textarea aria-label="Comment on the call" rows={2} maxLength={2000} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="What was said, what happens next" className={`${FIELD} py-2`} />
       </Row>
 
-      <ProjectPicker open={sheetOpen} onClose={() => setSheetOpen(false)} chosen={projects} onPick={(p) => { setProjects((list) => (list.some((x) => x.id === p.id) || list.length >= 5 ? list : [...list, p])); setSheetOpen(false); }} />
+      <ProjectPicker search={searchMyProjectsAction} add={addMyTeamProjectAction} open={sheetOpen} onClose={() => setSheetOpen(false)} chosen={projects} onPick={(p) => { setProjects((list) => (list.some((x) => x.id === p.id) || list.length >= 5 ? list : [...list, p])); setSheetOpen(false); }} />
 
       {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <button type="button" onClick={save} disabled={pending} className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-whatsapp px-4 text-lg font-bold text-white hover:bg-whatsapp-hover disabled:opacity-60">

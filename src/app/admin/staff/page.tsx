@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireFounder } from "@/lib/auth";
@@ -47,6 +48,7 @@ export default async function AdminStaffPage({ searchParams }: { searchParams: P
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Team" description="Everyone has a permanent ID that is never reused. Private, visible only to you." />
       <EnableWorkspace enrolledAs={members.find((m) => m.userId === founderUser?.id)?.employeeId ?? null} />
       <form action="/admin/staff" method="get" role="search" className="mb-4 flex gap-2">

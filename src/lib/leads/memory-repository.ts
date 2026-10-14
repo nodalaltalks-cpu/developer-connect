@@ -1009,8 +1009,20 @@ export function createInMemoryLeadRepositories(
       },
       async countActiveByProject() {
         const out: Record<string, number> = {};
-        for (const e of state.shortlist.values()) if (e.removedAt === null) out[e.projectId] = (out[e.projectId] ?? 0) + 1;
+        for (const e of state.shortlist.values()) {
+          const lead = state.leads.get(e.leadId);
+          if (e.removedAt === null && lead && !lead.erasedAt && !lead.prospect) out[e.projectId] = (out[e.projectId] ?? 0) + 1;
+        }
         return out;
+      },
+      async listActiveByProject(projectId) {
+        return [...state.shortlist.values()]
+          .filter((e) => {
+            const lead = state.leads.get(e.leadId);
+            return e.projectId === projectId && e.removedAt === null && !!lead && !lead.erasedAt && !lead.prospect;
+          })
+          .sort((a, b) => b.shortlistedAt.getTime() - a.shortlistedAt.getTime())
+          .map((e) => ({ ...e }));
       },
       async remove(id, removedBy, at) {
         const e = state.shortlist.get(id);

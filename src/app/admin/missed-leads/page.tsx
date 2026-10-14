@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import { requireFounder } from "@/lib/auth";
 import { currentUser } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
@@ -48,6 +49,7 @@ export default async function AdminMissedLeadsPage({ searchParams }: PageProps<"
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Missed leads" description="Every follow-up whose scheduled time passed without being completed. Private — visible only to you." />
 
       <form method="get" className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5" aria-label="Filter missed leads">

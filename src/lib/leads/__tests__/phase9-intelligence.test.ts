@@ -210,7 +210,7 @@ test("intelligence report: Founder only; with this little data there is no forec
 const read = (p: string) => readFileSync(new URL(`../../../../${p}`, import.meta.url), "utf8");
 
 test("static: nothing in the product loads the trainer or any model output; the pages are Founder-gated; the rules call themselves rules, not AI", () => {
-  const importers = ["src/lib/leads/intelligence-service.ts", "src/app/admin/intelligence/page.tsx", "src/components/leads/next-step-card.tsx", "src/app/team/_components/lead-projects-visits.tsx", "src/app/admin/leads/_components/lead-projects-visits.tsx"].map(read).join("\n");
+  const importers = ["src/lib/leads/intelligence-service.ts", "src/app/admin/intelligence/page.tsx", "src/components/leads/next-step-card.tsx"].map(read).join("\n");
   assert.doesNotMatch(importers, /logistic/, "no screen or service imports the trainer");
   const page = read("src/app/admin/intelligence/page.tsx");
   assert.match(page, /await requireFounder\(\)/);

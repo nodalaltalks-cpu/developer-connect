@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import { requireEmployee } from "@/lib/team/session";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { OpenVisitsList } from "@/components/leads/open-visits-list";
@@ -18,6 +19,7 @@ export default async function TeamVisitsPage() {
   const visits = await listOpenVisits(createPostgresLeadRepositories(), actor, new Date());
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Site visits" description="Your open site visits, soonest first. Open one to confirm it or record what happened." />
       <OpenVisitsList visits={visits} basePath="/team/leads" />
     </div>

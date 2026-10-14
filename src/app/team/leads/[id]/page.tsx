@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import { CommentBox, InteractionCommentProvider } from "@/components/team/interaction-comment";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,18 +20,19 @@ import { toCallView } from "@/lib/leads/call-view";
 import { toFollowUpView } from "@/lib/leads/follow-up-view";
 import { getTelephonyProvider } from "@/lib/leads/telephony";
 import { getMyLeadDetail } from "@/lib/leads/lead-reads";
-import { TeamLeadProjectsAndVisits } from "@/app/team/_components/lead-projects-visits";
+import { getChosenProjects, projectNames } from "@/lib/leads/project-service";
 import { prefillFromLead, toRequirementView } from "@/lib/leads/requirement-view";
 import {
+  addMyTeamProjectAction,
   cancelMyLeadFollowUpAction,
   completeMyLeadFollowUpAction,
-  createMyRequirementAction,
   rescheduleMyLeadFollowUpAction,
   recordMyQualificationAction,
   returnMyLeadAction,
+  saveMyRequirementAction,
+  searchMyProjectsAction,
   setMyLeadFollowUpAction,
   setMyRequirementStatusAction,
-  updateMyRequirementAction,
 } from "@/app/team/_actions/team-actions";
 
 export const metadata = {
@@ -74,9 +76,13 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
   }
   if (!detail) notFound();
   const { lead } = detail;
+  const repos = createPostgresLeadRepositories();
+  const chosenProjects = await getChosenProjects(repos, actor, lead.id);
+  const historyProjects = await projectNames(repos, detail.events.flatMap((e) => (typeof e.payload.projectId === "string" ? [e.payload.projectId] : [])));
 
   return (
     <div>
+      <LiveRefresh />
       <Link href="/team" className="inline-flex min-h-11 items-center text-sm text-accent-hover hover:underline">
         ← My leads
       </Link>
@@ -145,13 +151,14 @@ export default async function TeamLeadDetailPage({ params }: PageProps<"/team/le
         <RequirementSection
           requirements={detail.requirements.map(toRequirementView)}
           prefill={prefillFromLead(lead)}
-          onCreate={createMyRequirementAction.bind(null, lead.id)}
-          onUpdate={updateMyRequirementAction.bind(null, lead.id)}
+          onSave={saveMyRequirementAction.bind(null, lead.id)}
           onSetStatus={setMyRequirementStatusAction.bind(null, lead.id)}
+          projects={chosenProjects.map((p) => ({ projectId: p.projectId, name: p.name, developerName: p.developerName }))}
+          searchProjects={searchMyProjectsAction}
+          addProject={addMyTeamProjectAction}
         />
-        <TeamLeadProjectsAndVisits leadId={lead.id} actor={actor} />
         <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} />
-        <TrailCard events={detail.events} names={{ [member.userId]: member.displayName }} />
+        <TrailCard events={detail.events} names={{ [member.userId]: member.displayName }} projectNames={historyProjects} />
         <ReturnLeadCard onReturn={returnMyLeadAction.bind(null, lead.id)} />
       </div>
       </InteractionCommentProvider>

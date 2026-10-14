@@ -162,7 +162,7 @@ export function FollowUpAlerts({ showBanner = true }: { showBanner?: boolean } =
               {current.name ?? "A lead"}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {current.kind === "MISSED" ? "This one is overdue. Until it is cleared, your other leads stay locked." : "It is time to call. Open the lead, call, and record what was said."}
+              {current.kind === "MISSED" ? "This lead is missed. Until it is cleared, your other leads stay locked." : "It is time to call. Open the lead, call, and record what was said."}
             </p>
             {queue.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{queue.length - 1} more waiting.</p>}
             <div className="mt-5 grid grid-cols-2 gap-2">

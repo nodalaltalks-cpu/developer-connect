@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
@@ -39,6 +40,7 @@ export default async function EmployeeInsightsPage({ searchParams }: PageProps<"
 
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Employee insights" description="Real sales activity from the internal dialer's call records — activity and outcomes side by side. No scores, no ranking." />
 
       {!dialer.configured && (

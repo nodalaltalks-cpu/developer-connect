@@ -1,6 +1,7 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireFounder } from "@/lib/auth";
+import { currentUser, requireFounder } from "@/lib/auth";
 import { LeadActionsPanel } from "@/components/admin/leads/lead-actions-panel";
 import { LeadEraseCard } from "@/components/admin/leads/lead-erase-card";
 import { LeadOwnerCard } from "@/components/admin/leads/lead-owner-card";
@@ -8,7 +9,7 @@ import { FounderCallButton } from "@/components/admin/leads/founder-call-button"
 import { CallHistoryCard } from "@/components/leads/call-history";
 import { FollowUpSection } from "@/components/leads/follow-up-section";
 import { RequirementSection } from "@/components/leads/requirement-section";
-import { FounderLeadProjectsAndVisits } from "@/app/admin/leads/_components/lead-projects-visits";
+import { getChosenProjects, projectNames } from "@/lib/leads/project-service";
 import { SourceBadge, StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
 import { QualificationCard } from "@/components/leads/qualification-card";
 import { InterestCard, RequirementCard, TrailCard } from "@/components/admin/leads/lead-detail-sections";
@@ -22,14 +23,15 @@ import { toCallView } from "@/lib/leads/call-view";
 import { toFollowUpView } from "@/lib/leads/follow-up-view";
 import { getTelephonyProvider } from "@/lib/leads/telephony";
 import {
+  addLeadProjectAction,
   cancelLeadFollowUpAction,
   completeLeadFollowUpAction,
-  createRequirementAction,
   recordLeadQualificationAction,
   rescheduleLeadFollowUpAction,
+  saveRequirementWithProjectsAction,
+  searchLeadProjectsAction,
   setLeadFollowUpAction,
   setRequirementStatusAction,
-  updateRequirementDetailsAction,
 } from "@/app/admin/_actions/lead-actions";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 import { staffNameMap } from "@/lib/staff/staff-service";
@@ -60,6 +62,10 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
   const names = staffNameMap(team);
   const ownerName = lead.ownerId ? (names[lead.ownerId] ?? "Team member") : undefined;
   const erased = lead.erasedAt !== null;
+  const leadRepos = createPostgresLeadRepositories();
+  const founderActor = { actorType: "FOUNDER" as const, actorId: (await currentUser())!.id };
+  const chosenProjects = erased ? [] : await getChosenProjects(leadRepos, founderActor, lead.id);
+  const historyProjects = await projectNames(leadRepos, detail.events.flatMap((e) => (typeof e.payload.projectId === "string" ? [e.payload.projectId] : [])));
 
   // The developer's verified website is INTERNAL data: only this founder-only page reads it (after requireFounder above),
   // and it is never returned to a buyer or rendered on a public page.
@@ -69,6 +75,7 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
 
   return (
     <div>
+      <LiveRefresh />
       <Link href="/admin/leads" className="inline-flex min-h-11 items-center text-sm text-accent-hover hover:underline">
         ← All leads
       </Link>
@@ -153,14 +160,15 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
             <RequirementSection
               requirements={detail.requirements.map(toRequirementView)}
               prefill={prefillFromLead(lead)}
-              onCreate={createRequirementAction.bind(null, lead.id)}
-              onUpdate={updateRequirementDetailsAction.bind(null, lead.id)}
+              onSave={saveRequirementWithProjectsAction.bind(null, lead.id)}
               onSetStatus={setRequirementStatusAction.bind(null, lead.id)}
+              projects={chosenProjects.map((p) => ({ projectId: p.projectId, name: p.name, developerName: p.developerName }))}
+              searchProjects={searchLeadProjectsAction}
+              addProject={addLeadProjectAction}
             />
           )}
-          {!erased && <FounderLeadProjectsAndVisits leadId={lead.id} />}
           <InterestCard developerName={detail.developerName} developersViewed={detail.developersViewed} developerWebsite={developerWebsite} />
-          <TrailCard events={detail.events} names={names} />
+          <TrailCard events={detail.events} names={names} projectNames={historyProjects} />
           <p className="text-sm">
             <Link href={`/admin/leads/${lead.id}/details`} className="inline-flex min-h-11 items-center font-medium text-accent-hover hover:underline">
               Booking and commission, source, consent, record and full log →

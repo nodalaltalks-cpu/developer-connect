@@ -317,7 +317,7 @@ test("timeline: every Stage 4 action reads clearly, in order, and notes appear o
 
   const lines = describeTimeline(await getLeadTimeline(repos, lead.id));
   const headlines = lines.map((line) => line.headline);
-  assert.ok(headlines.includes("Temperature: none → hot"));
+  assert.ok(headlines.includes("Lead status: none → hot"));
   assert.ok(headlines.includes("Status: new → contacted"));
   assert.ok(headlines.includes("Call attempted — No answer"));
   assert.ok(headlines.includes("WhatsApp — Sent"));

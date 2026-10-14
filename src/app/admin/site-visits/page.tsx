@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live-refresh";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
@@ -20,6 +21,7 @@ export default async function AdminSiteVisitsPage() {
   const visits = await listOpenVisits(createPostgresLeadRepositories(), { actorType: "FOUNDER", actorId: user!.id }, new Date(), 100);
   return (
     <div>
+      <LiveRefresh />
       <SectionHeading title="Site visits" description="Every open site visit across the team, soonest first. A visit whose time has passed is waiting for an outcome." />
       <OpenVisitsList visits={visits} basePath="/admin/leads" />
     </div>

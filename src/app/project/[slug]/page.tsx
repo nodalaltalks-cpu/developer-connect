@@ -8,6 +8,7 @@ import { AdvisorPageContext } from "@/components/advisor/advisor";
 import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
 import { CAMPAIGN_PROJECTS, getCampaignProject } from "@/lib/campaign/projects";
 import { ProjectQuickForm } from "@/components/campaign/project-quick-form";
+import { StickyEnquireBar } from "@/components/campaign/sticky-enquire-bar";
 
 /**
  * The page paid ads land on: one project, one decision, one next step. Deliberately NOT indexed and NOT in the sitemap, so it
@@ -53,7 +54,7 @@ export default async function ProjectLandingPage({ params }: PageProps<"/project
       <AdvisorPageContext project={project.name} location={`${project.locality}, Mumbai`} />
       <SiteHeader />
       <main className="flex-1">
-        <Container className="py-10 sm:py-14">
+        <Container className="py-10 pb-28 sm:py-14 sm:pb-14">
           <article className="mx-auto max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brass-700">{project.locality}, Mumbai</p>
             <h1 className="mt-2 text-balance font-serif text-4xl font-medium leading-[1.1] tracking-tight text-foreground sm:text-5xl">{project.name}</h1>
@@ -126,6 +127,7 @@ export default async function ProjectLandingPage({ params }: PageProps<"/project
           </article>
         </Container>
       </main>
+      <StickyEnquireBar label="Get the price sheet" />
       <SiteFooter />
     </div>
   );

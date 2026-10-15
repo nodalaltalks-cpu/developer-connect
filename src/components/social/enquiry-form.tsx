@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { submitEnquiryAction } from "@/app/_actions/enquiry-actions";
 import { consentTextFor } from "@/lib/leads/consent";
 import { BUSINESS_EMAIL, SOCIAL_LINKS } from "@/lib/social/links";
 import { trackSocial } from "@/lib/social/track-client";
 import { readAttributionForSubmit } from "@/lib/leads/attribution-storage";
+import { indianMobileDigits, parseRememberedContact, readRememberedContactRaw, rememberContact, subscribeRememberedContact } from "@/lib/leads/remembered-contact";
 import { trackAdsLeadConversion, trackEvent } from "@/lib/analytics/client";
 import { PHONE_COUNTRIES, composePhone, phoneCountryLabel } from "@/lib/phone-countries";
 import {
@@ -84,9 +85,14 @@ function Question({ title, hint, children }: { title: string; hint?: string; chi
 export function EnquiryForm() {
   const [step, setStep] = useState(0);
   const [a, setA] = useState<Answers>({ locations: [], configurations: [] });
-  const [name, setName] = useState("");
+  // null = not touched: the visitor's remembered details (kept on this device) fill the field until they type.
+  const [typedName, setName] = useState<string | null>(null);
   const [country, setCountry] = useState("IN");
-  const [digits, setDigits] = useState("");
+  const [typedDigits, setDigits] = useState<string | null>(null);
+  const rememberedRaw = useSyncExternalStore(subscribeRememberedContact, readRememberedContactRaw, () => "");
+  const remembered = useMemo(() => parseRememberedContact(rememberedRaw), [rememberedRaw]);
+  const name = typedName ?? remembered?.name ?? "";
+  const digits = typedDigits ?? (country === "IN" ? remembered?.digits ?? "" : "");
   const [trap, setTrap] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -163,6 +169,8 @@ export function EnquiryForm() {
       }).catch(() => ({ ok: false as const, message: "We could not save your enquiry. Please try again." }));
       if (result.ok) {
         trackSocial({ kind: "form_submitted" });
+        const mobile = country === "IN" ? indianMobileDigits(digits) : null;
+        if (mobile && name.trim().length >= 2) rememberContact({ name: name.trim(), digits: mobile });
         // The lead conversion for Google Analytics, Meta and Google Ads: only with measurement consent, no personal data.
         trackAdsLeadConversion(trackEvent("generate_lead", { source: "enquiry_form", market: a.market === "DUBAI" ? "dubai" : a.market === "MUMBAI" ? "mumbai" : undefined }));
         setDone(true);

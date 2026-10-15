@@ -84,6 +84,14 @@ export default function CookiePolicyPage() {
           These values are not sent to our servers.
         </p>
         <p>
+          <strong>Your details, for next time:</strong> after you send an enquiry, your browser keeps the name and mobile
+          number you typed so the next enquiry form is already filled and you can send it with one tap. It stays in your
+          browser&apos;s session storage and is cleared when you close the tab; if you have accepted analytics cookies it is
+          also kept in local storage on this device. It is not sent to us until you press send on a form, and
+          &quot;Not you?&quot; on the form removes it straight away. You can also clear it by clearing this site&apos;s data
+          in your browser.
+        </p>
+        <p>
           <strong>How you found us:</strong> when you arrive on the site, your browser keeps a short record of how you
           got here for that visit — the page you landed on, the address (without any query string) of the external
           site you came from, if any, and campaign tags in the link such as{" "}

@@ -5,7 +5,7 @@ import { AnalyticsConsentProvider } from "@/components/analytics-consent";
 import { AdvisorProvider } from "@/components/advisor/advisor";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { BehaviourTracker } from "@/components/behaviour-tracker";
-import { getGaMeasurementId, getMetaPixelId } from "@/lib/analytics-config";
+import { getGaMeasurementId, getGoogleAdsId, getMetaPixelId } from "@/lib/analytics-config";
 import { founderSchema, organizationSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 import { AnalyticsEvents } from "@/components/analytics-events";
@@ -77,6 +77,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   // the visitor presses "Accept" in the cookie banner (analytics-consent.tsx).
   const gaMeasurementId = getGaMeasurementId(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID);
   const metaPixelId = getMetaPixelId(process.env.NEXT_PUBLIC_META_PIXEL_ID);
+  const googleAdsId = getGoogleAdsId(process.env.NEXT_PUBLIC_GOOGLE_ADS_ID);
 
   return (
     <html
@@ -105,7 +106,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           <AttributionCapture />
           <BehaviourTracker />
-          <AnalyticsConsentProvider measurementId={gaMeasurementId} metaPixelId={metaPixelId}>
+          <AnalyticsConsentProvider measurementId={gaMeasurementId} metaPixelId={metaPixelId} adsId={googleAdsId}>
             <AnalyticsEvents />
             <AdvisorProvider>{children}</AdvisorProvider>
           </AnalyticsConsentProvider>

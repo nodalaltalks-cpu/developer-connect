@@ -6,6 +6,8 @@ import { submitEnquiryAction } from "@/app/_actions/enquiry-actions";
 import { consentTextFor } from "@/lib/leads/consent";
 import { BUSINESS_EMAIL, SOCIAL_LINKS } from "@/lib/social/links";
 import { trackSocial } from "@/lib/social/track-client";
+import { readAttributionForSubmit } from "@/lib/leads/attribution-storage";
+import { trackAdsLeadConversion, trackEvent } from "@/lib/analytics/client";
 import { PHONE_COUNTRIES, composePhone, phoneCountryLabel } from "@/lib/phone-countries";
 import {
   BUDGETS,
@@ -124,7 +126,10 @@ export function EnquiryForm() {
   function submit() {
     if (digits.replace(/\D/g, "").length < 6) return setError("Enter your WhatsApp or phone number.");
     setError(null);
+    // The campaign touch remembered when this visit began (an ad click on a landing page keeps its UTM tags and click ids even
+    // though the visitor has since moved to this page); the address bar is only a fallback.
     const params = new URLSearchParams(window.location.search);
+    const touch = readAttributionForSubmit()?.currentTouch;
     start(async () => {
       const answers = {
         intent: a.intent,
@@ -146,14 +151,20 @@ export function EnquiryForm() {
         name: name.trim() || undefined,
         ...composePhone(country, digits),
         website: trap,
-        landingPath: window.location.pathname,
-        referrer: document.referrer || undefined,
-        utmSource: params.get("utm_source") ?? undefined,
-        utmMedium: params.get("utm_medium") ?? undefined,
-        utmCampaign: params.get("utm_campaign") ?? undefined,
+        landingPath: touch?.landingPath ?? window.location.pathname,
+        referrer: touch?.referrer ?? (document.referrer || undefined),
+        utmSource: touch?.utmSource ?? params.get("utm_source") ?? undefined,
+        utmMedium: touch?.utmMedium ?? params.get("utm_medium") ?? undefined,
+        utmCampaign: touch?.utmCampaign ?? params.get("utm_campaign") ?? undefined,
+        utmContent: touch?.utmContent ?? params.get("utm_content") ?? undefined,
+        utmTerm: touch?.utmTerm ?? params.get("utm_term") ?? undefined,
+        gclid: touch?.gclid ?? params.get("gclid") ?? undefined,
+        fbclid: touch?.fbclid ?? params.get("fbclid") ?? undefined,
       }).catch(() => ({ ok: false as const, message: "We could not save your enquiry. Please try again." }));
       if (result.ok) {
         trackSocial({ kind: "form_submitted" });
+        // The lead conversion for Google Analytics, Meta and Google Ads: only with measurement consent, no personal data.
+        trackAdsLeadConversion(trackEvent("generate_lead", { source: "enquiry_form", market: a.market === "DUBAI" ? "dubai" : a.market === "MUMBAI" ? "mumbai" : undefined }));
         setDone(true);
       } else setError(result.message);
     });

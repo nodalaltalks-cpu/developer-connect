@@ -37,6 +37,23 @@ export function getMetaPixelId(raw: string | null | undefined): string | null {
   return /^\d{10,20}$/.test(value) ? value : null;
 }
 
+/**
+ * The Google Ads account tag ("AW-" plus digits), or null when it is not configured. Ads measurement is OFF unless
+ * NEXT_PUBLIC_GOOGLE_ADS_ID is set to a well-formed id; the strict format also makes it safe for the inline gtag snippet.
+ */
+export function getGoogleAdsId(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  return /^AW-\d{8,12}$/.test(value) ? value : null;
+}
+
+/** The Google Ads conversion label (the part after the slash in "AW-123/label"), or null when it is not configured or malformed. */
+export function getGoogleAdsConversionLabel(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  return /^[A-Za-z0-9_-]{6,40}$/.test(value) ? value : null;
+}
+
 /** localStorage key holding the visitor's analytics-cookie choice on this device. */
 export const ANALYTICS_CONSENT_STORAGE_KEY = "dc-analytics-consent";
 

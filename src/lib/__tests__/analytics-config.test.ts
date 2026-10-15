@@ -76,7 +76,7 @@ test("isAnalyticsExcludedPath: public pages are tracked, and a prefix only match
 test("layout: the ID comes only from the validated env var, is never hard-coded, and is handed to the consent provider", () => {
   const layout = read("../../app/layout.tsx");
   assert.match(layout, /getGaMeasurementId\(process\.env\.NEXT_PUBLIC_GA_MEASUREMENT_ID\)/);
-  assert.match(layout, /<AnalyticsConsentProvider measurementId=\{gaMeasurementId\} metaPixelId=\{metaPixelId\}>[\s\S]*<AdvisorProvider>\{children\}<\/AdvisorProvider>[\s\S]*<\/AnalyticsConsentProvider>/);
+  assert.match(layout, /<AnalyticsConsentProvider measurementId=\{gaMeasurementId\} metaPixelId=\{metaPixelId\} adsId=\{googleAdsId\}>[\s\S]*<AdvisorProvider>\{children\}<\/AdvisorProvider>[\s\S]*<\/AnalyticsConsentProvider>/);
   assert.doesNotMatch(layout, /G-[A-Z0-9]{6,}/);
   // Google Analytics is never mounted directly from the layout — only via the consent provider.
   assert.doesNotMatch(layout, /<GoogleAnalytics/);
@@ -115,7 +115,7 @@ test("consent banner: exactly two equal choices, 'Accept' and 'Accept only essen
 
 test("consent banner: Google Analytics loads only after 'Accept', is switched off and its cookies removed on essentials", () => {
   const source = read("../../components/analytics-consent.tsx");
-  assert.match(source, /measurementId !== null && consent === "all" && <GoogleAnalytics measurementId=\{measurementId\} \/>/);
+  assert.match(source, /\(measurementId !== null \|\| adsId !== null\) && consent === "all" && <GoogleAnalytics measurementId=\{measurementId\} adsId=\{adsId\} \/>/);
   assert.match(source, /if \(choice === "essential"\) removeGaCookies\(\);/);
   assert.match(source, /ga-disable-\$\{measurementId\}`\] = choice !== "all"/);
   // No choice yet (consent === null) => the banner shows and analytics stays off; the server render never assumes a choice.
@@ -123,7 +123,7 @@ test("consent banner: Google Analytics loads only after 'Accept', is switched of
   assert.match(source, /const getServerSnapshot = \(\) => UNKNOWN;/);
   // The banner never appears on private routes, and with no measurement ID there is no banner at all.
   assert.match(source, /!isAnalyticsExcludedPath\(pathname\)/);
-  assert.match(source, /const enabled = measurementId !== null \|\| metaPixelId !== null;/);
+  assert.match(source, /const enabled = measurementId !== null \|\| metaPixelId !== null \|\| adsId !== null;/);
   assert.match(source, /if \(!enabled\) return null;/);
 });
 
@@ -148,7 +148,7 @@ test("component: loads gtag via next/script only for public paths, with the docu
   const component = read("../../components/google-analytics.tsx");
   assert.match(component, /import Script from "next\/script"/);
   assert.match(component, /isAnalyticsExcludedPath\(pathname\)/);
-  assert.match(component, /if \(excluded\) return null;/);
+  assert.match(component, /if \(excluded \|\| !loaderId\) return null;/);
   assert.match(component, /ga-disable-\$\{measurementId\}/);
   assert.doesNotMatch(component, /G-[A-Z0-9]{6,}/);
   // The inline snippet is the standard gtag bootstrap and nothing else (no custom events, no user data).

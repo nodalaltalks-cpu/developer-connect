@@ -30,6 +30,11 @@ export interface EnquiryPayload {
   utmSource?: string;
   utmMedium?: string;
   utmCampaign?: string;
+  utmContent?: string;
+  utmTerm?: string;
+  /** Google's and Meta's click ids; the server cleans and length-caps them like every other attribution value. */
+  gclid?: string;
+  fbclid?: string;
 }
 
 export type EnquiryActionResult = { ok: true } | { ok: false; message: string; field?: string };
@@ -55,6 +60,10 @@ export async function submitEnquiryAction(payload: EnquiryPayload): Promise<Enqu
           utmSource: typeof payload.utmSource === "string" ? payload.utmSource : null,
           utmMedium: typeof payload.utmMedium === "string" ? payload.utmMedium : null,
           utmCampaign: typeof payload.utmCampaign === "string" ? payload.utmCampaign : null,
+          utmContent: typeof payload.utmContent === "string" ? payload.utmContent : null,
+          utmTerm: typeof payload.utmTerm === "string" ? payload.utmTerm : null,
+          gclid: typeof payload.gclid === "string" ? payload.gclid : null,
+          fbclid: typeof payload.fbclid === "string" ? payload.fbclid : null,
         },
       },
     );

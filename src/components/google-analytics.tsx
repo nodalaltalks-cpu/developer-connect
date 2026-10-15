@@ -21,28 +21,36 @@ import { isAnalyticsExcludedPath } from "@/lib/analytics-config";
  * private-page hit is possible in rare cases; an internal-traffic filter in
  * GA is the backstop for the Founder's own visits.
  *
+ * With a Google Ads id it also configures the Ads tag (conversion measurement for the paid campaigns), under the same consent.
+ *
  * Page views after the first are recorded by GA4's built-in "page changes
  * based on browser history events" measurement, so no manual page_view
  * calls are needed for App Router navigation.
  */
-export function GoogleAnalytics({ measurementId }: { measurementId: string }) {
+export function GoogleAnalytics({ measurementId, adsId = null }: { measurementId: string | null; adsId?: string | null }) {
   const pathname = usePathname();
   const excluded = isAnalyticsExcludedPath(pathname);
 
   useEffect(() => {
-    (window as unknown as Record<string, unknown>)[`ga-disable-${measurementId}`] = excluded;
+    if (measurementId) (window as unknown as Record<string, unknown>)[`ga-disable-${measurementId}`] = excluded;
   }, [excluded, measurementId]);
 
-  if (excluded) return null;
+  // Either id can load gtag.js (Google Ads alone is enough for conversion measurement); the script is shared.
+  const loaderId = measurementId ?? adsId;
+  if (excluded || !loaderId) return null;
 
+  const configs = [measurementId, adsId]
+    .filter((id): id is string => id !== null)
+    .map((id) => `gtag('config', '${id}');`)
+    .join(" ");
   return (
     <>
-      <Script src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`} strategy="afterInteractive" />
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${loaderId}`} strategy="afterInteractive" />
       <Script id="ga4-init" strategy="afterInteractive">
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', '${measurementId}');`}
+${configs}`}
       </Script>
     </>
   );

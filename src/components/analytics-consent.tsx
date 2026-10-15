@@ -102,14 +102,17 @@ function removeGaCookies(): void {
 export function AnalyticsConsentProvider({
   measurementId,
   metaPixelId = null,
+  adsId = null,
   children,
 }: {
   measurementId: string | null;
   /** The Meta Pixel, loaded only after the same "Accept" that enables Google Analytics. */
   metaPixelId?: string | null;
+  /** The Google Ads tag, loaded only after the same "Accept". */
+  adsId?: string | null;
   children: ReactNode;
 }) {
-  const enabled = measurementId !== null || metaPixelId !== null;
+  const enabled = measurementId !== null || metaPixelId !== null || adsId !== null;
   const pathname = usePathname();
   const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const ready = stored !== UNKNOWN;
@@ -138,7 +141,7 @@ export function AnalyticsConsentProvider({
   return (
     <ConsentContext.Provider value={value}>
       {children}
-      {measurementId !== null && consent === "all" && <GoogleAnalytics measurementId={measurementId} />}
+      {(measurementId !== null || adsId !== null) && consent === "all" && <GoogleAnalytics measurementId={measurementId} adsId={adsId} />}
       {metaPixelId !== null && consent === "all" && <MetaPixel pixelId={metaPixelId} />}
       {showBanner && (
         <div

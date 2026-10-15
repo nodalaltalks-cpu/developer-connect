@@ -29,6 +29,8 @@ export interface AreaInput {
   name: string;
   /** A shorter name for the <title> when the full name is too long. */
   metaName?: string;
+  /** Replaces the standard "can Developer Connects help me buy here" answer where that wording would not be accurate. */
+  helpFaq?: FaqEntry;
   /** Short phrase for the meta description. */
   hook: string;
   summary: string;
@@ -101,7 +103,7 @@ export function dubaiArea(a: AreaInput): Guide {
     faq: [
       a.faq[0],
       a.faq[1],
-      {
+      a.helpFaq ?? {
         question: `Can Developer Connects help me buy in ${a.name} from India?`,
         answer: `Yes. We compare ${a.name} projects on one sheet with every cost in dirhams and rupees, explain the Dubai Land Department checks, and can plan a short visit or a remote purchase.`,
       },

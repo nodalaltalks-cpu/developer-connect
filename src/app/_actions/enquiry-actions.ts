@@ -1,6 +1,9 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
+import { after } from "next/server";
+import { classifyDigitalSource } from "@/lib/leads/lead-source";
+import { sendInstantAlert } from "@/lib/leads/instant-alert";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { submitEnquiry } from "@/lib/social/enquiry-service";
 import { postgresEnquiryStore } from "@/lib/social/db/postgres-social";
@@ -75,6 +78,18 @@ export async function submitEnquiryAction(payload: EnquiryPayload): Promise<Enqu
       } catch {
         // the lead is saved; the alert is a convenience
       }
+    }
+    if (result.ok) {
+      // A phone alert that reaches a locked phone (off unless configured). No buyer data in it; runs after the response is sent.
+      const channel = classifyDigitalSource({
+        gclid: typeof payload.gclid === "string" ? payload.gclid : null,
+        fbclid: typeof payload.fbclid === "string" ? payload.fbclid : null,
+        utmSource: typeof payload.utmSource === "string" ? payload.utmSource : null,
+        utmMedium: typeof payload.utmMedium === "string" ? payload.utmMedium : null,
+        utmCampaign: typeof payload.utmCampaign === "string" ? payload.utmCampaign : null,
+        referrer: typeof payload.referrer === "string" ? payload.referrer : null,
+      });
+      after(() => sendInstantAlert({ leadId: result.leadId, created: result.created, channel, campaign: typeof payload.utmCampaign === "string" ? payload.utmCampaign : null, landingPath: typeof payload.landingPath === "string" ? payload.landingPath : null }));
     }
     if (result.ok && userId) {
       try {

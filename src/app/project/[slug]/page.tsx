@@ -7,11 +7,12 @@ import { SiteFooter } from "@/components/site-footer";
 import { AdvisorPageContext } from "@/components/advisor/advisor";
 import { ADVISOR_CONTACT } from "@/lib/advisor-contact";
 import { CAMPAIGN_PROJECTS, getCampaignProject } from "@/lib/campaign/projects";
+import { ProjectQuickForm } from "@/components/campaign/project-quick-form";
 
 /**
  * The page paid ads land on: one project, one decision, one next step. Deliberately NOT indexed and NOT in the sitemap, so it
- * never competes with the guides and the ad traffic stays measurable. The enquiry form it links to keeps the campaign tags
- * and click ids from this visit (they are remembered in the browser when the page loads).
+ * never competes with the guides and the ad traffic stays measurable. The two-field form on it and the full enquiry form it links
+ * to both keep the campaign tags and click ids from this visit (they are remembered in the browser when the page loads).
  */
 
 export const dynamicParams = false;
@@ -74,25 +75,31 @@ export default async function ProjectLandingPage({ params }: PageProps<"/project
             </ul>
 
             <section aria-label="Speak to an advisor" className="mt-10 rounded-xl bg-ink p-6 text-pearl sm:p-8">
-              <h2 className="font-serif text-2xl font-medium text-white">Want the price sheet and a site visit?</h2>
-              <p className="mt-2 text-sm leading-6 text-pearl">Tap a few options and leave your number. An advisor calls or WhatsApps you, usually within minutes between 9 am and 9 pm.</p>
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/enquire"
-                  data-cta="advisor_open"
-                  className="inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-gold px-7 text-sm font-bold text-ink hover:opacity-90 sm:w-auto"
+              <h2 className="font-serif text-2xl font-medium text-white">Get the price sheet and arrange a site visit</h2>
+              <p className="mt-2 text-sm leading-6 text-pearl">Leave your name and number. An advisor calls or WhatsApps you, usually within minutes between 9 am and 9 pm.</p>
+              <div className="mt-5">
+                <ProjectQuickForm projectName={project.name} whatsappHref={whatsappHref} />
+              </div>
+              <div className="mt-5 flex flex-col gap-3 border-t border-white/20 pt-5 sm:flex-row">
+                <a
+                  href={`tel:${ADVISOR_CONTACT.india.e164}`}
+                  data-cta="advisor_call"
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-sm border border-white/60 px-5 text-sm font-semibold text-white hover:bg-white/10 sm:w-auto"
                 >
-                  Get details (1 minute)
-                </Link>
+                  Call {ADVISOR_CONTACT.india.display}
+                </a>
                 <a
                   href={whatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   data-cta="advisor_whatsapp"
-                  className="inline-flex min-h-12 w-full items-center justify-center rounded-sm border border-white/60 px-7 text-sm font-semibold text-white hover:bg-white/10 sm:w-auto"
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-sm border border-white/60 px-5 text-sm font-semibold text-white hover:bg-white/10 sm:w-auto"
                 >
                   Message on WhatsApp
                 </a>
+                <Link href="/enquire" data-cta="advisor_open" className="inline-flex min-h-12 w-full items-center justify-center px-2 text-sm font-medium text-pearl underline underline-offset-4 sm:w-auto">
+                  Tell us your budget and area
+                </Link>
               </div>
             </section>
 

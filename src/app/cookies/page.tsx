@@ -91,8 +91,8 @@ export default function CookiePolicyPage() {
           identifier. This stays in your browser&apos;s session storage and is cleared when you close the tab. If you
           have accepted analytics cookies, a copy of the first arrival is also kept in local storage so it can
           survive across visits. This record is <em>not</em> sent to us as you browse. It is sent to our servers only
-          if you send a request to connect with a developer or send us the property enquiry form, so that we know
-          which page or campaign led to your enquiry. It contains no name, phone number or email address.
+          if you send a request to connect with a developer or send us a property enquiry (the enquiry form, or the
+          short form on a project page), so that we know which page or campaign led to your enquiry. It contains no name, phone number or email address.
         </p>
       </LegalSection>
 

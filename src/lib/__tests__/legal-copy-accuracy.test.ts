@@ -134,9 +134,9 @@ test("cookie policy: the 'how you found us' storage is sent to the server ONLY w
     .filter((file) => /readAttributionForSubmit/.test(code(readFileSync(file, "utf8"))))
     .map((file) => path.relative(path.resolve(srcRoot, ".."), file).split(path.sep).join("/"))
     .sort();
-  assert.deepEqual(storageUsers, ["components/assistance-gate.tsx", "components/social/enquiry-form.tsx", "lib/leads/attribution-storage.ts"], "only the gate and the enquiry form (both requests the visitor sends) read the stored touches");
+  assert.deepEqual(storageUsers, ["components/assistance-gate.tsx", "components/campaign/project-quick-form.tsx", "components/social/enquiry-form.tsx", "lib/leads/attribution-storage.ts"], "only the gate and the enquiry forms (all requests the visitor sends) read the stored touches");
 
-  assert.match(cookies, /It is sent to our servers only\s+if you send a request to connect with a developer or send us the property enquiry form/);
+  assert.match(cookies, /It is sent to our servers only\s+if you send a request to connect with a developer or send us a property enquiry/);
   assert.match(cookies, /stays in your browser's session storage and is cleared when you close the tab/);
   assert.match(cookies, /If you have accepted analytics cookies, a copy of the first arrival is also kept in local storage/);
 

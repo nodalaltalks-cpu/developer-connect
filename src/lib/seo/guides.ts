@@ -2,10 +2,11 @@ import { INDIA_GUIDES } from "./guides-india.ts";
 import { DUBAI_AND_ADVISOR_GUIDES } from "./guides-dubai-advisor.ts";
 import { AREA_GUIDES } from "./guides-areas.ts";
 import { MORE_AREA_GUIDES } from "./guides-areas-more.ts";
+import { DUBAI_MICRO_GUIDES } from "./guides-areas-dubai.ts";
 import type { Guide, GuideTopic } from "./types.ts";
 
 /** Every published guide. One list feeds the hub page, the article pages, the sitemap, llms.txt and the structured data. */
-export const GUIDES: readonly Guide[] = [...INDIA_GUIDES, ...DUBAI_AND_ADVISOR_GUIDES, ...AREA_GUIDES, ...MORE_AREA_GUIDES];
+export const GUIDES: readonly Guide[] = [...INDIA_GUIDES, ...DUBAI_AND_ADVISOR_GUIDES, ...AREA_GUIDES, ...MORE_AREA_GUIDES, ...DUBAI_MICRO_GUIDES];
 
 export const GUIDES_PATH = "/guides";
 export const guidePath = (guide: Pick<Guide, "slug">): string => `${GUIDES_PATH}/${guide.slug}`;

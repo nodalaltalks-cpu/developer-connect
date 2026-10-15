@@ -153,6 +153,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     areaGroups: [
       { heading: "Established waterfront and city districts", areas: ["Downtown Dubai", "Dubai Marina", "Business Bay", "Palm Jumeirah", "Jumeirah Lakes Towers"] },
       { heading: "Master-planned communities", areas: ["Dubai Hills Estate", "Dubai Creek Harbour", "Jumeirah Village Circle", "Arjan", "Al Furjan", "Dubai South", "Dubai Silicon Oasis"] },
+      { heading: "More communities buyers ask about", areas: ["Mohammed Bin Rashid City", "Dubai Harbour", "Dubai Islands", "Town Square", "Mirdif", "Dubai Sports City", "Motor City", "Jumeirah Village Triangle"] },
     ],
     regulator: {
       name: "Dubai Land Department and its Real Estate Regulatory Agency",

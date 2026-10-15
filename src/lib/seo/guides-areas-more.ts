@@ -21,12 +21,14 @@ const DUBAI_CHECKS: Block = {
   text: "Confirm the project's registration and escrow account with the Dubai Land Department, match the advertising permit number on the listing, and ask for the building's current service charge per square foot in writing.",
 };
 
-interface AreaInput {
+export interface AreaInput {
   slug: string;
   /** Exactly as it appears in a city page's "Areas we cover" list. */
   area: string;
   /** How the area reads in a sentence ("Mira Road" or "Dubai Creek Harbour"). */
   name: string;
+  /** A shorter name for the <title> when the full name is too long. */
+  metaName?: string;
   /** Short phrase for the meta description. */
   hook: string;
   summary: string;
@@ -74,13 +76,13 @@ function mumbaiArea(a: AreaInput): Guide {
   };
 }
 
-function dubaiArea(a: AreaInput): Guide {
+export function dubaiArea(a: AreaInput): Guide {
   return {
     slug: a.slug,
     topic: "Dubai communities",
     area: a.area,
     title: `Buying property in ${a.name}: a guide for Indian buyers`,
-    metaTitle: `Buying Property in ${a.name}: Guide for Indians`,
+    metaTitle: `Buying Property in ${a.metaName ?? a.name}: Guide for Indians`,
     description: `${a.name} for buyers from India: ${a.hook}, who the community suits, service charges, and the checks to make before you book.`,
     summary: a.summary,
     market: "dubai",
@@ -110,7 +112,7 @@ function dubaiArea(a: AreaInput): Guide {
 }
 
 const CORE_MUMBAI = ["how-to-buy-a-flat-in-mumbai", "hidden-costs-of-buying-property-in-mumbai"];
-const CORE_DUBAI = ["buying-property-in-dubai-from-india", "dubai-golden-visa-property"];
+export const CORE_DUBAI = ["buying-property-in-dubai-from-india", "dubai-golden-visa-property"];
 
 const MUMBAI_AREAS: readonly Guide[] = [
   mumbaiArea({
@@ -420,7 +422,7 @@ const DUBAI_AREAS: readonly Guide[] = [
       { question: "Is Dubai Creek Harbour ready to live in?", answer: "Parts are, with more phases under way. Visit the area and ask for the status of the specific phase and the surrounding amenities." },
       { question: "Is Dubai Creek Harbour freehold?", answer: "Yes, it is a freehold area open to foreign buyers." },
     ],
-    related: ["buying-property-in-business-bay-dubai", "buying-property-in-palm-jumeirah-dubai", ...CORE_DUBAI],
+    related: ["buying-property-in-business-bay-dubai", "buying-property-in-palm-jumeirah-dubai", "buying-property-in-mohammed-bin-rashid-city", ...CORE_DUBAI],
   }),
   dubaiArea({
     slug: "buying-property-in-arjan-dubai",

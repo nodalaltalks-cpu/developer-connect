@@ -54,6 +54,10 @@ export interface AcquisitionRow {
   reachedQualified: boolean;
   hasSiteVisit: boolean;
   booked: boolean;
+  /** When the first call was placed or WhatsApp opened for it; null when nobody has contacted it yet. */
+  firstContactAt?: Date | null;
+  /** A wrong number (a call outcome) or a lead marked Unqualified. A buyer who is simply not interested is NOT junk. */
+  junk?: boolean;
   /** Its BOOKED bookings, each in its own currency (never summed across currencies). No buyer data. */
   bookings: AcquisitionBooking[];
 }

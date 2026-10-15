@@ -555,6 +555,11 @@ function build(db: DbOrTx): LeadRepositories {
                    or exists (select 1 from lead_events e where e.lead_id = l.id and e.event_type = 'STATUS_CHANGED' and e.to_status::text in ('QUALIFIED','SHORTLISTED','SITE_VISIT_SCHEDULED','SITE_VISIT_DONE','NEGOTIATION','BOOKED','CLOSED'))) as reached_qualified,
                  exists (select 1 from site_visits v where v.lead_id = l.id and v.rescheduled_from is null) as has_site_visit,
                  exists (select 1 from bookings b where b.lead_id = l.id and b.status = 'BOOKED') as booked,
+                 least(
+                   (select min(c.initiated_at) from lead_calls c where c.lead_id = l.id),
+                   (select min(e.created_at) from lead_events e where e.lead_id = l.id and e.event_type::text = 'WHATSAPP_OPENED')
+                 ) as first_contact_at,
+                 (l.status::text = 'UNQUALIFIED' or exists (select 1 from lead_calls c where c.lead_id = l.id and c.disposition::text = 'INVALID_NUMBER')) as is_junk,
                  coalesce((select json_agg(json_build_object('currency', b.currency, 'bookingValue', b.booking_value, 'commissionExpected', b.commission_expected, 'commissionReceived', b.commission_received, 'projectId', b.project_id, 'projectName', b.project_name)) from bookings b where b.lead_id = l.id and b.status = 'BOOKED'), '[]'::json) as booking_rows
           from leads l
           left join marketing_touches f on f.id = l.first_touch_id
@@ -577,6 +582,8 @@ function build(db: DbOrTx): LeadRepositories {
           reachedQualified: r.reached_qualified === true,
           hasSiteVisit: r.has_site_visit === true,
           booked: r.booked === true,
+          firstContactAt: r.first_contact_at ? new Date(r.first_contact_at as string) : null,
+          junk: r.is_junk === true,
           bookings: ((r.booking_rows as AcquisitionBooking[] | null) ?? []).map((b) => ({ currency: b.currency, bookingValue: Number(b.bookingValue), commissionExpected: Number(b.commissionExpected), commissionReceived: Number(b.commissionReceived), projectId: b.projectId ?? null, projectName: b.projectName ?? null })),
         }));
       },

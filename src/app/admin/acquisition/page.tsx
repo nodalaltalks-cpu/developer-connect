@@ -6,6 +6,7 @@ import { AcquisitionTable } from "@/components/admin/acquisition-tables";
 import { parseInsightFilters } from "@/lib/leads/call-analytics";
 import { getAcquisitionReport } from "@/lib/leads/campaign-service";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
+import { FAST_RESPONSE_MINUTES, RESPONSE_MIN_SAMPLE } from "@/lib/leads/response-quality";
 
 export const metadata = {
   title: "Acquisition | Developer Connects",
@@ -72,6 +73,47 @@ export default async function AcquisitionPage({ searchParams }: PageProps<"/admi
           </div>
           <p className="mt-2 text-xs text-muted-foreground">“Direct / unknown” means no ad click, campaign tag or referring site was recorded - it is not proof the visitor typed the address.</p>
 
+          {report.quality.length > 0 && (
+            <section aria-labelledby="quality-heading" className="mt-8">
+              <h2 id="quality-heading" className="text-sm font-semibold text-foreground">
+                How fast you reached them, and how many were junk
+              </h2>
+              <div className="mt-2 overflow-x-auto rounded-lg border border-border">
+                <table className="w-full min-w-[36rem] text-left text-sm">
+                  <caption className="sr-only">Speed to first contact and junk rate by channel</caption>
+                  <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th scope="col" className="px-3 py-2">Channel</th>
+                      <th scope="col" className="px-3 py-2 text-right">Leads</th>
+                      <th scope="col" className="px-3 py-2 text-right">Median minutes to first contact</th>
+                      <th scope="col" className="px-3 py-2 text-right">Reached within {FAST_RESPONSE_MINUTES} min</th>
+                      <th scope="col" className="px-3 py-2 text-right">Never contacted</th>
+                      <th scope="col" className="px-3 py-2 text-right">Junk</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {report.quality.map((q) => (
+                      <tr key={q.channel}>
+                        <th scope="row" className="px-3 py-2 font-medium text-foreground">{q.label}</th>
+                        <td className="px-3 py-2 text-right">{q.leads}</td>
+                        <td className="px-3 py-2 text-right">{q.medianMinutes === null ? "—" : q.medianMinutes}</td>
+                        <td className="px-3 py-2 text-right">{q.fastShare === null ? "—" : `${q.fastShare}%`}</td>
+                        <td className="px-3 py-2 text-right">{q.neverContacted}</td>
+                        <td className="px-3 py-2 text-right">
+                          {q.junk}
+                          {q.junkRate !== null && <span className="ml-2 text-xs text-muted-foreground">{q.junkRate}%</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                First contact is the first call placed or WhatsApp opened for the lead. Junk is a wrong number or a lead marked Unqualified; a buyer who is just not interested is not junk. A dash means fewer than {RESPONSE_MIN_SAMPLE} leads, too few to judge. If more than about 4 in 10 are junk, fix the keywords before adding budget.
+              </p>
+            </section>
+          )}
+
           <h2 className="mt-8 text-sm font-semibold text-foreground">By campaign</h2>
           <div className="mt-2">
             <AcquisitionTable caption="Leads by campaign" firstColumn="Campaign" groups={report.byCampaign} />
@@ -87,7 +129,13 @@ export default async function AcquisitionPage({ searchParams }: PageProps<"/admi
           <div className="mt-2">
             <AcquisitionTable caption="Leads by landing page" firstColumn="Landing page" groups={report.byLandingPage} />
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">Cost per lead and per qualified lead need recorded marketing spend, which is not tracked yet, so they are not shown rather than estimated.</p>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Cost per lead, per qualified lead, per site visit and per booking are on the{" "}
+            <Link href="/admin/finance" className="text-accent-hover hover:underline">
+              Finance
+            </Link>{" "}
+            page, from the spend you record each week.
+          </p>
         </>
       )}
     </div>

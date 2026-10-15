@@ -1,5 +1,6 @@
 import { LeadNotFoundError, LeadValidationError, UnauthorizedLeadActionError } from "./errors.ts";
 import { buildAcquisitionReport, type AcquisitionReport, type AttributionBasis } from "./acquisition.ts";
+import { buildChannelQuality, type ChannelQuality } from "./response-quality.ts";
 import type { LeadRepositories } from "./repository.ts";
 import type { Campaign, CampaignStatus, LeadActor } from "./types.ts";
 
@@ -91,10 +92,11 @@ export async function listCampaigns(repos: LeadRepositories, actor: LeadActor): 
 }
 
 /** The Founder's acquisition report for leads CREATED in [from, to). Read-only. */
-export async function getAcquisitionReport(repos: LeadRepositories, actor: LeadActor, range: { from: Date; to: Date }, basis: AttributionBasis = "first"): Promise<AcquisitionReport> {
+export async function getAcquisitionReport(repos: LeadRepositories, actor: LeadActor, range: { from: Date; to: Date }, basis: AttributionBasis = "first"): Promise<AcquisitionReport & { quality: ChannelQuality[] }> {
   assertFounder(actor);
   if (basis !== "first" && basis !== "latest") throw new LeadValidationError("basis", "Choose first touch or latest touch.");
   const [rows, campaigns] = await Promise.all([repos.leads.acquisitionRows({ from: range.from, to: range.to, limit: MAX_REPORT_LEADS + 1 }), repos.campaigns.list(500)]);
   const truncated = rows.length > MAX_REPORT_LEADS;
-  return buildAcquisitionReport(truncated ? rows.slice(0, MAX_REPORT_LEADS) : rows, campaigns.map((c) => ({ id: c.id, name: c.name, utmCampaign: c.utmCampaign })), basis, truncated);
+  const used = truncated ? rows.slice(0, MAX_REPORT_LEADS) : rows;
+  return { ...buildAcquisitionReport(used, campaigns.map((c) => ({ id: c.id, name: c.name, utmCampaign: c.utmCampaign })), basis, truncated), quality: buildChannelQuality(used, basis) };
 }

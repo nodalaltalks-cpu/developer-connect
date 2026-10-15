@@ -388,6 +388,11 @@ export function createInMemoryLeadRepositories(
             reachedQualified: QUALIFIED_OR_LATER.includes(l.status) || state.events.some((e) => e.leadId === l.id && e.eventType === "STATUS_CHANGED" && e.toStatus !== null && QUALIFIED_OR_LATER.includes(e.toStatus)),
             hasSiteVisit: [...state.siteVisits.values()].some((v) => v.leadId === l.id && v.rescheduledFrom === null),
             booked: [...state.bookings.values()].some((b) => b.leadId === l.id && b.status === "BOOKED"),
+            firstContactAt: [
+              ...[...state.calls.values()].filter((c) => c.leadId === l.id).map((c) => c.initiatedAt),
+              ...state.events.filter((e) => e.leadId === l.id && e.eventType === "WHATSAPP_OPENED").map((e) => e.createdAt),
+            ].sort((a, b) => a.getTime() - b.getTime())[0] ?? null,
+            junk: l.status === "UNQUALIFIED" || [...state.calls.values()].some((c) => c.leadId === l.id && c.disposition === "INVALID_NUMBER"),
             bookings: [...state.bookings.values()]
               .filter((b) => b.leadId === l.id && b.status === "BOOKED")
               .map((b) => ({ currency: b.currency, bookingValue: b.bookingValue, commissionExpected: b.commissionExpected, commissionReceived: b.commissionReceived, projectId: b.projectId, projectName: b.projectName })),

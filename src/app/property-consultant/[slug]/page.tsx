@@ -5,7 +5,7 @@ import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { AdvisorPageContext } from "@/components/advisor/advisor";
-import { AdviceCta, Breadcrumb, FaqList, GENERAL_INFO_NOTE } from "@/components/seo/article-parts";
+import { AdviceCta, Breadcrumb, FaqList, GENERAL_INFO_NOTE, AreaList } from "@/components/seo/article-parts";
 import { SHARE_IMAGES } from "@/lib/share-image";
 import { CONSULTANT_PAGES, CONSULTANT_PATH, consultantPath, getConsultantPage } from "@/lib/seo/consultant-pages";
 import { getGuide, guideForArea, guidePath } from "@/lib/seo/guides";
@@ -82,22 +82,12 @@ export default async function ConsultantCityPage({ params }: PageProps<"/propert
             {page.areaGroups.map((group) => (
               <div key={group.heading} className="mt-5">
                 <h3 className="text-sm font-semibold text-foreground">{group.heading}</h3>
-                <ul className="mt-2 flex flex-wrap gap-2">
-                  {group.areas.map((area) => {
+                <AreaList
+                  items={group.areas.map((area) => {
                     const areaGuide = guideForArea(area);
-                    return areaGuide ? (
-                      <li key={area}>
-                        <Link href={guidePath(areaGuide)} className="inline-flex rounded-sm border border-brass-700/60 bg-white px-3 py-1.5 text-sm font-medium text-accent-hover underline-offset-4 hover:border-gold hover:underline">
-                          {area} guide →
-                        </Link>
-                      </li>
-                    ) : (
-                      <li key={area} className="rounded-sm border border-field-border bg-white px-3 py-1.5 text-sm text-foreground">
-                        {area}
-                      </li>
-                    );
+                    return { name: areaGuide ? `${area} guide` : area, href: areaGuide ? guidePath(areaGuide) : undefined };
                   })}
-                </ul>
+                />
               </div>
             ))}
 

@@ -138,7 +138,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
               </ol>
             </nav>
 
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="mt-4 text-balance font-serif text-4xl font-medium leading-[1.1] tracking-tight text-foreground sm:text-5xl">
               Researching developers in {market.name}
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
@@ -152,7 +152,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
 
             {developers.length > 0 && (
               <>
-                <h2 className="mt-10 text-2xl font-semibold tracking-tight text-foreground">
+                <h2 className="mt-10 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
                   Developers in {market.name}
                 </h2>
                 <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -176,15 +176,15 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
               </>
             )}
 
-            <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
+            <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
               How to research a developer in {market.name}
             </h2>
             <BuyDirectSteps />
 
-            <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
+            <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
               Check the project with the regulator
             </h2>
-            <div className="mt-4 rounded-lg border border-border bg-muted p-5">
+            <div className="mt-4 rounded-xl border border-border bg-white p-5">
               <p className="font-medium text-foreground">{market.regulator.name}</p>
               <p className="mt-2 text-sm text-muted-foreground">{market.regulator.check}</p>
               {market.regulator.url && (
@@ -204,7 +204,7 @@ export default async function BuyDirectMarketPage({ params }: PageProps<"/buy-di
               </p>
             ))}
 
-            <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
+            <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
               Frequently asked questions
             </h2>
             <BuyDirectFaq items={faq} />

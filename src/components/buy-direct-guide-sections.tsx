@@ -1,3 +1,4 @@
+import { FaqList } from "@/components/seo/article-parts";
 import { BUY_DIRECT_STEPS, type FaqItem } from "@/lib/developer-connect/buy-direct-guides";
 
 /** The shared five-step "how to research a developer" list. */
@@ -24,16 +25,7 @@ export function BuyDirectSteps() {
 
 /** Visible FAQ list — the same items the page's FAQPage JSON-LD describes, so the markup always matches visible text. */
 export function BuyDirectFaq({ items }: { items: FaqItem[] }) {
-  return (
-    <dl className="mt-4 divide-y divide-border rounded-lg border border-border">
-      {items.map((item) => (
-        <div key={item.question} className="p-5">
-          <dt className="font-medium text-foreground">{item.question}</dt>
-          <dd className="mt-2 text-sm text-muted-foreground">{item.answer}</dd>
-        </div>
-      ))}
-    </dl>
-  );
+  return <FaqList items={items} />;
 }
 
 export function faqStructuredData(items: FaqItem[]) {

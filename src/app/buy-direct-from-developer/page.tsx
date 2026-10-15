@@ -61,7 +61,7 @@ export default function BuyDirectHubPage() {
               </ol>
             </nav>
 
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="mt-4 text-balance font-serif text-4xl font-medium leading-[1.1] tracking-tight text-foreground sm:text-5xl">
               How to research a developer before you buy
             </h1>
             <p className="mt-3 text-lg text-muted-foreground">
@@ -84,12 +84,12 @@ export default function BuyDirectHubPage() {
               </Link>
             </div>
 
-            <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
+            <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
               Researching a developer, step by step
             </h2>
             <BuyDirectSteps />
 
-            <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
+            <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
               Whoever helps you, check the basics
             </h2>
             <ul className="mt-4 list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
@@ -99,7 +99,7 @@ export default function BuyDirectHubPage() {
               <li>Check the developer and the project yourself, and with the regulator, before you pay anything.</li>
             </ul>
 
-            <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">Guides by location</h2>
+            <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">Guides by location</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               Each guide covers the regulator to check and lists that location&apos;s developers.
             </p>
@@ -123,7 +123,7 @@ export default function BuyDirectHubPage() {
               </div>
             ))}
 
-            <h2 className="mt-12 text-2xl font-semibold tracking-tight text-foreground">
+            <h2 className="mt-12 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
               Frequently asked questions
             </h2>
             <BuyDirectFaq items={faq} />

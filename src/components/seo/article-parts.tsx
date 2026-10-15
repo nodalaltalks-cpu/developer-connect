@@ -46,7 +46,7 @@ export function Blocks({ blocks }: { blocks: readonly Block[] }) {
             );
           case "note":
             return (
-              <aside key={i} className="mt-6 rounded-xl border border-border border-l-4 border-l-gold bg-white p-5">
+              <aside key={i} className="mt-6 border-l-2 border-gold pl-4">
                 <p className="text-sm font-semibold text-foreground">{block.title}</p>
                 <p className="mt-1 text-sm leading-6 text-foreground/80">{block.text}</p>
               </aside>
@@ -89,16 +89,53 @@ export function Byline({ updated }: { updated: string }) {
   );
 }
 
+/** Collapsed by default so a long FAQ reads as a short list; the answers stay in the HTML, so crawlers and the FAQPage schema still see them. */
 export function FaqList({ items }: { items: readonly { question: string; answer: string }[] }) {
   return (
-    <dl className="mt-4 divide-y divide-border rounded-xl border border-border bg-white">
+    <div className="mt-4 divide-y divide-border border-y border-border">
       {items.map((item) => (
-        <div key={item.question} className="p-5">
-          <dt className="font-semibold text-foreground">{item.question}</dt>
-          <dd className="mt-2 text-sm leading-6 text-foreground/80">{item.answer}</dd>
-        </div>
+        <details key={item.question} className="group py-1">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-2 font-semibold text-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+            <span>{item.question}</span>
+            <span aria-hidden="true" className="shrink-0 text-lg text-brass-700 transition-transform group-open:rotate-45">+</span>
+          </summary>
+          <p className="pb-4 text-sm leading-6 text-foreground/80">{item.answer}</p>
+        </details>
       ))}
-    </dl>
+    </div>
+  );
+}
+
+/** A quiet two-column list of links or plain names. Past `limit` the rest sit behind "Show all", still in the HTML. */
+export function AreaList({ items, limit = 8 }: { items: readonly { name: string; href?: string }[]; limit?: number }) {
+  const render = (item: { name: string; href?: string }) => (
+    <li key={item.name}>
+      {item.href ? (
+        <Link href={item.href} className="inline-flex min-h-10 items-center text-accent-hover underline-offset-4 hover:underline">
+          {item.name}
+          <span aria-hidden="true" className="ml-1 text-brass-700">→</span>
+        </Link>
+      ) : (
+        <span className="inline-flex min-h-10 items-center text-foreground/80">{item.name}</span>
+      )}
+    </li>
+  );
+  const shown = items.slice(0, limit);
+  const rest = items.slice(limit);
+  const cols = "grid grid-cols-1 gap-x-6 sm:grid-cols-2";
+  return (
+    <>
+      <ul className={`mt-2 ${cols}`}>{shown.map(render)}</ul>
+      {rest.length > 0 && (
+        <details className="group">
+          <summary className="inline-flex min-h-10 cursor-pointer list-none items-center text-sm font-medium text-accent-hover marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">Show all {items.length}</span>
+            <span className="hidden group-open:inline">Show fewer</span>
+          </summary>
+          <ul className={cols}>{rest.map(render)}</ul>
+        </details>
+      )}
+    </>
   );
 }
 

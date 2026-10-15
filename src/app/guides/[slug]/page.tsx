@@ -73,7 +73,7 @@ export default async function GuidePage({ params }: PageProps<"/guides/[slug]">)
               <section className="mt-12">
                 <h2 className="text-lg font-semibold text-foreground">Keep reading</h2>
                 <ul className="mt-3 space-y-2">
-                  {related.map((r) => (
+                  {related.slice(0, 3).map((r) => (
                     <li key={r.slug}>
                       <Link href={guidePath(r)} className="text-accent-hover underline-offset-4 hover:underline">
                         {r.title}

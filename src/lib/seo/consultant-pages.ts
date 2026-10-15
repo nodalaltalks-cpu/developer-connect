@@ -95,7 +95,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
       check: "Search the project on the MahaRERA website and match the registration number, promoter and completion date before paying any amount.",
     },
     directory: { country: "India", city: "Thane" },
-    guides: ["buying-property-in-thane-west", "mumbai-vs-navi-mumbai-vs-thane", "how-to-buy-a-flat-in-mumbai", "under-construction-vs-ready-to-move", "site-visit-checklist"],
+    guides: ["buying-property-in-thane-west", "buying-property-in-majiwada-thane", "mumbai-vs-navi-mumbai-vs-thane", "how-to-buy-a-flat-in-mumbai", "under-construction-vs-ready-to-move", "site-visit-checklist"],
     faq: [
       { question: "Is Thane a good place to buy a home?", answer: "Thane is a mature city with its own schools, hospitals and markets and links to Mumbai by rail and road. Whether it suits you depends on your commute and budget, which is why we start there." },
       { question: "Can you show me projects across several developers?", answer: "Yes. The aim is to compare a handful of projects on one cost sheet, so you can see the differences clearly before you visit." },

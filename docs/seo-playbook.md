@@ -4,7 +4,7 @@ What the website now does (built in code), and what only the founder can do off 
 
 ## 1. What is built into the site
 
-- **Buying guides** (`/guides`): 14 long-form guides answering the questions buyers search (how to buy in Mumbai, Dubai from India, hidden costs, MahaRERA check, NRI rules, loans, choosing a consultant). Each has an "In short" answer first, FAQ, Article + FAQPage + BreadcrumbList schema, a named author and a "facts checked" date.
+- **Buying guides** (`/guides`): 34 long-form guides (14 core guides plus 20 more neighbourhood guides in `guides-areas-more.ts`) answering the questions buyers search (how to buy in Mumbai, Dubai from India, hidden costs, MahaRERA check, NRI rules, loans, choosing a consultant). Each has an "In short" answer first, FAQ, Article + FAQPage + BreadcrumbList schema, a named author and a "facts checked" date.
 - **City pages** (`/property-consultant/{mumbai,thane,navi-mumbai,dubai}`): the pages that target "property consultant in {city}". Service + FAQ + breadcrumb schema, areas covered, regulator, the commission statement.
 - **Neighbourhood guides** (`src/lib/seo/guides-areas.ts`): Powai, Goregaon East, Andheri, Thane West / Ghodbunder Road, Dubai Marina, Downtown Dubai, JVC, Dubai Hills Estate. Each `area` matches a city page's area chip, which links to it. No prices, rents or yields (a test blocks them). Add more only with real, specific content.
 - **Free tools**: `/tools/home-loan-emi-calculator` (EMI and affordability, INR or AED, WebApplication + FAQ schema) and `/property-glossary` (28 terms, DefinedTermSet schema, one anchor per term). Calculators and glossaries earn links and are quoted by AI assistants.

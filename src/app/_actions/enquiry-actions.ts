@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { after } from "next/server";
 import { classifyDigitalSource } from "@/lib/leads/lead-source";
 import { sendInstantAlert } from "@/lib/leads/instant-alert";
+import { nameLooksLikeBusiness } from "@/lib/leads/lead-screen";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { submitEnquiry } from "@/lib/social/enquiry-service";
 import { postgresEnquiryStore } from "@/lib/social/db/postgres-social";
@@ -89,7 +90,7 @@ export async function submitEnquiryAction(payload: EnquiryPayload): Promise<Enqu
         utmCampaign: typeof payload.utmCampaign === "string" ? payload.utmCampaign : null,
         referrer: typeof payload.referrer === "string" ? payload.referrer : null,
       });
-      after(() => sendInstantAlert({ leadId: result.leadId, created: result.created, channel, campaign: typeof payload.utmCampaign === "string" ? payload.utmCampaign : null, landingPath: typeof payload.landingPath === "string" ? payload.landingPath : null }));
+      after(() => sendInstantAlert({ leadId: result.leadId, created: result.created, channel, campaign: typeof payload.utmCampaign === "string" ? payload.utmCampaign : null, landingPath: typeof payload.landingPath === "string" ? payload.landingPath : null, flags: nameLooksLikeBusiness(payload.name) ? ["name looks like a property business (agent or channel partner?)"] : [] }));
     }
     if (result.ok && userId) {
       try {

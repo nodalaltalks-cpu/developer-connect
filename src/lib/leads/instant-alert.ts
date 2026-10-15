@@ -30,6 +30,8 @@ export interface InstantAlertInfo {
   channel: string;
   campaign?: string | null;
   landingPath?: string | null;
+  /** Plain reasons to check before calling (from lead-screen). Never a name or number. */
+  flags?: readonly string[];
 }
 
 const SAFE = /[^A-Za-z0-9 _./:-]/g;
@@ -42,6 +44,7 @@ export function buildInstantAlertText(info: InstantAlertInfo, siteUrl = "https:/
     `Source: ${clean(info.channel, 30) || "Website"}`,
     ...(info.campaign ? [`Campaign: ${clean(info.campaign, 80)}`] : []),
     ...(info.landingPath ? [`Page: ${clean(info.landingPath, 80)}`] : []),
+    ...(info.flags && info.flags.length > 0 ? [`CHECK FIRST: ${info.flags.map((f) => clean(f, 80)).join("; ")}`] : []),
     `${siteUrl}/admin/leads/${encodeURIComponent(info.leadId)}`,
   ];
   return lines.join("\n");

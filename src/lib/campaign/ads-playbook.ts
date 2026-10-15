@@ -47,6 +47,8 @@ export const NEGATIVE_KEYWORDS = [
   "job", "jobs", "career", "careers", "salary", "hiring", "vacancy", "internship", "course", "training", "license", "agent license",
   // research with no intent
   "pdf", "wikipedia", "meaning", "images", "photos", "video", "youtube", "reddit", "quora",
+  // agents and channel partners looking for commission, not a home
+  "commission", "channel partner", "channel partners", "cp", "payout", "dealer", "dealers", "associate", "referral program", "lead generation", "franchise", "partnership", "tie up",
   // listing portals and brokers: the searcher wants the portal, not us
   "99acres", "magicbricks", "housing.com", "nobroker", "olx", "commonfloor", "square yards", "broker", "brokers",
   // wrong money intent
@@ -89,4 +91,31 @@ export const GATES: ReadonlyArray<{ when: string; pass: string; fail: string }> 
   { when: "End of week 2", pass: "At least 6 leads and 2 site visits booked from them.", fail: "Fix keywords, ad copy or the page; do not add budget." },
   { when: "End of week 4", pass: "Cost per site visit is known and a booking is in progress.", fail: "Hold budget; revisit the project choice with the data." },
   { when: "Scaling", pass: "Raise the daily budget by about 20% at a time, only while cost per site visit holds.", fail: "Drop back to the last budget that worked." },
+];
+
+/** What each kind of waste costs and the cheapest thing that stops it. Google bills per click, not per lead, so waste has two prices: the click and your calling time. */
+export const WASTE_CONTROLS: ReadonlyArray<{ waste: string; costs: string; stop: string }> = [
+  { waste: "Agents and channel partners searching for commission", costs: "A click and a call", stop: "Commission and partner words are negatives; the page says it is for home buyers and gives agents an email; the alert flags names that read like a firm." },
+  { waste: "Made-up numbers (9999999999, 9876543210)", costs: "Your calling time", stop: "The form refuses them, so nothing is saved and no alert fires." },
+  { waste: "Searches that are not buying (rent, PG, jobs, resale)", costs: "A click", stop: "Account-level negative list; exact and phrase match only; review the search terms report every 2 days." },
+  { waste: "Clicks from outside the target area, or while you cannot answer", costs: "A click", stop: "Location 'Presence' only, 9 am to 9 pm schedule, Search Partners and Display off." },
+  { waste: "Repeat clicks from the same rival or bot", costs: "A click each time", stop: "Google filters invalid clicks and credits them automatically; report patterns you see to Google for a credit and add a repeat IP to the exclusion list. Paid click-fraud tools cost more than they save at ₹10,000 a month." },
+  { waste: "Someone who is not serious about buying", costs: "Your calling time", stop: "The first WhatsApp message asks two questions (below). Log every outcome so you can see which keyword brings them, then block it." },
+];
+
+/** The first message after a lead arrives: it must read as a person, take 10 seconds to answer, and let a non-buyer drop out. */
+export const FIRST_MESSAGE =
+  "Hi {Name}, this is Ambish from Developer Connects about {Project}, {Locality}. Two quick questions so I send the right details: 1) Is this for your own use or investment? 2) Which size and roughly what budget are you looking at?";
+
+export const OUTCOME_LOGGING: readonly string[] = [
+  "Wrong or switched-off number: log the call as invalid number. It shows which source brings bad numbers.",
+  "Agent or broker: set the lead to Unqualified and write 'agent' in the comment, so the pattern is searchable.",
+  "Not interested after the first call: set Not interested. Open leads hide the real cost per qualified lead.",
+  "Every Sunday, count junk leads against total leads for the week. If more than about 4 in 10 are junk, change keywords or ad copy before adding budget.",
+];
+
+export const PAUSE_RULES: readonly string[] = [
+  "Pause a keyword that has spent more than twice your target cost per lead with no lead.",
+  "Pause an ad group whose leads are all junk after 15 clicks, then read its search terms before turning it back on.",
+  "Never add budget in a week that had more junk than buyers.",
 ];

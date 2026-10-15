@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
-import { AD_DESCRIPTIONS, AD_FACT_TEMPLATES, AD_GROUPS, AD_HEADLINES, CAMPAIGN_SETTINGS, DESCRIPTION_MAX, GATES, HEADLINE_MAX, NEGATIVE_KEYWORDS, WEEKLY_ROUTINE } from "@/lib/campaign/ads-playbook";
+import { AD_DESCRIPTIONS, AD_FACT_TEMPLATES, AD_GROUPS, AD_HEADLINES, CAMPAIGN_SETTINGS, DESCRIPTION_MAX, FIRST_MESSAGE, GATES, HEADLINE_MAX, NEGATIVE_KEYWORDS, OUTCOME_LOGGING, PAUSE_RULES, WASTE_CONTROLS, WEEKLY_ROUTINE } from "@/lib/campaign/ads-playbook";
 
 export const metadata = { title: "Google Ads playbook | Developer Connects", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -81,6 +81,37 @@ export default async function AdsPlaybookPage() {
       <Card title="Negative keywords (add as one account-level list)">
         <p className="font-mono text-xs leading-6">{NEGATIVE_KEYWORDS.join(", ")}</p>
         <p className="text-xs text-muted-foreground">A starting list, not a finished one. The search terms report is where the rest comes from.</p>
+      </Card>
+
+      <Card title="Stopping wasted money and wasted calls">
+        <p>Google bills per click, not per lead. A fake lead costs you the click and then your time, so each kind is controlled where it is cheapest to stop.</p>
+        <ul className="space-y-3">
+          {WASTE_CONTROLS.map((w) => (
+            <li key={w.waste}>
+              <p className="font-semibold text-foreground">{w.waste}</p>
+              <p className="text-xs text-muted-foreground">Costs: {w.costs}</p>
+              <p>{w.stop}</p>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <Card title="First WhatsApp message (quick to answer, filters itself)">
+        <p className="rounded-md bg-muted p-3 text-sm">{FIRST_MESSAGE}</p>
+      </Card>
+
+      <Card title="Log outcomes so waste shows up">
+        <ul className="list-disc space-y-1 pl-5">
+          {OUTCOME_LOGGING.map((o) => (
+            <li key={o}>{o}</li>
+          ))}
+        </ul>
+        <p className="font-semibold text-foreground">Pause rules</p>
+        <ul className="list-disc space-y-1 pl-5">
+          {PAUSE_RULES.map((o) => (
+            <li key={o}>{o}</li>
+          ))}
+        </ul>
       </Card>
 
       <Card title="Routine">

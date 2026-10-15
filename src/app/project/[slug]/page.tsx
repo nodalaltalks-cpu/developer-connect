@@ -104,6 +104,14 @@ export default async function ProjectLandingPage({ params }: PageProps<"/project
               </div>
             </section>
 
+            <p className="mt-6 text-sm leading-6 text-muted-foreground">
+              This form is for home buyers. Property agents and channel partners, please write to{" "}
+              <a href={`mailto:${ADVISOR_CONTACT.email}`} className="underline underline-offset-4">
+                {ADVISOR_CONTACT.email}
+              </a>
+              .
+            </p>
+
             <section className="mt-10">
               <h2 className="text-lg font-semibold text-foreground">Check it yourself</h2>
               <p className="mt-2 text-sm leading-6 text-foreground/80">

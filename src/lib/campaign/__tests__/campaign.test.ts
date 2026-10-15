@@ -81,7 +81,7 @@ test("a Google Ads click that lands on a project page and enquires later keeps i
     {
       answers: { intent: "BUY", market: "MUMBAI" },
       name: "Meera",
-      phone: "98765 43210",
+      phone: "98203 14567",
       phoneCountry: "IN",
       touch: {
         sessionId: "ads-1",
@@ -96,7 +96,7 @@ test("a Google Ads click that lands on a project page and enquires later keeps i
     },
   );
   assert.equal(result.ok, true);
-  const lead = (await repos.leads.findByPhone("+919876543210"))!;
+  const lead = (await repos.leads.findByPhone("+919820314567"))!;
   assert.equal(lead.sourceDetail, "GOOGLE");
   const touch = (await repos.touches.getById(lead.firstTouchId!))!;
   assert.equal(touch.gclid, "Cj0KCQ-test-click-id");
@@ -111,7 +111,7 @@ test("a Google click id alone (no UTM tags) is still attributed to Google", asyn
   const repos = createInMemoryLeadRepositories();
   const s = memoryStore();
   const deps = { leads: repos, store: s.store, now: () => new Date("2026-10-16T10:00:00.000Z") };
-  const result = await submitEnquiry(deps, { sessionId: "ads-2" }, { answers: { intent: "BUY", market: "MUMBAI" }, phone: "98765 43211", phoneCountry: "IN", touch: { sessionId: "ads-2", landingPath: "/project/sample-heights", gclid: "abc-click" } });
+  const result = await submitEnquiry(deps, { sessionId: "ads-2" }, { answers: { intent: "BUY", market: "MUMBAI" }, phone: "98203 14568", phoneCountry: "IN", touch: { sessionId: "ads-2", landingPath: "/project/sample-heights", gclid: "abc-click" } });
   assert.equal(result.ok, true);
-  assert.equal((await repos.leads.findByPhone("+919876543211"))!.sourceDetail, "GOOGLE");
+  assert.equal((await repos.leads.findByPhone("+919820314568"))!.sourceDetail, "GOOGLE");
 });

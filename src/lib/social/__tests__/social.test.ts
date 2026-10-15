@@ -50,11 +50,11 @@ test("enquiry form: creates ONE lead per number with the requirement, consent an
   const repos = createInMemoryLeadRepositories();
   const s = store();
   const deps = { leads: repos, store: s.store, now: () => new Date("2026-10-10T10:00:00.000Z") };
-  const result = await submitEnquiry(deps, { sessionId: "sess-1" }, { answers: GOOD, name: "Asha", phone: "98765 43210", phoneCountry: "IN", touch: { sessionId: "sess-1", landingPath: "/enquire", utmSource: "instagram", utmMedium: "bio" } });
+  const result = await submitEnquiry(deps, { sessionId: "sess-1" }, { answers: GOOD, name: "Asha", phone: "98203 14567", phoneCountry: "IN", touch: { sessionId: "sess-1", landingPath: "/enquire", utmSource: "instagram", utmMedium: "bio" } });
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.created, true);
-  const lead = (await repos.leads.findByPhone("+919876543210"))!;
+  const lead = (await repos.leads.findByPhone("+919820314567"))!;
   assert.equal(lead.name, "Asha");
   assert.equal(lead.location, "Thane, Navi Mumbai");
   assert.equal(lead.budgetMin, 10_000_000);
@@ -71,7 +71,7 @@ test("enquiry form: creates ONE lead per number with the requirement, consent an
   assert.deepEqual(s.rows[0].answers, validateAnswers(GOOD).ok ? (validateAnswers(GOOD) as { answers: object }).answers : null);
 
   // The same number again: the same lead, not a second one.
-  const again = await submitEnquiry(deps, { sessionId: "sess-1" }, { answers: { intent: "BUY", market: "MUMBAI" }, phone: "+91 98765 43210", touch: { sessionId: "sess-1" } });
+  const again = await submitEnquiry(deps, { sessionId: "sess-1" }, { answers: { intent: "BUY", market: "MUMBAI" }, phone: "+91 98203 14567", touch: { sessionId: "sess-1" } });
   assert.equal(again.ok && again.created, false);
   assert.equal(again.ok && again.leadId, result.leadId);
   assert.equal(s.rows.length, 2, "both submissions are kept for the Founder");
@@ -87,7 +87,7 @@ test("enquiry form: dirham budgets for Dubai, a bad number or answer is refused,
   assert.equal(lead.budgetCurrency, "AED");
   assert.equal(lead.purpose, "INVESTMENT", "an investor is recorded as an investment purchase");
   assert.equal((await submitEnquiry(deps, { sessionId: "x" }, { answers: GOOD, phone: "123", touch: { sessionId: "x" } })).ok, false);
-  const bad = await submitEnquiry(deps, { sessionId: "x" }, { answers: { ...GOOD, intent: "NOPE" }, phone: "98765 43210", touch: { sessionId: "x" } });
+  const bad = await submitEnquiry(deps, { sessionId: "x" }, { answers: { ...GOOD, intent: "NOPE" }, phone: "98203 14567", touch: { sessionId: "x" } });
   assert.equal(bad.ok === false && bad.code, "INVALID_ANSWER");
   for (let i = 0; i < 5; i += 1) await submitEnquiry(deps, { sessionId: "spam" }, { answers: GOOD, phone: `98765 4${1000 + i}`, touch: { sessionId: "spam" } });
   const flood = await submitEnquiry(deps, { sessionId: "spam" }, { answers: GOOD, phone: "98765 49999", touch: { sessionId: "spam" } });

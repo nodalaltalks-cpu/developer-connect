@@ -1,6 +1,7 @@
 import { cleanTouch } from "../leads/attribution.ts";
 import { CONSENT_PURPOSE, CONSENT_TEXT_VERSION, consentTextFor } from "../leads/consent.ts";
 import { classifyDigitalSource } from "../leads/lead-source.ts";
+import { screenContact } from "../leads/lead-screen.ts";
 import { normalizePhone, type SupportedPhoneCountry } from "../leads/phone.ts";
 import type { LeadRepositories } from "../leads/repository.ts";
 import type { ContactPreference, DigitalSource, LeadActor, LeadCurrency, LeadPurpose, LeadTimeline, TouchInput } from "../leads/types.ts";
@@ -149,6 +150,8 @@ export async function submitEnquiry(deps: EnquiryDeps, ctx: { sessionId: string;
   const country: SupportedPhoneCountry = input.phoneCountry === "AE" ? "AE" : "IN";
   const phone = normalizePhone(typeof input.phone === "string" ? input.phone : "", country);
   if (!phone.ok) return fail("INVALID_PHONE", "phone");
+  // A made-up number (9999999999, 9876543210) is refused here: nothing saved, nobody alerted, no call wasted.
+  if (screenContact({ name: typeof input.name === "string" ? input.name : null, e164: phone.e164 }).fakeNumber) return fail("INVALID_PHONE", "phone");
   const name = typeof input.name === "string" ? input.name.trim().slice(0, 120) || null : null;
 
   const since = new Date(now.getTime() - ENQUIRY_RATE_LIMIT.windowMinutes * 60_000);

@@ -11,6 +11,7 @@ import { FollowUpSection } from "@/components/leads/follow-up-section";
 import { RequirementSection } from "@/components/leads/requirement-section";
 import { getChosenProjects, projectNames } from "@/lib/leads/project-service";
 import { SourceBadge, StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
+import { SectionBar } from "@/components/leads/section-bar";
 import { QualificationCard } from "@/components/leads/qualification-card";
 import { InterestCard, RequirementCard, TrailCard } from "@/components/admin/leads/lead-detail-sections";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
@@ -80,22 +81,20 @@ export default async function AdminLeadDetailPage({ params }: PageProps<"/admin/
         ← All leads
       </Link>
 
-      <header className="mt-1">
+      <header className="mt-1 rounded-lg border border-border p-4">
+        <SectionBar title="Lead name" />
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Lead name</p>
-            <h1 className="break-words text-xl font-semibold tracking-tight text-foreground">
-              {erased ? "Erased lead" : (lead.name ?? "Unnamed lead")}
-            </h1>
-          </div>
+          <h1 className="min-w-0 break-words text-base font-semibold text-foreground">
+            {erased ? "Erased lead" : (lead.name ?? "Unnamed lead")}
+          </h1>
           <TemperatureBadge temperature={lead.temperature} />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusBadge status={lead.status} />
-          <span className="text-xs text-muted-foreground">Owner: {ownerName ?? "Founder"}</span>
+          <span className="text-sm text-muted-foreground">Owner: {ownerName ?? "Founder"}</span>
           <SourceBadge lead={lead} />
         </div>
-        {!erased && <p className="mt-2 text-xs text-muted-foreground">{detail.contactBasis.statement}</p>}
+        {!erased && <p className="mt-2 text-sm text-muted-foreground">{detail.contactBasis.statement}</p>}
         {!erased && (
           <p className="mt-2 text-sm text-foreground">
             {lead.phoneE164}

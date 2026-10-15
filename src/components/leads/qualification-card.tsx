@@ -63,7 +63,7 @@ export function QualificationCard({
   }
 
   return (
-    <section aria-label="Qualification" className="rounded-xl border border-border p-4">
+    <section aria-label="Qualification" className="rounded-lg border border-border p-4">
       <SectionBar title="Qualification" />
       <p className="mt-1 text-sm text-muted-foreground">
         Status now: <span className="font-medium text-foreground">{formatEnumLabel(status)}</span>

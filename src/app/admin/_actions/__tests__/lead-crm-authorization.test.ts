@@ -77,7 +77,7 @@ test("erasure: there is no public way in — no public action, page or API route
     "app/admin/_actions/lead-actions.ts",
     "lib/leads/erasure.ts",
     "lib/leads/lead-service.ts",
-    "components/admin/leads/lead-erase-card.tsx",
+    "components/admin/leads/lead-trash-buttons.tsx",
   ]);
   const offenders = walk(srcRoot)
     .filter((file) => /\.(ts|tsx)$/.test(file) && !/__tests__|\.test\./.test(file))
@@ -91,7 +91,7 @@ test("erasure: there is no public way in — no public action, page or API route
 });
 
 test("erasure screen: the card calls the founder action, needs the typed word, and the page shows it only to a founder for a lead that is not already erased", () => {
-  const card = code(read("components/admin/leads/lead-erase-card.tsx"));
+  const card = code(read("components/admin/leads/lead-trash-buttons.tsx"));
   assert.match(card, /eraseLeadAction\(leadId, typed\)/);
   assert.match(card, /disabled=\{!confirmed \|\| pending\}/, "the destructive button stays disabled until the word is typed");
   assert.doesNotMatch(card, /actorId|userId|founderId/i, "the browser never says who is acting");

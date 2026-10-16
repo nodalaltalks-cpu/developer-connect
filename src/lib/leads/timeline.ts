@@ -141,6 +141,10 @@ function headlineFor(event: LeadEvent, names?: Record<string, string>, projects?
       };
     case "BOOKING_UPDATED":
       return { headline: "Booking updated", detail: null };
+    case "LEAD_TRASHED":
+      return { headline: "Moved to Trash", detail: null };
+    case "LEAD_RESTORED":
+      return { headline: "Restored to Returned leads", detail: null };
     case "LEAD_ERASED":
       return { headline: "Personal details erased", detail: null };
   }

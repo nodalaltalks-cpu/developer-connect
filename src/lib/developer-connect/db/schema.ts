@@ -570,6 +570,9 @@ export const leadEventTypeEnum = pgEnum("lead_event_type", [
   "FOLLOW_UP_RESCHEDULED",
   "FOLLOW_UP_CANCELLED",
   "RETURNED_TO_FOUNDER",
+  // Migration 0039: the Founder moves a returned lead to Trash, or puts it back in Returned leads.
+  "LEAD_TRASHED",
+  "LEAD_RESTORED",
   "CALL_PLACED",
   "CALL_ENDED",
   "CALL_DISPOSITION_SET",
@@ -656,6 +659,9 @@ export const leads = pgTable(
     importBatchId: uuid("import_batch_id").references((): AnyPgColumn => leadImportBatches.id, { onDelete: "restrict" }),
     createdBy: text("created_by"),
     returnedAt: timestamp("returned_at", { withTimezone: true }),
+    // Set when the Founder moves a returned lead to Trash. A trashed lead is out of every list, queue and count until it is
+    // restored (back to Returned leads) or permanently deleted (the personal-data erasure).
+    trashedAt: timestamp("trashed_at", { withTimezone: true }),
     returnedFrom: text("returned_from"),
     returnReason: text("return_reason"),
     location: text("location"),
@@ -700,6 +706,7 @@ export const leads = pgTable(
     index("leads_source_owner_idx").on(table.sourceType, table.ownerId, table.createdAt),
     index("leads_import_batch_idx").on(table.importBatchId).where(sql`${table.importBatchId} is not null`),
     index("leads_returned_idx").on(table.returnedAt).where(sql`${table.returnedAt} is not null`),
+    index("leads_trashed_idx").on(table.trashedAt).where(sql`${table.trashedAt} is not null`),
     check("leads_phone_present_ck", sql`${table.phoneE164} is not null or ${table.erasedAt} is not null`),
     check(
       "leads_budget_range_ck",

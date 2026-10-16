@@ -621,6 +621,7 @@ export async function assignLead(
   const updated = await repos.transaction(async (tx) => {
     const lead = await requireLead(tx, leadId);
     requireNotErased(lead);
+    requireNotTrashed(lead);
     if (lead.ownerId === nextOwnerId) throw new LeadStateError("The lead already has that owner.");
     // The previous owner's open follow-up (and any miss on it) stays in the history, but the lead leaves their hands.
     await closeOpenFollowUpForLead(tx, lead, "REASSIGNED", actor, now);
@@ -846,6 +847,62 @@ export async function eraseLead(
     // 4. Record the erasure itself.
     await appendEvent(tx.events, leadId, "LEAD_ERASED", actor, now, { payload: { via: "FOUNDER_ACTION", redacted: true } });
     return erased;
+  });
+}
+
+// --- removing a lead: Returned leads -> Trash -> permanent erasure -------------------------------
+
+function requireNotTrashed(lead: Lead): void {
+  if (lead.trashedAt) throw new LeadStateError("This lead is in Trash. Restore it to Returned leads first.");
+}
+
+/**
+ * The Founder's "erase" on a lead no longer destroys anything: the lead goes to Returned leads (unowned, with its full history),
+ * from where it can be assigned to another team member to work again. Any open follow-up is closed. Founder only.
+ */
+export async function sendLeadToReturned(repos: LeadRepositories, leadId: string, actor: LeadActor, now: Date = new Date()): Promise<Lead> {
+  assertFounder(actor);
+  return repos.transaction(async (tx) => {
+    const lead = await requireLead(tx, leadId);
+    requireNotErased(lead);
+    requireNotTrashed(lead);
+    if (lead.ownerId === null && lead.returnedAt !== null) throw new LeadStateError("This lead is already in Returned leads.");
+    await closeOpenFollowUpForLead(tx, lead, "RETURNED_TO_FOUNDER", actor, now);
+    const updated = await tx.leads.update(
+      leadId,
+      { ownerId: null, returnedAt: now, returnedFrom: lead.ownerId, returnReason: "OTHER", nextFollowUpAt: null, lastActivityAt: now },
+      now,
+    );
+    await appendEvent(tx.events, leadId, "OWNER_CHANGED", actor, now, { payload: { from: lead.ownerId, to: null, via: "REMOVED" } });
+    await appendEvent(tx.events, leadId, "RETURNED_TO_FOUNDER", actor, now, { payload: { reason: "OTHER", previousOwnerId: lead.ownerId, note: "Removed by the Founder" } });
+    return updated;
+  });
+}
+
+/** Moves a lead that is waiting in Returned leads to Trash. It leaves every list until restored or permanently erased. Founder only. */
+export async function trashLead(repos: LeadRepositories, leadId: string, actor: LeadActor, now: Date = new Date()): Promise<Lead> {
+  assertFounder(actor);
+  return repos.transaction(async (tx) => {
+    const lead = await requireLead(tx, leadId);
+    requireNotErased(lead);
+    requireNotTrashed(lead);
+    if (lead.ownerId !== null || lead.returnedAt === null) throw new LeadStateError("Only a lead waiting in Returned leads can be moved to Trash.");
+    const updated = await tx.leads.update(leadId, { trashedAt: now, lastActivityAt: now }, now);
+    await appendEvent(tx.events, leadId, "LEAD_TRASHED", actor, now);
+    return updated;
+  });
+}
+
+/** Puts a trashed lead back in Returned leads, ready to be assigned again. Founder only. */
+export async function restoreLead(repos: LeadRepositories, leadId: string, actor: LeadActor, now: Date = new Date()): Promise<Lead> {
+  assertFounder(actor);
+  return repos.transaction(async (tx) => {
+    const lead = await requireLead(tx, leadId);
+    requireNotErased(lead);
+    if (!lead.trashedAt) throw new LeadStateError("This lead is not in Trash.");
+    const updated = await tx.leads.update(leadId, { trashedAt: null, lastActivityAt: now }, now);
+    await appendEvent(tx.events, leadId, "LEAD_RESTORED", actor, now);
+    return updated;
   });
 }
 

@@ -3,6 +3,8 @@ import { requireFounder } from "@/lib/auth";
 import { currentUser } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { FounderCallButton } from "@/components/admin/leads/founder-call-button";
+import Link from "next/link";
+import { MoveToTrashButton } from "@/components/admin/leads/lead-trash-buttons";
 import { ReturnedCard } from "@/components/leads/missed-card";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getReturnedLeads } from "@/lib/leads/follow-up-reads";
@@ -29,7 +31,12 @@ export default async function AdminReturnedLeadsPage() {
     <div>
       <LiveRefresh />
       <SectionHeading title="Returned leads" description="Leads a team member sent back to you, with why — until you assign them again. Their full history is kept on each lead." />
-      <h2 className="text-sm font-medium text-foreground">Waiting for you · {items.length}</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium text-foreground">Waiting for you · {items.length}</h2>
+        <Link href="/admin/returned-leads/trash" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
+          Trash →
+        </Link>
+      </div>
       {items.length === 0 ? (
         <div className="mt-3">
           <EmptyState title="Nothing returned" description="No team member has returned a lead that is still waiting." />
@@ -42,6 +49,7 @@ export default async function AdminReturnedLeadsPage() {
               item={item}
               href={`/admin/leads/${item.lead.id}`}
               callSlot={<FounderCallButton compact leadId={item.lead.id} phoneE164={item.lead.phoneE164} />}
+              extraSlot={<MoveToTrashButton leadId={item.lead.id} />}
               returnedByName={item.returnedBy ? (names[item.returnedBy] ?? "a team member") : undefined}
             />
           ))}

@@ -84,6 +84,7 @@ const lead = {
   temperature: "HOT",
   ownerId: "user_priya_0001",
   returnedAt: null,
+  trashedAt: null,
   returnedFrom: null,
   returnReason: null,
   developerId: null,

@@ -151,6 +151,7 @@ export function createInMemoryLeadRepositories(
           importBatchId: input.source?.importBatchId ?? null,
           createdBy: input.source?.createdBy ?? null,
           returnedAt: null,
+          trashedAt: null,
           returnedFrom: null,
           returnReason: null,
           developerId: input.developerId,
@@ -288,8 +289,15 @@ export function createInMemoryLeadRepositories(
       },
       async listReturned(limit) {
         return [...state.leads.values()]
-          .filter((lead) => lead.returnedAt !== null && lead.ownerId === null && lead.erasedAt === null && !lead.prospect)
+          .filter((lead) => lead.returnedAt !== null && lead.ownerId === null && lead.erasedAt === null && lead.trashedAt === null && !lead.prospect)
           .sort((a, b) => b.returnedAt!.getTime() - a.returnedAt!.getTime() || a.id.localeCompare(b.id))
+          .slice(0, limit)
+          .map((lead) => ({ ...lead }));
+      },
+      async listTrashed(limit) {
+        return [...state.leads.values()]
+          .filter((lead) => lead.trashedAt !== null && lead.erasedAt === null && !lead.prospect)
+          .sort((a, b) => b.trashedAt!.getTime() - a.trashedAt!.getTime() || a.id.localeCompare(b.id))
           .slice(0, limit)
           .map((lead) => ({ ...lead }));
       },

@@ -25,6 +25,7 @@ function lead(overrides: Partial<Lead> = {}): Lead {
     temperature: "HOT",
     ownerId: null,
     returnedAt: null,
+    trashedAt: null,
     returnedFrom: null,
     returnReason: null,
     sourceType: "DIGITAL",

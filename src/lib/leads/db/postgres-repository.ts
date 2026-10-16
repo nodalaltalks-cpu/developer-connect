@@ -87,7 +87,7 @@ type DbOrTx = NodePgDatabase<typeof schema>;
 const toLead = (row: typeof leads.$inferSelect): Lead => ({ ...row });
 
 /** A lead that exists for the sales team: personal data not erased AND not just a cold-called prospect. */
-const liveLead = and(isNull(leads.erasedAt), eq(leads.prospect, false));
+const liveLead = and(isNull(leads.erasedAt), isNull(leads.trashedAt), eq(leads.prospect, false));
 const toAutomation = (row: typeof automationActions.$inferSelect): AutomationAction => ({ ...row, status: row.status as AutomationAction["status"], detail: (row.detail ?? {}) as Record<string, unknown> });
 const toSpend = (row: typeof marketingSpend.$inferSelect): MarketingSpend => ({ ...row });
 const toCampaign = (row: typeof campaigns.$inferSelect): Campaign => ({ ...row, status: row.status === "PAUSED" ? "PAUSED" : row.status === "ENDED" ? "ENDED" : "ACTIVE" });
@@ -411,16 +411,16 @@ function build(db: DbOrTx): LeadRepositories {
         const open = sql`${leads.status}::text not in (${closed})`;
         const [row] = await db
           .select({
-            total: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false)`,
-            new: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${leads.status} = 'NEW')`,
-            hot: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'HOT')`,
-            warm: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'WARM')`,
-            cold: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'COLD')`,
-            overdue: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.nextFollowUpAt} < ${now})`,
-            dueToday: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${open} and ${leads.nextFollowUpAt} >= ${now} and ${leads.nextFollowUpAt} < ${endOfToday})`,
-            qualified: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${leads.status} = 'QUALIFIED')`,
-            siteVisitScheduled: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${leads.status} = 'SITE_VISIT_SCHEDULED')`,
-            booked: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.prospect} = false and ${leads.status} = 'BOOKED')`,
+            total: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false)`,
+            new: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${leads.status} = 'NEW')`,
+            hot: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'HOT')`,
+            warm: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'WARM')`,
+            cold: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${open} and ${leads.temperature} = 'COLD')`,
+            overdue: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${open} and ${leads.nextFollowUpAt} < ${now})`,
+            dueToday: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${open} and ${leads.nextFollowUpAt} >= ${now} and ${leads.nextFollowUpAt} < ${endOfToday})`,
+            qualified: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${leads.status} = 'QUALIFIED')`,
+            siteVisitScheduled: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${leads.status} = 'SITE_VISIT_SCHEDULED')`,
+            booked: sql<number>`count(*) filter (where ${leads.erasedAt} is null and ${leads.trashedAt} is null and ${leads.prospect} = false and ${leads.status} = 'BOOKED')`,
           })
           .from(leads)
           .where(sourceType ? eq(leads.sourceType, sourceType) : undefined);
@@ -446,6 +446,16 @@ function build(db: DbOrTx): LeadRepositories {
           .where(and(isNotNull(leads.ownerId), liveLead))
           .groupBy(leads.ownerId);
         return Object.fromEntries(rows.flatMap((row) => (row.ownerId ? [[row.ownerId, { qualified: row.qualified, siteVisit: row.siteVisit, booked: row.booked }]] : [])));
+      },
+
+      async listTrashed(limit) {
+        const rows = await db
+          .select()
+          .from(leads)
+          .where(and(isNotNull(leads.trashedAt), isNull(leads.erasedAt), eq(leads.prospect, false)))
+          .orderBy(desc(leads.trashedAt), asc(leads.id))
+          .limit(limit);
+        return rows.map(toLead);
       },
 
       async listReturned(limit) {

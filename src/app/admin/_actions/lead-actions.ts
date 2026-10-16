@@ -6,6 +6,7 @@ import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-reposito
 import { eraseLeadOnFounderRequest } from "@/lib/leads/erasure";
 import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
 import { LeadNotFoundError, LeadStateError, LeadValidationError } from "@/lib/leads/errors";
+import { restoreLead, sendLeadToReturned, trashLead } from "@/lib/leads/lead-service";
 import { cancelLeadFollowUp, completeLeadFollowUp, rescheduleFollowUp, scheduleFollowUp } from "@/lib/leads/follow-up-service";
 import { getCallForActor, placeCall, setCallDisposition } from "@/lib/leads/call-service";
 import { toCallView, type CallView } from "@/lib/leads/call-view";
@@ -73,6 +74,7 @@ async function run(leadId: string, work: (actor: LeadActor) => Promise<unknown>)
   revalidatePath("/admin/leads");
   revalidatePath("/admin/missed-leads");
   revalidatePath("/admin/returned-leads");
+  revalidatePath("/admin/returned-leads/trash");
   return { ok: true };
 }
 
@@ -143,13 +145,32 @@ export async function updateLeadRequirementAction(leadId: string, requirement: R
   return run(leadId, (actor) => updateRequirement(createPostgresLeadRepositories(), leadId, requirement, actor));
 }
 
+/** The Founder's "erase": the lead goes to Returned leads (nothing is destroyed) so it can be assigned to another team member. */
+export async function sendLeadToReturnedAction(leadId: string): Promise<LeadActionResult> {
+  return run(leadId, (actor) => sendLeadToReturned(createPostgresLeadRepositories(), leadId, actor));
+}
+
+/** Returned leads -> Trash. */
+export async function trashLeadAction(leadId: string): Promise<LeadActionResult> {
+  return run(leadId, (actor) => trashLead(createPostgresLeadRepositories(), leadId, actor));
+}
+
+/** Trash -> back to Returned leads. */
+export async function restoreLeadAction(leadId: string): Promise<LeadActionResult> {
+  return run(leadId, (actor) => restoreLead(createPostgresLeadRepositories(), leadId, actor));
+}
+
 /**
- * Erases a buyer's personal data at their request (founder-only, typed
+ * Permanently removes a TRASHED lead: erases the buyer's personal data (founder-only, typed
  * confirmation). The id is checked as a UUID and resolved server-side after
  * authorization; there is no public equivalent of this action.
  */
 export async function eraseLeadAction(leadId: string, confirmation: string): Promise<LeadActionResult> {
   return run(leadId, async (actor) => {
+    // Permanent removal is only ever the last step: the lead must already be in Trash.
+    const current = await createPostgresLeadRepositories().leads.getById(leadId);
+    if (!current) throw new LeadNotFoundError("Lead not found.");
+    if (!current.trashedAt) throw new LeadStateError("Move this lead to Trash before removing it permanently.");
     const erased = await eraseLeadOnFounderRequest(createPostgresLeadRepositories(), leadId, confirmation, actor);
     // The buyer's rating comments and name go with the rest of their personal data (the stars stay, anonymously).
     try {

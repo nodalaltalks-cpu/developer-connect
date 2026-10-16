@@ -125,6 +125,8 @@ export interface LeadRepository {
   ownerSummary(): Promise<Record<string, { qualified: number; siteVisit: number; booked: number }>>;
   /** Leads a team member returned that are still waiting in the Founder queue (not erased), most recently returned first. */
   listReturned(limit: number): Promise<Lead[]>;
+  /** Leads the Founder moved to Trash (not yet permanently deleted), newest first. */
+  listTrashed(limit: number): Promise<Lead[]>;
   /** How many live (not erased) leads each owner holds, keyed by owner id. Founder-queue leads (no owner) are not counted. */
   countByOwner(): Promise<Record<string, number>>;
   /**

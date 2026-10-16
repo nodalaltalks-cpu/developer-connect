@@ -57,7 +57,7 @@ export function MissedCard({ item, href, ownerName, callSlot }: { item: MissedFo
   );
 }
 
-export function ReturnedCard({ item, href, returnedByName, callSlot }: { item: ReturnedLeadItem; href: string; returnedByName?: string; callSlot?: ReactNode }) {
+export function ReturnedCard({ item, href, returnedByName, callSlot, extraSlot }: { item: ReturnedLeadItem; href: string; returnedByName?: string; callSlot?: ReactNode; extraSlot?: ReactNode }) {
   const { lead } = item;
   const tel = telHref(lead.phoneE164);
   return (
@@ -68,7 +68,7 @@ export function ReturnedCard({ item, href, returnedByName, callSlot }: { item: R
         <TemperatureBadge temperature={lead.temperature} />
       </div>
       <p className="mt-1 text-sm text-foreground">
-        Returned by {returnedByName ?? "a team member"} · {formatDateTimeWithDay(item.returnedAt)}
+        {item.note === "Removed by the Founder" ? "Removed by you" : `Returned by ${returnedByName ?? "a team member"}`} · {formatDateTimeWithDay(item.returnedAt)}
       </p>
       <p className="text-sm font-medium text-foreground">Reason: {item.reason ? formatEnumLabel(item.reason) : "Not recorded"}</p>
       {item.note && <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-muted-foreground">{item.note}</p>}
@@ -96,6 +96,7 @@ export function ReturnedCard({ item, href, returnedByName, callSlot }: { item: R
           Open &amp; reassign
         </Link>
       </div>
+      {extraSlot}
     </li>
   );
 }

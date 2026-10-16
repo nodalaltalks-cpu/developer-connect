@@ -146,6 +146,7 @@ const lead = {
   importBatchId: "b1",
   createdBy: "user_founder_1",
   returnedAt: null,
+  trashedAt: null,
   returnedFrom: null,
   returnReason: null,
   developerId: null,

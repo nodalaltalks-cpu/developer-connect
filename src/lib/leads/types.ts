@@ -74,6 +74,8 @@ export const LEAD_EVENT_TYPES = [
   "FOLLOW_UP_RESCHEDULED",
   "FOLLOW_UP_CANCELLED",
   "RETURNED_TO_FOUNDER",
+  "LEAD_TRASHED",
+  "LEAD_RESTORED",
   "CALL_PLACED",
   "CALL_ENDED",
   "CALL_DISPOSITION_SET",
@@ -135,6 +137,8 @@ export interface Lead {
   createdBy: string | null;
   /** Set when a team member returned the lead to the Founder queue; cleared when the Founder assigns it again. */
   returnedAt: Date | null;
+  /** Set when the Founder moved the lead to Trash (from Returned leads); null otherwise. Trashed leads are hidden everywhere. */
+  trashedAt: Date | null;
   /** The team member (Clerk user id) who returned it. */
   returnedFrom: string | null;
   /** One of RETURN_REASONS. */

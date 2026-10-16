@@ -32,6 +32,8 @@ const SAFE_PAYLOAD_KEYS: Record<LeadEventType, readonly string[]> = {
   BOOKING_CREATED: ["bookingId", "currency", "bookingValue", "commissionExpected"],
   BOOKING_UPDATED: ["bookingId", "currency"],
   LEAD_ERASED: ["via"],
+  LEAD_TRASHED: [],
+  LEAD_RESTORED: [],
   TEMPERATURE_CHANGED: ["from", "to"],
   OWNER_CHANGED: ["from", "to"],
   FOLLOW_UP_COMPLETED: ["followUpId", "followUpType", "late"],

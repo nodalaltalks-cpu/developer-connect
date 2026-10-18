@@ -6,7 +6,7 @@
  * Plain module (no React) so the server page and the client components share one definition.
  */
 export type Market = "dubai" | "mumbai";
-export const MARKETS: readonly Market[] = ["dubai", "mumbai"] as const;
+export const MARKETS: readonly Market[] = ["mumbai", "dubai"] as const;
 export const DEFAULT_MARKET: Market = "dubai";
 export const MARKET_STORAGE_KEY = "dc_hero_market";
 

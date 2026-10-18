@@ -15,7 +15,7 @@ const read = (relative: string) => readFileSync(path.join(root, relative), "utf8
 test("default: a first-time visitor with nothing in the address sees Dubai", () => {
   assert.equal(DEFAULT_MARKET, "dubai");
   assert.equal(marketFromParams({}), null, "no signal means the provider falls back to the default");
-  assert.deepEqual([...MARKETS], ["dubai", "mumbai"]);
+  assert.deepEqual([...MARKETS], ["mumbai", "dubai"]);
 });
 
 test("address: ?market= and location filters pick the city; anything else says nothing", () => {

@@ -91,7 +91,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <HeroVideo />
             <Container className="relative z-10 py-24 sm:py-36 lg:py-44">
               <div className="mx-auto max-w-3xl text-center">
-                <p className="dc-rise text-xs font-semibold uppercase tracking-[0.28em] text-brass-300 sm:text-sm">Mumbai &middot; Dubai</p>
                 <HeroMarketToggle />
                 <h1 className="dc-rise mt-6 text-balance font-serif text-[clamp(2.5rem,1.6rem+4.5vw,5rem)] font-medium leading-[1.04] tracking-[-0.02em]" style={{ "--dc-delay": "80ms" } as React.CSSProperties}>
                   Know before you buy.

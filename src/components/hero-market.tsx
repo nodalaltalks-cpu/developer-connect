@@ -55,7 +55,7 @@ export function HeroMarketProvider({ fromAddress, children }: { fromAddress: Mar
 
 const LABELS: Record<Market, string> = { dubai: "Dubai", mumbai: "Mumbai" };
 
-/** Two large pills (a radio group): Dubai and Mumbai. Touch-sized, keyboard-operable, and counted as tracked buttons. */
+/** Two large pills (a radio group): Mumbai and Dubai. Touch-sized, keyboard-operable, and counted as tracked buttons. */
 export function HeroMarketToggle() {
   const { market, select, setWarm } = useHeroMarket();
   return (

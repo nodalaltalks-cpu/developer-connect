@@ -76,7 +76,7 @@ export const RERA_REGISTRATION_NUMBER = RERA_NUMBER;
 export const GATE_MOTIVATION: readonly string[] = [
   "Your brief becomes a short list: projects that fit your budget, area and timeline, with prices, payment plans and possession dates side by side.",
   "A real person, not a bot, walks you through the checks that protect you before you pay anything.",
-  "No pressure and no strings. You decide every next step.",
+  "Your choice, my priority. You decide every next step.",
 ];
 export const CREDENTIALS_LINE = `Developer Connects is a certified, affiliated channel partner and RERA registered${RERA_NUMBER ? ` (RERA No. ${RERA_NUMBER})` : ""}.`;
 

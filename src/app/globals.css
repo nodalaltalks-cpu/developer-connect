@@ -454,3 +454,37 @@ label:has(input[type="radio"], input[type="checkbox"]):active {
     transform: none;
   }
 }
+
+/* The install banner drops in from the top edge once (a short slide and fade), and its button has one slow sheen so the eye lands
+   on the action. Both are switched off for visitors who ask for reduced motion. */
+@keyframes dc-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-110%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dc-drop {
+  animation: dc-drop 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes dc-nudge {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(184 146 74 / 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 9px rgb(184 146 74 / 0);
+  }
+}
+.dc-nudge {
+  animation: dc-nudge 2.4s ease-out 1.2s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-drop,
+  .dc-nudge {
+    animation: none;
+  }
+}

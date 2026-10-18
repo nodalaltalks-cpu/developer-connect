@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { ANALYTICS_CONSENT_STORAGE_KEY, isAnalyticsExcludedPath, parseAnalyticsConsent } from "@/lib/analytics-config";
+import { isAnalyticsExcludedPath } from "@/lib/analytics-config";
+import { sendBehaviourEvents as send, trackingAllowed } from "@/lib/behaviour/client";
 import { PageEngagement } from "@/lib/behaviour/tracker-core";
 
 /**
@@ -13,30 +14,6 @@ import { PageEngagement } from "@/lib/behaviour/tracker-core";
  * visitor chose "Accept only essentials", when the browser sends Do Not Track or Global Privacy Control, and on the
  * server side bots are ignored too. Renders nothing; a failure is swallowed so it can never affect a page.
  */
-
-type Payload = Record<string, unknown>;
-
-function trackingAllowed(): boolean {
-  try {
-    if (parseAnalyticsConsent(window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY)) === "essential") return false;
-  } catch {
-    // storage blocked: fall through
-  }
-  const nav = navigator as Navigator & { globalPrivacyControl?: boolean; doNotTrack?: string | null };
-  if (nav.globalPrivacyControl === true || nav.doNotTrack === "1") return false;
-  return true;
-}
-
-function send(events: Payload[]): void {
-  if (events.length === 0) return;
-  try {
-    const body = JSON.stringify({ events });
-    if (typeof navigator.sendBeacon === "function" && navigator.sendBeacon("/api/events", new Blob([body], { type: "text/plain" }))) return;
-    void fetch("/api/events", { method: "POST", body, keepalive: true, headers: { "content-type": "text/plain" } }).catch(() => {});
-  } catch {
-    // never let analytics break the page
-  }
-}
 
 export function BehaviourTracker() {
   const pathname = usePathname();

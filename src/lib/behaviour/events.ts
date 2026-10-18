@@ -1,4 +1,5 @@
 import type { AnalyticsEvent, DeviceType } from "../developer-connect/events.ts";
+import { INSTALL_EVENTS } from "../install-prompt.ts";
 
 /**
  * First-party visitor behaviour: what the collector (/api/events) accepts, and how it is cleaned.
@@ -33,6 +34,8 @@ export const CTA_IDS = [
   "advisor_email", // a pre-addressed email
   "advisor_call", // a phone call to the advisor
   "advisor_linkedin", // the founder profile link
+  // The "install the app" banner (lib/install-prompt.ts): what visitors do with it, shown on the Founder's behaviour page.
+  ...Object.values(INSTALL_EVENTS),
 ] as const;
 export type CtaId = (typeof CTA_IDS)[number];
 

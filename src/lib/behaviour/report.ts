@@ -46,6 +46,8 @@ export interface CtaRow {
   ctaId: string;
   device: Device;
   clicks: number;
+  /** Distinct visitor sessions behind the clicks (the same person pressing twice counts once). */
+  visitors: number;
 }
 
 export const FUNNEL_STEPS = [
@@ -205,6 +207,63 @@ export function summarisePages(rows: readonly PageHealthRow[]): PageSummary[] {
       };
     })
     .sort((a, b) => b.views - a.views);
+}
+
+// --- the "install the app" banner -----------------------------------------------------------------
+
+export interface InstallSummary {
+  /** Visitor sessions that were shown the banner at least once. */
+  shown: number;
+  /** Sessions that pressed Install / Add to Home Screen. */
+  tapped: number;
+  /** Sessions where the browser confirmed an install. */
+  installed: number;
+  /** Sessions that pressed "Not now" (they are asked again). */
+  later: number;
+  /** Sessions that pressed "Don't show again". */
+  never: number;
+  /** Sessions that opened the how-to steps. */
+  steps: number;
+  /** Sessions that saw the browser's own install box and cancelled it. */
+  declined: number;
+  /** Sessions that came in through the installed app. */
+  appVisits: number;
+  tappedPercent: number | null;
+  installedPercent: number | null;
+  neverPercent: number | null;
+  /** Shown to phones and to desktops, so the Founder can see where it lands. */
+  byDevice: { device: Device; shown: number; installed: number }[];
+}
+
+/**
+ * Reads the banner's outcomes out of the button counts. Counts are visitor sessions, not clicks. A rate needs MIN_SAMPLE sessions
+ * that saw the banner; below that the numbers are shown but no percentage is drawn from them. Sessions are summed across devices
+ * (a session has one device, so nothing is counted twice).
+ */
+export function buildInstallSummary(ctas: readonly CtaRow[]): InstallSummary {
+  const total = (id: string) => ctas.filter((c) => c.ctaId === id).reduce((n, c) => n + c.visitors, 0);
+  const shown = total("install_prompt_shown");
+  const installed = total("install_completed");
+  const never = total("install_prompt_never");
+  const tapped = total("install_prompt_accepted");
+  const rate = (part: number) => (shown >= MIN_SAMPLE ? pct(part, shown) : null);
+  const forDevice = (device: Device, id: string) => ctas.filter((c) => c.ctaId === id && c.device === device).reduce((n, c) => n + c.visitors, 0);
+  return {
+    shown,
+    tapped,
+    installed,
+    later: total("install_prompt_later"),
+    never,
+    steps: total("install_prompt_steps"),
+    declined: total("install_native_declined"),
+    appVisits: total("install_app_opened"),
+    tappedPercent: rate(tapped),
+    installedPercent: rate(installed),
+    neverPercent: rate(never),
+    byDevice: (["mobile", "desktop", "unknown"] as const)
+      .map((device) => ({ device, shown: forDevice(device, "install_prompt_shown"), installed: forDevice(device, "install_completed") }))
+      .filter((row) => row.shown > 0 || row.installed > 0),
+  };
 }
 
 // --- plain-language findings ----------------------------------------------------------------------

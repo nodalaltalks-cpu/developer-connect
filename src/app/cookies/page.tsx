@@ -118,6 +118,12 @@ export default function CookiePolicyPage() {
           cookies are set. We do not load Google Analytics on our admin or account pages, and we do not enable
           Google&apos;s advertising features.
         </p>
+        <p>
+          One exception applies whatever you choose: we keep an anonymous count of what happens to our &ldquo;install the
+          app&rdquo; banner (shown, used, postponed, dismissed, installed, opened). It uses only our anonymous session cookie
+          and goes to our own database, never to Google or an advertiser, and it is skipped if your browser sends a Do Not
+          Track or Global Privacy Control signal. Your choice on the banner is remembered in local browser storage on your device.
+        </p>
       </LegalSection>
 
       <LegalSection title="6. What we don't use">

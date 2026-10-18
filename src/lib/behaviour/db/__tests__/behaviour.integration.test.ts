@@ -74,7 +74,7 @@ test("integration: collector -> analytics_events -> report (sessions, funnel, ch
     const home = data.pages.find((p) => p.path === "/" && p.device === "desktop");
     assert.deepEqual([home?.views, home?.measured, home?.bounced], [1, 1, 1], "2s, 10% scroll, no clicks counts as leaving quickly");
 
-    assert.deepEqual(data.ctas, [{ ctaId: "connect_sticky", device: "mobile", clicks: 1 }]);
+    assert.deepEqual(data.ctas, [{ ctaId: "connect_sticky", device: "mobile", clicks: 1, visitors: 1 }]);
     assert.equal(report.buildFindings(data).length, 1, "two sessions is too few to conclude anything");
   } finally {
     await db.execute(sql`delete from analytics_events where session_id like ${`it-%-${tag}`}`);

@@ -202,8 +202,8 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Local browser storage</strong> for a small amount of non-essential state, such as whether
-            you&apos;ve already dismissed the sign-in prompt this browsing session, and your cookie choice —
-            never sent to our servers.
+            you&apos;ve already dismissed the sign-in prompt this browsing session, whether you have dismissed
+            or used our &ldquo;install the app&rdquo; banner, and your cookie choice — never sent to our servers.
           </li>
           <li>
             <strong>Optional analytics cookies from Google Analytics</strong>, only if you choose
@@ -248,6 +248,13 @@ export default function PrivacyPolicyPage() {
           If you choose &ldquo;Accept&rdquo; on our cookie banner, we also use Google Analytics to measure how
           the public site is used (for example pages viewed, approximate location and device type). We do not
           use it on our admin or account pages, and we do not enable Google&apos;s advertising features.
+        </p>
+        <p>
+          Whatever you choose on the cookie banner, we keep an anonymous count of what happens to our
+          &ldquo;install the app&rdquo; banner: that it was shown, and whether it was used, postponed or dismissed, or the
+          app was installed or opened. It carries no name, phone number or email, uses only our own anonymous session
+          cookie, is stored in our own database, and is never sent to Google or any advertiser. We do not record it if
+          your browser sends a Do Not Track or Global Privacy Control signal.
         </p>
       </LegalSection>
 

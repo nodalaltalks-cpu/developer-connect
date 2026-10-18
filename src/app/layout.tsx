@@ -9,6 +9,7 @@ import { getGaMeasurementId, getGoogleAdsId, getMetaPixelId } from "@/lib/analyt
 import { founderSchema, organizationSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 import { AnalyticsEvents } from "@/components/analytics-events";
+import { InstallPrompt } from "@/components/install-prompt";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -109,6 +110,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <AnalyticsConsentProvider measurementId={gaMeasurementId} metaPixelId={metaPixelId} adsId={googleAdsId}>
             <AnalyticsEvents />
             <AdvisorProvider>{children}</AdvisorProvider>
+            <InstallPrompt />
           </AnalyticsConsentProvider>
         </ClerkProvider>
       </body>

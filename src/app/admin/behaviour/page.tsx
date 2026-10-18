@@ -3,7 +3,7 @@ import { requireFounder } from "@/lib/auth";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { parseInsightFilters } from "@/lib/leads/call-analytics";
 import { loadBehaviourReport } from "@/lib/behaviour/db/queries";
-import { buildChannels, buildDevices, buildFindings, buildFunnel, MIN_SAMPLE, summarisePages, type Severity } from "@/lib/behaviour/report";
+import { buildChannels, buildDevices, buildFindings, buildFunnel, buildInstallSummary, MIN_SAMPLE, summarisePages, type Severity } from "@/lib/behaviour/report";
 
 export const metadata = {
   title: "Visitor behaviour | Developer Connects",
@@ -63,7 +63,8 @@ export default async function BehaviourPage({ searchParams }: PageProps<"/admin/
   const channels = buildChannels(report.sessions);
   const devices = buildDevices(report.sessions);
   const pages = summarisePages(report.pages).slice(0, 10);
-  const ctaTotals = [...report.ctas.reduce((m, c) => m.set(c.ctaId, (m.get(c.ctaId) ?? 0) + c.clicks), new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1]);
+  const install = buildInstallSummary(report.ctas);
+  const ctaTotals = [...report.ctas.filter((c) => !c.ctaId.startsWith("install_")).reduce((m, c) => m.set(c.ctaId, (m.get(c.ctaId) ?? 0) + c.clicks), new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1]);
   const chip = "inline-flex min-h-11 items-center rounded-full border border-border px-4 text-sm text-foreground hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:font-medium";
   const card = "rounded-xl border border-border p-4";
 
@@ -200,6 +201,45 @@ export default async function BehaviourPage({ searchParams }: PageProps<"/admin/
             )}
           </section>
 
+          <section aria-labelledby="install-heading" className="mt-8">
+            <h2 id="install-heading" className="text-base font-semibold text-foreground">
+              Install-the-app banner
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The banner that asks visitors to add Developer Connects to their home screen. Counted as visitor sessions, not clicks. It appears first after about 45 seconds, then every 2 minutes, and stops for good once someone installs or presses “Don&apos;t show this again”.
+            </p>
+            {install.shown === 0 && install.appVisits === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">Nobody has been shown the banner in this period yet. It only appears in browsers that can install the app (Chrome, Edge, Samsung Internet, and Safari on iPhone and iPad).</p>
+            ) : (
+              <>
+                <ul className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                  {[
+                    { label: "Saw the banner", value: install.shown, note: "visitor sessions" },
+                    { label: "Pressed Install", value: install.tapped, note: show(install.tappedPercent) + " of those who saw it" },
+                    { label: "Installed", value: install.installed, note: show(install.installedPercent) + " of those who saw it" },
+                    { label: "Opened from the app", value: install.appVisits, note: "visits from the installed app" },
+                  ].map((item) => (
+                    <li key={item.label} className={`${card} min-w-0`}>
+                      <p className="text-xs text-muted-foreground">{item.label}</p>
+                      <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{item.value}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{item.note}</p>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Said “Not now”: {install.later} · Said “Don&apos;t show again”: {install.never} ({show(install.neverPercent)}) · Opened the how-to steps: {install.steps} · Cancelled the browser&apos;s install box: {install.declined}
+                </p>
+                {install.byDevice.length > 0 && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {install.byDevice.map((d) => `${d.device === "unknown" ? "Not recorded" : d.device}: saw ${d.shown}, installed ${d.installed}`).join(" · ")}
+                  </p>
+                )}
+                {install.shown < MIN_SAMPLE && <p className="mt-1 text-xs text-muted-foreground">Rates appear once {MIN_SAMPLE} visitors have seen the banner. “Installed” counts only installs the browser confirms; iPhone and iPad do not report this, so iPhone installs show up under “Opened from the app” instead.</p>}
+                {install.shown >= MIN_SAMPLE && <p className="mt-1 text-xs text-muted-foreground">“Installed” counts only installs the browser confirms; iPhone and iPad do not report this, so iPhone installs show up under “Opened from the app” instead.</p>}
+              </>
+            )}
+          </section>
+
           <section aria-labelledby="cta-heading" className="mt-8">
             <h2 id="cta-heading" className="text-base font-semibold text-foreground">
               Buttons people press
@@ -221,7 +261,7 @@ export default async function BehaviourPage({ searchParams }: PageProps<"/admin/
       )}
 
       <p className="mt-8 text-xs text-muted-foreground">
-        How this is collected: anonymous, no names, phone numbers or emails, path only (never the full web address), bots ignored, and visitors who choose “only essentials” or send a Do Not Track / Global Privacy Control signal are not counted.
+        How this is collected: anonymous, no names, phone numbers or emails, path only (never the full web address), bots ignored, and visitors who choose “only essentials” are not counted in the numbers above, except for the install-banner counts, which the Privacy and Cookie policies say are kept for everyone. A Do Not Track / Global Privacy Control signal stops all counting.
       </p>
     </div>
   );

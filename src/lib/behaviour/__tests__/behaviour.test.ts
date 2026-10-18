@@ -272,11 +272,14 @@ test("static: the collector always answers 204, accepts no personal fields, and 
   const route = read("src/app/api/events/route.ts");
   assert.match(route, /status: 204/);
   assert.doesNotMatch(route, /phone|email/i);
+  // The consent and privacy-signal checks live in the shared browser client, which the page tracker and the install banner both use.
+  const client = read("src/lib/behaviour/client.ts");
+  assert.match(client, /parseAnalyticsConsent/);
+  assert.match(client, /=== "essential"/);
+  assert.match(client, /globalPrivacyControl/);
+  assert.match(client, /doNotTrack/);
   const tracker = read("src/components/behaviour-tracker.tsx");
-  assert.match(tracker, /parseAnalyticsConsent/);
-  assert.match(tracker, /=== "essential"/);
-  assert.match(tracker, /globalPrivacyControl/);
-  assert.match(tracker, /doNotTrack/);
+  assert.match(tracker, /trackingAllowed\(\)/);
   assert.match(tracker, /isAnalyticsExcludedPath/);
   // The only fields a browser may send are the ones declared on RawClientEvent - none can hold a person's details.
   const events = read("src/lib/behaviour/events.ts");

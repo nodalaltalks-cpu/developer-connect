@@ -55,7 +55,7 @@ export async function loadBehaviourReport(from: Date, to: Date): Promise<Behavio
       order by p.views desc
       limit 300`),
     db.execute(sql`
-      select payload->>'ctaId' as cta_id, coalesce(payload->>'deviceType', 'unknown') as device, count(*)::int as clicks
+      select payload->>'ctaId' as cta_id, coalesce(payload->>'deviceType', 'unknown') as device, count(*)::int as clicks, count(distinct session_id)::int as visitors
       from analytics_events where event_name = 'cta_clicked' and ${range}
       group by 1, 2`),
   ]);
@@ -91,7 +91,7 @@ export async function loadBehaviourReport(from: Date, to: Date): Promise<Behavio
     bounced: Number(r.bounced ?? 0),
   }));
 
-  const ctas: CtaRow[] = ctaRows.rows.filter((r) => r.cta_id).map((r) => ({ ctaId: String(r.cta_id), device: toDevice(r.device), clicks: Number(r.clicks) }));
+  const ctas: CtaRow[] = ctaRows.rows.filter((r) => r.cta_id).map((r) => ({ ctaId: String(r.cta_id), device: toDevice(r.device), clicks: Number(r.clicks), visitors: Number(r.visitors) }));
 
   return { sessions, pages, ctas, truncated };
 }

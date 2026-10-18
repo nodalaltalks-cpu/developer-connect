@@ -49,7 +49,7 @@ test("copy: the recorded consent says the buyer is sharing details with Develope
   assert.ok(lines.length >= 2 && lines.length <= 3, "two or three lines, not a wall of text");
   assert.match(promise, /short list/);
   assert.match(promise, /budget, area and timeline/);
-  assert.match(promise, /No pressure and no obligation/);
+  assert.match(promise, /No pressure and no strings/);
   assert.doesNotMatch(promise, /commission|0%|bias|RERA|certified|channel partner/i, "fees and credentials are stated only in the Disclaimer");
   assert.doesNotMatch(promise, /payment|paid|margin|earn|guarantee|best|#1/i, "no payment-source wording and no guarantees");
 });

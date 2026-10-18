@@ -67,7 +67,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     faq: [
       { question: "Who is Developer Connects?", answer: "Developer Connects is a property research and advisory firm for buyers in Mumbai and Dubai, led by founder Ambish Singh, who has more than six years of real estate strategy and investment experience." },
       { question: "Which parts of Mumbai do you cover?", answer: "The island city and the western, central and harbour suburbs, plus Mira-Bhayandar and Vasai-Virar. Thane and Navi Mumbai have their own pages." },
-      { question: "How do I start?", answer: "Message or call Ambish, or tap your requirements in the one-minute enquiry form. You will get a short list based on your brief, and there is no obligation to book anything." },
+      { question: "How do I start?", answer: "Message or call Ambish, or tap your requirements in the one-minute enquiry form. You will get a short list based on your brief, and you do not have to book anything." },
     ],
   },
   {
@@ -164,7 +164,7 @@ export const CONSULTANT_PAGES: readonly ConsultantPage[] = [
     faq: [
       { question: "Can Indians buy property in Dubai?", answer: "Yes. Foreign nationals, including Indians, can buy freehold property in designated areas of Dubai." },
       { question: "Can I buy a Dubai property without visiting?", answer: "A remote purchase is possible with careful document handling, but many buyers still visit once. We can plan a short, productive trip around a short list of projects." },
-      { question: "How do I start?", answer: "Message or call Ambish on the UAE number, or tap your requirements in the one-minute enquiry form. You will get a short list, and there is no obligation to book." },
+      { question: "How do I start?", answer: "Message or call Ambish on the UAE number, or tap your requirements in the one-minute enquiry form. You will get a short list, and you do not have to book." },
     ],
   },
 ];

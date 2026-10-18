@@ -117,7 +117,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                     <li aria-hidden="true" className="hidden text-white/40 sm:block">&middot;</li>
                     <li>6+ years of experience in real estate across India &amp; UAE</li>
                   </ul>
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-brass-300">No pressure &middot; No obligation</p>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-brass-300">No pressure &middot; No strings</p>
                 </div>
               </div>
             </Container>

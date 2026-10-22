@@ -24,7 +24,7 @@ export const SOCIAL_LINKS: readonly SocialLink[] = [
   { key: "instagram", label: "Instagram", description: "Short videos on Mumbai and Dubai property", url: "https://www.instagram.com/developerconnects/" },
   { key: "facebook", label: "Facebook", description: "Developer Connects on Facebook", url: "https://www.facebook.com/profile.php?id=61595466475332" },
   { key: "linkedin", label: "LinkedIn", description: "Ambish Singh on LinkedIn", url: FOUNDER.linkedinUrl },
-  { key: "youtube", label: "YouTube", description: "Long-form property explainers", url: null },
+  { key: "youtube", label: "YouTube", description: "Long-form property explainers", url: "https://www.youtube.com/@ambishsinghh" },
   { key: "email", label: "Business enquiries", description: BUSINESS_EMAIL, url: `mailto:${BUSINESS_EMAIL}?subject=${encodeURIComponent("Business enquiry — Developer Connects")}` },
 ];
 

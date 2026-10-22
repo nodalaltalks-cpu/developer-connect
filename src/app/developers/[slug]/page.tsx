@@ -11,6 +11,8 @@ import { AdvisorPageContext, AdvisorTrigger } from "@/components/advisor/advisor
 import { DeveloperPageViewTracker } from "@/components/developer-page-view-tracker";
 import { ShareDeveloper } from "@/components/share-developer";
 import { ReportInaccurateInfo } from "@/components/report-inaccurate-info";
+import { DeveloperAtAGlance } from "@/components/developer-at-a-glance";
+import { getDeveloperProfile } from "@/lib/developer-connect/developer-profiles";
 import { SiteFooter } from "@/components/site-footer";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
@@ -138,6 +140,7 @@ export default async function DeveloperPage({
   const { userId } = await auth();
   const introText = developerIntroText(developer, formatDate);
   const buyDirectGuide = buyDirectMarketForLocation(developer.country, developer.city);
+  const aboutProfile = getDeveloperProfile(developer.slug);
 
   // Only fetched for a verified developer — an unverified page is
   // noindexed and low-traffic; there is no benefit to spending an extra
@@ -237,6 +240,8 @@ export default async function DeveloperPage({
             {alsoKnownAs(developer) && (
               <p className="mt-6 text-xs text-muted-foreground">Also known as {alsoKnownAs(developer)}</p>
             )}
+
+            {aboutProfile && <DeveloperAtAGlance name={developer.displayName} profile={aboutProfile} />}
 
             {developer.officialWebsite && (
               <section className="mt-10 border-t border-border pt-8">

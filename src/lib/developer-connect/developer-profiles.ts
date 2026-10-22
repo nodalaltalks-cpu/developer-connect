@@ -105,6 +105,92 @@ export const DEVELOPER_PROFILES: readonly DeveloperProfile[] = [
     ],
     checked: "October 2026",
   },
+  {
+    slug: "acme-group",
+    summary: "Acme Group is a Mumbai developer with residential and commercial projects across the western and central suburbs.",
+    facts: [
+      { label: "Based in", value: "Chakala, Andheri East, Mumbai" },
+      { label: "Began", value: "1976, according to property listings" },
+      { label: "Known projects", value: "Acme Ozone in Thane, Acme Regency in Vile Parle West, Acme Elanza in Ghatkopar West and Acme Aurum in Kandivali West" },
+    ],
+    sources: [
+      { name: "CommonFloor builder page", url: "https://www.commonfloor.com/acme-group/builder/a1i3pw" },
+      { name: "PropertyPistol developer page", url: "https://www.propertypistol.com/developers/aad6baa8-34d1-47e6-a119-5874e2517819/acme-group" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "adani-realty",
+    summary: "Adani Realty is the real estate arm of the Adani Group, with office and residential projects in Mumbai.",
+    facts: [
+      { label: "Part of", value: "Adani Group" },
+      { label: "Known projects", value: "Adani Inspire in Bandra Kurla Complex and Adani Monte South in Byculla West" },
+      { label: "Works in", value: "Office towers and residential projects in Mumbai" },
+    ],
+    sources: [
+      { name: "Business Standard (PTI) report", url: "https://www.business-standard.com/article/pti-stories/adani-realty-to-launch-1-5-mn-sqft-of-comm-spaces-in-6-months-116021100981_1.html" },
+      { name: "Ghar.tv developer profile", url: "https://www.ghar.tv/adani-inspire-bandra-east-mumbai-okiw94876177" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "sunteck-realty",
+    summary: "Sunteck Realty is a Mumbai developer headquartered in Vile Parle East and listed on the NSE and BSE.",
+    facts: [
+      { label: "Based in", value: "Vile Parle East, Mumbai" },
+      { label: "Listed", value: "NSE (SUNTECK) and BSE (512179)" },
+      { label: "Known projects", value: "Signature Island in Bandra Kurla Complex, Sunteck City in Oshiwara, Goregaon, and SunteckWorld in Naigaon" },
+    ],
+    sources: [
+      { name: "Sunteck's about page", url: "https://www.sunteckindia.com/about-us" },
+      { name: "NSE company filing", url: "https://nsearchives.nseindia.com/corporate/SUNTECK_07092025004531_SRL.pdf" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "damac-properties",
+    summary: "DAMAC Properties is a Dubai developer founded by Hussain Sajwani, known for master-planned communities in Dubailand.",
+    facts: [
+      { label: "Based in", value: "Dubai, United Arab Emirates" },
+      { label: "Founder", value: "Hussain Sajwani" },
+      { label: "Listed", value: "On the Dubai Financial Market from 2015 until it was taken private in 2022" },
+      { label: "Known communities", value: "DAMAC Hills and DAMAC Hills 2, in Dubailand" },
+    ],
+    sources: [
+      { name: "Wikipedia", url: "https://en.wikipedia.org/wiki/DAMAC_Properties" },
+      { name: "Business Chief profile of the founder", url: "https://businesschief.eu/leadership-and-strategy/damac-founder-hussain-sajwani-pioneer-in-dubai-property" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "samana-developers",
+    summary: "Samana Developers is a Dubai developer led by its founder and CEO, Imran Farooq, with a head office in Business Bay.",
+    facts: [
+      { label: "Based in", value: "Bay Square, Business Bay, Dubai" },
+      { label: "Founder and CEO", value: "Imran Farooq" },
+      { label: "Known projects", value: "Samana Waves in Jumeirah Village Circle, Samana Greens in Arjan and Samana Golf Avenue in Dubai Studio City" },
+    ],
+    sources: [
+      { name: "Tranio developer page", url: "https://tranio.com/developers-uae/samana/" },
+      { name: "Entrepreneur Middle East profile", url: "https://mena.entrepreneur.com/entrepreneurs/the-100-imran-farooq-founder-and-ceo-samana-developers/501482" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "condor-developers",
+    summary: "Condor Developers is the real estate arm of Condor Group, a Dubai-based group that traces its origins to 1983.",
+    facts: [
+      { label: "Based in", value: "Dubai, United Arab Emirates" },
+      { label: "Group origin", value: "1983" },
+      { label: "Completed projects", value: "Condor Castle and Condor Concept 7 in Jumeirah Village Circle, and Marina Star in Dubai Marina" },
+      { label: "Newer projects", value: "Condor Golf Links 18 in Dubai Sports City and Sonate Residences in Jumeirah Village Triangle (launched July 2024)" },
+    ],
+    sources: [
+      { name: "Khaleej Times", url: "https://www.khaleejtimes.com/supplements/condor-group-keeping-the-flag-of-quality-aloft?amp=1" },
+      { name: "TradeArabia", url: "https://www.tradearabia.com/News/486611/Condor-completes-handover-of-Dubai-Sports-City-residential-project" },
+    ],
+    checked: "October 2026",
+  },
 ];
 
 const BY_SLUG = new Map(DEVELOPER_PROFILES.map((profile) => [profile.slug, profile]));

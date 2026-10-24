@@ -382,6 +382,51 @@ export const DEVELOPER_PROFILES: readonly DeveloperProfile[] = [
     ],
     checked: "October 2026",
   },
+  // --- Dubai ---
+  {
+    slug: "emaar-properties",
+    summary: "Emaar Properties is a Dubai developer listed on the Dubai Financial Market, and the developer of Burj Khalifa and The Dubai Mall.",
+    facts: [
+      { label: "Based in", value: "Dubai, United Arab Emirates" },
+      { label: "Founded", value: "1997" },
+      { label: "Listed", value: "Dubai Financial Market (ticker EMAAR)" },
+      { label: "Known projects", value: "Burj Khalifa, The Dubai Mall, Downtown Dubai and Dubai Marina" },
+    ],
+    sources: [
+      { name: "Wikipedia: Emaar Properties", url: "https://en.wikipedia.org/wiki/Emaar_Properties" },
+      { name: "Emaar communities page", url: "https://communities.emaar.com/en/?p=7217" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "nakheel",
+    summary: "Nakheel is a Dubai developer known for the Palm Jumeirah, and is part of Dubai Holding.",
+    facts: [
+      { label: "Based in", value: "Dubai, United Arab Emirates" },
+      { label: "Founded", value: "2003" },
+      { label: "Ownership", value: "Part of Dubai Holding; Wikipedia records that it was merged into Dubai Holding on 16 March 2024" },
+      { label: "Known projects", value: "Palm Jumeirah, Palm Jebel Ali, The World Islands and Jumeirah Islands" },
+    ],
+    sources: [
+      { name: "Wikipedia: Nakheel Properties", url: "https://en.wikipedia.org/wiki/Nakheel_Properties" },
+      { name: "Nakheel about page", url: "https://www.nakheel.com/en/about-us" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "arada",
+    summary: "Arada is a privately held developer founded in 2017, known for Aljada and Masaar in Sharjah and Armani Beach Residences on Palm Jumeirah.",
+    facts: [
+      { label: "Founded", value: "2017" },
+      { label: "Ownership", value: "Privately held" },
+      { label: "Known projects", value: "Aljada and Masaar in Sharjah, and Armani Beach Residences on Palm Jumeirah, Dubai" },
+    ],
+    sources: [
+      { name: "Wikipedia: Arada", url: "https://en.wikipedia.org/wiki/Arada_(company)" },
+      { name: "Arada about page", url: "https://arada.com/en/about-us" },
+    ],
+    checked: "October 2026",
+  },
 ];
 
 const BY_SLUG = new Map(DEVELOPER_PROFILES.map((profile) => [profile.slug, profile]));

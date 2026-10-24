@@ -8,7 +8,7 @@ import { isProfileVerified } from "@/lib/profile/verification";
 import { saveProfileFieldsAction } from "@/app/_actions/profile-actions";
 import { ProfileCompletionSummary } from "@/components/profile-completion-summary";
 import { ProfileSectionAccordion } from "./profile-section-accordion";
-import { StickySaveBar } from "./sticky-save-bar";
+import { SaveStatusBar } from "./sticky-save-bar";
 import { CompletionCelebration } from "./completion-celebration";
 
 type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
@@ -56,19 +56,54 @@ export function ProfileEditor({
   const [, startTransition] = useTransition();
   const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const draftRef = useRef(draftData);
+  const stateRef = useRef<SaveState>("idle");
+  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSaveRef = useRef<() => void>(() => {});
+  const setSaveStateTracked = useCallback((next: SaveState) => {
+    stateRef.current = next;
+    setSaveState(next);
+  }, []);
+
   useEffect(() => {
     if (requestedSectionValid) {
       requestAnimationFrame(() => scrollToSection(requestedSectionValid));
+      return;
     }
+    // No deep link: show the personal greeting for a moment, then take them straight to the first
+    // section still to do (it is already open). Skipped if they have started scrolling themselves.
+    const target = firstIncompleteSectionId(initialCompletion);
+    if (!target) return;
+    const timer = setTimeout(() => {
+      if (window.scrollY < 40) scrollToSection(target);
+    }, 1400);
+    return () => clearTimeout(timer);
     // Only ever run once, for the link the user actually followed in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFieldChange = useCallback((key: string, value: unknown) => {
-    setDraftData((prev) => ({ ...prev, [key]: value }));
-    setSaveState("dirty");
-    if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+  // Leaving the tab or app with a change still waiting: save it now instead of losing it.
+  useEffect(() => {
+    const flush = () => {
+      if (document.visibilityState === "hidden") handleSaveRef.current();
+    };
+    document.addEventListener("visibilitychange", flush);
+    return () => document.removeEventListener("visibilitychange", flush);
   }, []);
+
+  const handleFieldChange = useCallback(
+    (key: string, value: unknown) => {
+      const next = { ...draftRef.current, [key]: value };
+      draftRef.current = next;
+      setDraftData(next);
+      setSaveStateTracked("dirty");
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+      // Saved on its own shortly after the last change; there is no Save button to remember.
+      if (autosaveRef.current) clearTimeout(autosaveRef.current);
+      autosaveRef.current = setTimeout(() => handleSaveRef.current(), 800);
+    },
+    [setSaveStateTracked],
+  );
 
   function handleOpenSection(sectionId: string) {
     setOpenSectionId((prev) => (prev === sectionId ? null : sectionId));
@@ -81,11 +116,13 @@ export function ProfileEditor({
   }
 
   function handleSave() {
-    if (saveState !== "dirty" && saveState !== "error") return;
-    setSaveState("saving");
+    if (stateRef.current !== "dirty" && stateRef.current !== "error") return;
+    if (autosaveRef.current) clearTimeout(autosaveRef.current);
+    const snapshot = draftRef.current;
+    setSaveStateTracked("saving");
     startTransition(async () => {
       try {
-        const result = await saveProfileFieldsAction(draftData);
+        const result = await saveProfileFieldsAction(snapshot);
         // The ONE decision behind both the inline banner and the full
         // celebration overlay — see celebration.ts for exactly what
         // "genuinely completed" means (a real incomplete->complete
@@ -94,8 +131,14 @@ export function ProfileEditor({
         const celebrationResult = shouldCelebrate(completion, result.completion);
 
         setCompletion(result.completion);
-        setSavedData(draftData);
-        setSaveState("saved");
+        setSavedData(snapshot);
+        // Something was typed while this save was in flight: save again rather than call it done.
+        if (draftRef.current !== snapshot) {
+          setSaveStateTracked("dirty");
+          autosaveRef.current = setTimeout(() => handleSaveRef.current(), 300);
+          return;
+        }
+        setSaveStateTracked("saved");
 
         if (celebrationResult.show) {
           setJustCompletedMessage(
@@ -110,14 +153,17 @@ export function ProfileEditor({
         }
 
         savedTimeoutRef.current = setTimeout(() => {
-          setSaveState("idle");
+          setSaveStateTracked("idle");
           setJustCompletedMessage(null);
         }, 3500);
       } catch {
-        setSaveState("error");
+        setSaveStateTracked("error");
       }
     });
   }
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  });
 
   const incompleteSections = PROFILE_SECTIONS.filter((section) => {
     const status = completion.sections.find((s) => s.sectionId === section.id);
@@ -202,10 +248,10 @@ export function ProfileEditor({
       <p className="mt-6 text-xs text-muted-foreground">
         {JSON.stringify(draftData) === JSON.stringify(savedData)
           ? "Everything here is saved."
-          : "You have unsaved changes."}
+          : "Saving your changes automatically…"}
       </p>
 
-      <StickySaveBar state={saveState} onSave={handleSave} />
+      <SaveStatusBar state={saveState} onRetry={handleSave} />
 
       {celebration && (
         <CompletionCelebration

@@ -13,7 +13,7 @@
 
 export const INSTALL_STORAGE_KEY = "dc_install_prompt";
 /** How long after arriving the first banner waits: long enough to have seen the site, short enough to catch a short visit. */
-export const FIRST_DELAY_MS = 45_000;
+export const FIRST_DELAY_MS = 15_000;
 /** The rhythm the Founder asked for. */
 export const REPEAT_MS = 120_000;
 /** Retry delay when the banner could not be shown at its moment (another dialog is open, the tab is hidden). */

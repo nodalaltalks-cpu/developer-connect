@@ -6,18 +6,21 @@ import { ProfileFieldInput } from "./profile-field-input";
 function StatusBadge({ status }: { status: ProfileSectionCompletion | undefined }) {
   if (!status || status.totalFields === 0) return null;
   if (status.complete) {
-    return <span className="text-xs font-semibold uppercase tracking-wide text-green-700">Complete</span>;
+    return <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-800">✓ Done</span>;
   }
   if (status.completedFields === 0) {
-    return (
-      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Not started yet
-      </span>
-    );
+    return <span className="rounded-full border border-accent px-2.5 py-1 text-xs font-bold text-accent-hover">Start · {status.totalFields} quick</span>;
   }
+  const left = status.totalFields - status.completedFields;
+  const pct = Math.round((status.completedFields / status.totalFields) * 100);
   return (
-    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      {status.completedFields} / {status.totalFields}
+    <span className="flex flex-col items-end gap-1">
+      <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground">
+        {status.completedFields}/{status.totalFields} · {left} to go
+      </span>
+      <span aria-hidden="true" className="h-1 w-16 overflow-hidden rounded-full bg-border">
+        <span className="block h-full rounded-full bg-accent" style={{ width: pct + "%" }} />
+      </span>
     </span>
   );
 }

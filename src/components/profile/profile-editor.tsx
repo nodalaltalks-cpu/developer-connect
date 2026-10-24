@@ -212,7 +212,7 @@ export function ProfileEditor({
           : "Saving your changes automatically…"}
       </p>
 
-      <SaveStatusBar state={saveState} onRetry={handleSave} />
+      <SaveStatusBar state={saveState} onSave={handleSave} />
 
       {celebration && (
         <CompletionCelebration

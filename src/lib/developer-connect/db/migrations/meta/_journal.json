@@ -281,6 +281,20 @@
       "when": 1792166693036,
       "tag": "0039_lead_trash",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792801721105,
+      "tag": "0040_social_comment_automation",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792845265376,
+      "tag": "0041_social_automation_drafts_and_defaults",
+      "breakpoints": true
     }
   ]
 }

@@ -1638,3 +1638,151 @@ export const buyerEnquiries = pgTable(
     check("buyer_enquiries_rating_range_ck", sql`${table.rating} is null or (${table.rating} between 1 and 5)`),
   ],
 );
+
+// ---------------------------------------------------------------------------------------------------------------
+// SOCIAL AUTOMATION: comment-to-DM on Instagram and Facebook posts (private to the Founder)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * One row (id = 'global'). `enabled` is the emergency switch: false by default, and while it is false nothing is ever sent,
+ * whatever any post says. The two *_max_age_days values say how recently a price / availability must have been verified
+ * before it may be quoted in an automatic message.
+ */
+export const socialAutomationSettings = pgTable(
+  "social_automation_settings",
+  {
+    id: text("id").primaryKey().default("global"),
+    enabled: boolean("enabled").notNull().default(false),
+    priceMaxAgeDays: integer("price_max_age_days").notNull().default(14),
+    availabilityMaxAgeDays: integer("availability_max_age_days").notNull().default(7),
+    /** The common public reply, used by every post that does not set its own. Null = the built-in wording. */
+    defaultPublicReply: text("default_public_reply"),
+    /** The common public reply for when no DM went out. Null = the built-in wording. */
+    defaultPublicReplyFallback: text("default_public_reply_fallback"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: text("updated_by"),
+  },
+  (table) => [
+    check("social_automation_settings_singleton_ck", sql`${table.id} = 'global'`),
+    check("social_automation_settings_price_age_ck", sql`${table.priceMaxAgeDays} between 1 and 365`),
+    check("social_automation_settings_availability_age_ck", sql`${table.availabilityMaxAgeDays} between 1 and 365`),
+  ],
+);
+
+/**
+ * A social post tied to a property. Project facts (name, location, price) are read from `projects` at send time and never copied
+ * here; this row holds only what `projects` does not: the Founder's approval and verification dates, availability, approved
+ * details and the message templates. A new row is DRY_RUN; LIVE needs an explicit confirmation and a project.
+ */
+export const socialPostAutomations = pgTable(
+  "social_post_automations",
+  {
+    id: uuid("id").primaryKey(),
+    platform: text("platform").notNull(),
+    /** Null while the reel is set up before it is published; the Founder links the published post later. A draft receives nothing. */
+    postId: text("post_id"),
+    postUrl: text("post_url"),
+    videoTitle: text("video_title").notNull(),
+    contentFormat: text("content_format").notNull(),
+    mode: text("mode").notNull().default("DRY_RUN"),
+    liveConfirmedAt: timestamp("live_confirmed_at", { withTimezone: true }),
+    liveConfirmedBy: text("live_confirmed_by"),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "restrict" }),
+    priceApproved: boolean("price_approved").notNull().default(false),
+    priceVerifiedAt: timestamp("price_verified_at", { withTimezone: true }),
+    priceSnapshot: text("price_snapshot"),
+    availabilityText: text("availability_text"),
+    availabilityVerifiedAt: timestamp("availability_verified_at", { withTimezone: true }),
+    approvedDetails: text("approved_details"),
+    safeFallbackTemplate: text("safe_fallback_template"),
+    publicReplyTemplate: text("public_reply_template"),
+    publicReplyFallbackTemplate: text("public_reply_fallback_template"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: text("updated_by"),
+  },
+  (table) => [
+    uniqueIndex("social_post_automations_post_key").on(table.platform, table.postId),
+    index("social_post_automations_project_idx").on(table.projectId),
+    check("social_post_automations_platform_ck", sql`${table.platform} in ('INSTAGRAM', 'FACEBOOK')`),
+    check("social_post_automations_format_ck", sql`${table.contentFormat} in ('REEL', 'POST', 'VIDEO')`),
+    check("social_post_automations_mode_ck", sql`${table.mode} in ('DISABLED', 'DRY_RUN', 'LIVE')`),
+    // Live is never reachable by default: it needs a project and a recorded explicit confirmation.
+    check("social_post_automations_live_ck", sql`${table.mode} <> 'LIVE' or (${table.postId} is not null and ${table.projectId} is not null and ${table.liveConfirmedAt} is not null and ${table.liveConfirmedBy} is not null)`),
+    check("social_post_automations_price_ck", sql`${table.priceApproved} = false or (${table.priceVerifiedAt} is not null and ${table.priceSnapshot} is not null)`),
+  ],
+);
+
+/** A keyword on a post and the DM it triggers. A keyword appears once per post. */
+export const socialPostTriggers = pgTable(
+  "social_post_triggers",
+  {
+    id: uuid("id").primaryKey(),
+    automationId: uuid("automation_id")
+      .notNull()
+      .references(() => socialPostAutomations.id, { onDelete: "cascade" }),
+    keyword: text("keyword").notNull(),
+    intent: text("intent").notNull(),
+    dmTemplate: text("dm_template").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex("social_post_triggers_keyword_key").on(table.automationId, table.keyword),
+    check("social_post_triggers_intent_ck", sql`${table.intent} in ('PRICE', 'LOCATION', 'DETAILS', 'BROCHURE', 'VISIT', 'AVAILABILITY', 'OTHER')`),
+    check("social_post_triggers_keyword_ck", sql`${table.keyword} = upper(btrim(${table.keyword})) and char_length(${table.keyword}) between 2 and 30`),
+  ],
+);
+
+/**
+ * One comment, one row, ever. The unique (platform, comment_id) is the idempotency guard: a webhook retry or a second delivery
+ * finds the row already there and does nothing but count itself in `duplicate_count`. The DM and the public reply each carry
+ * their own status, so "DM sent, public reply failed" and the reverse are both recorded as they happened.
+ */
+export const socialCommentEvents = pgTable(
+  "social_comment_events",
+  {
+    id: uuid("id").primaryKey(),
+    platform: text("platform").notNull(),
+    commentId: text("comment_id").notNull(),
+    postId: text("post_id").notNull(),
+    automationId: uuid("automation_id").references(() => socialPostAutomations.id, { onDelete: "set null" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+    commenterId: text("commenter_id"),
+    commenterUsername: text("commenter_username"),
+    commentText: text("comment_text"),
+    commentedAt: timestamp("commented_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    triggerKeyword: text("trigger_keyword"),
+    detectedIntent: text("detected_intent"),
+    /** The mode the post was in when this comment was handled: what actually happened is in the two statuses below. */
+    modeAtProcessing: text("mode_at_processing"),
+    outcome: text("outcome").notNull().default("RECEIVED"),
+    dmStatus: text("dm_status").notNull().default("NOT_ATTEMPTED"),
+    dmText: text("dm_text"),
+    dmFailureReason: text("dm_failure_reason"),
+    dmMessageId: text("dm_message_id"),
+    dmAttemptedAt: timestamp("dm_attempted_at", { withTimezone: true }),
+    replyStatus: text("reply_status").notNull().default("NOT_ATTEMPTED"),
+    replyText: text("reply_text"),
+    replyFailureReason: text("reply_failure_reason"),
+    replyPlatformId: text("reply_platform_id"),
+    replyAttemptedAt: timestamp("reply_attempted_at", { withTimezone: true }),
+    duplicateCount: integer("duplicate_count").notNull().default(0),
+    followUpRequired: boolean("follow_up_required").notNull().default(false),
+    followUpReason: text("follow_up_reason"),
+    followUpStatus: text("follow_up_status").notNull().default("NONE"),
+    followUpNote: text("follow_up_note"),
+    followUpUpdatedAt: timestamp("follow_up_updated_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("social_comment_events_comment_key").on(table.platform, table.commentId),
+    index("social_comment_events_time_idx").on(table.receivedAt),
+    index("social_comment_events_post_idx").on(table.platform, table.postId),
+    index("social_comment_events_followup_idx").on(table.followUpStatus, table.receivedAt),
+    check("social_comment_events_platform_ck", sql`${table.platform} in ('INSTAGRAM', 'FACEBOOK')`),
+    check("social_comment_events_outcome_ck", sql`${table.outcome} in ('RECEIVED', 'NO_MATCH', 'NOT_CONFIGURED', 'AUTOMATION_OFF', 'PROCESSED', 'NEEDS_MANUAL')`),
+    check("social_comment_events_dm_ck", sql`${table.dmStatus} in ('NOT_ATTEMPTED', 'DRY_RUN', 'SENT', 'FAILED', 'INELIGIBLE', 'SKIPPED')`),
+    check("social_comment_events_reply_ck", sql`${table.replyStatus} in ('NOT_ATTEMPTED', 'DRY_RUN', 'SENT', 'FAILED', 'SKIPPED')`),
+    check("social_comment_events_followup_ck", sql`${table.followUpStatus} in ('NONE', 'OPEN', 'DONE', 'DISMISSED')`),
+  ],
+);

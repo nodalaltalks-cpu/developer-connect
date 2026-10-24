@@ -17,6 +17,7 @@ export const NAV_ITEMS = [
   { href: "/admin/intelligence", label: "Intelligence" },
   { href: "/admin/behaviour", label: "Visitor behaviour" },
   { href: "/admin/social", label: "Social analytics" },
+  { href: "/admin/social-automation", label: "Comment-to-DM" },
   { href: "/admin/acquisition", label: "Acquisition" },
   { href: "/admin/finance", label: "Finance" },
   { href: "/admin/spend", label: "Marketing spend" },

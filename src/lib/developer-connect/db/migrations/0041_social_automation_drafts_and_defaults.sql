@@ -1,0 +1,5 @@
+ALTER TABLE "social_post_automations" DROP CONSTRAINT "social_post_automations_live_ck";--> statement-breakpoint
+ALTER TABLE "social_post_automations" ALTER COLUMN "post_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "social_automation_settings" ADD COLUMN "default_public_reply" text;--> statement-breakpoint
+ALTER TABLE "social_automation_settings" ADD COLUMN "default_public_reply_fallback" text;--> statement-breakpoint
+ALTER TABLE "social_post_automations" ADD CONSTRAINT "social_post_automations_live_ck" CHECK ("social_post_automations"."mode" <> 'LIVE' or ("social_post_automations"."post_id" is not null and "social_post_automations"."project_id" is not null and "social_post_automations"."live_confirmed_at" is not null and "social_post_automations"."live_confirmed_by" is not null));

@@ -7,6 +7,7 @@ import { StatGrid, StatTile } from "@/components/admin/stat-tile";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { NorthStarMetric } from "@/components/admin/north-star-metric";
 import { RateDisplay } from "@/components/admin/rate-display";
+import { automationSummary } from "@/lib/social-automation/db/postgres-automation";
 import { PlatformHealthSummaryCard } from "@/components/admin/platform-health-summary-card";
 
 export default async function AdminOverviewPage({
@@ -17,6 +18,8 @@ export default async function AdminOverviewPage({
   const overview = await getExecutiveOverview(range);
   // The buyers themselves, live: this page is otherwise about visitors and verification, so leads are shown here too.
   const leads = await getLeadCounts(createPostgresLeadRepositories(), new Date()).catch(() => null);
+  // Instagram/Facebook comment automation, for the same period as the rest of this page. Hidden if the figures cannot be read.
+  const social = await automationSummary(range.start, range.end).catch(() => null);
   const previousPeriodNoun = DATE_RANGE_OPTIONS.find((o) => o.key === range.key)!.label.toLowerCase();
 
   return (
@@ -37,6 +40,20 @@ export default async function AdminOverviewPage({
             <StatTile label="Missed leads" value={leads.overdue} href="/admin/leads?view=overdue#lead-list" />
             <StatTile label="Due today" value={leads.dueToday} href="/admin/leads?view=due_today#lead-list" />
             <StatTile label="Total leads" value={leads.total} href="/admin/leads?view=all#lead-list" />
+          </StatGrid>
+        </section>
+      )}
+
+      {social && (
+        <section aria-labelledby="overview-social" className="mb-6">
+          <h2 id="overview-social" className="mb-3 text-base font-semibold text-foreground">
+            Social comments — {range.label}
+          </h2>
+          <StatGrid>
+            <StatTile label="Enquiry comments" value={social.qualifying} hint="matched a keyword" href="/admin/social-automation" />
+            <StatTile label="DMs sent" value={social.dmSent} hint={`${social.dmFailed} failed`} href="/admin/social-automation" />
+            <StatTile label="Public replies" value={social.repliesCompleted} href="/admin/social-automation" />
+            <StatTile label="Need your follow-up" value={social.needFollowUp} href="/admin/social-automation" tone={social.needFollowUp > 0 ? "green" : undefined} />
           </StatGrid>
         </section>
       )}

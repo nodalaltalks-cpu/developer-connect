@@ -369,6 +369,42 @@ body {
   }
 }
 
+/* Foldables and notched phones. The viewport is `cover`, so in landscape the notch / camera cut-out / rounded corners sit on the
+   left or right edge: the page and every full-width fixed bar keep clear of them. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+.fixed.inset-x-0 {
+  left: env(safe-area-inset-left);
+  right: env(safe-area-inset-right);
+}
+
+/* A very long word (a URL, an email, a developer name) wraps instead of pushing the page wider than a 280px cover screen. */
+@layer base {
+  h1,
+  h2,
+  h3,
+  p,
+  li,
+  a,
+  td {
+    overflow-wrap: break-word;
+  }
+}
+
+/* Dual-screen devices spanned across the hinge (Surface Duo and similar): keep the page on the first screen so no text or button is
+   cut by the fold. Single-viewport foldables (Galaxy Z Fold, Pixel Fold, flip phones) are unaffected: they simply resize. */
+@media (horizontal-viewport-segments: 2) {
+  body {
+    max-width: env(viewport-segment-width 0 0, 100%);
+  }
+  .fixed.inset-x-0 {
+    right: auto;
+    width: env(viewport-segment-width 0 0, 100%);
+  }
+}
+
 /* The page behind an open modal sheet must not scroll. */
 body:has(dialog[open]) {
   overflow: hidden;

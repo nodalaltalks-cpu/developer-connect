@@ -55,3 +55,14 @@ test("parseIndianAmount then formatIndianAmount round-trips a typed amount to th
   const parsed = parseIndianAmount("1.2 Cr");
   assert.equal(parsed !== null && formatIndianAmount(parsed), "1.2 Cr");
 });
+
+test("parseIndianAmount: forgives typos in the unit", () => {
+  for (const typed of ["75 lak", "75 lack", "75 lakkh", "75lk", "75 Lakhs", "₹75 lac", "Rs. 75 lakh"]) {
+    assert.equal(parseIndianAmount(typed), 7500000, typed);
+  }
+  for (const typed of ["1.2 cr", "1.2 crore", "1.2 crores", "1.2 cror", "1.2Cr."]) {
+    assert.equal(parseIndianAmount(typed), 12000000, typed);
+  }
+  assert.equal(parseIndianAmount("50 k"), 50000);
+  assert.equal(parseIndianAmount("75 banana"), null);
+});

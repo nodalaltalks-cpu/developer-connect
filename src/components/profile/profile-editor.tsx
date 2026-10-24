@@ -61,6 +61,7 @@ export function ProfileEditor({
   const stateRef = useRef<SaveState>("idle");
   const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSaveRef = useRef<() => void>(() => {});
+  const savedRef = useRef(initialData);
   const setSaveStateTracked = useCallback((next: SaveState) => {
     stateRef.current = next;
     setSaveState(next);
@@ -99,9 +100,9 @@ export function ProfileEditor({
       setDraftData(next);
       setSaveStateTracked("dirty");
       if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
-      // Saved on its own shortly after the last change; there is no Save button to remember.
+      // Saved on its own shortly after the last change, except the budget: an amount is saved only when they tap Save details.
       if (autosaveRef.current) clearTimeout(autosaveRef.current);
-      autosaveRef.current = setTimeout(() => handleSaveRef.current(), 800);
+      if (key !== "budgetRange") autosaveRef.current = setTimeout(() => handleSaveRef.current(), 800);
     },
     [setSaveStateTracked],
   );
@@ -116,10 +117,11 @@ export function ProfileEditor({
     requestAnimationFrame(() => scrollToSection(sectionId));
   }
 
-  function handleSave() {
+  // `manual` is the Save details button; the timer and tab-leave saves leave the budget out until it is tapped.
+  function handleSave(manual = false) {
     if (stateRef.current !== "dirty" && stateRef.current !== "error") return;
     if (autosaveRef.current) clearTimeout(autosaveRef.current);
-    const snapshot = draftRef.current;
+    const snapshot = manual ? draftRef.current : { ...draftRef.current, budgetRange: savedRef.current.budgetRange };
     setSaveStateTracked("saving");
     startTransition(async () => {
       try {
@@ -133,15 +135,22 @@ export function ProfileEditor({
 
         setCompletion(result.completion);
         setSavedData(snapshot);
-        // Something was typed while this save was in flight: save again rather than call it done.
-        if (draftRef.current !== snapshot) {
+        savedRef.current = snapshot;
+        // Changed while this save was in flight. Anything but the budget is saved again on its own; a changed budget waits for the button.
+        const latest = draftRef.current;
+        const othersChanged = JSON.stringify({ ...latest, budgetRange: null }) !== JSON.stringify({ ...snapshot, budgetRange: null });
+        const budgetChanged = JSON.stringify(latest.budgetRange) !== JSON.stringify(snapshot.budgetRange);
+        if (othersChanged || budgetChanged) {
           setSaveStateTracked("dirty");
-          autosaveRef.current = setTimeout(() => handleSaveRef.current(), 300);
+          if (othersChanged) autosaveRef.current = setTimeout(() => handleSaveRef.current(), 300);
           return;
         }
         setSaveStateTracked("saved");
 
-        if (celebrationResult.show) {
+        const budgetUnfinished =
+          celebrationResult.sectionTitle === PROFILE_SECTIONS.find((s) => s.id === "budget")?.title &&
+          !(typeof (snapshot.budgetRange as { min?: number })?.min === "number" && typeof (snapshot.budgetRange as { max?: number })?.max === "number");
+        if (celebrationResult.show && !budgetUnfinished) {
           setJustCompletedMessage(
             `${celebrationResult.sectionTitle} added — your profile is now ${celebrationResult.percentage}% complete.`,
           );
@@ -212,7 +221,7 @@ export function ProfileEditor({
           : "Saving your changes automatically…"}
       </p>
 
-      <SaveStatusBar state={saveState} onSave={handleSave} />
+      <SaveStatusBar state={saveState} onSave={() => handleSave(true)} />
 
       {celebration && (
         <CompletionCelebration

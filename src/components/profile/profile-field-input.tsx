@@ -242,22 +242,25 @@ function AmountInput({
       return;
     }
     const parsed = parseIndianAmount(text);
-    if (parsed !== null) {
-      setInvalid(false);
-      onCommit(parsed);
-    } else {
-      // Don't touch the committed model yet — just flag it so the user
-      // gets a hint while still mid-typing a valid amount.
-      setInvalid(true);
-    }
+    setInvalid(false);
+    // Unreadable text is never an error while typing; it just isn't committed yet.
+    if (parsed !== null) onCommit(parsed);
   }
 
   function handleBlur() {
-    // On leaving the field, reformat to the last genuinely committed
-    // value — clears any leftover unparseable text rather than leaving it
-    // stuck on screen looking saved when it never was.
-    setDraft(amount !== undefined ? formatIndianAmount(amount) : "");
-    setInvalid(false);
+    // On leaving the field: a readable amount is tidied ("75 lak" -> "75 Lakh"). Text we cannot read is kept as typed, with a
+    // quiet note, so nothing the person wrote disappears.
+    if (draft.trim() === "") {
+      setInvalid(false);
+      return;
+    }
+    const parsed = parseIndianAmount(draft);
+    if (parsed !== null) {
+      setDraft(formatIndianAmount(parsed));
+      setInvalid(false);
+    } else {
+      setInvalid(true);
+    }
   }
 
   // A quiet "= 1.2 Cr" readout once the typed amount is large enough that
@@ -277,10 +280,10 @@ function AmountInput({
         onChange={(e) => handleChange(e.target.value)}
         onBlur={handleBlur}
         aria-invalid={invalid}
-        className={`${inputClassName} ${invalid ? "border-red-500" : ""}`}
+        className={inputClassName}
       />
       {invalid ? (
-        <p className="mt-1 text-xs text-red-600">Try an amount like &quot;75 Lakh&quot; or &quot;1.2 Cr&quot;.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Not sure what amount that is. Try 75 Lakh or 1.2 Cr.</p>
       ) : (
         showPreview && <p className="mt-1 text-xs text-muted-foreground">= ₹{preview}</p>
       )}

@@ -11,7 +11,8 @@
 const LAKH = 1_00_000;
 const CRORE = 1_00_00_000;
 
-const AMOUNT_PATTERN = /^\s*₹?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*(cr|crore|crores|l|lac|lacs|lakh|lakhs)?\s*$/i;
+// The unit is read loosely: anything starting "cr" is Crore, anything starting "l" is Lakh (lak, lack, lakh, lakhs, lac, lk, l...).
+const AMOUNT_PATTERN = /^\s*(?:₹|rs\.?|inr)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*([a-z.]*)\s*$/i;
 
 /**
  * Parses a natural Indian amount string into a plain rupee number, or
@@ -31,8 +32,13 @@ export function parseIndianAmount(raw: string): number | null {
   const numeric = Number.parseFloat(match[1].replace(/,/g, ""));
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
 
-  const unit = match[2]?.toLowerCase();
-  const multiplier = unit === undefined ? 1 : unit.startsWith("cr") ? CRORE : LAKH;
+  const unit = match[2].toLowerCase().replace(/\./g, "");
+  let multiplier: number;
+  if (unit === "") multiplier = 1;
+  else if (unit.startsWith("cr")) multiplier = CRORE;
+  else if (unit.startsWith("l")) multiplier = LAKH;
+  else if (unit === "k" || unit.startsWith("th")) multiplier = 1_000;
+  else return null;
 
   const value = Math.round(numeric * multiplier);
   return value > 0 ? value : null;

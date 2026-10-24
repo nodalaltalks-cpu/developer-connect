@@ -3,6 +3,7 @@ import { ADVISOR_CONTACT } from "../advisor-contact.ts";
 import { SOCIAL_LINKS } from "../social/links.ts";
 import type { FaqEntry, Guide } from "./types.ts";
 import { guidePath } from "./guides.ts";
+import { officialSourcesFor } from "./sources.ts";
 
 export const SITE_URL = "https://developerconnects.com";
 
@@ -103,6 +104,7 @@ export function articleSchema(guide: Guide) {
     dateModified: guide.updated,
     mainEntityOfPage: url,
     inLanguage: "en-IN",
+    citation: officialSourcesFor(guide.market).map((source) => source.url),
     ...(guide.area
       ? { about: { "@type": "Place", name: guide.area, containedInPlace: { "@type": "City", name: guide.market === "dubai" ? "Dubai" : guide.area === "Ghodbunder Road" ? "Thane" : "Mumbai" } } }
       : {}),

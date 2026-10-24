@@ -5,9 +5,10 @@ import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { AdvisorPageContext } from "@/components/advisor/advisor";
-import { AdviceCta, Blocks, Breadcrumb, Byline, FaqList, GENERAL_INFO_NOTE } from "@/components/seo/article-parts";
+import { AdviceCta, Blocks, Breadcrumb, Byline, FaqList, GENERAL_INFO_NOTE, OfficialSources } from "@/components/seo/article-parts";
 import { SHARE_IMAGES } from "@/lib/share-image";
 import { GUIDES, GUIDES_PATH, getGuide, guidePath, relatedGuides } from "@/lib/seo/guides";
+import { officialSourcesFor } from "@/lib/seo/sources";
 import { articleSchema, breadcrumbSchema, faqSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
@@ -66,6 +67,8 @@ export default async function GuidePage({ params }: PageProps<"/guides/[slug]">)
 
             <h2 className="mt-14 font-serif text-2xl font-medium tracking-tight text-foreground sm:text-3xl">Frequently asked questions</h2>
             <FaqList items={guide.faq} />
+
+            <OfficialSources sources={officialSourcesFor(guide.market)} />
 
             <AdviceCta />
 

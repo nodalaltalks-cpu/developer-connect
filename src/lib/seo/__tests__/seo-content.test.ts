@@ -156,3 +156,17 @@ test("tools: EMI maths is the standard reducing-balance formula, and the tools a
   assert.match(read("src/app/property-glossary/page.tsx"), /DefinedTermSet/);
   assert.match(read("src/app/tools/home-loan-emi-calculator/page.tsx"), /WebApplication/);
 });
+
+test("official sources: every guide links only to the approved regulator sites, and the Article schema cites them", async () => {
+  const { officialSourcesFor, MAHARERA, DUBAI_LAND_DEPARTMENT } = await import("../sources.ts");
+  const { articleSchema } = await import("../schema.ts");
+  const approved = new Set([MAHARERA.url, DUBAI_LAND_DEPARTMENT.url]);
+  for (const g of GUIDES) {
+    const sources = officialSourcesFor(g.market);
+    assert.ok(sources.length >= 1, `${g.slug} has no official source`);
+    for (const s of sources) assert.ok(approved.has(s.url) && s.url.startsWith("https://"), `${g.slug}: unapproved ${s.url}`);
+    assert.deepEqual(articleSchema(g).citation, sources.map((s) => s.url));
+  }
+  assert.deepEqual(officialSourcesFor("mumbai").map((s) => s.url), [MAHARERA.url]);
+  assert.deepEqual(officialSourcesFor("dubai").map((s) => s.url), [DUBAI_LAND_DEPARTMENT.url]);
+});

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { FOUNDER } from "@/lib/founder";
+import type { OfficialSource } from "@/lib/seo/sources";
 import type { Block } from "@/lib/seo/types";
 
 /** The pieces shared by the guide pages and the city consultant pages. All server-rendered; only the advisor button is interactive. */
@@ -136,6 +137,25 @@ export function AreaList({ items, limit = 8 }: { items: readonly { name: string;
         </details>
       )}
     </>
+  );
+}
+
+/** The regulators a buyer should check against, linked to their own sites. Opens in the same tab; no tracking, no affiliate. */
+export function OfficialSources({ sources }: { sources: readonly OfficialSource[] }) {
+  if (sources.length === 0) return null;
+  return (
+    <section aria-label="Official sources" className="mt-12">
+      <h2 className="text-lg font-semibold text-foreground">Official sources</h2>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">Check these yourself. They are the regulators' own sites, not ours.</p>
+      <ul className="mt-3 space-y-3">
+        {sources.map((source) => (
+          <li key={source.url} className="text-sm leading-6">
+            <a href={source.url} rel="noopener" className="font-medium text-accent-hover underline-offset-4 hover:underline">{source.name}</a>
+            <span className="block text-muted-foreground">{source.use}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

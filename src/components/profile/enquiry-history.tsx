@@ -195,7 +195,7 @@ export function EnquiryHistory({ initial }: { initial: EnquiryView[] }) {
         </p>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Every time you reached out, with the day and time. Rate how we did, and tell us what we could do better. It goes straight to the founder.
+        {items.length === 0 ? "Connect with a developer and it shows here, ready to rate." : "Rate each one. It goes straight to the founder."}
       </p>
 
       {thanks && (
@@ -204,11 +204,7 @@ export function EnquiryHistory({ initial }: { initial: EnquiryView[] }) {
         </p>
       )}
 
-      {items.length === 0 ? (
-        <p className="mt-5 rounded-md bg-muted px-4 py-4 text-sm text-foreground">
-          When you connect with a developer or talk to an advisor while signed in, it appears here, and you can rate the service.
-        </p>
-      ) : (
+      {items.length === 0 ? null : (
         <ul className="mt-5 divide-y divide-border">
           {items.map((entry) => (
             <li key={entry.id} className="py-4 first:pt-0 last:pb-0">

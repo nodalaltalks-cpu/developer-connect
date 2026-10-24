@@ -8,6 +8,7 @@ import { isProfileVerified } from "@/lib/profile/verification";
 import { saveProfileFieldsAction } from "@/app/_actions/profile-actions";
 import { ProfileCompletionSummary } from "@/components/profile-completion-summary";
 import { ProfileSectionAccordion } from "./profile-section-accordion";
+import { ProfileTimeline } from "./profile-timeline";
 import { SaveStatusBar } from "./sticky-save-bar";
 import { CompletionCelebration } from "./completion-celebration";
 
@@ -175,7 +176,11 @@ export function ProfileEditor({
   return (
     <div className="pb-24">
       <div className="rounded-lg border border-border bg-muted p-6">
-        <ProfileCompletionSummary completion={completion} verified={verified} />
+        {incompleteSections.length > 0 ? (
+          <ProfileTimeline completion={completion} onJump={handleWhatsLeftClick} />
+        ) : (
+          <ProfileCompletionSummary completion={completion} verified={verified} />
+        )}
       </div>
 
       <div aria-live="polite" role="status">
@@ -185,50 +190,6 @@ export function ProfileEditor({
           </p>
         )}
       </div>
-
-      {nextSection && (
-        <div className="mt-6 rounded-lg border border-accent-soft bg-accent-soft/40 p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent-hover">
-            Your next step
-          </p>
-          <p className="mt-1 font-medium text-foreground">Start with {nextSection.title}.</p>
-          {nextSection.whyItMatters && (
-            <p className="mt-1 text-sm text-muted-foreground">{nextSection.whyItMatters}</p>
-          )}
-          <button
-            type="button"
-            onClick={() => handleWhatsLeftClick(nextSection.id)}
-            className="mt-3 min-h-11 rounded-md bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent-hover"
-          >
-            Complete next step
-          </button>
-        </div>
-      )}
-
-      {incompleteSections.length > 0 && (
-        <div className="mt-6 rounded-lg border border-border p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            What&apos;s left
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {incompleteSections.length} detail{incompleteSections.length === 1 ? "" : "s"} left
-          </p>
-          <ul className="mt-3 space-y-1">
-            {incompleteSections.map((section) => (
-              <li key={section.id}>
-                <button
-                  type="button"
-                  onClick={() => handleWhatsLeftClick(section.id)}
-                  className="flex min-h-11 w-full items-center gap-2 py-1 text-left text-sm text-accent-hover hover:underline"
-                >
-                  <span aria-hidden="true">○</span>
-                  {section.title}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       <div className="mt-6 space-y-3">
         {PROFILE_SECTIONS.map((section) => (

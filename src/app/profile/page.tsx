@@ -78,11 +78,7 @@ export default async function ProfilePage({
               <EnquiryHistory initial={enquiries} />
             </div>
 
-            <p className="mb-6 mt-4 text-sm text-muted-foreground">
-              Tell us a little about what you&apos;re looking for. The more you share, the more
-              useful your experience can become — nothing here is ever required to keep using
-              Developer Connects, and it&apos;s never shown to anyone else.
-            </p>
+            <p className="mb-6 mt-4 text-sm text-muted-foreground">Private to you. Always optional.</p>
 
             {PROFILE_FIELD_CONFIG.length === 0 ? (
               <div className="rounded-lg border border-border bg-muted p-6">

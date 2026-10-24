@@ -382,6 +382,51 @@ export const DEVELOPER_PROFILES: readonly DeveloperProfile[] = [
     ],
     checked: "October 2026",
   },
+  {
+    slug: "runwal-realty",
+    summary: "Runwal Realty is a Mumbai developer led by Sandeep Runwal. It is one of two companies formed in 2016 from the Runwal Group, which Subhash Runwal founded in 1978.",
+    facts: [
+      { label: "Based in", value: "Mumbai, with projects mainly in the Mumbai Metropolitan Region and Pune" },
+      { label: "Group founded", value: "1978, by Subhash Runwal" },
+      { label: "Since 2016", value: "The Runwal Group operates as two independent companies: Runwal Realty, led by Sandeep Runwal, and Runwal Enterprises, led by Subodh Runwal" },
+      { label: "Known projects", value: "Runwal Malabar, Runwal Auris, Runwal Garden City in Thane and R City Mall in Ghatkopar" },
+    ],
+    sources: [
+      { name: "Wikipedia: Subhash Runwal", url: "https://en.wikipedia.org/wiki/Subhash_Runwal" },
+      { name: "Runwal Realty, our journey", url: "https://runwalrealty.com/about/our-journey/" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "runwal-enterprises",
+    summary: "Runwal Enterprises is a Mumbai developer led by Subodh Runwal. It has operated as an independent company since 2016, when the Runwal Group split in two.",
+    facts: [
+      { label: "Group founded", value: "1978, by Subhash Runwal" },
+      { label: "Independent since", value: "2016, led by Subodh Runwal" },
+      { label: "Related company", value: "Runwal Realty, the other company formed from the Runwal Group, is led by Sandeep Runwal" },
+    ],
+    sources: [
+      { name: "Wikipedia: Subhash Runwal", url: "https://en.wikipedia.org/wiki/Subhash_Runwal" },
+      { name: "Runwal Realty, our journey", url: "https://runwalrealty.com/about/our-journey/" },
+    ],
+    checked: "October 2026",
+  },
+  {
+    slug: "k-raheja-corp",
+    summary: "K Raheja Corp is a Mumbai real estate developer and the company behind the Mindspace business parks. Its roots are in the K. Raheja Group, founded in 1956.",
+    facts: [
+      { label: "Based in", value: "Mumbai" },
+      { label: "Group roots", value: "The K. Raheja Group, founded in 1956 by Lachmandas Raheja" },
+      { label: "Key people", value: "Ravi Raheja and Neel Raheja" },
+      { label: "Known projects", value: "Mindspace business parks in Mumbai, Hyderabad, Chennai and Pune" },
+    ],
+    sources: [
+      { name: "Wikipedia: K Raheja Corp", url: "https://en.wikipedia.org/wiki/K_Raheja_Corp" },
+      { name: "Wikipedia: Raheja Mindspace", url: "https://en.wikipedia.org/wiki/Raheja_Mindspace" },
+      { name: "Wikipedia: Lachmandas Raheja", url: "https://en.wikipedia.org/wiki/Lachmandas_Raheja" },
+    ],
+    checked: "October 2026",
+  },
   // --- Dubai ---
   {
     slug: "emaar-properties",

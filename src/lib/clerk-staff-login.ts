@@ -51,3 +51,44 @@ export async function createClerkLoginWithPassword(input: { email: string; passw
     clearTimeout(timeout);
   }
 }
+
+async function clerkWrite(method: "PATCH" | "POST", path: string, body?: unknown): Promise<{ ok: boolean; code: string; message: string | null }> {
+  const key = process.env.CLERK_SECRET_KEY;
+  if (!key) return { ok: false, code: "no_key", message: null };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLERK_API_TIMEOUT_MS);
+  try {
+    const res = await fetch(`https://api.clerk.com/v1${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (res.ok) return { ok: true, code: "", message: null };
+    const parsed = (await res.json().catch(() => null)) as { errors?: { code?: string; message?: string }[] } | null;
+    return { ok: false, code: parsed?.errors?.[0]?.code ?? `http_${res.status}`, message: parsed?.errors?.[0]?.message ?? null };
+  } catch {
+    return { ok: false, code: "unreachable", message: null };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+const CLERK_USER_ID = /^user_[A-Za-z0-9_]{4,64}$/;
+
+/** Sets a new password on an existing login and signs it out of every other session. Founder team management only. */
+export async function setClerkPassword(userId: string, password: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!CLERK_USER_ID.test(userId)) return { ok: false, error: "That is not a valid sign-in identity." };
+  const problem = passwordProblem(password);
+  if (problem) return { ok: false, error: problem };
+  const r = await clerkWrite("PATCH", `/users/${encodeURIComponent(userId)}`, { password, sign_out_of_other_sessions: true });
+  if (r.ok) return { ok: true };
+  if (r.code.startsWith("form_password")) return { ok: false, error: r.message ?? "Clerk did not accept that password. Try a longer or less common one." };
+  return { ok: false, error: "Could not change the password. Check that Password sign-in is switched on in Clerk, then try again." };
+}
+
+/** Bans (or unbans) a login so it cannot sign in at all; Clerk ends the user's sessions on a ban. Founder team management only. */
+export async function setClerkBanned(userId: string, banned: boolean): Promise<boolean> {
+  if (!CLERK_USER_ID.test(userId)) return false;
+  return (await clerkWrite("POST", `/users/${encodeURIComponent(userId)}/${banned ? "ban" : "unban"}`)).ok;
+}

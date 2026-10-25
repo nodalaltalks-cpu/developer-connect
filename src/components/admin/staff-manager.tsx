@@ -50,7 +50,7 @@ export function StatusPill({ status }: { status: StaffStatus }) {
 }
 
 /** 12 characters from an unambiguous alphabet (no 0/O, 1/l/I), drawn from the browser's secure random source. */
-function generatePassword(): string {
+export function generatePassword(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(12));
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
@@ -199,7 +199,7 @@ function StaffCard({ row, onError, onMessage }: { row: StaffRow; onError: (e: st
         )}
         {canToggle && (
           <button type="button" disabled={pending} onClick={() => run(() => setStaffActiveAction(row.id, row.status !== "ACTIVE"))} className={BTN}>
-            {row.status === "ACTIVE" ? "Deactivate" : "Activate"}
+            {row.status === "ACTIVE" ? "Block" : "Unblock"}
           </button>
         )}
         {canExit && (

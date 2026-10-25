@@ -105,8 +105,8 @@ test("team page: shows status and lead counts, offers deactivate/reactivate, fla
   assert.match(html, /Priya Nair/);
   assert.match(html, /DC2/);
   assert.match(html, /3 open leads/);
-  assert.match(html, /Deactivate/);
-  assert.match(html, /Activate/);
+  assert.match(html, /Block/);
+  assert.match(html, /Unblock/);
   assert.match(html, /Sales manager/);
   assert.match(html, /DC1/);
 });

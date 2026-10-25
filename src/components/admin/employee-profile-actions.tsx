@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { approveStaffMemberAction, changeStaffEmailAction, loadEmployeeHistoryAction, returnOpenLeadsAction, setStaffActiveAction, type HistoryRow } from "@/app/admin/_actions/staff-actions";
+import { approveStaffMemberAction, changeStaffEmailAction, loadEmployeeHistoryAction, resetStaffPasswordAction, returnOpenLeadsAction, setStaffActiveAction, type HistoryRow } from "@/app/admin/_actions/staff-actions";
 import { ExitEmployeeSheet } from "@/components/admin/exit-employee-sheet";
+import { generatePassword } from "@/components/admin/staff-manager";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import type { StaffStatus } from "@/lib/staff/types";
 
@@ -10,11 +11,13 @@ const BTN = "inline-flex min-h-11 items-center justify-center rounded-md border 
 const BTN_PRIMARY = "inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
 
 /** Lifecycle buttons for one profile. Server actions authorize the Founder; these only ask. */
-export function ProfileActions({ staffId, employeeId, name, status, approved, openLeads, email }: { staffId: string; employeeId: string; name: string; status: StaffStatus; approved: boolean; openLeads: number; email: string | null }) {
+export function ProfileActions({ staffId, employeeId, name, status, approved, openLeads, email, hasLogin }: { staffId: string; employeeId: string; name: string; status: StaffStatus; approved: boolean; openLeads: number; email: string | null; hasLogin: boolean }) {
   const [pending, startTransition] = useTransition();
   const [exiting, setExiting] = useState(false);
   const [changingEmail, setChangingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
   function run(work: () => Promise<{ ok: true; message?: string } | { ok: false; error: string }>) {
@@ -35,7 +38,7 @@ export function ProfileActions({ staffId, employeeId, name, status, approved, op
         )}
         {(status === "ACTIVE" || status === "INACTIVE") && (
           <button type="button" disabled={pending} onClick={() => run(() => setStaffActiveAction(staffId, status !== "ACTIVE"))} className={BTN}>
-            {status === "ACTIVE" ? "Deactivate" : "Activate"}
+            {status === "ACTIVE" ? "Block and return leads" : "Unblock"}
           </button>
         )}
         {status !== "EXITED" && (
@@ -46,6 +49,11 @@ export function ProfileActions({ staffId, employeeId, name, status, approved, op
         {status !== "EXITED" && (
           <button type="button" disabled={pending} onClick={() => { setNote(null); setChangingEmail(true); }} className={BTN}>
             Change login email
+          </button>
+        )}
+        {status !== "EXITED" && hasLogin && (
+          <button type="button" disabled={pending} onClick={() => { setNote(null); setResetting(true); }} className={BTN}>
+            Set new password
           </button>
         )}
         {openLeads > 0 && (
@@ -96,6 +104,45 @@ export function ProfileActions({ staffId, employeeId, name, status, approved, op
               </button>
               <button type="submit" disabled={pending || !newEmail.trim()} className={BTN_PRIMARY}>
                 {pending ? "Saving…" : "Save email"}
+              </button>
+            </div>
+          </form>
+        </BottomSheet>
+      )}
+      {status !== "EXITED" && hasLogin && (
+        <BottomSheet open={resetting} onClose={() => setResetting(false)} title={`New password · ${employeeId}`}>
+          <form
+            className="grid grid-cols-1 gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              run(async () => {
+                const r = await resetStaffPasswordAction(staffId, newPassword);
+                if (r.ok) {
+                  setNewPassword("");
+                  setResetting(false);
+                }
+                return r;
+              });
+            }}
+          >
+            <p className="text-sm text-muted-foreground">Sets the password for {name}&apos;s login and signs them out of other devices. Copy it before you save: it is not stored and cannot be shown again.</p>
+            <div className="flex gap-2">
+              <input aria-label="New password" type="text" autoComplete="off" autoCapitalize="none" spellCheck={false} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="min-h-12 w-full min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              <button type="button" onClick={() => setNewPassword(generatePassword())} className={BTN}>
+                Generate
+              </button>
+            </div>
+            {note && note.tone === "error" && (
+              <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                {note.text}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setResetting(false)} className={BTN}>
+                Cancel
+              </button>
+              <button type="submit" disabled={pending || newPassword.length < 10} className={BTN_PRIMARY}>
+                {pending ? "Saving…" : "Set password"}
               </button>
             </div>
           </form>

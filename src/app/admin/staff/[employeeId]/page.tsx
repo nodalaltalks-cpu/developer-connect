@@ -9,6 +9,7 @@ import { getEmployeeProfile, HISTORY_PAGE } from "@/lib/leads/employee-profile";
 import { formatDateTimeFull, formatEnumLabel, formatMoneyExact } from "@/lib/leads/format";
 import { FOUNDER_IDENTITY, invitedDetail } from "@/lib/staff/identity";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
+import { isLinked } from "@/lib/staff/types";
 import type { LeadCurrency } from "@/lib/leads/types";
 
 export const metadata = { title: "Team member | Developer Connects", robots: { index: false, follow: false } };
@@ -78,7 +79,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
       {detail && <p className="mt-2 text-sm text-muted-foreground">{detail}</p>}
 
       <div className="mt-4">
-        <ProfileActions staffId={member.id} employeeId={member.employeeId} name={member.displayName} status={member.status} approved={member.approvedAt !== null} openLeads={sales.openLeads} email={member.email} />
+        <ProfileActions staffId={member.id} employeeId={member.employeeId} name={member.displayName} status={member.status} approved={member.approvedAt !== null} openLeads={sales.openLeads} email={member.email} hasLogin={isLinked(member)} />
       </div>
 
       <Section title="Identity and employment">

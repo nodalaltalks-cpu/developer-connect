@@ -107,3 +107,13 @@ test("security: an employee can never reach the buyer-side or founder-only paths
   const everywhere = walk(path.join(root, "src")).filter((f) => /actorType: "EMPLOYEE"/.test(readFileSync(f, "utf8")));
   assert.deepEqual(everywhere.map((f) => path.relative(root, f).replaceAll("\\", "/")), ["src/lib/staff/staff-service.ts"]);
 });
+
+test("security: blocking returns every lead to the Founder and bans the login; Clerk password/ban writes live only in the founder-only action", () => {
+  const action = read("src/app/admin/_actions/staff-actions.ts");
+  assert.match(action, /returnOpenLeadsToFounder\([^)]*member\.employeeId\)/, "blocking hands the person's open leads to the Founder");
+  assert.match(action, /setClerkBanned\(member\.userId, !active\)/);
+  assert.match(action, /member\.userId !== founderId/, "the Founder's own login is never banned");
+  assert.match(action, /member\.userId === founderId\) return \{ ok: false/, "the Founder's own password is never reset here");
+  const writers = walk(path.join(root, "src")).filter((f) => /setClerkPassword|setClerkBanned|createClerkLoginWithPassword/.test(readFileSync(f, "utf8")) && !f.includes("__tests__"));
+  assert.deepEqual(writers.map((f) => path.relative(root, f).replaceAll("\\", "/")).sort(), ["src/app/admin/_actions/staff-actions.ts", "src/lib/clerk-staff-login.ts"]);
+});

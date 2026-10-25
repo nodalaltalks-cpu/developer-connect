@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { currentUser, requireFounderForAction } from "@/lib/auth";
 import { FOUNDER } from "@/lib/founder";
 import { findClerkUserByEmail } from "@/lib/admin-analytics/clerk-users";
-import { createClerkLoginWithPassword, passwordProblem } from "@/lib/clerk-staff-login";
+import { createClerkLoginWithPassword, passwordProblem, setClerkBanned, setClerkPassword } from "@/lib/clerk-staff-login";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getEmployeeHistoryPage, returnOpenLeadsToFounder } from "@/lib/leads/employee-profile";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 import { StaffNotFoundError, StaffStateError, StaffValidationError } from "@/lib/staff/errors";
 import { approveStaffMember, validateInvite, changeStaffEmail, enrollFounderAsEmployee, exitStaffMember, inviteStaffMember, setStaffActive } from "@/lib/staff/staff-service";
-import type { ExitReason, StaffRole } from "@/lib/staff/types";
+import { isLinked, type ExitReason, type StaffRole } from "@/lib/staff/types";
 import type { LeadActor } from "@/lib/leads/types";
 
 /**
@@ -82,18 +82,66 @@ export async function approveStaffMemberAction(staffId: string): Promise<StaffAc
   }
 }
 
+/**
+ * Blocks (active = false) or unblocks (active = true) a person. Blocking is one step: access stops at once (every access
+ * check reads `active`), every open lead they own goes back to the Founder queue, and their login is banned so no
+ * session survives. Unblocking lifts the ban and switches them back on; leads are not handed back automatically.
+ */
 export async function setStaffActiveAction(staffId: string, active: boolean): Promise<StaffActionResult> {
   const founderId = await requireFounderForAction();
   const actor: LeadActor = { actorType: "FOUNDER", actorId: founderId };
+  const repo = createPostgresStaffRepository();
+  let member;
   try {
-    const member = await setStaffActive(createPostgresStaffRepository(), staffId, active, actor);
-    revalidatePath(`/admin/staff/${member.employeeId}`);
+    member = await setStaffActive(repo, staffId, active, actor);
   } catch (error) {
     return toResult(error);
   }
+  let returned = 0;
+  let remaining = 0;
+  let loginNote = "";
+  try {
+    if (!active) {
+      // Up to 500 leads per pass; a few passes cover any realistic book of leads.
+      for (let pass = 0; pass < 6; pass++) {
+        const r = await returnOpenLeadsToFounder(createPostgresLeadRepositories(), repo, actor, member.employeeId);
+        returned += r.returned;
+        remaining = r.remaining;
+        if (r.returned === 0 || r.remaining === 0) break;
+      }
+    }
+    // The Founder's own workspace record shares the Founder's login: never ban that.
+    if (isLinked(member) && member.userId !== founderId) {
+      const done = await setClerkBanned(member.userId, !active);
+      if (!done) loginNote = active ? " Their login could not be unbanned automatically; check it in Clerk." : " Their team access is off, but their login could not be banned automatically; check it in Clerk.";
+    }
+  } catch {
+    loginNote = " Access is off, but returning their leads or banning their login hit an error. Open their profile and run Return leads again.";
+  }
   revalidatePath("/admin/staff");
+  revalidatePath(`/admin/staff/${member.employeeId}`);
   revalidatePath("/admin/leads");
-  return { ok: true };
+  const text = active
+    ? `${member.employeeId} is unblocked and can sign in again.${loginNote}`
+    : `${member.employeeId} is blocked. ${returned === 0 ? "They had no open leads." : `${returned} open lead${returned === 1 ? "" : "s"} returned to your queue${remaining > 0 ? `; ${remaining} remain, run Return leads again` : ""}.`}${loginNote}`;
+  return { ok: true, message: text };
+}
+
+/** Sets a new password on an employee's login and signs them out everywhere else. The password is never stored. */
+export async function resetStaffPasswordAction(staffId: string, password: string): Promise<StaffActionResult> {
+  const founderId = await requireFounderForAction();
+  try {
+    const member = await createPostgresStaffRepository().getById(typeof staffId === "string" ? staffId : "");
+    if (!member) return { ok: false, error: "That team member could not be found." };
+    if (member.status === "EXITED") return { ok: false, error: `${member.employeeId} has exited.` };
+    if (!isLinked(member)) return { ok: false, error: `${member.employeeId} has no login yet. Create it by adding them with a password, or wait for their first sign-in.` };
+    if (member.userId === founderId) return { ok: false, error: "That is your own login. Change your own password in your account settings." };
+    const result = await setClerkPassword(member.userId, password);
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, message: `New password set for ${member.employeeId}. Any other device they were signed in on is signed out. Share it with them privately.` };
+  } catch {
+    return { ok: false, error: GENERIC_ERROR };
+  }
 }
 
 /** Changes the approved login email. The employee ID, ownership and history never change; old and new address are logged. */

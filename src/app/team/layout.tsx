@@ -10,12 +10,12 @@ import { MissedLock } from "@/components/team/missed-lock";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getMyWorkState } from "@/lib/leads/follow-up-reads";
 import { formatOverdue } from "@/lib/leads/format";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { isFounder } from "@/lib/authorization";
 import { currentUser } from "@/lib/auth";
 import { TeamNav } from "@/components/team/team-nav";
 import { NotApproved } from "@/components/team/not-approved";
-import { getTeamAccess } from "@/lib/team/session";
+import { FOUNDER_WORKSPACE_SETUP, getTeamAccess } from "@/lib/team/session";
 import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = {
@@ -31,6 +31,8 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   // member". Anyone else (signed-out, unknown, deactivated, the Founder) gets a 404. Every /team page and Server
   // Action also checks for itself; a layout is not re-run on every client navigation.
   const access = await getTeamAccess(isFounder);
+  // The Founder who has not switched on their calling workspace yet is sent to the one place that does it, not a 404.
+  if (access.kind === "founder-setup") redirect(FOUNDER_WORKSPACE_SETUP);
   if (access.kind === "hidden") notFound();
   // Signed in with Google but not an approved, active employee: a friendly, uninformative message and no workspace.
   if (access.kind === "not-approved") return <NotApproved />;

@@ -34,7 +34,10 @@ export async function getEmployee(): Promise<EmployeeSession | null> {
 }
 
 /** What /team should do for this visitor: show the workspace, say "not approved", or behave as if it does not exist. */
-export type TeamAccess = { kind: "employee"; session: EmployeeSession } | { kind: "not-approved" } | { kind: "hidden" };
+export type TeamAccess = { kind: "employee"; session: EmployeeSession } | { kind: "not-approved" } | { kind: "founder-setup" } | { kind: "hidden" };
+
+/** Where the Founder, who has no team record yet, switches on their own calling workspace. */
+export const FOUNDER_WORKSPACE_SETUP = "/admin/staff?setup=1";
 
 export async function getTeamAccess(isFounder: (user: NonNullable<Awaited<ReturnType<typeof currentUser>>>) => boolean): Promise<TeamAccess> {
   const { userId } = await auth();
@@ -42,9 +45,11 @@ export async function getTeamAccess(isFounder: (user: NonNullable<Awaited<Return
   const session = await getEmployee();
   if (session) return { kind: "employee", session };
   const user = await currentUser();
-  // The Founder works through /admin; /team is simply not theirs. Everyone else who is signed in but not approved is
-  // told so, in one message that does not say whether they were never invited, are pending, or have left.
-  if (!user || isFounder(user)) return { kind: "hidden" };
+  if (!user) return { kind: "hidden" };
+  // The Founder has no team record until they switch their workspace on: send them to do it. Only the Founder sees this;
+  // everyone else who is signed in but not approved is told so, in one message that does not say whether they were never
+  // invited, are pending, or have left.
+  if (isFounder(user)) return { kind: "founder-setup" };
   return { kind: "not-approved" };
 }
 

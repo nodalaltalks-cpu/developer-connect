@@ -8,6 +8,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { RatingAlerts } from "@/components/admin/rating-alerts";
 import { ProfileHeaderLink } from "@/components/profile-header-link";
 import { AccountMenu } from "@/components/account-menu";
+import { SiteShare } from "@/components/site-share";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { isFounder } from "@/lib/auth";
 import { isPrimaryEmailVerified } from "@/lib/profile/account-signals";
@@ -64,6 +65,7 @@ export async function SiteHeader() {
           >
             Guides
           </Link>
+          <SiteShare />
           {userId ? (
             <>
               {showDashboard && (

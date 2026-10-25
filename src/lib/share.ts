@@ -16,3 +16,12 @@ export function buildMailtoShareUrl(developerName: string, url: string): string 
   const body = encodeURIComponent(buildShareMessage(developerName, url));
   return `mailto:?subject=${subject}&body=${body}`;
 }
+
+/** Sharing the site itself (the header Share button), as opposed to one developer page. Plain wording, no claims. */
+export function buildSiteShareMessage(url: string): string {
+  return `Have a look at Developer Connects:\n${url}`;
+}
+
+export function buildSiteWhatsAppShareUrl(url: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(buildSiteShareMessage(url))}`;
+}

@@ -29,3 +29,17 @@ test("buildShareMessage: never collects or references a phone number", () => {
   const message = buildShareMessage("Test Co", "https://example.com/developers/test-co");
   assert.ok(!/\+?\d{7,}/.test(message));
 });
+
+test("site share: the header offers WhatsApp and Copy link on every page, with a plain message and the exact URL", async () => {
+  const { buildSiteShareMessage, buildSiteWhatsAppShareUrl } = await import("../share.ts");
+  const url = "https://developerconnects.com/";
+  assert.equal(buildSiteShareMessage(url), `Have a look at Developer Connects:\n${url}`);
+  assert.equal(buildSiteWhatsAppShareUrl(url), `https://wa.me/?text=${encodeURIComponent(buildSiteShareMessage(url))}`);
+  const { readFileSync } = await import("node:fs");
+  const header = readFileSync("src/components/site-header.tsx", "utf8");
+  assert.match(header, /<SiteShare \/>/, "the header carries the Share button, so an installed app can share the site");
+  const share = readFileSync("src/components/site-share.tsx", "utf8");
+  assert.match(share, /Share on WhatsApp/);
+  assert.match(share, /Copy link/);
+  assert.match(share, /window\.location\.href/, "it shares the exact current URL");
+});

@@ -6,6 +6,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Container } from "@/components/ui/container";
 import { SearchBox } from "@/components/search-box";
 import { SiteHeader } from "@/components/site-header";
+import { EmployeeHomeRedirect } from "@/components/employee-home-redirect";
 import { SiteFooter } from "@/components/site-footer";
 import { HeroVideo } from "@/components/hero-video";
 import { HeroMarketProvider, HeroMarketToggle } from "@/components/hero-market";
@@ -82,6 +83,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   return (
     <div className="flex flex-1 flex-col">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }} />
+      <EmployeeHomeRedirect />
       <SiteHeader />
 
       <main className="flex-1">

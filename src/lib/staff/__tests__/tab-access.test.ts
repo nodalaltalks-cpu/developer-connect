@@ -85,3 +85,15 @@ test("tab access: the migration only adds one column and widens the event-type c
   assert.match(sql, /EMPLOYEE_ACCESS_CHANGED/);
   assert.doesNotMatch(sql, /DROP TABLE|DROP COLUMN|DELETE|TRUNCATE|UPDATE\s/i);
 });
+
+test("employee landing: a signed-in team member goes straight to /team, the Founder and the public are left alone", () => {
+  const redirect = read("src/components/employee-home-redirect.tsx");
+  assert.match(redirect, /if \(!userId\) return null/, "signed-out visitors see the landing page");
+  assert.match(redirect, /if \(isFounder\(await currentUser\(\)\)\) return null/, "the Founder is never redirected");
+  assert.match(redirect, /getEmployee\(\)/);
+  assert.match(redirect, /redirect\("\/team"\)/);
+  assert.match(read("src/app/(marketing)/page.tsx"), /<EmployeeHomeRedirect \/>/);
+  assert.doesNotMatch(read("src/app/(marketing)/page.tsx"), /["'`]\/team\b|lib\/team/, "the public page itself does not mention the team");
+  assert.match(read("src/app/layout.tsx"), /signInFallbackRedirectUrl="\/post-sign-in"/, "a sign-in with no page to return to still passes through /post-sign-in");
+  assert.match(read("src/app/post-sign-in/page.tsx"), /redirect\("\/team"\)/);
+});

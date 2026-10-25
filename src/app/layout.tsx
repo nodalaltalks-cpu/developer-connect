@@ -92,6 +92,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         />
         <ClerkProvider
           afterSignOutUrl="/"
+          // Anyone who signs in without a page to return to lands on /post-sign-in, which sends team members to their workspace.
+          signInFallbackRedirectUrl="/post-sign-in"
           appearance={{
             variables: {
               colorPrimary: "#1b2a49",

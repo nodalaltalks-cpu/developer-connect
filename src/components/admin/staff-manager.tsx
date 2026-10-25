@@ -20,6 +20,8 @@ const FIELD =
 
 export interface StaffRow {
   id: string;
+  /** The Founder's own workspace record: no Block, Exit or Approve is ever offered on it. */
+  isFounder?: boolean;
   employeeId: string;
   displayName: string;
   email: string | null;
@@ -163,9 +165,9 @@ function StaffCard({ row, onError, onMessage }: { row: StaffRow; onError: (e: st
   const [pending, startTransition] = useTransition();
   const [exiting, setExiting] = useState(false);
   const detail = invitedDetail({ status: row.status, approvedAt: row.approvedAt ? new Date(row.approvedAt) : null });
-  const canApprove = row.status === "INVITED" && !row.approvedAt;
-  const canToggle = row.status === "ACTIVE" || row.status === "INACTIVE";
-  const canExit = row.status !== "EXITED";
+  const canApprove = !row.isFounder && row.status === "INVITED" && !row.approvedAt;
+  const canToggle = !row.isFounder && (row.status === "ACTIVE" || row.status === "INACTIVE");
+  const canExit = !row.isFounder && row.status !== "EXITED";
 
   function run(work: () => Promise<{ ok: true; message?: string } | { ok: false; error: string }>) {
     onError("");

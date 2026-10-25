@@ -89,6 +89,7 @@ export default async function AdminStaffPage({ searchParams }: { searchParams: P
         query={q}
         rows={shown.map((m) => ({
           id: m.id,
+          isFounder: m.userId === founderUser?.id,
           employeeId: m.employeeId,
           displayName: m.displayName,
           email: m.email,

@@ -23,6 +23,13 @@ import type { LeadActor } from "@/lib/leads/types";
 
 export type StaffActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
+/** The Founder's own workspace record is not an employee: it can never be blocked, exited, approved or reconfigured from the team screens. */
+async function refuseFounderRecord(staffId: string, founderId: string): Promise<StaffActionResult | null> {
+  const member = await createPostgresStaffRepository().getById(typeof staffId === "string" ? staffId : "");
+  if (member && member.userId === founderId) return { ok: false, error: "That is your own workspace record. As the Founder you cannot block or exit yourself." };
+  return null;
+}
+
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 
 function toResult(error: unknown): StaffActionResult {
@@ -72,6 +79,8 @@ export async function addStaffMemberAction(email: string, displayName: string, r
 
 export async function approveStaffMemberAction(staffId: string): Promise<StaffActionResult> {
   const founderId = await requireFounderForAction();
+  const refused = await refuseFounderRecord(staffId, founderId);
+  if (refused) return refused;
   try {
     const member = await approveStaffMember(createPostgresStaffRepository(), staffId, { actorType: "FOUNDER", actorId: founderId });
     revalidatePath("/admin/staff");
@@ -90,6 +99,8 @@ export async function approveStaffMemberAction(staffId: string): Promise<StaffAc
 export async function setStaffActiveAction(staffId: string, active: boolean): Promise<StaffActionResult> {
   const founderId = await requireFounderForAction();
   const actor: LeadActor = { actorType: "FOUNDER", actorId: founderId };
+  const refused = await refuseFounderRecord(staffId, founderId);
+  if (refused) return refused;
   const repo = createPostgresStaffRepository();
   let member;
   try {
@@ -147,6 +158,8 @@ export async function resetStaffPasswordAction(staffId: string, password: string
 /** Sets which /team tabs a person can open. Takes effect on their next page load. */
 export async function setStaffTabAccessAction(staffId: string, tabs: string[]): Promise<StaffActionResult> {
   const founderId = await requireFounderForAction();
+  const refused = await refuseFounderRecord(staffId, founderId);
+  if (refused) return refused;
   try {
     const member = await setStaffTabAccess(createPostgresStaffRepository(), staffId, tabs, { actorType: "FOUNDER", actorId: founderId });
     revalidatePath(`/admin/staff/${member.employeeId}`);
@@ -172,6 +185,8 @@ export async function changeStaffEmailAction(staffId: string, newEmail: string):
 /** Records that a person has left. Ends their access and keeps every record. */
 export async function exitStaffMemberAction(staffId: string, reason: ExitReason): Promise<StaffActionResult> {
   const founderId = await requireFounderForAction();
+  const refused = await refuseFounderRecord(staffId, founderId);
+  if (refused) return refused;
   try {
     const member = await exitStaffMember(createPostgresStaffRepository(), staffId, reason, { actorType: "FOUNDER", actorId: founderId });
     revalidatePath("/admin/staff");

@@ -80,11 +80,15 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
       </div>
       {detail && <p className="mt-2 text-sm text-muted-foreground">{detail}</p>}
 
+      {member.userId === founderId ? (
+        <p className="mt-4 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">This is your own calling workspace record. You are the Founder, so it cannot be blocked or exited.</p>
+      ) : (
       <div className="mt-4">
         <ProfileActions staffId={member.id} employeeId={member.employeeId} name={member.displayName} status={member.status} approved={member.approvedAt !== null} openLeads={sales.openLeads} email={member.email} hasLogin={isLinked(member)} />
       </div>
+      )}
 
-      {member.status !== "EXITED" && (
+      {member.userId !== founderId && member.status !== "EXITED" && (
         <Section title="Tab access">
           <TabAccessCard staffId={member.id} employeeId={member.employeeId} initial={tabsOf(member)} />
         </Section>

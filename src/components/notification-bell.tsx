@@ -49,8 +49,18 @@ export function NotificationBell() {
 
   useEffect(() => {
     refreshUnreadCount();
-    const interval = setInterval(refreshUnreadCount, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    // A tab nobody is looking at does not need a fresh badge, and each check keeps the database awake: skip it while hidden.
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") refreshUnreadCount();
+    }, POLL_INTERVAL_MS);
+    const onShow = () => {
+      if (document.visibilityState === "visible") refreshUnreadCount();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onShow);
+    };
   }, [refreshUnreadCount]);
 
   useEffect(() => {

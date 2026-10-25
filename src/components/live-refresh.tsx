@@ -11,10 +11,13 @@ import { useRouter } from "next/navigation";
  *  - It polls only while the tab is visible and the device is online, checks immediately when the tab comes back, and backs off
  *    after errors, so an idle or backgrounded tab costs nothing.
  *  - It never refreshes while the person is typing in a field on the page (their half-written note is not thrown away).
+ *  - It stops after IDLE_MS with no mouse, keyboard, touch or scroll, and picks up again the moment the person is back. A page
+ *    left open on a desk therefore costs the database nothing: it can go to sleep instead of being kept awake all day.
  */
 
-const BASE_MS = 5_000;
+const BASE_MS = 15_000;
 const MAX_MS = 60_000;
+const IDLE_MS = 5 * 60_000;
 
 function isTyping() {
   const el = document.activeElement;
@@ -36,6 +39,8 @@ export function LiveRefresh({ intervalMs = BASE_MS }: { intervalMs?: number }) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let delay = intervalMs;
     let stopped = false;
+    let lastActivity = Date.now();
+    let idle = false;
 
     const schedule = () => {
       if (stopped) return;
@@ -46,6 +51,12 @@ export function LiveRefresh({ intervalMs = BASE_MS }: { intervalMs?: number }) {
       if (document.visibilityState !== "visible" || !navigator.onLine) {
         setLive("paused");
         schedule();
+        return;
+      }
+      if (Date.now() - lastActivity > IDLE_MS) {
+        // Nobody has touched this page for a while: stop asking the server until they do.
+        idle = true;
+        setLive("paused");
         return;
       }
       try {
@@ -79,12 +90,23 @@ export function LiveRefresh({ intervalMs = BASE_MS }: { intervalMs?: number }) {
         void tick();
       }
     };
+    const onActivity = () => {
+      lastActivity = Date.now();
+      if (idle) {
+        idle = false;
+        if (timer) clearTimeout(timer);
+        void tick();
+      }
+    };
+    const ACTIVITY_EVENTS = ["mousemove", "keydown", "touchstart", "scroll", "click"] as const;
+    for (const name of ACTIVITY_EVENTS) window.addEventListener(name, onActivity, { passive: true });
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", onVisible);
     void tick();
     return () => {
       stopped = true;
       if (timer) clearTimeout(timer);
+      for (const name of ACTIVITY_EVENTS) window.removeEventListener(name, onActivity);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", onVisible);
     };

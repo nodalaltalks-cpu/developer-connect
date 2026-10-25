@@ -8,6 +8,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { RatingAlerts } from "@/components/admin/rating-alerts";
 import { ProfileHeaderLink } from "@/components/profile-header-link";
 import { AccountMenu } from "@/components/account-menu";
+import { WorkspaceLink } from "@/components/workspace-link";
 import { SiteShare } from "@/components/site-share";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { isFounder } from "@/lib/auth";
@@ -76,6 +77,7 @@ export async function SiteHeader() {
                   Dashboard
                 </Link>
               )}
+              <WorkspaceLink userId={userId} />
               {completion && <ProfileHeaderLink completion={completion} verified={verified} />}
               {showDashboard && <RatingAlerts />}
               <NotificationBell />

@@ -71,6 +71,13 @@ export async function requireTab(key: string): Promise<EmployeeSession> {
   return employee;
 }
 
+/** Is this signed-in user an ACTIVE team member? Only used to decide whether to offer them a link to their workspace; it grants nothing. */
+export async function hasTeamWorkspace(userId: string | null | undefined): Promise<boolean> {
+  if (!userId) return false;
+  const member = await createPostgresStaffRepository().getByUserId(userId);
+  return member?.status === "ACTIVE";
+}
+
 export class NotATeamMemberError extends Error {}
 
 /** For Server Actions - must be called FIRST, like requireFounderForAction. Throws (an action has no render boundary). */

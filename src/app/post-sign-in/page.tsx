@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { isFounder } from "@/lib/auth";
+import { getEmployee } from "@/lib/team/session";
 
 export const metadata = {
   robots: { index: false, follow: false },
@@ -25,6 +26,12 @@ export default async function PostSignInPage() {
 
   if (isFounder(user)) {
     redirect("/admin");
+  }
+
+  // A team member goes straight to their workspace. This is also where an approved person's first sign-in is linked to
+  // their record, so they land on /team already set up.
+  if (await getEmployee()) {
+    redirect("/team");
   }
 
   redirect("/");

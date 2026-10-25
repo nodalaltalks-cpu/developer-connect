@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInMemoryStaffRepository } from "../memory-repository.ts";
-import { enrollFounderAsEmployee } from "../staff-service.ts";
+import { enrollFounderAsEmployee, inviteStaffMember } from "../staff-service.ts";
+import { FOUNDER } from "../../leads/__tests__/test-helpers.ts";
 import { resolveEmployee } from "../employee-access.ts";
 import { StaffValidationError } from "../errors.ts";
 
@@ -17,7 +18,7 @@ test("founder enrolment: the Founder becomes the first team member, ACTIVE, with
   const { member, created } = await enrollFounderAsEmployee(repo, { userId: FOUNDER_ID, displayName: "Ambish Singh", email: "nodalaltalks@gmail.com" });
   assert.equal(created, true);
   assert.equal(member.status, "ACTIVE");
-  assert.match(member.employeeId, /^DC\d+$/);
+  assert.equal(member.employeeId, "DC1", "the Founder is DC1 even in their own workspace record");
   assert.equal(member.userId, FOUNDER_ID);
   const resolved = await resolveEmployee(repo, FOUNDER_ID);
   assert.ok(resolved, "the same sign-in now resolves to an employee, so every team action works for them");
@@ -50,4 +51,13 @@ test("founder enrolment: the action is Founder-only, resolves the Founder first,
   assert.match(read("src/components/admin/admin-nav.tsx"), /\{ href: "\/team", label: "My calling workspace" \}/);
   assert.match(read("src/components/team/team-nav.tsx"), /Founder dashboard/);
   assert.match(read("src/app/team/layout.tsx"), /isFounder\(await currentUser\(\)\)/);
+});
+
+test("founder enrolment: the Founder's record never uses up a number, so the first employee is DC2", async () => {
+  const repo = createInMemoryStaffRepository();
+  await enrollFounderAsEmployee(repo, { userId: FOUNDER_ID, displayName: "Ambish Singh" });
+  const first = await inviteStaffMember(repo, { displayName: "Satyendra", email: "sat@gmail.com", phone: "98200 12345" }, FOUNDER);
+  assert.equal(first.employeeId, "DC2");
+  const second = await inviteStaffMember(repo, { displayName: "Next", email: "next@gmail.com", phone: "98200 12346" }, FOUNDER);
+  assert.equal(second.employeeId, "DC3");
 });

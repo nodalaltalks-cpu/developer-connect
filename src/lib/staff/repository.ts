@@ -18,6 +18,8 @@ export interface StaffEventInput {
 }
 
 export interface NewStaffMember {
+  /** Only the Founder's own workspace record sets this (to "DC1"); everyone else gets the next number from the counter. */
+  employeeId?: string;
   /** A real Clerk user id, or a placeholder (`invited:<uuid>`) for someone who has not signed in yet. */
   userId: string;
   displayName: string;

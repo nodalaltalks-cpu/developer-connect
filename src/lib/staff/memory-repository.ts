@@ -26,7 +26,7 @@ export function createInMemoryStaffRepository(): StaffRepository {
       const approved = status === "ACTIVE" ? (input.approvedAt ?? input.now) : (input.approvedAt ?? null);
       const member: StaffMember = {
         id: randomUUID(),
-        employeeId: `DC${nextNumber++}`,
+        employeeId: input.employeeId ?? `DC${nextNumber++}`,
         userId: input.userId,
         displayName: input.displayName,
         email,

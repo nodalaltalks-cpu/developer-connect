@@ -41,7 +41,7 @@ function build(db: Db): StaffRepository {
           .values({
             id: randomUUID(),
             // The permanent ID comes from a database sequence: atomic under concurrency, never repeats.
-            employeeId: sql`'DC' || nextval('staff_employee_number_seq')`,
+            employeeId: input.employeeId ?? sql`'DC' || nextval('staff_employee_number_seq')`,
             userId: input.userId,
             displayName: input.displayName,
             email: input.email ? input.email.trim().toLowerCase() : null,

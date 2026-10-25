@@ -37,7 +37,9 @@ export default async function AdminStaffPage({ searchParams }: { searchParams: P
 
   const [members, counts] = await Promise.all([createPostgresStaffRepository().list(), createPostgresLeadRepositories().leads.countOpenByOwner()]);
   const needle = q.toLowerCase();
-  const matching = needle ? members.filter((m) => m.employeeId.toLowerCase().includes(needle) || m.displayName.toLowerCase().includes(needle) || (m.email ?? "").toLowerCase().includes(needle)) : members;
+  // The Founder's own workspace record is already shown as the DC1 card, so it is not listed a second time.
+  const listed = members.filter((m) => m.employeeId !== "DC1");
+  const matching = needle ? listed.filter((m) => m.employeeId.toLowerCase().includes(needle) || m.displayName.toLowerCase().includes(needle) || (m.email ?? "").toLowerCase().includes(needle)) : listed;
   const countOf = (st: string) => matching.filter((m) => m.status === st).length;
   // What needs the Founder first (people waiting for approval), then working people, then inactive, then exited; by ID within each.
   const RANK: Record<string, number> = { INVITED: 0, ACTIVE: 1, INACTIVE: 2, EXITED: 3 };

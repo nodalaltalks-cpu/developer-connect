@@ -328,6 +328,9 @@ export async function enrollFounderAsEmployee(
   if (existing) return { member: existing, created: false };
   const member = await repo.create(
     {
+      // The Founder is DC1 everywhere, including here, and this record never uses up an employee number: the first
+      // employee added after it is DC2.
+      employeeId: "DC1",
       userId: founder.userId,
       displayName: cleanName(founder.displayName),
       email: cleanEmail(founder.email),

@@ -271,7 +271,8 @@ test("related: only VERIFIED developers appear — discovered and needs-re-verif
 
 test("developer page: uses the new selection, keeps the section's design, links with plain <Link> to /developers/[slug] using the display name", () => {
   const page = read("../../../app/developers/[slug]/page.tsx");
-  assert.match(page, /listRelatedVerifiedDevelopers\(createPostgresRepositories\(\), developer\)/);
+  assert.match(page, /cachedRelatedDevelopers\(developer\.id, developer\.city, developer\.country\)/);
+  assert.match(readFileSync("src/lib/developer-connect/cached-public.ts", "utf8"), /listRelatedVerifiedDevelopers\(createPostgresRepositories\(\), \{ id, city, country \}\)/);
   assert.doesNotMatch(page, /listOtherVerifiedDevelopersInCity/);
   // Same section markup and classes as before.
   assert.match(page, /<div className="mx-auto mt-16 max-w-2xl border-t border-border pt-10">/);

@@ -47,7 +47,8 @@ test("featured developers: a small, unique, alphabetical-per-market list, never 
 
 test("featured developers: the homepage shows a developer only if it is an ACTIVE public developer, and never links to a developer website", () => {
   const home = read("src/app/(marketing)/page.tsx");
-  assert.match(home, /getPublicDeveloperBySlug\(repos, entry\.slug\)/);
+  assert.match(home, /cachedPublicDeveloperBySlug\(entry\.slug\)/);
+  assert.match(readFileSync("src/lib/developer-connect/cached-public.ts", "utf8"), /getPublicDeveloperBySlug\(createPostgresRepositories\(\), slug\)/, "the cached read still goes through the same ACTIVE-only public lookup");
   assert.match(home, /profile \? \[/, "a missing or inactive profile produces no card");
   const card = read("src/components/featured-developers.tsx");
   assert.ok(!/officialWebsite|href=\{`https?:/.test(card), "no external developer link");

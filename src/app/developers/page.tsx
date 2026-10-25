@@ -6,8 +6,7 @@ import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { getPublicDirectoryPage } from "@/lib/developer-connect/search-service";
+import { cachedPublicDirectoryPage } from "@/lib/developer-connect/cached-public";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 import {
   developersPath,
@@ -49,10 +48,9 @@ function parsePage(raw: string | string[] | undefined): number {
  */
 const loadDirectoryPage = cache(
   async (country: string | undefined, city: string | undefined, cityAliases: string, page: number) => {
-    const repos = createPostgresRepositories();
-    // Aliases arrive "|"-joined so every cache() argument stays a primitive.
-    const aliases = cityAliases ? cityAliases.split("|") : undefined;
-    return getPublicDirectoryPage(repos, { country, city, cityAliases: aliases }, (page - 1) * PAGE_SIZE, PAGE_SIZE);
+    // Aliases arrive "|"-joined so every cache() argument stays a primitive. The answer is also remembered for a few
+    // minutes between visitors (see cached-public.ts), so the database is not asked again for every page view.
+    return cachedPublicDirectoryPage(country, city, cityAliases, (page - 1) * PAGE_SIZE, PAGE_SIZE);
   },
 );
 

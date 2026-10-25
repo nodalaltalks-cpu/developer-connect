@@ -15,8 +15,7 @@ import { DeveloperAtAGlance } from "@/components/developer-at-a-glance";
 import { getDeveloperProfile } from "@/lib/developer-connect/developer-profiles";
 import { SiteFooter } from "@/components/site-footer";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
-import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { getPublicDeveloperBySlug, listRelatedVerifiedDevelopers } from "@/lib/developer-connect/search-service";
+import { cachedPublicDeveloperBySlug, cachedRelatedDevelopers } from "@/lib/developer-connect/cached-public";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 import {
   alsoKnownAs,
@@ -29,10 +28,7 @@ import { buyDirectMarketForLocation, buyDirectPath } from "@/lib/developer-conne
 // React cache(): generateMetadata and the page both need this developer in
 // the same request, so the second call reuses the first's result instead of
 // querying again. Scoped to one render — nothing persists between requests.
-const loadDeveloper = cache(async (slug: string) => {
-  const repos = createPostgresRepositories();
-  return getPublicDeveloperBySlug(repos, slug);
-});
+const loadDeveloper = cache(async (slug: string) => cachedPublicDeveloperBySlug(slug));
 
 /**
  * Organization + BreadcrumbList JSON-LD for a VERIFIED developer's page —
@@ -148,7 +144,7 @@ export default async function DeveloperPage({
   // Same city first, then the same country, spread across the directory
   // by a per-developer starting point (see listRelatedVerifiedDevelopers).
   const relatedDevelopers = developer.officialWebsite
-    ? await listRelatedVerifiedDevelopers(createPostgresRepositories(), developer)
+    ? await cachedRelatedDevelopers(developer.id, developer.city, developer.country)
     : [];
   // The heading only says "in {city}" when that is true of every link.
   const relatedAllInCity = relatedDevelopers.every(

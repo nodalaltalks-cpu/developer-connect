@@ -21,7 +21,7 @@ import { ProofBand } from "@/components/proof-band";
 import { marketFromParams } from "@/lib/hero-market";
 import { FEATURED_DEVELOPERS, FEATURED_SELECTION_NOTE } from "@/lib/featured-developers";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { getPublicDeveloperBySlug } from "@/lib/developer-connect/search-service";
+import { cachedPublicDeveloperBySlug } from "@/lib/developer-connect/cached-public";
 import { getRecentlyViewedDevelopers } from "@/lib/developer-connect/recently-viewed";
 import { readSessionId } from "@/lib/session";
 import { buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
@@ -70,7 +70,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
   // Featured names, each looked up as a public developer: one that is not public simply does not appear.
   const [featuredProfiles, recentlyViewed] = await Promise.all([
-    Promise.all(FEATURED_DEVELOPERS.map((entry) => getPublicDeveloperBySlug(repos, entry.slug))),
+    Promise.all(FEATURED_DEVELOPERS.map((entry) => cachedPublicDeveloperBySlug(entry.slug))),
     getRecentlyViewedDevelopers(repos, { userId: userId ?? undefined, sessionId: sessionId ?? undefined }),
   ]);
   const cards: FeaturedCard[] = FEATURED_DEVELOPERS.flatMap((entry, i) => {

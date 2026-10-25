@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
  *    left open on a desk therefore costs the database nothing: it can go to sleep instead of being kept awake all day.
  */
 
-const BASE_MS = 15_000;
+const BASE_MS = 5_000;
 const MAX_MS = 60_000;
 const IDLE_MS = 5 * 60_000;
 

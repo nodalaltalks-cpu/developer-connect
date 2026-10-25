@@ -129,7 +129,7 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
           <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} className="size-5" />
           Show password
         </label>
-        <p className="mt-1 text-xs text-muted-foreground">At least 15 characters (Clerk requires it); Generate makes a strong 16-character one. Copy it before you press Create: it is not saved anywhere and cannot be shown again. Leave blank if they will sign in with Google.</p>
+        <p className="mt-1 text-xs text-muted-foreground">At least 10 characters; Generate makes a strong 16-character one. Copy it before you press Create: it is not saved anywhere and cannot be shown again. Leave blank if they will sign in with Google.</p>
       </div>
       <div>
         <label htmlFor="staff-role" className="block text-sm font-medium text-foreground">

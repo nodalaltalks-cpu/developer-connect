@@ -851,6 +851,8 @@ export const staffMembers = pgTable(
     userId: text("user_id").notNull(),
     displayName: text("display_name").notNull(),
     email: text("email"),
+    // Contact number in E.164 (+919876543210). Nullable only for people added before it was collected; new invites require it.
+    phone: text("phone"),
     role: staffRoleEnum("role").notNull().default("EMPLOYEE"),
     active: boolean("active").notNull().default(true),
     // The permanent Developer Connects employee ID ("DC2", "DC3"...), allocated from a database sequence, immutable

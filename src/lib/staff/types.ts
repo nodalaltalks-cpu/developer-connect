@@ -37,6 +37,8 @@ export interface StaffMember {
   displayName: string;
   /** The approved sign-in email (lower case). Access is granted by an exact, verified match against it. */
   email: string | null;
+  /** Contact number in E.164. Required when someone is invited; absent only on people added before it was collected. */
+  phone?: string | null;
   role: StaffRole;
   status: StaffStatus;
   /** Kept equal to (status === "ACTIVE") - the single flag every access check uses. */

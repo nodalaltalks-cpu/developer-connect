@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { LeadActor } from "../leads/types.ts";
 import { StaffNotFoundError, StaffStateError, StaffValidationError, UnauthorizedStaffActionError } from "./errors.ts";
+import { normalizePhone } from "../leads/phone.ts";
 import { parseEmployeeId } from "./identity.ts";
 import type { StaffRepository } from "./repository.ts";
 import { EXIT_REASONS, isLinked, PLACEHOLDER_PREFIX, STAFF_ROLES, type ExitReason, type StaffEvent, type StaffMember, type StaffRole } from "./types.ts";
@@ -46,6 +47,13 @@ function cleanEmail(value: unknown): string | null {
   return email.toLowerCase();
 }
 
+/** The contact number, stored as E.164. India is assumed unless the number carries its own country code (+971 for Dubai). */
+function cleanPhone(value: unknown): string {
+  const result = normalizePhone(typeof value === "string" ? value : "", "IN");
+  if (!result.ok) throw new StaffValidationError("phone", "Enter a valid mobile number (for India 10 digits, or start with + for another country).");
+  return result.e164;
+}
+
 function cleanRole(value: unknown): StaffRole {
   const role = value ?? "EMPLOYEE";
   if (!(STAFF_ROLES as readonly string[]).includes(role as string)) throw new StaffValidationError("role", "That role does not exist.");
@@ -88,9 +96,18 @@ export interface InviteStaffMemberInput {
   displayName: string;
   /** The Gmail (or company) address the person will sign in with. Access is granted only to an exact, verified match. */
   email: string;
+  /** Their contact number; required. Stored as E.164. */
+  phone: string;
   role?: StaffRole;
   /** If a sign-in account with that email already exists, its Clerk id (resolved server-side). Still not approved. */
   userId?: string | null;
+}
+
+/** Runs the same field checks as inviteStaffMember without writing anything, so callers can fail before any side effect. */
+export function validateInvite(input: { email: string; displayName: string; phone: string }): void {
+  if (!cleanEmail(input.email)) throw new StaffValidationError("email", "Enter the email address they will sign in with.");
+  cleanName(input.displayName);
+  cleanPhone(input.phone);
 }
 
 /**
@@ -102,6 +119,7 @@ export async function inviteStaffMember(repo: StaffRepository, input: InviteStaf
   const email = cleanEmail(input.email);
   if (!email) throw new StaffValidationError("email", "Enter the email address they will sign in with.");
   const displayName = cleanName(input.displayName);
+  const phone = cleanPhone(input.phone);
   const role = cleanRole(input.role);
   let userId = `${PLACEHOLDER_PREFIX}${randomUUID()}`;
   if (input.userId) {
@@ -110,7 +128,7 @@ export async function inviteStaffMember(repo: StaffRepository, input: InviteStaf
     if (await repo.getByUserId(input.userId)) throw new StaffStateError("That person is already on the team.");
     userId = input.userId;
   }
-  const member = await repo.create({ userId, displayName, email, role, status: "INVITED", approvedAt: null, createdBy: actor.actorId, now }, [{ eventType: "EMPLOYEE_INVITED", actorId: actor.actorId, payload: { role } }]);
+  const member = await repo.create({ userId, displayName, email, phone, role, status: "INVITED", approvedAt: null, createdBy: actor.actorId, now }, [{ eventType: "EMPLOYEE_INVITED", actorId: actor.actorId, payload: { role } }]);
   return member;
 }
 

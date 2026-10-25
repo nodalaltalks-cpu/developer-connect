@@ -22,6 +22,7 @@ export interface NewStaffMember {
   userId: string;
   displayName: string;
   email: string | null;
+  phone?: string | null;
   role: StaffRole;
   /** Defaults to ACTIVE (a known account added and approved by the Founder in one step). */
   status?: StaffStatus;
@@ -34,7 +35,7 @@ export interface NewStaffMember {
 
 /** The columns a service may change on an existing member. Identity (id, employeeId, createdBy, createdAt) never changes. */
 export type StaffPatch = Partial<
-  Pick<StaffMember, "displayName" | "email" | "role" | "status" | "active" | "joinedAt" | "approvedAt" | "approvedBy" | "deactivatedAt" | "deactivatedBy" | "exitedAt" | "exitedBy" | "exitReason">
+  Pick<StaffMember, "displayName" | "email" | "phone" | "role" | "status" | "active" | "joinedAt" | "approvedAt" | "approvedBy" | "deactivatedAt" | "deactivatedBy" | "exitedAt" | "exitedBy" | "exitReason">
 >;
 
 export interface StaffRepository {

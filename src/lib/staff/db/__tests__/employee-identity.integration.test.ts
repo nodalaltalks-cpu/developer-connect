@@ -56,7 +56,7 @@ async function newLead() {
 async function invite(approve = true, userId?: string) {
   const { staffSvc, staffPg } = await modules();
   const repo = staffPg.createPostgresStaffRepository();
-  const member = await staffSvc.inviteStaffMember(repo, { displayName: "TEST Identity", email: uniqueEmail(), userId: userId ?? null }, FOUNDER);
+  const member = await staffSvc.inviteStaffMember(repo, { displayName: "TEST Identity", email: uniqueEmail(), phone: "9820012345", userId: userId ?? null }, FOUNDER);
   const approved = approve ? await staffSvc.approveStaffMember(repo, member.id, FOUNDER) : member;
   return { repo, member: approved };
 }
@@ -64,7 +64,7 @@ async function invite(approve = true, userId?: string) {
 test("integration: concurrent invitations get distinct, well-formed DC IDs", { skip }, async () => {
   const { staffSvc, staffPg } = await modules();
   const repo = staffPg.createPostgresStaffRepository();
-  const made = await Promise.all(Array.from({ length: 8 }, () => staffSvc.inviteStaffMember(repo, { displayName: "TEST Race", email: uniqueEmail() }, FOUNDER)));
+  const made = await Promise.all(Array.from({ length: 8 }, () => staffSvc.inviteStaffMember(repo, { displayName: "TEST Race", email: uniqueEmail() , phone: "9820012345"}, FOUNDER)));
   const ids = made.map((m) => m.employeeId);
   assert.equal(new Set(ids).size, 8);
   for (const id of ids) assert.match(id, /^DC[2-9]|^DC[1-9][0-9]+$/);
@@ -95,8 +95,8 @@ test("integration: duplicate live emails are refused by the database; a second e
   const { staffSvc, staffPg, db, schema, sql } = await modules();
   const repo = staffPg.createPostgresStaffRepository();
   const email = uniqueEmail();
-  const first = await staffSvc.inviteStaffMember(repo, { displayName: "TEST A", email }, FOUNDER);
-  await assert.rejects(staffSvc.inviteStaffMember(repo, { displayName: "TEST B", email: email.toUpperCase() }, FOUNDER));
+  const first = await staffSvc.inviteStaffMember(repo, { displayName: "TEST A", email, phone: "9820012345" }, FOUNDER);
+  await assert.rejects(staffSvc.inviteStaffMember(repo, { displayName: "TEST B", email: email.toUpperCase() , phone: "9820012345"}, FOUNDER));
   await assert.rejects(db.insert(schema.staffMembers).values({ id: randomUUID(), employeeId: first.employeeId, userId: newUserId(), displayName: "TEST dup", createdBy: "x" }));
   void sql;
 });
@@ -116,7 +116,7 @@ test("integration: first sign-in links an approved invitee exactly once; a pendi
   const { staffSvc, staffPg } = await modules();
   const repo = staffPg.createPostgresStaffRepository();
   const email = uniqueEmail();
-  const pending = await staffSvc.inviteStaffMember(repo, { displayName: "TEST Pending", email }, FOUNDER);
+  const pending = await staffSvc.inviteStaffMember(repo, { displayName: "TEST Pending", email, phone: "9820012345" }, FOUNDER);
   const clerk = newUserId();
   assert.equal(await staffSvc.claimInvitation(repo, clerk, [email]), null, "not approved yet");
   await staffSvc.approveStaffMember(repo, pending.id, FOUNDER);

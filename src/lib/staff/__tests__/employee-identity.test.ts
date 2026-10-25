@@ -8,7 +8,7 @@ import { approveStaffMember, changeStaffEmail, claimInvitation, exitStaffMember,
 import { BUYER, FOUNDER, minutes } from "../../leads/__tests__/test-helpers.ts";
 
 const EMPLOYEE_ACTOR = { actorType: "EMPLOYEE", actorId: "user_employee_1" } as const;
-const ana = (n = 1) => ({ displayName: `Ana ${n}`, email: `ana${n}@gmail.com` });
+const ana = (n = 1) => ({ displayName: `Ana ${n}`, email: `ana${n}@gmail.com`, phone: "98200 12345" });
 
 test("identity: the Founder is always DC1, and DC1 is never an employee record", () => {
   assert.equal(FOUNDER_IDENTITY.employeeId, "DC1");
@@ -172,4 +172,15 @@ test("email change: only the Founder; refuses exited people, duplicates, invalid
   assert.equal((await changeStaffEmail(repo, a.id, "ana2@gmail.com", FOUNDER)).email, "ana2@gmail.com", "an exited person's address can be reused");
   await assert.rejects(changeStaffEmail(repo, b.id, "z@z.test", FOUNDER), StaffStateError, "exited people cannot be changed");
   assert.equal((await repo.getById(a.id))?.employeeId, a.employeeId);
+});
+
+test("phone: required on invite, stored as E.164, and a Dubai number keeps its own country code", async () => {
+  const repo = createInMemoryStaffRepository();
+  const m = await inviteStaffMember(repo, ana(), FOUNDER);
+  assert.equal(m.phone, "+919820012345");
+  const dubai = await inviteStaffMember(repo, { ...ana(2), phone: "+971 50 123 4567" }, FOUNDER);
+  assert.equal(dubai.phone, "+971501234567");
+  await assert.rejects(inviteStaffMember(repo, { ...ana(3), phone: "" }, FOUNDER), StaffValidationError);
+  await assert.rejects(inviteStaffMember(repo, { ...ana(3), phone: "12345" }, FOUNDER), StaffValidationError);
+  assert.equal((await repo.list()).length, 2);
 });

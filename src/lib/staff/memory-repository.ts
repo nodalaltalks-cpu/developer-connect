@@ -30,6 +30,7 @@ export function createInMemoryStaffRepository(): StaffRepository {
         userId: input.userId,
         displayName: input.displayName,
         email,
+        phone: input.phone ?? null,
         role: input.role,
         status,
         active: status === "ACTIVE",

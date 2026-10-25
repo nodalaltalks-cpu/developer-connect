@@ -45,6 +45,7 @@ function build(db: Db): StaffRepository {
             userId: input.userId,
             displayName: input.displayName,
             email: input.email ? input.email.trim().toLowerCase() : null,
+            phone: input.phone ?? null,
             role: input.role,
             status,
             active: status === "ACTIVE",

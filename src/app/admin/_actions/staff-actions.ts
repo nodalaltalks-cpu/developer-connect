@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { currentUser, requireFounderForAction } from "@/lib/auth";
 import { FOUNDER } from "@/lib/founder";
 import { findClerkUserByEmail } from "@/lib/admin-analytics/clerk-users";
+import { createClerkLoginWithPassword, passwordProblem } from "@/lib/clerk-staff-login";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { getEmployeeHistoryPage, returnOpenLeadsToFounder } from "@/lib/leads/employee-profile";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 import { StaffNotFoundError, StaffStateError, StaffValidationError } from "@/lib/staff/errors";
-import { approveStaffMember, changeStaffEmail, enrollFounderAsEmployee, exitStaffMember, inviteStaffMember, setStaffActive } from "@/lib/staff/staff-service";
+import { approveStaffMember, validateInvite, changeStaffEmail, enrollFounderAsEmployee, exitStaffMember, inviteStaffMember, setStaffActive } from "@/lib/staff/staff-service";
 import type { ExitReason, StaffRole } from "@/lib/staff/types";
 import type { LeadActor } from "@/lib/leads/types";
 
@@ -30,17 +31,40 @@ function toResult(error: unknown): StaffActionResult {
   return { ok: false, error: GENERIC_ERROR };
 }
 
-/** Invites a person (they have no access until you approve them and they sign in with that email). */
-export async function addStaffMemberAction(email: string, displayName: string, role: StaffRole = "EMPLOYEE"): Promise<StaffActionResult> {
+/**
+ * Invites a person (they have no access until you approve them and they sign in with that email). With a password, a new
+ * email + password login is created for them in Clerk first; an email that already has a login is linked and its
+ * password is never touched.
+ */
+export async function addStaffMemberAction(email: string, displayName: string, role: StaffRole = "EMPLOYEE", phone: string = "", password: string = ""): Promise<StaffActionResult> {
   const founderId = await requireFounderForAction();
   const actor: LeadActor = { actorType: "FOUNDER", actorId: founderId };
   try {
+    const wantsPassword = typeof password === "string" && password.length > 0;
+    if (wantsPassword) {
+      const problem = passwordProblem(password);
+      if (problem) return { ok: false, error: problem };
+    }
     // An existing account with this email is linked now (still unapproved); otherwise the first sign-in links it. A lookup
     // failure is not an error: the invite works either way.
     const clerkUser = typeof email === "string" ? await findClerkUserByEmail(email).catch(() => null) : null;
-    const member = await inviteStaffMember(createPostgresStaffRepository(), { displayName, email, role, userId: clerkUser?.id ?? null }, actor);
+    let userId = clerkUser?.id ?? null;
+    let passwordSet = false;
+    // Validate everything the invite needs BEFORE creating a login, so a typo never leaves an orphan login behind.
+    const repo = createPostgresStaffRepository();
+    if (wantsPassword && !userId) {
+      validateInvite({ email, displayName, phone });
+      const login = await createClerkLoginWithPassword({ email, password, displayName });
+      if (!login.ok) return { ok: false, error: login.error };
+      userId = login.userId;
+      passwordSet = true;
+    }
+    const member = await inviteStaffMember(repo, { displayName, email, phone, role, userId }, actor);
     revalidatePath("/admin/staff");
-    return { ok: true, message: `${member.employeeId} created. They cannot sign in to the team area until you approve them.` };
+    const base = `${member.employeeId} created. They cannot sign in to the team area until you approve them.`;
+    if (passwordSet) return { ok: true, message: `${base} Login created: they sign in with ${member.email} and the password you set. Share it with them privately.` };
+    if (wantsPassword && clerkUser) return { ok: true, message: `${base} That email already has a login, so its password was left unchanged; they sign in as they normally do.` };
+    return { ok: true, message: base };
   } catch (error) {
     return toResult(error);
   }

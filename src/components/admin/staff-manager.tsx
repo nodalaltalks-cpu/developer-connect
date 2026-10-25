@@ -23,6 +23,7 @@ export interface StaffRow {
   employeeId: string;
   displayName: string;
   email: string | null;
+  phone?: string | null;
   role: StaffRole;
   status: StaffStatus;
   approvedAt: string | null;
@@ -48,9 +49,19 @@ export function StatusPill({ status }: { status: StaffStatus }) {
   return <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[status]}`}>{STATUS_LABEL[status]}</span>;
 }
 
+/** 12 characters from an unambiguous alphabet (no 0/O, 1/l/I), drawn from the browser's secure random source. */
+function generatePassword(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
 function AddEmployeeForm({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<StaffRole>("EMPLOYEE");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -58,12 +69,14 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
   function submit() {
     setMessage(null);
     startTransition(async () => {
-      const result = await addStaffMemberAction(email, name, role);
+      const result = await addStaffMemberAction(email, name, role, phone, password);
       // On a validation error the entered values stay, so nothing has to be retyped.
       if (result.ok) {
         setMessage({ tone: "ok", text: result.message ?? "Added." });
         setEmail("");
         setName("");
+        setPhone("");
+        setPassword("");
       } else setMessage({ tone: "error", text: result.error });
     });
   }
@@ -92,6 +105,29 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         <input id="staff-email" type="email" inputMode="email" autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="done" value={email} onChange={(e) => setEmail(e.target.value)} disabled={pending} className={`${FIELD} mt-1.5`} />
       </div>
       <div>
+        <label htmlFor="staff-phone" className="block text-sm font-medium text-foreground">
+          Mobile number
+        </label>
+        <input id="staff-phone" type="tel" inputMode="tel" autoComplete="off" enterKeyHint="next" placeholder="98765 43210 or +971 50 123 4567" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={pending} className={`${FIELD} mt-1.5`} />
+        <p className="mt-1 text-xs text-muted-foreground">10 digits is read as India (+91). Start with + for another country.</p>
+      </div>
+      <div>
+        <label htmlFor="staff-password" className="block text-sm font-medium text-foreground">
+          Password for their login (optional)
+        </label>
+        <div className="mt-1.5 flex gap-2">
+          <input id="staff-password" type={showPassword ? "text" : "password"} autoComplete="new-password" autoCapitalize="none" spellCheck={false} value={password} onChange={(e) => setPassword(e.target.value)} disabled={pending} className={`${FIELD} flex-1`} />
+          <button type="button" disabled={pending} onClick={() => { setPassword(generatePassword()); setShowPassword(true); }} className={BTN}>
+            Generate
+          </button>
+        </div>
+        <label className="mt-2 flex min-h-11 items-center gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} className="size-5" />
+          Show password
+        </label>
+        <p className="mt-1 text-xs text-muted-foreground">At least 10 characters. Copy it before you press Create: it is not saved anywhere and cannot be shown again. Leave blank if they will sign in with Google.</p>
+      </div>
+      <div>
         <label htmlFor="staff-role" className="block text-sm font-medium text-foreground">
           Role
         </label>
@@ -106,7 +142,7 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         </p>
       )}
       <div className="flex gap-2">
-        <button type="submit" disabled={pending || !email.trim() || !name.trim()} className={`${BTN_PRIMARY} flex-1`}>
+        <button type="submit" disabled={pending || !email.trim() || !name.trim() || !phone.trim()} className={`${BTN_PRIMARY} flex-1`}>
           {pending ? "Saving…" : "Create employee"}
         </button>
         <button type="button" onClick={onDone} className={BTN}>
@@ -146,6 +182,7 @@ function StaffCard({ row, onError, onMessage }: { row: StaffRow; onError: (e: st
           <StatusPill status={row.status} />
         </div>
         {row.email && <p className="mt-2 break-all text-xs text-muted-foreground">{row.email}</p>}
+        {row.phone && <p className="mt-1 text-xs tabular-nums text-muted-foreground">{row.phone}</p>}
         <p className="mt-1 text-xs text-muted-foreground">
           {detail ?? (row.status === "EXITED" ? `Exited ${date(row.exitedAt) ?? ""}` : row.joinedAt ? `Joined ${date(row.joinedAt)}` : "")}
           {row.status !== "INVITED" ? `${detail || row.joinedAt || row.exitedAt ? " · " : ""}${row.leadCount} open ${row.leadCount === 1 ? "lead" : "leads"} owned` : ""}

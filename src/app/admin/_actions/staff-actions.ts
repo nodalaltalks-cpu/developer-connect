@@ -165,7 +165,12 @@ export async function exitStaffMemberAction(staffId: string, reason: ExitReason)
     revalidatePath("/admin/staff");
     revalidatePath(`/admin/staff/${member.employeeId}`);
     revalidatePath("/admin/leads");
-    return { ok: true, message: `${member.employeeId} has exited. Their access is removed and their history is kept.` };
+    // Ban their login too, so no sign-in or session survives. Never the Founder's own login.
+    let loginNote = "";
+    if (isLinked(member) && member.userId !== founderId && !(await setClerkBanned(member.userId, true))) {
+      loginNote = " Their login could not be banned automatically; check it in Clerk.";
+    }
+    return { ok: true, message: `${member.employeeId} has exited. Their access is removed and their history is kept.${loginNote}` };
   } catch (error) {
     return toResult(error);
   }

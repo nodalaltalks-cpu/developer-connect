@@ -855,6 +855,8 @@ export const staffMembers = pgTable(
     phone: text("phone"),
     // A custom job title the Founder typed ("Tele-caller"). Display only: permissions always follow `role`.
     roleTitle: text("role_title"),
+    // Which /team tabs they may open. NULL = the standard tabs and nothing extra (see lib/staff/tab-access.ts).
+    tabAccess: text("tab_access").array(),
     role: staffRoleEnum("role").notNull().default("EMPLOYEE"),
     active: boolean("active").notNull().default(true),
     // The permanent Developer Connects employee ID ("DC2", "DC3"...), allocated from a database sequence, immutable
@@ -910,7 +912,7 @@ export const staffEvents = pgTable(
   },
   (table) => [
     index("staff_events_staff_idx").on(table.staffId, table.occurredAt),
-    check("staff_events_type_ck", sql`${table.eventType} in ('EMPLOYEE_INVITED', 'EMPLOYEE_APPROVED', 'EMPLOYEE_ACTIVATED', 'EMPLOYEE_DEACTIVATED', 'EMPLOYEE_REACTIVATED', 'EMPLOYEE_EXITED', 'EMPLOYEE_EMAIL_CHANGED')`),
+    check("staff_events_type_ck", sql`${table.eventType} in ('EMPLOYEE_INVITED', 'EMPLOYEE_APPROVED', 'EMPLOYEE_ACTIVATED', 'EMPLOYEE_DEACTIVATED', 'EMPLOYEE_REACTIVATED', 'EMPLOYEE_EXITED', 'EMPLOYEE_EMAIL_CHANGED', 'EMPLOYEE_ACCESS_CHANGED')`),
   ],
 );
 

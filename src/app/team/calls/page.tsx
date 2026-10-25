@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { CallMetricTiles } from "@/components/leads/call-metrics";
 import { CallFilterBar } from "@/components/leads/call-filter-bar";
@@ -36,7 +36,7 @@ function formatDayKey(key: string): string {
 
 export default async function TeamCallsPage({ searchParams }: PageProps<"/team/calls">) {
   // Scope is the signed-in member's own id from the session — never from the URL.
-  const { actor } = await requireEmployee();
+  const { actor } = await requireTab("calls");
   const params = await searchParams;
   const dashboard = await getMyCallDashboard(createPostgresLeadRepositories(), actor, new Date(), { range: first(params.range), from: first(params.from), to: first(params.to) });
   const dialer = getTelephonyProvider();

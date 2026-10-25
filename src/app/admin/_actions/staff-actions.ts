@@ -9,7 +9,7 @@ import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-reposito
 import { getEmployeeHistoryPage, returnOpenLeadsToFounder } from "@/lib/leads/employee-profile";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 import { StaffNotFoundError, StaffStateError, StaffValidationError } from "@/lib/staff/errors";
-import { approveStaffMember, validateInvite, changeStaffEmail, enrollFounderAsEmployee, exitStaffMember, inviteStaffMember, setStaffActive } from "@/lib/staff/staff-service";
+import { approveStaffMember, validateInvite, changeStaffEmail, enrollFounderAsEmployee, exitStaffMember, inviteStaffMember, setStaffActive, setStaffTabAccess } from "@/lib/staff/staff-service";
 import { isLinked, type ExitReason, type StaffRole } from "@/lib/staff/types";
 import type { LeadActor } from "@/lib/leads/types";
 
@@ -141,6 +141,18 @@ export async function resetStaffPasswordAction(staffId: string, password: string
     return { ok: true, message: `New password set for ${member.employeeId}. Any other device they were signed in on is signed out. Share it with them privately.` };
   } catch {
     return { ok: false, error: GENERIC_ERROR };
+  }
+}
+
+/** Sets which /team tabs a person can open. Takes effect on their next page load. */
+export async function setStaffTabAccessAction(staffId: string, tabs: string[]): Promise<StaffActionResult> {
+  const founderId = await requireFounderForAction();
+  try {
+    const member = await setStaffTabAccess(createPostgresStaffRepository(), staffId, tabs, { actorType: "FOUNDER", actorId: founderId });
+    revalidatePath(`/admin/staff/${member.employeeId}`);
+    return { ok: true, message: `${member.employeeId}'s tabs are updated. It applies the next time they open a page.` };
+  } catch (error) {
+    return toResult(error);
   }
 }
 

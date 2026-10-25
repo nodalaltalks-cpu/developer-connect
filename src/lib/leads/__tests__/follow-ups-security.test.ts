@@ -103,7 +103,7 @@ test("follow-ups security: the Founder's missed/returned pages and layout badges
     assert.match(text, /export const dynamic = "force-dynamic"/);
   }
   const team = read("src/app/team/missed/page.tsx");
-  assert.ok(team.indexOf("await requireEmployee()") !== -1);
+  assert.ok(team.indexOf("await requireTab(") !== -1);
   assert.doesNotMatch(team, /searchParams/, "a team member's scope never comes from the URL");
   const reads = read("src/lib/leads/follow-up-reads.ts");
   assert.match(reads, /const scope = isEmployee \? \{ ownerId: actor\.actorId! \}/, "an employee's missed list is always their own");

@@ -9,6 +9,8 @@ import { getEmployeeProfile, HISTORY_PAGE } from "@/lib/leads/employee-profile";
 import { formatDateTimeFull, formatEnumLabel, formatMoneyExact } from "@/lib/leads/format";
 import { FOUNDER_IDENTITY, invitedDetail } from "@/lib/staff/identity";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
+import { TabAccessCard } from "@/components/admin/tab-access-card";
+import { tabsOf } from "@/lib/staff/tab-access";
 import { isLinked } from "@/lib/staff/types";
 import type { LeadCurrency } from "@/lib/leads/types";
 
@@ -81,6 +83,12 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
       <div className="mt-4">
         <ProfileActions staffId={member.id} employeeId={member.employeeId} name={member.displayName} status={member.status} approved={member.approvedAt !== null} openLeads={sales.openLeads} email={member.email} hasLogin={isLinked(member)} />
       </div>
+
+      {member.status !== "EXITED" && (
+        <Section title="Tab access">
+          <TabAccessCard staffId={member.id} employeeId={member.employeeId} initial={tabsOf(member)} />
+        </Section>
+      )}
 
       <Section title="Identity and employment">
         <dl className="grid grid-cols-1 gap-2 rounded-xl border border-border p-4 text-sm sm:grid-cols-2">
@@ -169,6 +177,11 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
               <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                 <span className="min-w-0 font-medium text-foreground">
                   {formatEnumLabel(e.eventType.replace("EMPLOYEE_", ""))}
+                  {e.eventType === "EMPLOYEE_ACCESS_CHANGED" && (
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      Tabs: {Array.isArray(e.payload.to) ? (e.payload.to as string[]).join(", ") : "standard"}
+                    </span>
+                  )}
                   {e.eventType === "EMPLOYEE_EMAIL_CHANGED" && (
                     <span className="block break-all text-xs font-normal text-muted-foreground">
                       {String(e.payload.from ?? "none")} → {String(e.payload.to ?? "")}

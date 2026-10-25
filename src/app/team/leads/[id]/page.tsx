@@ -2,7 +2,7 @@ import { LiveRefresh } from "@/components/live-refresh";
 import { CommentBox, InteractionCommentProvider } from "@/components/team/interaction-comment";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { TeamLeadActions } from "@/components/team/team-lead-actions";
 import { SourceBadge, StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
 import { SectionBar } from "@/components/leads/section-bar";
@@ -49,7 +49,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default async function TeamLeadDetailPage({ params }: PageProps<"/team/leads/[id]">) {
   // Checked here as well as in the layout: a layout is not re-run on every client navigation, and this page reads a
   // buyer's phone number. The actor is built from the session; ownership is enforced by the read itself.
-  const { actor, member } = await requireEmployee();
+  const { actor, member } = await requireTab("leads");
 
   const { id } = await params;
   if (!UUID.test(id)) notFound();

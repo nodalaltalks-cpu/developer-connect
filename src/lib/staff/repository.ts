@@ -36,7 +36,7 @@ export interface NewStaffMember {
 
 /** The columns a service may change on an existing member. Identity (id, employeeId, createdBy, createdAt) never changes. */
 export type StaffPatch = Partial<
-  Pick<StaffMember, "displayName" | "email" | "phone" | "role" | "status" | "active" | "joinedAt" | "approvedAt" | "approvedBy" | "deactivatedAt" | "deactivatedBy" | "exitedAt" | "exitedBy" | "exitReason">
+  Pick<StaffMember, "displayName" | "email" | "phone" | "tabAccess" | "role" | "status" | "active" | "joinedAt" | "approvedAt" | "approvedBy" | "deactivatedAt" | "deactivatedBy" | "exitedAt" | "exitedBy" | "exitReason">
 >;
 
 export interface StaffRepository {

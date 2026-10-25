@@ -1,0 +1,3 @@
+ALTER TABLE "staff_events" DROP CONSTRAINT "staff_events_type_ck";--> statement-breakpoint
+ALTER TABLE "staff_members" ADD COLUMN "tab_access" text[];--> statement-breakpoint
+ALTER TABLE "staff_events" ADD CONSTRAINT "staff_events_type_ck" CHECK ("staff_events"."event_type" in ('EMPLOYEE_INVITED', 'EMPLOYEE_APPROVED', 'EMPLOYEE_ACTIVATED', 'EMPLOYEE_DEACTIVATED', 'EMPLOYEE_REACTIVATED', 'EMPLOYEE_EXITED', 'EMPLOYEE_EMAIL_CHANGED', 'EMPLOYEE_ACCESS_CHANGED'));

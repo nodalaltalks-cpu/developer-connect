@@ -3,6 +3,7 @@ import { currentUser } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { createPostgresStaffRepository } from "@/lib/staff/db/postgres-repository";
 import { resolveEmployeeOrClaim } from "@/lib/staff/employee-access";
+import { canUseTab } from "@/lib/staff/tab-access";
 import type { StaffMember } from "@/lib/staff/types";
 import type { LeadActor } from "@/lib/leads/types";
 
@@ -57,6 +58,16 @@ export async function getTeamAccess(isFounder: (user: NonNullable<Awaited<Return
 export async function requireEmployee(): Promise<EmployeeSession> {
   const employee = await getEmployee();
   if (!employee) notFound();
+  return employee;
+}
+
+/**
+ * For team pages that belong to one tab: the employee must be active AND have that tab switched on by the Founder.
+ * Anyone else gets a 404 - a hidden tab is simply not there.
+ */
+export async function requireTab(key: string): Promise<EmployeeSession> {
+  const employee = await requireEmployee();
+  if (!canUseTab(employee.member, key)) notFound();
   return employee;
 }
 

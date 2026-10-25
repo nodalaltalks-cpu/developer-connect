@@ -1,5 +1,5 @@
 import { LiveRefresh } from "@/components/live-refresh";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { OpenVisitsList } from "@/components/leads/open-visits-list";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TeamVisitsPage() {
   // Scope is the signed-in member's own id from the session - never from the URL.
-  const { actor } = await requireEmployee();
+  const { actor } = await requireTab("visits");
   const visits = await listOpenVisits(createPostgresLeadRepositories(), actor, new Date());
   return (
     <div>

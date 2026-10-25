@@ -14,6 +14,7 @@ import { notFound, redirect } from "next/navigation";
 import { isFounder } from "@/lib/authorization";
 import { currentUser } from "@/lib/auth";
 import { TeamNav } from "@/components/team/team-nav";
+import { tabsOf } from "@/lib/staff/tab-access";
 import { NotApproved } from "@/components/team/not-approved";
 import { FOUNDER_WORKSPACE_SETUP, getTeamAccess } from "@/lib/team/session";
 import { Logo } from "@/components/logo";
@@ -64,7 +65,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
       </header>
       <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:px-6 sm:pb-6">
         <DeviceCallSync />
-        <TeamNav founder={founderView} />
+        <TeamNav founder={founderView} tabs={tabsOf(member)} />
         <NewLeadAlerts />
         <FollowUpAlerts />
         <MissedLock missed={missed} />

@@ -1,6 +1,6 @@
 import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { StatusBadge, TemperatureBadge } from "@/components/admin/leads/lead-badges";
 import { FollowUpQuickActions } from "@/components/team/follow-up-quick-actions";
@@ -38,7 +38,7 @@ const EMPTY: Record<FollowUpTab, { title: string; description: string }> = {
 
 export default async function TeamFollowUpsPage({ searchParams }: PageProps<"/team/follow-ups">) {
   // The scope (my own) comes from the verified session, never from the URL.
-  const { actor, member } = await requireEmployee();
+  const { actor, member } = await requireTab("follow-ups");
   const params = await searchParams;
   // The old "overdue" address opens the same single list.
   const tab: FollowUpTab = parseFollowUpTab(params.tab) === "overdue" ? "missed" : parseFollowUpTab(params.tab);

@@ -310,9 +310,9 @@ test("static: every new server action authorizes first - team actions through ru
 });
 
 test("static: the Phase 4 pages are gated and noindex; migration 0023 is additive with immutability triggers", () => {
-  for (const [file, gate] of [["src/app/admin/projects/page.tsx", "requireFounder"], ["src/app/admin/site-visits/page.tsx", "requireFounder"], ["src/app/team/visits/page.tsx", "requireEmployee"]] as const) {
+  for (const [file, gate] of [["src/app/admin/projects/page.tsx", "requireFounder"], ["src/app/admin/site-visits/page.tsx", "requireFounder"], ["src/app/team/visits/page.tsx", "requireTab"]] as const) {
     const text = read(file);
-    assert.match(text, new RegExp(`await ${gate}\\(\\)`), `${file} gate`);
+    assert.match(text, new RegExp(`await ${gate}\\(${gate === "requireTab" ? '"visits"' : ""}\\)`), `${file} gate`);
     assert.match(text, /robots: \{ index: false, follow: false \}/);
     assert.match(text, /export const dynamic = "force-dynamic"/);
   }

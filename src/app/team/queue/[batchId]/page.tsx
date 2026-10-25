@@ -1,7 +1,7 @@
 import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { TeamCallButton } from "@/components/team/team-call-button";
 import { SkipLeadButton } from "@/components/team/skip-lead-button";
@@ -24,7 +24,7 @@ const STATE_LABEL: Record<QueueState, string> = { PENDING: "To call", SKIPPED: "
 
 export default async function CallingQueueBatchPage({ params }: PageProps<"/team/queue/[batchId]">) {
   const { batchId } = await params;
-  const { actor } = await requireEmployee();
+  const { actor } = await requireTab("queue");
   if (!UUID.test(batchId)) notFound();
   // Another member's batch is "not found", exactly like one that does not exist.
   const queue = await getCallingQueue(createPostgresLeadRepositories(), actor, batchId);

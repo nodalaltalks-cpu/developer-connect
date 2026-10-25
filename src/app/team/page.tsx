@@ -1,12 +1,14 @@
 import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { LeadCard } from "@/components/admin/leads/lead-card";
 import { MissedCard } from "@/components/leads/missed-card";
 import { TeamCallButton } from "@/components/team/team-call-button";
 import { MyLeadsTabs, MY_VIEW_LABELS } from "@/components/team/my-leads-tabs";
 import { TodayPanel } from "@/components/team/today-panel";
+import { MoreTabs } from "@/components/team/more-tabs";
+import { tabsOf } from "@/lib/staff/tab-access";
 import { getMyToday } from "@/lib/leads/my-today";
 import { LeadSourceTabs, parseSourceFilter, sourceTypeOf } from "@/components/admin/leads/lead-source-tabs";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
@@ -59,7 +61,7 @@ function DueRow({ item }: { item: MyWorkItem }) {
 
 export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">) {
   // The owner id comes from the verified session — never from the URL or the browser.
-  const { actor } = await requireEmployee();
+  const { actor, member } = await requireTab("leads");
 
   const params = await searchParams;
   const view = parseView(params.view);
@@ -111,6 +113,7 @@ export default async function TeamLeadsPage({ searchParams }: PageProps<"/team">
           The lead was returned to the Founder. It is no longer in your list.
         </p>
       )}
+      <MoreTabs tabs={tabsOf(member)} />
       <TodayPanel today={today} waitingEnquiries={waitingEnquiries} />
       <SectionHeading title="My Leads" description="Leads assigned to you. Private — visible only to you and the Founder." />
       <p className="-mt-2 mb-2 sm:hidden">

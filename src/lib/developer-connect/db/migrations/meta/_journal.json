@@ -309,6 +309,13 @@
       "when": 1792942579111,
       "tag": "0043_staff_role_title",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792944810734,
+      "tag": "0044_staff_tab_access",
+      "breakpoints": true
     }
   ]
 }

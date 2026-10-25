@@ -91,7 +91,7 @@ test("team security: employee pages and components never import founder actions 
 test("team security: every /team page and the layout resolve the employee on the server, and the owner scope never comes from the URL", () => {
   for (const rel of ["src/app/team/layout.tsx", "src/app/team/page.tsx", "src/app/team/leads/[id]/page.tsx"]) {
     const text = read(rel);
-    const gate = rel.endsWith("layout.tsx") ? "await getTeamAccess(" : "await requireEmployee()";
+    const gate = rel.endsWith("layout.tsx") ? "await getTeamAccess(" : "await requireTab(";
     assert.ok(text.indexOf(gate) !== -1, `${rel} must call ${gate}`);
     assert.match(text, /robots: \{ index: false, follow: false \}/, `${rel} noindex`);
   }

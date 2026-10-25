@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { ColdCallPad } from "@/components/team/cold-call-pad";
 
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TeamDialPage() {
   // Signed-in, approved, active team members only (the same gate as every /team page).
-  await requireEmployee();
+  await requireTab("dial");
   return (
     <div>
       <SectionHeading title="Cold call" description="Type a number and call it from your own SIM. The call is counted, and a new number becomes your lead. An existing lead is never duplicated." />

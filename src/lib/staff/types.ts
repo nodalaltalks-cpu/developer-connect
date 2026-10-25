@@ -41,6 +41,8 @@ export interface StaffMember {
   phone?: string | null;
   /** A custom job title for display ("Tele-caller"). Permissions follow `role`, never this. */
   roleTitle?: string | null;
+  /** Which /team tabs they may open; null = the standard tabs and nothing extra (see tab-access.ts). */
+  tabAccess?: string[] | null;
   role: StaffRole;
   status: StaffStatus;
   /** Kept equal to (status === "ACTIVE") - the single flag every access check uses. */
@@ -66,7 +68,7 @@ export function isLinked(member: Pick<StaffMember, "userId">): boolean {
   return !member.userId.startsWith(PLACEHOLDER_PREFIX);
 }
 
-export const STAFF_EVENT_TYPES = ["EMPLOYEE_INVITED", "EMPLOYEE_APPROVED", "EMPLOYEE_ACTIVATED", "EMPLOYEE_DEACTIVATED", "EMPLOYEE_REACTIVATED", "EMPLOYEE_EXITED", "EMPLOYEE_EMAIL_CHANGED"] as const;
+export const STAFF_EVENT_TYPES = ["EMPLOYEE_INVITED", "EMPLOYEE_APPROVED", "EMPLOYEE_ACTIVATED", "EMPLOYEE_DEACTIVATED", "EMPLOYEE_REACTIVATED", "EMPLOYEE_EXITED", "EMPLOYEE_EMAIL_CHANGED", "EMPLOYEE_ACCESS_CHANGED"] as const;
 export type StaffEventType = (typeof STAFF_EVENT_TYPES)[number];
 
 export interface StaffEvent {

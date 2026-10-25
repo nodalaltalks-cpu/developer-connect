@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { QuickLeadScreen } from "@/components/team/quick-lead-screen";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function ColdCallDetailsPage({ params }: PageProps<"/team/cold-call/[leadId]">) {
-  const { actor } = await requireEmployee();
+  const { actor } = await requireTab("dial");
   const { leadId } = await params;
   if (!UUID.test(leadId)) notFound();
   const lead = await createPostgresLeadRepositories().leads.getById(leadId);

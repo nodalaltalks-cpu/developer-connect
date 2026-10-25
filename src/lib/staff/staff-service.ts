@@ -3,6 +3,7 @@ import type { LeadActor } from "../leads/types.ts";
 import { StaffNotFoundError, StaffStateError, StaffValidationError, UnauthorizedStaffActionError } from "./errors.ts";
 import { normalizePhone } from "../leads/phone.ts";
 import { parseEmployeeId } from "./identity.ts";
+import { cleanTabs } from "./tab-access.ts";
 import type { StaffRepository } from "./repository.ts";
 import { EXIT_REASONS, isLinked, PLACEHOLDER_PREFIX, STAFF_ROLES, type ExitReason, type StaffEvent, type StaffMember, type StaffRole } from "./types.ts";
 
@@ -256,6 +257,23 @@ export async function changeStaffEmail(repo: StaffRepository, staffId: string, n
   if (taken) throw new StaffStateError("That email address already belongs to another team member.");
   const updated = await repo.update(member.id, { email }, now, [{ eventType: "EMPLOYEE_EMAIL_CHANGED", actorId: actor.actorId, payload: { from: member.email, to: email, status: member.status } }]);
   return updated;
+}
+
+/**
+ * Sets which /team tabs a person can open (founder only). Records who changed it and what it was before, so access is
+ * never changed silently. An exited person cannot be changed.
+ */
+export async function setStaffTabAccess(repo: StaffRepository, staffId: string, tabs: unknown, actor: LeadActor, now: Date = new Date()): Promise<StaffMember> {
+  assertFounder(actor);
+  let clean: string[];
+  try {
+    clean = cleanTabs(tabs);
+  } catch (error) {
+    throw new StaffValidationError("tabAccess", error instanceof Error ? error.message : "Choose the tabs.");
+  }
+  const member = await loadMember(repo, staffId);
+  if (member.status === "EXITED") throw new StaffStateError(`${member.employeeId} has exited and cannot be changed.`);
+  return repo.update(member.id, { tabAccess: clean }, now, [{ eventType: "EMPLOYEE_ACCESS_CHANGED", actorId: actor.actorId, payload: { from: member.tabAccess ?? null, to: clean } }]);
 }
 
 /** The whole team (founder only), active first. */

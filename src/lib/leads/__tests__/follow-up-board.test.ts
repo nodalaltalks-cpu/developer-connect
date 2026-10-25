@@ -98,13 +98,13 @@ test("business time: a datetime-local default is the India clock, not the browse
 
 test("static: the page is team-only and scoped from the session; the nav sends Follow-ups to the board; quick actions are server actions", () => {
   const page = read("src/app/team/follow-ups/page.tsx");
-  assert.match(page, /requireEmployee\(\)/);
+  assert.match(page, /requireTab\("follow-ups"\)/);
   assert.match(page, /getMyFollowUpBoard\(repos, actor, tab, now, notifier\)/);
   assert.match(page, /const repos = createPostgresLeadRepositories\(\)/);
   assert.match(page, /missed: "Missed leads"/, "overdue and missed are one list with one name");
   assert.doesNotMatch(page, /"Overdue"|Nothing overdue/, "no separate overdue wording");
   assert.doesNotMatch(page, /ownerId|searchParams\.owner/i, "the owner comes from the session, never the URL");
-  assert.match(read("src/components/team/team-nav.tsx"), /href: "\/team\/follow-ups", label: "Follow-ups"/);
+  assert.match(read("src/lib/staff/tab-access.ts"), /key: "follow-ups", label: "Follow-ups", href: "\/team\/follow-ups"/);
   const actions = read("src/components/team/follow-up-quick-actions.tsx");
   assert.match(actions, /completeMyLeadFollowUpAction/);
   assert.match(actions, /rescheduleMyLeadFollowUpAction/);

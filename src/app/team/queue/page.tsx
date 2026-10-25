@@ -1,6 +1,6 @@
 import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { listMyBatches } from "@/lib/leads/calling-batch-service";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CallingQueuePage() {
   // Scope is the signed-in member's own id from the session — never from the URL.
-  const { actor } = await requireEmployee();
+  const { actor } = await requireTab("queue");
   const batches = await listMyBatches(createPostgresLeadRepositories(), actor);
 
   return (

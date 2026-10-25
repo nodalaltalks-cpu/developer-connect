@@ -159,7 +159,7 @@ test("static: the action authorizes the employee first, takes only a number, and
 });
 
 test("static: the screen is team-only, mobile-sized, and honest in an ordinary browser", () => {
-  assert.match(read("src/app/team/dial/page.tsx"), /requireEmployee\(\)/);
+  assert.match(read("src/app/team/dial/page.tsx"), /requireTab\("dial"\)/);
   const pad = read("src/components/team/cold-call-pad.tsx");
   assert.match(pad, /min-h-14/, "keypad keys are at least 56px");
   assert.match(pad, /grid-cols-3/);
@@ -168,8 +168,8 @@ test("static: the screen is team-only, mobile-sized, and honest in an ordinary b
   assert.match(pad, /prepareMyColdCallAction/);
   assert.match(pad, /lookupMyColdCallNumberAction/);
   const nav = read("src/components/team/team-nav.tsx");
-  assert.match(nav, /href: "\/team\/dial", label: "Dial"/);
-  assert.equal((nav.match(/phone: true/g) ?? []).length, 5, "the phone bar has exactly five items");
+  assert.match(read("src/lib/staff/tab-access.ts"), /key: "dial", label: "Dial", href: "\/team\/dial"/);
+  assert.match(nav, /PHONE_BAR = new Set\(\["leads", "queue", "dial", "follow-ups", "calls"\]\)/, "the phone bar has exactly five items");
 });
 
 test("static: the Android app nudges the page the moment the employee comes back, with no new permission", () => {

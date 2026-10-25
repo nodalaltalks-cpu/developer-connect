@@ -1,6 +1,6 @@
 import { LiveRefresh } from "@/components/live-refresh";
 import Link from "next/link";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { EmptyState, SectionHeading } from "@/components/admin/empty-state";
 import { MissedCard } from "@/components/leads/missed-card";
 import { TeamCallButton } from "@/components/team/team-call-button";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TeamMissedPage() {
   // The scope (my own) comes from the verified session — never from the URL.
-  const { actor } = await requireEmployee();
+  const { actor } = await requireTab("follow-ups");
   const now = new Date();
   const items = await getMissedFollowUps(createPostgresLeadRepositories(), actor, {}, now, createLeadNotifier(createPostgresNotificationRepository()));
 

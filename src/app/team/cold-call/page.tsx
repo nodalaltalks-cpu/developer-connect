@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireEmployee } from "@/lib/team/session";
+import { requireTab } from "@/lib/team/session";
 import { SectionHeading } from "@/components/admin/empty-state";
 import { QuickLeadScreen } from "@/components/team/quick-lead-screen";
 import { parseColdCallNumber } from "@/lib/leads/cold-call-service";
@@ -16,7 +16,7 @@ const first = (value: string | string[] | undefined) => (Array.isArray(value) ? 
 
 export default async function NewColdCallLeadPage({ searchParams }: PageProps<"/team/cold-call">) {
   // Signed-in, approved, active team members only (the same gate as every /team page).
-  await requireEmployee();
+  await requireTab("dial");
   const params = await searchParams;
   // A number carried over from the dial pad. It is only ever a starting value: the server validates it again on Save.
   const carried = parseColdCallNumber(first(params.phone));

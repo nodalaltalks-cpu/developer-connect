@@ -120,7 +120,7 @@ test("analytics: Founder screens are founder-gated and noindex; the employee's o
     assert.match(text, /export const dynamic = "force-dynamic"/);
   }
   const mine = read("src/app/team/calls/page.tsx");
-  assert.ok(mine.indexOf("await requireEmployee()") !== -1);
+  assert.ok(mine.indexOf("await requireTab(") !== -1);
   // The page may read ONLY the date range from the URL - never whose calls to show (that is the session's own id).
   assert.doesNotMatch(mine, /params\.(employee|staff|user)|searchParams\.(employee|staff|user)/);
   assert.doesNotMatch(mine, /employee: first|staffUserId|actorId: first/);

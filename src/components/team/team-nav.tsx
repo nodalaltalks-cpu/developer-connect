@@ -4,24 +4,25 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { FounderMoreSheet } from "@/components/admin/founder-more-sheet";
+import { ALL_TABS, DEFAULT_TAB_KEYS } from "@/lib/staff/tab-access";
 
 /**
  * The employee's navigation. On a phone it is a bottom bar in thumb reach (home-indicator safe area respected); from
  * `sm` up the same links sit in a row under the header. Five destinations, the same five on every screen size.
  */
-const ITEMS = [
-  { href: "/team", label: "My leads", match: (p: string) => p === "/team" || p.startsWith("/team/leads"), phone: true },
-  { href: "/team/queue", label: "Queue", match: (p: string) => p.startsWith("/team/queue"), phone: true },
-  { href: "/team/dial", label: "Dial", match: (p: string) => p.startsWith("/team/dial"), phone: true },
-  { href: "/team/follow-ups", label: "Follow-ups", match: (p: string) => p.startsWith("/team/follow-ups") || p.startsWith("/team/missed"), phone: true },
-  // Visits has no slot in the five-item phone bar; on phones it is one tap from My leads.
-  { href: "/team/visits", label: "Visits", match: (p: string) => p.startsWith("/team/visits"), phone: false },
-  { href: "/team/calls", label: "Calls", match: (p: string) => p.startsWith("/team/calls"), phone: true },
-];
+// How a tab recognises its own pages (some tabs own more than one route).
+const MATCH: Record<string, (p: string) => boolean> = {
+  leads: (p) => p === "/team" || p.startsWith("/team/leads"),
+  "follow-ups": (p) => p.startsWith("/team/follow-ups") || p.startsWith("/team/missed"),
+};
+// The five-item phone bar holds these; the other tabs (Visits, My performance, Team board) are one tap away from My leads.
+const PHONE_BAR = new Set(["leads", "queue", "dial", "follow-ups", "calls"]);
 
-export function TeamNav({ founder = false }: { founder?: boolean }) {
+/** The tabs this person may open, in the Founder's order. A tab the Founder switched off is not rendered at all. */
+export function TeamNav({ founder = false, tabs = [...DEFAULT_TAB_KEYS] }: { founder?: boolean; tabs?: string[] }) {
   const pathname = usePathname();
   const [more, setMore] = useState(false);
+  const ITEMS = ALL_TABS.filter((t) => tabs.includes(t.key)).map((t) => ({ href: t.href, label: t.label, match: MATCH[t.key] ?? ((p: string) => p.startsWith(t.href)), phone: PHONE_BAR.has(t.key) }));
   return (
     <>
       <nav aria-label="Team workspace" className="mb-4 hidden gap-x-4 sm:flex">

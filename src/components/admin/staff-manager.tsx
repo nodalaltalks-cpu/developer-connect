@@ -50,10 +50,10 @@ export function StatusPill({ status }: { status: StaffStatus }) {
   return <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_TONE[status]}`}>{STATUS_LABEL[status]}</span>;
 }
 
-/** 16 characters from an unambiguous alphabet (no 0/O, 1/l/I), drawn from the browser's secure random source. */
+/** 12 characters from an unambiguous alphabet (no 0/O, 1/l/I), drawn from the browser's secure random source. */
 export function generatePassword(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
@@ -129,7 +129,7 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
           <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} className="size-5" />
           Show password
         </label>
-        <p className="mt-1 text-xs text-muted-foreground">At least 10 characters; Generate makes a strong 16-character one. Copy it before you press Create: it is not saved anywhere and cannot be shown again. Leave blank if they will sign in with Google.</p>
+        <p className="mt-1 text-xs text-muted-foreground">At least 8 characters; Generate makes a strong 12-character one. Copy it before you press Create: it is not saved anywhere and cannot be shown again. Leave blank if they will sign in with Google.</p>
       </div>
       <div>
         <label htmlFor="staff-role" className="block text-sm font-medium text-foreground">

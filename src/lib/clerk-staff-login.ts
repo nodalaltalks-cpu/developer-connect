@@ -7,7 +7,7 @@
  */
 
 const CLERK_API_TIMEOUT_MS = 8000;
-export const MIN_PASSWORD_LENGTH = 10;
+export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 72;
 
 export type CreateLoginResult = { ok: true; userId: string } | { ok: false; error: string };

@@ -141,7 +141,7 @@ export function ProfileActions({ staffId, employeeId, name, status, approved, op
               <button type="button" onClick={() => setResetting(false)} className={BTN}>
                 Cancel
               </button>
-              <button type="submit" disabled={pending || newPassword.length < 10} className={BTN_PRIMARY}>
+              <button type="submit" disabled={pending || newPassword.length < 8} className={BTN_PRIMARY}>
                 {pending ? "Saving…" : "Set password"}
               </button>
             </div>

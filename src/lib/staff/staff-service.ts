@@ -54,6 +54,15 @@ function cleanPhone(value: unknown): string {
   return result.e164;
 }
 
+/** An optional custom job title: 2-40 characters of ordinary text. Empty means "no custom title". */
+function cleanRoleTitle(value: unknown): string | null {
+  const title = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+  if (!title) return null;
+  if (title.length < 2 || title.length > 40) throw new StaffValidationError("roleTitle", "The role name must be 2 to 40 characters.");
+  if (!/^[\p{L}\p{N} &/().,'-]+$/u.test(title)) throw new StaffValidationError("roleTitle", "Use letters, numbers and spaces only in the role name.");
+  return title;
+}
+
 function cleanRole(value: unknown): StaffRole {
   const role = value ?? "EMPLOYEE";
   if (!(STAFF_ROLES as readonly string[]).includes(role as string)) throw new StaffValidationError("role", "That role does not exist.");
@@ -99,15 +108,18 @@ export interface InviteStaffMemberInput {
   /** Their contact number; required. Stored as E.164. */
   phone: string;
   role?: StaffRole;
+  /** A custom job title shown instead of the role name (display only; permissions follow `role`). */
+  roleTitle?: string | null;
   /** If a sign-in account with that email already exists, its Clerk id (resolved server-side). Still not approved. */
   userId?: string | null;
 }
 
 /** Runs the same field checks as inviteStaffMember without writing anything, so callers can fail before any side effect. */
-export function validateInvite(input: { email: string; displayName: string; phone: string }): void {
+export function validateInvite(input: { email: string; displayName: string; phone: string; roleTitle?: string | null }): void {
   if (!cleanEmail(input.email)) throw new StaffValidationError("email", "Enter the email address they will sign in with.");
   cleanName(input.displayName);
   cleanPhone(input.phone);
+  cleanRoleTitle(input.roleTitle);
 }
 
 /**
@@ -121,6 +133,7 @@ export async function inviteStaffMember(repo: StaffRepository, input: InviteStaf
   const displayName = cleanName(input.displayName);
   const phone = cleanPhone(input.phone);
   const role = cleanRole(input.role);
+  const roleTitle = cleanRoleTitle(input.roleTitle);
   let userId = `${PLACEHOLDER_PREFIX}${randomUUID()}`;
   if (input.userId) {
     if (typeof input.userId !== "string" || !CLERK_USER_ID.test(input.userId)) throw new StaffValidationError("userId", "That is not a valid sign-in identity.");
@@ -128,7 +141,7 @@ export async function inviteStaffMember(repo: StaffRepository, input: InviteStaf
     if (await repo.getByUserId(input.userId)) throw new StaffStateError("That person is already on the team.");
     userId = input.userId;
   }
-  const member = await repo.create({ userId, displayName, email, phone, role, status: "INVITED", approvedAt: null, createdBy: actor.actorId, now }, [{ eventType: "EMPLOYEE_INVITED", actorId: actor.actorId, payload: { role } }]);
+  const member = await repo.create({ userId, displayName, email, phone, roleTitle, role, status: "INVITED", approvedAt: null, createdBy: actor.actorId, now }, [{ eventType: "EMPLOYEE_INVITED", actorId: actor.actorId, payload: { role } }]);
   return member;
 }
 

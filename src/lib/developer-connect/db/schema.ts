@@ -853,6 +853,8 @@ export const staffMembers = pgTable(
     email: text("email"),
     // Contact number in E.164 (+919876543210). Nullable only for people added before it was collected; new invites require it.
     phone: text("phone"),
+    // A custom job title the Founder typed ("Tele-caller"). Display only: permissions always follow `role`.
+    roleTitle: text("role_title"),
     role: staffRoleEnum("role").notNull().default("EMPLOYEE"),
     active: boolean("active").notNull().default(true),
     // The permanent Developer Connects employee ID ("DC2", "DC3"...), allocated from a database sequence, immutable

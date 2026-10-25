@@ -24,6 +24,7 @@ export interface StaffRow {
   displayName: string;
   email: string | null;
   phone?: string | null;
+  roleTitle?: string | null;
   role: StaffRole;
   status: StaffStatus;
   approvedAt: string | null;
@@ -62,14 +63,16 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<StaffRole>("EMPLOYEE");
+  const role: StaffRole = "EMPLOYEE";
+  const [customRole, setCustomRole] = useState(false);
+  const [roleTitle, setRoleTitle] = useState("");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   function submit() {
     setMessage(null);
     startTransition(async () => {
-      const result = await addStaffMemberAction(email, name, role, phone, password);
+      const result = await addStaffMemberAction(email, name, role, phone, password, customRole ? roleTitle : "");
       // On a validation error the entered values stay, so nothing has to be retyped.
       if (result.ok) {
         setMessage({ tone: "ok", text: result.message ?? "Added." });
@@ -77,6 +80,7 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         setName("");
         setPhone("");
         setPassword("");
+        setRoleTitle("");
       } else setMessage({ tone: "error", text: result.error });
     });
   }
@@ -131,10 +135,12 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         <label htmlFor="staff-role" className="block text-sm font-medium text-foreground">
           Role
         </label>
-        <select id="staff-role" value={role} onChange={(e) => setRole(e.target.value as StaffRole)} disabled={pending} className={`${FIELD} mt-1.5`}>
+        <select id="staff-role" value={customRole ? "CUSTOM" : role} onChange={(e) => { const custom = e.target.value === "CUSTOM"; setCustomRole(custom); if (!custom) setRoleTitle(""); }} disabled={pending} className={`${FIELD} mt-1.5`}>
           <option value="EMPLOYEE">Employee</option>
+          <option value="CUSTOM">Custom role…</option>
         </select>
-        <p className="mt-1 text-xs text-muted-foreground">Employee is the only role that exists today; manager permissions are not built yet.</p>
+        {customRole && <input aria-label="Custom role name" type="text" autoComplete="off" autoCapitalize="words" maxLength={40} placeholder="e.g. Tele-caller, Site visit executive" value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} disabled={pending} className={`${FIELD} mt-2`} />}
+        <p className="mt-1 text-xs text-muted-foreground">A custom role is a job title only. Every team member has the same access: their own leads and calling workspace, nothing in the founder area.</p>
       </div>
       {message && (
         <p role={message.tone === "error" ? "alert" : "status"} className={`rounded-md px-3 py-2 text-sm ${message.tone === "ok" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
@@ -142,7 +148,7 @@ function AddEmployeeForm({ onDone }: { onDone: () => void }) {
         </p>
       )}
       <div className="flex gap-2">
-        <button type="submit" disabled={pending || !email.trim() || !name.trim() || !phone.trim()} className={`${BTN_PRIMARY} flex-1`}>
+        <button type="submit" disabled={pending || !email.trim() || !name.trim() || !phone.trim() || (customRole && roleTitle.trim().length < 2)} className={`${BTN_PRIMARY} flex-1`}>
           {pending ? "Saving…" : "Create employee"}
         </button>
         <button type="button" onClick={onDone} className={BTN}>
@@ -177,7 +183,7 @@ function StaffCard({ row, onError, onMessage }: { row: StaffRow; onError: (e: st
           <div className="min-w-0">
             <IdChip id={row.employeeId} />
             <p className="mt-1.5 truncate text-base font-semibold text-foreground">{row.displayName}</p>
-            <p className="text-sm text-muted-foreground">{ROLE_LABEL[row.role] ?? row.role}</p>
+            <p className="text-sm text-muted-foreground">{row.roleTitle ?? ROLE_LABEL[row.role] ?? row.role}</p>
           </div>
           <StatusPill status={row.status} />
         </div>

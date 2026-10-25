@@ -72,7 +72,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
         <div className="min-w-0">
           <IdChip id={member.employeeId} />
           <h1 className="mt-2 break-words text-xl font-semibold tracking-tight text-foreground">{member.displayName}</h1>
-          <p className="text-sm text-muted-foreground">{formatEnumLabel(member.role)}</p>
+          <p className="text-sm text-muted-foreground">{member.roleTitle ?? formatEnumLabel(member.role)}</p>
         </div>
         <StatusPill status={member.status} />
       </div>

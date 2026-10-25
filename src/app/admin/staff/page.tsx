@@ -93,6 +93,7 @@ export default async function AdminStaffPage({ searchParams }: { searchParams: P
           displayName: m.displayName,
           email: m.email,
           phone: m.phone ?? null,
+          roleTitle: m.roleTitle ?? null,
           role: m.role,
           status: m.status,
           approvedAt: m.approvedAt?.toISOString() ?? null,

@@ -184,3 +184,15 @@ test("phone: required on invite, stored as E.164, and a Dubai number keeps its o
   await assert.rejects(inviteStaffMember(repo, { ...ana(3), phone: "12345" }, FOUNDER), StaffValidationError);
   assert.equal((await repo.list()).length, 2);
 });
+
+test("role title: a custom job title is stored for display, validated, and never changes the permission role", async () => {
+  const repo = createInMemoryStaffRepository();
+  const m = await inviteStaffMember(repo, { ...ana(), roleTitle: "  Site visit   executive " }, FOUNDER);
+  assert.equal(m.roleTitle, "Site visit executive");
+  assert.equal(m.role, "EMPLOYEE");
+  const none = await inviteStaffMember(repo, { ...ana(2), roleTitle: "" }, FOUNDER);
+  assert.equal(none.roleTitle, null);
+  await assert.rejects(inviteStaffMember(repo, { ...ana(3), roleTitle: "x" }, FOUNDER), StaffValidationError);
+  await assert.rejects(inviteStaffMember(repo, { ...ana(3), roleTitle: "<script>" }, FOUNDER), StaffValidationError);
+  await assert.rejects(inviteStaffMember(repo, { ...ana(3), roleTitle: "a".repeat(41) }, FOUNDER), StaffValidationError);
+});

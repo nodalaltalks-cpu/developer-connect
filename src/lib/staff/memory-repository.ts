@@ -31,6 +31,7 @@ export function createInMemoryStaffRepository(): StaffRepository {
         displayName: input.displayName,
         email,
         phone: input.phone ?? null,
+        roleTitle: input.roleTitle ?? null,
         role: input.role,
         status,
         active: status === "ACTIVE",

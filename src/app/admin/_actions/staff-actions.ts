@@ -36,7 +36,7 @@ function toResult(error: unknown): StaffActionResult {
  * email + password login is created for them in Clerk first; an email that already has a login is linked and its
  * password is never touched.
  */
-export async function addStaffMemberAction(email: string, displayName: string, role: StaffRole = "EMPLOYEE", phone: string = "", password: string = ""): Promise<StaffActionResult> {
+export async function addStaffMemberAction(email: string, displayName: string, role: StaffRole = "EMPLOYEE", phone: string = "", password: string = "", roleTitle: string = ""): Promise<StaffActionResult> {
   const founderId = await requireFounderForAction();
   const actor: LeadActor = { actorType: "FOUNDER", actorId: founderId };
   try {
@@ -53,13 +53,13 @@ export async function addStaffMemberAction(email: string, displayName: string, r
     // Validate everything the invite needs BEFORE creating a login, so a typo never leaves an orphan login behind.
     const repo = createPostgresStaffRepository();
     if (wantsPassword && !userId) {
-      validateInvite({ email, displayName, phone });
+      validateInvite({ email, displayName, phone, roleTitle });
       const login = await createClerkLoginWithPassword({ email, password, displayName });
       if (!login.ok) return { ok: false, error: login.error };
       userId = login.userId;
       passwordSet = true;
     }
-    const member = await inviteStaffMember(repo, { displayName, email, phone, role, userId }, actor);
+    const member = await inviteStaffMember(repo, { displayName, email, phone, role, roleTitle, userId }, actor);
     revalidatePath("/admin/staff");
     const base = `${member.employeeId} created. They cannot sign in to the team area until you approve them.`;
     if (passwordSet) return { ok: true, message: `${base} Login created: they sign in with ${member.email} and the password you set. Share it with them privately.` };

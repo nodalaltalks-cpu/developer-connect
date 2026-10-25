@@ -23,6 +23,7 @@ export interface NewStaffMember {
   displayName: string;
   email: string | null;
   phone?: string | null;
+  roleTitle?: string | null;
   role: StaffRole;
   /** Defaults to ACTIVE (a known account added and approved by the Founder in one step). */
   status?: StaffStatus;

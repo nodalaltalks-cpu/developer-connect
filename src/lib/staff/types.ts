@@ -39,6 +39,8 @@ export interface StaffMember {
   email: string | null;
   /** Contact number in E.164. Required when someone is invited; absent only on people added before it was collected. */
   phone?: string | null;
+  /** A custom job title for display ("Tele-caller"). Permissions follow `role`, never this. */
+  roleTitle?: string | null;
   role: StaffRole;
   status: StaffStatus;
   /** Kept equal to (status === "ACTIVE") - the single flag every access check uses. */

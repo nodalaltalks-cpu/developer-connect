@@ -110,7 +110,7 @@ test("security: an employee can never reach the buyer-side or founder-only paths
 
 test("security: blocking returns every lead to the Founder and bans the login; Clerk password/ban writes live only in the founder-only action", () => {
   const action = read("src/app/admin/_actions/staff-actions.ts");
-  assert.match(action, /returnOpenLeadsToFounder\([^)]*member\.employeeId\)/, "blocking hands the person's open leads to the Founder");
+  assert.match(action, /returnOpenLeadsToFounder\(.*member\.employeeId\)/, "blocking hands the person's open leads to the Founder");
   assert.match(action, /setClerkBanned\(member\.userId, !active\)/);
   assert.match(action, /member\.userId !== founderId/, "the Founder's own login is never banned");
   assert.match(action, /member\.userId === founderId\) return \{ ok: false/, "the Founder's own password is never reset here");

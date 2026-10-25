@@ -5,8 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { TestimonialCard } from "@/components/published-testimonials";
-import { createPostgresTestimonialRepository } from "@/lib/testimonials/postgres-repository";
-import { getPublishedTestimonials } from "@/lib/testimonials/service";
+import { cachedPublishedTestimonials } from "@/lib/developer-connect/cached-public";
 
 export const metadata: Metadata = {
   title: "Client Feedback | Developer Connects",
@@ -17,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 /** Every published piece of client feedback. With none published the page does not exist (404), so there is never an empty shell. */
 export default async function TestimonialsPage() {
-  const items = await getPublishedTestimonials(createPostgresTestimonialRepository(), 100);
+  const items = await cachedPublishedTestimonials(100);
   if (items.length === 0) notFound();
   return (
     <div className="flex flex-1 flex-col">

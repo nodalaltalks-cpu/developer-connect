@@ -390,3 +390,15 @@ test("footer: the country links point at the approved country pages and fall bac
   assert.equal(locationPath(resolveLocationPage(INDIA, undefined)!), "/developers?country=India");
   assert.equal(locationPath(resolveLocationPage(UAE, undefined)!), "/developers?country=United+Arab+Emirates");
 });
+
+test("database sleep: public directory reads are remembered, admin edits refresh them, and script-running crawlers are not recorded", () => {
+  const cached = readFileSync("src/lib/developer-connect/cached-public.ts", "utf8");
+  assert.match(cached, /revalidate: CACHE_SECONDS/);
+  assert.doesNotMatch(cached, /auth\(\)|currentUser|cookies\(|sessionId|userId/, "nothing personal is remembered");
+  for (const file of ["developer-actions", "candidate-actions", "verification-actions"]) {
+    assert.match(readFileSync(`src/app/admin/_actions/${file}.ts`, "utf8"), /updateTag\("public-developers"\)/, `${file} refreshes the public directory`);
+  }
+  const actions = readFileSync("src/app/_actions/public-actions.ts", "utf8");
+  assert.equal((actions.match(/if \(await fromBot\(\)\) return;/g) ?? []).length, 4, "the four recording actions skip bots");
+  assert.match(actions, /isBotUserAgent/);
+});

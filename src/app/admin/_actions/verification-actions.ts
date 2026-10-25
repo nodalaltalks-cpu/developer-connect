@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { after } from "next/server";
 import { submitToIndexNow } from "@/lib/indexnow";
 import { requireFounderForAction } from "@/lib/auth";
@@ -95,6 +95,7 @@ function describeVerificationError(err: unknown): string {
  */
 function revalidateCandidate(candidateId: string, developerId?: string) {
   revalidatePath(`/admin/verification/${candidateId}`);
+  updateTag("public-developers");
   if (developerId) revalidatePath(`/admin/developers/${developerId}`);
 }
 
@@ -111,6 +112,7 @@ function revalidateCandidate(candidateId: string, developerId?: string) {
  */
 function revalidatePublicDirectory() {
   revalidatePath("/");
+  updateTag("public-developers");
 }
 
 /** Founder-friendly message for the (UI-unreachable, defense-in-depth-only) case of a direct call bypassing the founder-only page. */

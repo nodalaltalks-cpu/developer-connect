@@ -1,6 +1,8 @@
 "use server";
 
+import { headers } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
+import { isBotUserAgent } from "@/lib/behaviour/events";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicDirectoryPage, searchPublicDevelopers } from "@/lib/developer-connect/search-service";
 import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analytics-sink";
@@ -40,6 +42,19 @@ async function preferredCityFor(userId: string | undefined): Promise<string | un
  * hiccup can never surface as a broken search or a broken page).
  */
 
+/**
+ * Crawlers that run scripts (Googlebot and the like) trigger these recording actions on every page they render. Each one is a
+ * database write that keeps the database awake, and a crawler is not a visitor, so its events are skipped. Real visitors are
+ * recorded exactly as before.
+ */
+async function fromBot(): Promise<boolean> {
+  try {
+    return isBotUserAgent((await headers()).get("user-agent"));
+  } catch {
+    return false;
+  }
+}
+
 export async function searchDevelopers(
   rawQuery: string,
   geo?: DeveloperGeoFilter,
@@ -50,7 +65,7 @@ export async function searchDevelopers(
   const results = await searchPublicDevelopers(repos, rawQuery, geo, preferredCity);
 
   const query = rawQuery.trim();
-  if (query) {
+  if (query && !(await fromBot())) {
     const sessionId = await getOrCreateSessionId();
     const deviceType = await getDeviceType();
     if (results.length === 0) {
@@ -109,6 +124,7 @@ export async function recordSearchResultClick(
   query: string,
   position: number,
 ): Promise<void> {
+  if (await fromBot()) return;
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
   const userId = await currentUserId();
@@ -128,6 +144,7 @@ export async function recordDeveloperPageView(
   developerId: string,
   referrerQuery?: string,
 ): Promise<void> {
+  if (await fromBot()) return;
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
   const userId = await currentUserId();
@@ -144,6 +161,7 @@ export async function recordDeveloperPageView(
 
 /** The buyer pressed "Connect with developer" (anonymous funnel event; no URL or domain is recorded). */
 export async function recordOfficialWebsiteClick(developerId: string): Promise<void> {
+  if (await fromBot()) return;
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
   const userId = await currentUserId();
@@ -161,6 +179,7 @@ export async function recordDeveloperShare(
   developerId: string,
   method: "whatsapp" | "email" | "copy_link" | "native_share",
 ): Promise<void> {
+  if (await fromBot()) return;
   const sessionId = await getOrCreateSessionId();
   const deviceType = await getDeviceType();
   const userId = await currentUserId();

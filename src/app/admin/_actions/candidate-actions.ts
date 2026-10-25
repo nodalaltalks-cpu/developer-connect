@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { submitWebsiteCandidate, addEvidence, updateCandidateUrl } from "@/lib/developer-connect/candidate-service";
@@ -45,8 +45,11 @@ export async function submitCandidateAction(
       actor: { actorType: "FOUNDER", actorId: founderId },
     });
     revalidatePath(`/admin/developers/${input.developerId}`);
+    updateTag("public-developers");
     revalidatePath("/admin/verification");
+    updateTag("public-developers");
     revalidatePath(`/admin/verification/${candidate.id}`);
+    updateTag("public-developers");
     return { ok: true, candidate };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not submit website candidate." };
@@ -85,6 +88,7 @@ export async function addEvidenceAction(
     ]);
     const candidate = await repos.candidates.getById(input.candidateId);
     revalidatePath(`/admin/verification/${input.candidateId}`);
+    updateTag("public-developers");
     return { ok: true, addedEvidence, candidate: candidate ?? undefined };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not add evidence." };
@@ -130,7 +134,9 @@ export async function updateCandidateUrlAction(
     // Not the queue itself: its inline URL editor already syncs the new URL
     // locally, and revalidating it would re-render the whole queue on every save.
     revalidatePath(`/admin/verification/${input.candidateId}`);
+    updateTag("public-developers");
     revalidatePath(`/admin/developers/${candidate.developerId}`);
+    updateTag("public-developers");
     return { ok: true, candidate };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save the new URL." };

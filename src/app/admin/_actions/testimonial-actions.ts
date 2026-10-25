@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
 import { TestimonialValidationError, requestMailtoHref, requestMessage, requestWhatsappHref, type RequestChannel } from "@/lib/testimonials/model";
 import { createPostgresTestimonialRepository } from "@/lib/testimonials/postgres-repository";
@@ -72,6 +72,7 @@ export async function publishTestimonialAction(id: string): Promise<TestimonialA
   if (result.ok) {
     revalidatePath("/");
     revalidatePath("/about");
+    updateTag("public-testimonials");
   }
   return result;
 }
@@ -81,6 +82,7 @@ export async function archiveTestimonialAction(id: string): Promise<TestimonialA
   if (result.ok) {
     revalidatePath("/");
     revalidatePath("/about");
+    updateTag("public-testimonials");
   }
   return result;
 }

@@ -15,8 +15,7 @@ import {
   breadcrumbStructuredData,
   faqStructuredData,
 } from "@/components/buy-direct-guide-sections";
-import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
-import { getPublicDirectoryPage } from "@/lib/developer-connect/search-service";
+import { cachedPublicDirectoryPage } from "@/lib/developer-connect/cached-public";
 import {
   BUY_DIRECT_PATH,
   buyDirectFaq,
@@ -36,12 +35,7 @@ const loadMarketDevelopers = cache(async (slug: string) => {
   const market = getBuyDirectMarket(slug);
   if (!market) return null;
   const { country, city, cityAliases } = market.location;
-  const { developers, total } = await getPublicDirectoryPage(
-    createPostgresRepositories(),
-    { country, city, cityAliases },
-    0,
-    LISTED_DEVELOPERS,
-  );
+  const { developers, total } = await cachedPublicDirectoryPage(country, city, cityAliases?.join("|") ?? "", 0, LISTED_DEVELOPERS);
   return { market, developers, total };
 });
 

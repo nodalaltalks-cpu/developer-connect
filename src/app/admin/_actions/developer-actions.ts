@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireFounderForAction } from "@/lib/auth";
 import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import {
@@ -82,6 +82,7 @@ export async function createDeveloperAction(
 
     const developer = await createDeveloper(repos.developers, input);
     revalidatePath("/admin/developers");
+    updateTag("public-developers");
 
     try {
       const candidate = await submitWebsiteCandidate(repos, {
@@ -91,6 +92,7 @@ export async function createDeveloperAction(
         actor: { actorType: "FOUNDER", actorId: founderId },
       });
       revalidatePath(`/admin/developers/${developer.id}`);
+      updateTag("public-developers");
       return { ok: true, developer, candidate };
     } catch (candidateErr) {
       // The developer record is real and already created — never lose
@@ -145,7 +147,9 @@ export async function updateDeveloperAction(
   try {
     const developer = await updateDeveloper(repos, input.id, input, { actorType: "FOUNDER", actorId: founderId });
     revalidatePath(`/admin/developers/${input.id}`);
+    updateTag("public-developers");
     revalidatePath("/admin/developers");
+    updateTag("public-developers");
     // Not the verification queue: its inline editor already syncs the saved
     // developer locally, and revalidating it would re-render the whole queue.
     return { ok: true, developer };
@@ -173,9 +177,13 @@ export async function republishDeveloperAction(developerId: string): Promise<Upd
   try {
     const developer = await republishDeveloper(repos, developerId, { actorType: "FOUNDER", actorId: founderId });
     revalidatePath(`/admin/developers/${developerId}`);
+    updateTag("public-developers");
     revalidatePath("/admin/developers");
+    updateTag("public-developers");
     revalidatePath(`/developers/${developer.slug}`);
+    updateTag("public-developers");
     revalidatePath("/");
+    updateTag("public-developers");
     return { ok: true, developer };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not republish this developer." };
@@ -198,7 +206,9 @@ export async function discardPendingChangesAction(developerId: string): Promise<
   try {
     const developer = await discardPendingChanges(repos, developerId, { actorType: "FOUNDER", actorId: founderId });
     revalidatePath(`/admin/developers/${developerId}`);
+    updateTag("public-developers");
     revalidatePath("/admin/developers");
+    updateTag("public-developers");
     return { ok: true, developer };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not discard these changes." };

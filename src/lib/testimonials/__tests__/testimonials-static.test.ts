@@ -44,7 +44,9 @@ test("privacy: the buyer link is never indexed, never cached, never leaked as a 
 
 test("public site: testimonials appear only through the gated reader, and are never marked up as reviews", () => {
   const shown = read("src/components/published-testimonials.tsx");
-  assert.match(shown, /getPublishedTestimonials/);
+  assert.match(shown, /cachedPublishedTestimonials/);
+  assert.match(read("src/lib/developer-connect/cached-public.ts"), /getPublishedTestimonials\(createPostgresTestimonialRepository\(\), limit\)/, "the remembered copy still comes from the gated reader");
+  assert.match(read("src/app/admin/_actions/testimonial-actions.ts"), /updateTag\("public-testimonials"\)/, "publishing or archiving refreshes it at once");
   assert.match(shown, /items\.length === 0\) return null/, "nothing at all is rendered when none are published");
   const everything = [shown, read("src/app/(marketing)/page.tsx"), read("src/app/layout.tsx")].join("\n");
   assert.ok(!/"@type":\s*"Review"|AggregateRating|reviewRating/i.test(everything), "no Review or AggregateRating structured data");

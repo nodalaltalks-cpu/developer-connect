@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import type { PublicTestimonial } from "@/lib/testimonials/model";
-import { createPostgresTestimonialRepository } from "@/lib/testimonials/postgres-repository";
-import { getPublishedTestimonials } from "@/lib/testimonials/service";
+import { cachedPublishedTestimonials } from "@/lib/developer-connect/cached-public";
 
 /**
  * Client feedback, shown ONLY when real, approved feedback exists. With none published this renders nothing at all: no placeholder, no
@@ -50,7 +49,7 @@ export function TestimonialCard({ t }: { t: PublicTestimonial }) {
 const HOME_COUNT = 6;
 
 export async function PublishedTestimonials() {
-  const items = await getPublishedTestimonials(createPostgresTestimonialRepository(), 40).catch(() => []);
+  const items = await cachedPublishedTestimonials(40).catch(() => []);
   if (items.length === 0) return null;
   const shown = items.slice(0, HOME_COUNT);
   return (

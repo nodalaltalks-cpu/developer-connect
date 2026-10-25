@@ -1,5 +1,8 @@
 import { unstable_cache } from "next/cache";
 import { createPostgresRepositories } from "./db/postgres-repository";
+import { createPostgresTestimonialRepository } from "../testimonials/postgres-repository";
+import { getPublishedTestimonials } from "../testimonials/service";
+import type { PublicTestimonial } from "../testimonials/model";
 import { getPublicDeveloperBySlug, getPublicDirectoryPage, listRelatedVerifiedDevelopers } from "./search-service";
 
 /**
@@ -34,3 +37,18 @@ export const cachedRelatedDevelopers = unstable_cache(
   ["public-related-developers"],
   { revalidate: CACHE_SECONDS, tags: [TAG] },
 );
+
+/**
+ * Published client feedback, remembered for the same few minutes. Publishing or archiving a testimonial refreshes this at once
+ * (the founder actions call updateTag), so a withdrawn testimonial never lingers. The one date in it is stored as text and
+ * turned back into a Date here, so callers get exactly what they got before.
+ */
+const publishedTestimonialsRaw = unstable_cache(
+  async (limit: number) => (await getPublishedTestimonials(createPostgresTestimonialRepository(), limit)).map((t) => ({ ...t, publishedAt: t.publishedAt.toISOString() })),
+  ["public-published-testimonials"],
+  { revalidate: CACHE_SECONDS, tags: ["public-testimonials"] },
+);
+
+export async function cachedPublishedTestimonials(limit: number): Promise<PublicTestimonial[]> {
+  return (await publishedTestimonialsRaw(limit)).map((t) => ({ ...t, publishedAt: new Date(t.publishedAt) }));
+}

@@ -1,5 +1,7 @@
 import { and, asc, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { getDb } from "../developer-connect/db/client.ts";
+import { useFirestore } from "../firestore/backend.ts";
+import * as fsq from "./firestore/queries.ts";
 import { createPostgresRepositories } from "../developer-connect/db/postgres-repository.ts";
 import {
   developers,
@@ -150,6 +152,7 @@ async function compareCurrentToPreviousPeriod(
  * signed up but never triggered a tracked event won't be counted.
  */
 export async function getExecutiveOverview(range?: ResolvedDateRange): Promise<ExecutiveOverview> {
+  if (useFirestore("analytics")) return fsq.getExecutiveOverview(range);
   const db = getDb();
 
   const [developersTracked] = await db.select({ n: count() }).from(developers);
@@ -278,6 +281,7 @@ export async function getExecutiveOverview(range?: ResolvedDateRange): Promise<E
  * normalized (no typo/synonym clustering).
  */
 export async function getSearchIntelligence(range?: ResolvedDateRange): Promise<SearchIntelligence> {
+  if (useFirestore("analytics")) return fsq.getSearchIntelligence(range);
   const db = getDb();
   const queryText = sql<string>`lower(${analyticsEvents.payload}->>'query')`;
   const occurredAtInRange = rangeConditions(analyticsEvents.occurredAt, range);
@@ -669,6 +673,7 @@ export async function getDeveloperIntelligence(
   query: DeveloperIntelligenceQuery = {},
   range?: ResolvedDateRange,
 ): Promise<DeveloperIntelligencePage> {
+  if (useFirestore("analytics")) return fsq.getDeveloperIntelligence(query, range);
   const db = getDb();
   const pageSize = query.pageSize && query.pageSize > 0 ? query.pageSize : DEFAULT_DEVELOPER_PAGE_SIZE;
   const page = query.page && query.page > 0 ? Math.floor(query.page) : 1;
@@ -792,6 +797,7 @@ export async function getDeveloperIntelligence(
  * event, never `updatedAt` as a substitute.
  */
 export async function getVerificationOperations(range?: ResolvedDateRange): Promise<VerificationOperations> {
+  if (useFirestore("analytics")) return fsq.getVerificationOperations(range);
   const db = getDb();
   const statusCounts = await db
     .select({ status: websiteCandidates.verificationStatus, n: count() })
@@ -849,6 +855,7 @@ export async function getVerificationOperations(range?: ResolvedDateRange): Prom
 export async function getVerificationActivity(
   range: ResolvedDateRange,
 ): Promise<Record<(typeof GRANULAR_VERIFICATION_STATUSES)[number], number>> {
+  if (useFirestore("analytics")) return fsq.getVerificationActivity(range);
   const db = getDb();
   const rows = await db
     .select({ status: verificationEvents.newStatus, n: count() })
@@ -881,6 +888,7 @@ export async function getVerificationActivity(
  * it snapshot" rule from the approved Phase B decisions.
  */
 export async function getDataQuality(): Promise<DataQuality> {
+  if (useFirestore("analytics")) return fsq.getDataQuality();
   const db = getDb();
 
   const withoutVerifiedResult = await db.execute<{ n: string }>(sql`
@@ -930,6 +938,7 @@ export async function getDataQuality(): Promise<DataQuality> {
  * all-time log, exactly as before.
  */
 export async function getAuditLog(limit = 100, range?: ResolvedDateRange): Promise<AuditLogEntry[]> {
+  if (useFirestore("analytics")) return fsq.getAuditLog(limit, range);
   const db = getDb();
   const rows = await db
     .select({
@@ -962,6 +971,7 @@ export async function getAuditLog(limit = 100, range?: ResolvedDateRange): Promi
  * preference availability — currently 0, honestly, since no fields exist).
  */
 export async function getAiReadiness(): Promise<AiReadiness> {
+  if (useFirestore("analytics")) return fsq.getAiReadiness();
   const db = getDb();
 
   const [labeledDecisions] = await db
@@ -1039,6 +1049,7 @@ const ENGAGEMENT_EVENT_NAMES = [
 ] as const;
 
 export async function getUserAndProfileIntelligence(range?: ResolvedDateRange): Promise<UserAndProfileIntelligence> {
+  if (useFirestore("analytics")) return fsq.getUserAndProfileIntelligence(range);
   const db = getDb();
   const occurredAtInRange = rangeConditions(analyticsEvents.occurredAt, range);
 
@@ -1196,6 +1207,7 @@ type CompletionBucketAccumulator = Record<string, number>;
  * exactly as before.
  */
 export async function getUserBehaviorIntelligence(range?: ResolvedDateRange): Promise<UserBehaviorIntelligence> {
+  if (useFirestore("analytics")) return fsq.getUserBehaviorIntelligence(range);
   const db = getDb();
   const occurredAtInRange = rangeConditions(analyticsEvents.occurredAt, range);
 
@@ -1304,6 +1316,7 @@ export async function getUserBehaviorIntelligence(range?: ResolvedDateRange): Pr
  * (eligibility is what keeps this honest, not a date filter).
  */
 export async function getRetentionMetrics(): Promise<RetentionMetrics> {
+  if (useFirestore("analytics")) return fsq.getRetentionMetrics();
   const db = getDb();
 
   async function retentionWindow(windowDays: 1 | 7 | 30): Promise<RetentionWindow> {
@@ -1395,6 +1408,7 @@ export async function getUserActivityTimeline(
   userId: string,
   limit = 50,
 ): Promise<UserActivityEvent[]> {
+  if (useFirestore("analytics")) return fsq.getUserActivityTimeline(userId, limit);
   const db = getDb();
   const rows = await db
     .select({
@@ -1425,6 +1439,7 @@ export async function getUserActivityTimeline(
 export async function getLastActivityByUserIds(
   userIds: string[],
 ): Promise<Map<string, Date>> {
+  if (useFirestore("analytics")) return fsq.getLastActivityByUserIds(userIds);
   if (userIds.length === 0) return new Map();
   const db = getDb();
   const rows = await db
@@ -1507,6 +1522,7 @@ function describeActivity(
  * must be changed in both places.
  */
 export async function getDeveloperVerificationBreakdown(): Promise<DeveloperVerificationBreakdown> {
+  if (useFirestore("analytics")) return fsq.getDeveloperVerificationBreakdown();
   const db = getDb();
   const result = await db.execute<{ effective_status: string; n: string }>(sql`
     select sub.effective_status, count(*) as n
@@ -1562,6 +1578,7 @@ export async function getDeveloperVerificationBreakdown(): Promise<DeveloperVeri
  * project's current and near-term scale.
  */
 export async function getInfrastructureEntityCounts(): Promise<InfrastructureEntityCounts> {
+  if (useFirestore("analytics")) return fsq.getInfrastructureEntityCounts();
   const db = getDb();
   const [
     [developersRow],
@@ -1607,6 +1624,7 @@ export async function getInfrastructureEntityCounts(): Promise<InfrastructureEnt
  * trusted without the same kind of direct verification.
  */
 export async function getDatabaseTableSizes(): Promise<TableSizeInfo[]> {
+  if (useFirestore("analytics")) return fsq.getDatabaseTableSizes();
   const db = getDb();
   const result = await db.execute<{ relname: string; size_bytes: string }>(sql`
     select relname, pg_total_relation_size(relid) as size_bytes

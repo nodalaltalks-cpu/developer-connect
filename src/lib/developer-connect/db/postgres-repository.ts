@@ -21,6 +21,8 @@ import type {
 } from "../repository.ts";
 import { NotFoundError } from "../errors.ts";
 import { normalizeUrl } from "../url.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { createFirestoreRepositories } from "../firestore/firestore-repository.ts";
 
 type DbOrTx = NodePgDatabase<typeof schema>;
 
@@ -553,5 +555,6 @@ function buildRepositories(db: DbOrTx): DeveloperConnectRepositories {
  * talking to.
  */
 export function createPostgresRepositories(): DeveloperConnectRepositories {
+  if (useFirestore("developers")) return createFirestoreRepositories();
   return buildRepositories(getDb());
 }

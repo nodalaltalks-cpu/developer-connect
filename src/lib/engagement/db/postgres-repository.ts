@@ -12,6 +12,8 @@ import type {
   NewsletterSubscriberRepository,
 } from "../repository.ts";
 import type { InaccuracyReport, ContactSubmission, ContactStatusHistoryEntry, NewsletterSubscriber } from "../types.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { createFirestoreEngagementRepositories } from "../firestore/firestore-repository.ts";
 
 /**
  * Lives in the SAME database as developer-connect's own tables (same
@@ -301,5 +303,6 @@ export function buildEngagementRepositories(db: DbOrTx): EngagementRepositories 
 }
 
 export function createEngagementRepositories(): EngagementRepositories {
+  if (useFirestore("engagement")) return createFirestoreEngagementRepositories();
   return buildEngagementRepositories(getDb());
 }

@@ -4,6 +4,8 @@ import { getDb } from "../developer-connect/db/client.ts";
 import * as schema from "../developer-connect/db/schema.ts";
 import type { DisplayMode, EnteredVia, RequestChannel, Testimonial, TestimonialStatus } from "./model.ts";
 import type { TestimonialEvent, TestimonialRepository } from "./service.ts";
+import { useFirestore } from "../firestore/backend.ts";
+import { createFirestoreTestimonialRepository } from "./firestore/firestore-repository.ts";
 
 type Db = NodePgDatabase<typeof schema>;
 type Row = typeof schema.testimonials.$inferSelect;
@@ -141,6 +143,7 @@ function build(db: Db): TestimonialRepository {
 }
 
 export function createPostgresTestimonialRepository(): TestimonialRepository {
+  if (useFirestore("testimonials")) return createFirestoreTestimonialRepository();
   return build(getDb());
 }
 

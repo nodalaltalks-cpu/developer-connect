@@ -85,7 +85,7 @@ test("capture: an invalid or empty phone is refused with a phone-field error and
       (error: unknown) => error instanceof LeadValidationError && error.field === "phone",
     );
   }
-  const snapshot = repos.snapshot();
+  const snapshot = (await repos.snapshot());
   assert.equal(snapshot.leads.length, 0);
   assert.equal(snapshot.events.length, 0);
 });
@@ -101,7 +101,7 @@ test("capture: bad email, oversize name, unknown contact preference and an email
   await reject({ name: "x".repeat(101) }, "name");
   await reject({ contactPreference: "CARRIER_PIGEON" as never }, "contactPreference");
   await reject({ contactPreference: "EMAIL", email: null }, "email");
-  assert.equal(repos.snapshot().leads.length, 0);
+  assert.equal((await repos.snapshot()).leads.length, 0);
 });
 
 test("capture: a name and email are optional", async () => {
@@ -120,7 +120,7 @@ test("capture: a failure part-way leaves NO half-written lead (the whole capture
   await assert.rejects(() => captureAssistanceLead(repos, captureInput(), T0), /simulated/);
   repos.consents.create = original;
 
-  const snapshot = repos.snapshot();
+  const snapshot = (await repos.snapshot());
   assert.equal(snapshot.leads.length, 0, "the lead must have been rolled back");
   assert.equal(snapshot.events.length, 0, "no orphan events");
 });
@@ -134,7 +134,7 @@ test("duplicates: the same number typed differently is the SAME lead — a repea
 
   assert.equal(second.created, false);
   assert.equal(second.lead.id, first.lead.id);
-  assert.equal(repos.snapshot().leads.length, 1);
+  assert.equal((await repos.snapshot()).leads.length, 1);
 
   const events = await getLeadTimeline(repos, first.lead.id);
   assert.deepEqual(types(events), [
@@ -212,7 +212,7 @@ test("concurrency: 25 simultaneous submissions of the same number produce exactl
     ),
   );
 
-  const snapshot = repos.snapshot();
+  const snapshot = (await repos.snapshot());
   assert.equal(snapshot.leads.length, 1, "exactly one lead");
   assert.equal(results.filter((result) => result.created).length, 1, "exactly one submission created it");
   assert.equal(new Set(results.map((result) => result.lead.id)).size, 1);
@@ -228,7 +228,7 @@ test("concurrency: simultaneous submissions of DIFFERENT numbers each get their 
   const repos = createInMemoryLeadRepositories();
   const phones = ["+919876543210", "+919876543211", "+919876543212", "+919876543213"];
   await Promise.all(phones.map((phone) => captureAssistanceLead(repos, captureInput({ phone }), T0)));
-  assert.equal(repos.snapshot().leads.length, 4);
+  assert.equal((await repos.snapshot()).leads.length, 4);
 });
 
 // --- attribution -------------------------------------------------------------------------------
@@ -645,7 +645,7 @@ test("erasure: the same phone number later is a NEW lead — no link back is kep
   const returning = await captureAssistanceLead(repos, captureInput(), minutes(200));
   assert.equal(returning.created, true);
   assert.notEqual(returning.lead.id, leadId);
-  assert.equal(repos.snapshot().leads.length, 2);
+  assert.equal((await repos.snapshot()).leads.length, 2);
 });
 
 test("erasure: an unknown lead is not-found", async () => {

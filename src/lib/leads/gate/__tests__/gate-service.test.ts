@@ -174,7 +174,7 @@ test("invalid phone: refused with a phone-field error, no destination, and NOTHI
     assert.equal(leadId, null);
     assert.ok(!("destinationUrl" in response));
   }
-  assert.equal(w.lead.snapshot().leads.length, 0);
+  assert.equal((await w.lead.snapshot()).leads.length, 0);
   assert.ok(!names(w.events).includes("lead_submitted"));
   assert.ok(!names(w.events).includes("official_website_redirected"));
 });
@@ -196,7 +196,7 @@ test("invalid input: an unknown contact method, source, country or non-string ph
   for (const garbage of [null, undefined, "string", 42] as never[]) {
     assert.equal((await submitGate(w.deps, w.ctx, garbage)).response.ok, false);
   }
-  assert.equal(w.lead.snapshot().leads.length, 0);
+  assert.equal((await w.lead.snapshot()).leads.length, 0);
 });
 
 // =================================================================================================
@@ -220,7 +220,7 @@ test("unverified: a developer whose website was never verified cannot take a req
   assert.equal(!response.ok && response.code, "NOT_VERIFIED");
   assert.equal(leadId, null);
   assert.ok(!("destinationUrl" in response), "no URL of any kind is returned");
-  assert.equal(w.lead.snapshot().leads.length, 0, "a lead is not created for an unverified developer");
+  assert.equal((await w.lead.snapshot()).leads.length, 0, "a lead is not created for an unverified developer");
 });
 
 test("unverified: an unknown, malformed or non-string developer id is refused", async () => {
@@ -305,7 +305,7 @@ test("duplicate: the same number again is the SAME lead, with a new click, a fre
   const second = await submitGate(w.deps, { ...w.ctx, sessionId: "session-2" }, input(w, { phone: "+919876543210", attribution: { currentTouch: { utmSource: "meta" } } }));
 
   assert.equal(second.leadId, first.leadId);
-  assert.equal(w.lead.snapshot().leads.length, 1);
+  assert.equal((await w.lead.snapshot()).leads.length, 1);
   const lead = (await w.lead.leads.getById(first.leadId!))!;
   assert.equal((await w.lead.touches.getById(lead.firstTouchId!))!.utmSource, "google", "first touch preserved");
   assert.equal((await w.lead.touches.getById(lead.lastTouchId!))!.utmSource, "meta", "latest touch moved");
@@ -321,7 +321,7 @@ test("returning: one-tap continue uses the number on file — the browser sends 
   assert.ok(again.response.ok);
   assert.doesNotMatch(JSON.stringify(again.response), WEBSITE);
   assert.equal(again.leadId, first.leadId);
-  assert.equal(w.lead.snapshot().leads.length, 1);
+  assert.equal((await w.lead.snapshot()).leads.length, 1);
 
   const requests = (await w.lead.events.listByLead(first.leadId!)).filter((e) => e.eventType === "DEVELOPER_CONNECT_REQUESTED");
   assert.equal(requests.length, 2);
@@ -373,7 +373,7 @@ test("failure: if saving the lead fails the buyer gets a retryable error and not
   assert.equal(!response.ok && response.code, "TEMPORARY_FAILURE");
   assert.equal(!response.ok && response.message, GATE_ERROR_MESSAGES.TEMPORARY_FAILURE);
   assert.equal(leadId, null);
-  assert.equal(w.lead.snapshot().leads.length, 0, "nothing half-saved");
+  assert.equal((await w.lead.snapshot()).leads.length, 0, "nothing half-saved");
   assert.ok(!names(w.events).includes("lead_submitted"), "no 'submitted' event for a request that was never saved");
 });
 
@@ -387,7 +387,7 @@ test("failure: retrying after the outage clears succeeds and creates the lead", 
   w.lead.consents.create = original;
   const retry = await submitGate(w.deps, w.ctx, input(w));
   assert.equal(retry.response.ok, true);
-  assert.equal(w.lead.snapshot().leads.length, 1);
+  assert.equal((await w.lead.snapshot()).leads.length, 1);
 });
 
 test("failure: a database error while checking the developer is also an error state, not a bypass", async () => {
@@ -439,7 +439,7 @@ test("honeypot: a filled hidden field is refused with a generic error, saves not
   assert.equal(response.ok, false);
   assert.equal(!response.ok && response.code, "GATE_REJECTED");
   assert.equal(leadId, null);
-  assert.equal(w.lead.snapshot().leads.length, 0);
+  assert.equal((await w.lead.snapshot()).leads.length, 0);
   // An empty or whitespace honeypot is a human.
   assert.equal((await submitGate(w.deps, w.ctx, input(w, { website: "   " }))).response.ok, true);
 });
@@ -453,7 +453,7 @@ test("rate limit: a single browser session can submit only a few times in the wi
 
   const blocked = await submitGate(w.deps, w.ctx, input(w, { phone: "+919876500007" }));
   assert.equal(!blocked.response.ok && blocked.response.code, "RATE_LIMITED");
-  assert.equal(w.lead.snapshot().leads.length, GATE_RATE_LIMIT.maxSubmissions);
+  assert.equal((await w.lead.snapshot()).leads.length, GATE_RATE_LIMIT.maxSubmissions);
 
   // A different session is unaffected, and the same session recovers after the window passes.
   assert.equal((await submitGate(w.deps, { ...w.ctx, sessionId: "other-session" }, input(w, { phone: "+919876500008" }))).response.ok, true);
@@ -568,7 +568,7 @@ test("no bypass: getGateState has no mode argument and can only return the form,
     assert.ok(["required", "unavailable"].includes(state.mode));
     assert.doesNotMatch(JSON.stringify(state), WEBSITE);
   }
-  assert.equal(w.lead.snapshot().leads.length, 0, "opening the gate never creates a lead");
+  assert.equal((await w.lead.snapshot()).leads.length, 0, "opening the gate never creates a lead");
 });
 
 test("no bypass: a database error while the gate loads stays an error — it never degrades into anything that exposes a website", async () => {

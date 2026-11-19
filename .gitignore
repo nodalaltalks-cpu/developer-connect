@@ -46,3 +46,9 @@ next-env.d.ts
 # local Claude Code tooling (skill cache, task locks) — not application code
 .agents
 .claude
+
+# firebase / firestore
+*-debug.log
+.firebase/
+firebase-adminsdk-*.json
+*service-account*.json

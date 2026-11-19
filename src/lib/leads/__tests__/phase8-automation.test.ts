@@ -156,16 +156,16 @@ test("return visit alerts: the owner is told once per 12h when the buyer comes b
   const r = recorder();
 
   // The enquiry session itself (30 minutes after capture) is not a return; nor are views by buyers who are unowned/closed.
-  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 30 * 60_000));
-  w.repos.recordPageView("user_buyer_3", new Date(T0.getTime() + 5 * HOUR));
-  w.repos.recordPageView("user_buyer_4", new Date(T0.getTime() + 5 * HOUR));
-  w.repos.recordPageView("someone_else", new Date(T0.getTime() + 5 * HOUR));
+  await w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 30 * 60_000));
+  await w.repos.recordPageView("user_buyer_3", new Date(T0.getTime() + 5 * HOUR));
+  await w.repos.recordPageView("user_buyer_4", new Date(T0.getTime() + 5 * HOUR));
+  await w.repos.recordPageView("someone_else", new Date(T0.getTime() + 5 * HOUR));
   const first = new Date(T0.getTime() + HOUR);
   await runAutomations(w.repos, w.staff, r.notifier, first);
   assert.equal(r.sent.filter((n) => n.type === "LEAD_REVISITED").length, 0);
 
   // A real return, 5 hours in: one alert to the OWNER, pointing at the lead, carrying no buyer data.
-  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 5 * HOUR));
+  await w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 5 * HOUR));
   const now = new Date(T0.getTime() + 6 * HOUR);
   const res = await runAutomations(w.repos, w.staff, r.notifier, now);
   await runAutomations(w.repos, w.staff, r.notifier, new Date(now.getTime() + 60_000));
@@ -185,15 +185,15 @@ test("return visit alerts: a later return in a new 12h bucket alerts again; the 
   await w.repos.leads.update(lead.id, { userId: "user_buyer_1" }, T0);
   await assignLead(w.repos, w.staff, lead.id, w.priya.id, FOUNDER, minutes(5));
   const r = recorder();
-  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 5 * HOUR));
+  await w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 5 * HOUR));
   await runAutomations(w.repos, w.staff, r.notifier, new Date(T0.getTime() + 6 * HOUR));
-  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 20 * HOUR));
+  await w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 20 * HOUR));
   await runAutomations(w.repos, w.staff, r.notifier, new Date(T0.getTime() + 21 * HOUR));
   assert.equal(r.sent.filter((n) => n.type === "LEAD_REVISITED").length, 2);
   assert.notEqual(returnVisitKey(lead.id, new Date(T0.getTime() + 5 * HOUR)), returnVisitKey(lead.id, new Date(T0.getTime() + 20 * HOUR)));
 
   await setAutomationEnabled(w.repos, "RETURN_VISIT_ALERTS", false, FOUNDER);
-  w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 40 * HOUR));
+  await w.repos.recordPageView("user_buyer_1", new Date(T0.getTime() + 40 * HOUR));
   await runAutomations(w.repos, w.staff, r.notifier, new Date(T0.getTime() + 41 * HOUR));
   assert.equal(r.sent.filter((n) => n.type === "LEAD_REVISITED").length, 2, "off means silent");
 });

@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { CLOSED_OUT_STATUSES } from "./lead-views.ts";
+import { createFirestoreLeadRepositoriesForTests } from "./firestore/index.ts";
 import type { TouchEvidence } from "./acquisition.ts";
 import { randomUUID } from "node:crypto";
 import { summariseEvents } from "./activity-summary.ts";
@@ -71,6 +72,9 @@ const toRequirement = (stored: StoredRequirement): LeadRequirement => ({ ...stor
 export function createInMemoryLeadRepositories(
   developerNames: Record<string, string> = {},
 ): LeadRepositories & { snapshot(): { leads: Lead[]; events: LeadEvent[] }; recordPageView(userId: string, at: Date): void } {
+  // Conformance mode: the same tests run against the Firestore emulator (see firestore/index.ts). snapshot() and
+  // recordPageView() are asynchronous there, so tests `await` them (harmless for this in-memory version).
+  if (process.env.LEADS_TEST_BACKEND === "firestore") return createFirestoreLeadRepositoriesForTests(developerNames) as never;
   const state = {
     leads: new Map<string, Lead>(),
     events: [] as LeadEvent[],

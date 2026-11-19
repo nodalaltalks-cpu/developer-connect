@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "../../developer-connect/db/client.ts";
 import type { BehaviourReport, CtaRow, Device, PageHealthRow, SessionFacts } from "../report.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { loadBehaviourReport as loadFirestoreBehaviourReport } from "../firestore/queries.ts";
 
 /**
  * Reads the behaviour report from analytics_events. Aggregation happens in SQL (one row per session, one per page and
@@ -20,6 +22,7 @@ const PATH_GROUP = sql`case
   else payload->>'path' end`;
 
 export async function loadBehaviourReport(from: Date, to: Date): Promise<BehaviourReport> {
+  if (useFirestore("analytics")) return loadFirestoreBehaviourReport(from, to);
   const db = getDb();
   const range = sql`occurred_at >= ${from.toISOString()}::timestamptz and occurred_at < ${to.toISOString()}::timestamptz`;
 

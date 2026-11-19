@@ -9,6 +9,8 @@ import type { EventPatch, ProcessorStore } from "../process.ts";
 import type { PostInput } from "../input.ts";
 import type { AutomationCurrency, AutomationMode, AutomationPlatform, AutomationSettings, ContentFormat, PostConfig, ProjectFacts, TriggerIntent } from "../types.ts";
 import { DEFAULT_SETTINGS } from "../types.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import * as fs from "../firestore/firestore-automation.ts";
 
 /** The database side of the comment-to-DM automation. Founder-only callers; nothing here is reachable from a public page. */
 
@@ -55,6 +57,7 @@ const toConfig = (row: PostRow, triggers: TriggerRow[]): PostConfig => ({
 // --- settings -------------------------------------------------------------------------------------------------
 
 export async function getSettings(): Promise<AutomationSettings> {
+  if (useFirestore("social_automation")) return fs.getSettings();
   const [row] = await getDb().select().from(socialAutomationSettings).where(eq(socialAutomationSettings.id, "global")).limit(1);
   if (!row) return DEFAULT_SETTINGS;
   return {
@@ -75,6 +78,7 @@ const fields = (s: AutomationSettings) => ({
 });
 
 export async function saveSettings(patch: Partial<AutomationSettings>, actor: string, now: Date): Promise<void> {
+  if (useFirestore("social_automation")) return fs.saveSettings(patch, actor, now);
   const current = await getSettings();
   const next = { ...current, ...patch };
   await getDb()
@@ -86,11 +90,13 @@ export async function saveSettings(patch: Partial<AutomationSettings>, actor: st
 // --- projects -------------------------------------------------------------------------------------------------
 
 export async function listProjects(): Promise<ProjectFacts[]> {
+  if (useFirestore("social_automation")) return fs.listProjects();
   const rows = await getDb().select().from(projects).where(eq(projects.status, "ACTIVE")).orderBy(asc(projects.name)).limit(500);
   return rows.map(toProject);
 }
 
 export async function getProject(id: string): Promise<ProjectFacts | null> {
+  if (useFirestore("social_automation")) return fs.getProject(id);
   const [row] = await getDb().select().from(projects).where(eq(projects.id, id)).limit(1);
   return row ? toProject(row) : null;
 }
@@ -98,6 +104,7 @@ export async function getProject(id: string): Promise<ProjectFacts | null> {
 // --- post configuration ---------------------------------------------------------------------------------------
 
 export async function listPosts(): Promise<Array<{ config: PostConfig; project: ProjectFacts | null; updatedAt: Date }>> {
+  if (useFirestore("social_automation")) return fs.listPosts();
   const db = getDb();
   const rows = await db.select().from(socialPostAutomations).orderBy(desc(socialPostAutomations.updatedAt)).limit(300);
   if (rows.length === 0) return [];
@@ -112,6 +119,7 @@ export async function listPosts(): Promise<Array<{ config: PostConfig; project: 
 }
 
 export async function getPost(id: string): Promise<{ config: PostConfig; project: ProjectFacts | null; updatedAt: Date } | null> {
+  if (useFirestore("social_automation")) return fs.getPost(id);
   const db = getDb();
   const [row] = await db.select().from(socialPostAutomations).where(eq(socialPostAutomations.id, id)).limit(1);
   if (!row) return null;
@@ -121,6 +129,7 @@ export async function getPost(id: string): Promise<{ config: PostConfig; project
 
 /** The post a webhook comment belongs to, if the Founder configured it. */
 export async function findPostByPlatformId(platform: AutomationPlatform, postId: string): Promise<{ config: PostConfig; project: ProjectFacts | null } | null> {
+  if (useFirestore("social_automation")) return fs.findPostByPlatformId(platform, postId);
   const [row] = await getDb()
     .select({ id: socialPostAutomations.id })
     .from(socialPostAutomations)
@@ -135,6 +144,7 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 export async function createPost(input: PostInput, actor: string, now: Date): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  if (useFirestore("social_automation")) return fs.createPost(input, actor, now);
   const id = randomUUID();
   try {
     await getDb().transaction(async (tx) => {
@@ -172,6 +182,7 @@ export async function createPost(input: PostInput, actor: string, now: Date): Pr
  * here: they have their own explicit actions.
  */
 export async function updatePost(id: string, input: PostInput, actor: string, now: Date): Promise<RepoResult> {
+  if (useFirestore("social_automation")) return fs.updatePost(id, input, actor, now);
   try {
     return await getDb().transaction(async (tx) => {
       const [current] = await tx.select().from(socialPostAutomations).where(eq(socialPostAutomations.id, id)).limit(1);
@@ -211,6 +222,7 @@ export async function updatePost(id: string, input: PostInput, actor: string, no
 }
 
 export async function deletePost(id: string): Promise<RepoResult> {
+  if (useFirestore("social_automation")) return fs.deletePost(id);
   try {
     await getDb().delete(socialPostAutomations).where(eq(socialPostAutomations.id, id));
     return { ok: true };
@@ -224,6 +236,7 @@ export async function deletePost(id: string): Promise<RepoResult> {
  * have required the Founder's explicit confirmation. Leaving LIVE clears that confirmation, so going Live again asks again.
  */
 export async function setPostMode(id: string, mode: AutomationMode, actor: string, now: Date): Promise<RepoResult> {
+  if (useFirestore("social_automation")) return fs.setPostMode(id, mode, actor, now);
   const post = await getPost(id);
   if (!post) return { ok: false, error: "That post could not be found." };
   if (mode === "LIVE") {
@@ -240,6 +253,7 @@ export async function setPostMode(id: string, mode: AutomationMode, actor: strin
 
 /** The Founder checked the project's current price and approves it for automatic messages. Captures the price as it is right now. */
 export async function verifyPrice(id: string, actor: string, now: Date): Promise<RepoResult> {
+  if (useFirestore("social_automation")) return fs.verifyPrice(id, actor, now);
   const post = await getPost(id);
   if (!post) return { ok: false, error: "That post could not be found." };
   if (!post.project) return { ok: false, error: "Choose the project first." };
@@ -250,10 +264,12 @@ export async function verifyPrice(id: string, actor: string, now: Date): Promise
 }
 
 export async function revokePriceApproval(id: string, actor: string, now: Date): Promise<void> {
+  if (useFirestore("social_automation")) return fs.revokePriceApproval(id, actor, now);
   await getDb().update(socialPostAutomations).set({ priceApproved: false, priceVerifiedAt: null, priceSnapshot: null, updatedAt: now, updatedBy: actor }).where(eq(socialPostAutomations.id, id));
 }
 
 export async function verifyAvailability(id: string, actor: string, now: Date): Promise<RepoResult> {
+  if (useFirestore("social_automation")) return fs.verifyAvailability(id, actor, now);
   const post = await getPost(id);
   if (!post) return { ok: false, error: "That post could not be found." };
   if (!post.config.availabilityText?.trim()) return { ok: false, error: "Write the availability first, then verify it." };
@@ -264,6 +280,7 @@ export async function verifyAvailability(id: string, actor: string, now: Date): 
 // --- follow-up ------------------------------------------------------------------------------------------------
 
 export async function setFollowUp(eventId: string, status: "OPEN" | "DONE" | "DISMISSED", note: string | null, now: Date): Promise<RepoResult> {
+  if (useFirestore("social_automation")) return fs.setFollowUp(eventId, status, note, now);
   const rows = await getDb()
     .update(socialCommentEvents)
     .set({ followUpStatus: status, followUpNote: note, followUpUpdatedAt: now })
@@ -318,6 +335,7 @@ export interface CommentEventRow {
  * a Dry Run is counted on its own and never as a send. Nothing here says a message was read: Meta's webhook does not tell us.
  */
 export async function automationSummary(from: Date | null, to: Date | null): Promise<AutomationSummary> {
+  if (useFirestore("social_automation")) return fs.automationSummary(from, to);
   const db = getDb();
   const inRange = and(from ? gte(socialCommentEvents.receivedAt, from) : undefined, to ? lt(socialCommentEvents.receivedAt, to) : undefined);
   const matched = sql`${socialCommentEvents.triggerKeyword} is not null`;
@@ -376,6 +394,7 @@ export async function automationSummary(from: Date | null, to: Date | null): Pro
 }
 
 export async function listCommentEvents(limit = 100, onlyFollowUp = false): Promise<CommentEventRow[]> {
+  if (useFirestore("social_automation")) return fs.listCommentEvents(limit, onlyFollowUp);
   const rows = await getDb()
     .select()
     .from(socialCommentEvents)
@@ -412,6 +431,7 @@ export async function listCommentEvents(limit = 100, onlyFollowUp = false): Prom
 
 /** The database side of `processComment`. One comment is one row; the unique (platform, comment_id) makes a second delivery a no-op. */
 export function createProcessorStore(): ProcessorStore {
+  if (useFirestore("social_automation")) return fs.createProcessorStore();
   return {
     getSettings,
     findPost: findPostByPlatformId,
@@ -453,6 +473,7 @@ export function createProcessorStore(): ProcessorStore {
  * reel that was just published: the first comment on it shows up here and can be linked to the draft with one tap.
  */
 export async function recentUnlinkedPosts(platform: AutomationPlatform, limit = 8): Promise<Array<{ postId: string; comments: number; lastAt: Date; sample: string | null }>> {
+  if (useFirestore("social_automation")) return fs.recentUnlinkedPosts(platform, limit);
   const rows = await getDb()
     .select({
       postId: socialCommentEvents.postId,

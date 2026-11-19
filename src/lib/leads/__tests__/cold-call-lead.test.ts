@@ -85,7 +85,7 @@ test("new lead, everything at once: one COLD_CALL lead owned by the caller, stat
 
 test("ALL OR NOTHING: if any step fails, no lead, project, requirement, follow-up or event is left behind", async () => {
   const w = await world();
-  const before = w.repos.snapshot();
+  const before = (await w.repos.snapshot());
   await assert.rejects(
     saveColdCallLead(w.repos, {
       phone: NEW_PHONE, name: "Asha Rao", interest: "INTERESTED", qualification: { outcome: "QUALIFIED" },
@@ -94,7 +94,7 @@ test("ALL OR NOTHING: if any step fails, no lead, project, requirement, follow-u
     }, w.priyaActor, NOW),
     LeadNotFoundError,
   );
-  const after = w.repos.snapshot();
+  const after = (await w.repos.snapshot());
   assert.equal(after.leads.length, before.leads.length, "the new lead was rolled back");
   assert.equal(after.events.length, before.events.length, "so were all its events");
   assert.equal(await w.repos.leads.findByPhone(NEW_E164), null);
@@ -120,7 +120,7 @@ test("duplicates: a number that exists is never created again and never describe
   assert.deepEqual(notYours, { saved: false, reason: "EXISTS_NOT_YOURS" }, "nothing about the lead or its owner");
   assert.equal((await w.repos.leads.getById(w.theirs.id))!.name, "Buyer 2");
   assert.equal((await w.repos.leads.getById(w.mine.id))!.status, "NEW", "a duplicate attempt changes nothing");
-  assert.equal(w.repos.snapshot().leads.length, 2);
+  assert.equal((await w.repos.snapshot()).leads.length, 2);
 });
 
 test("an existing lead after a call: missing name/email are filled in, existing ones are never overwritten, and the fill-in is an event", async () => {
@@ -144,9 +144,9 @@ test("existing lead: another member's lead looks absent, a lead past qualificati
   const w = await world();
   await assert.rejects(saveColdCallLead(w.repos, { leadId: w.theirs.id, interest: "INTERESTED", qualification: { outcome: "QUALIFIED" }, note: "x" }, w.priyaActor, NOW), LeadNotFoundError);
   await changeLeadStatus(w.repos, w.mine.id, "NEGOTIATION", FOUNDER, {}, minutes(20));
-  const before = w.repos.snapshot().events.length;
+  const before = (await w.repos.snapshot()).events.length;
   await assert.rejects(saveColdCallLead(w.repos, { leadId: w.mine.id, interest: "INTERESTED", qualification: { outcome: "QUALIFIED" }, note: "Will not be saved" }, w.priyaActor, NOW), LeadStateError);
-  assert.equal(w.repos.snapshot().events.length, before, "not even the note survived");
+  assert.equal((await w.repos.snapshot()).events.length, before, "not even the note survived");
   await assert.rejects(saveColdCallLead(w.repos, { leadId: "not-a-uuid", interest: "NOT_LOOKING" }, w.priyaActor, NOW), LeadNotFoundError);
   await assert.rejects(saveColdCallLead(w.repos, { phone: NEW_PHONE, interest: "NOT_LOOKING" }, { actorType: "BUYER", actorId: "x" }, NOW), UnauthorizedLeadActionError);
 });
@@ -202,7 +202,7 @@ test("validation: every input is checked against fixed lists before anything is 
   for (const [label, override] of bad) {
     await assert.rejects(saveColdCallLead(w.repos, { ...base, ...override } as never, w.priyaActor, NOW), LeadValidationError, label);
   }
-  assert.equal(w.repos.snapshot().leads.length, 2, "no invalid request created a lead");
+  assert.equal((await w.repos.snapshot()).leads.length, 2, "no invalid request created a lead");
 });
 
 test("founder: may save a cold call too; the lead goes to the Founder queue (no owner)", async () => {

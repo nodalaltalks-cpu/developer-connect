@@ -2,6 +2,9 @@ import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../developer-connect/db/schema.ts";
 import { calculateProfileCompletion } from "../profile/completion.ts";
+import { useFirestore } from "../firestore/backend.ts";
+import { getDb } from "../developer-connect/db/client.ts";
+import { getRetentionReportFirestore } from "./firestore/report.ts";
 
 /**
  * RETENTION, counted from records that exist: first-party visit events (a persistent anonymous visitor cookie, one year), lead
@@ -62,7 +65,11 @@ export function bandProfiles(rows: Array<{ data: Record<string, unknown> }>): Pr
 
 const num = (value: unknown) => Number(value ?? 0);
 
-export async function getRetentionReport(db: Db, range: { from: Date; to: Date }): Promise<RetentionReport> {
+/** The database handle the report needs: none when the data lives in Firestore (the report then reads it itself). */
+export const retentionDb = (): Db | null => (useFirestore("analytics") ? null : getDb());
+
+export async function getRetentionReport(db: Db | null, range: { from: Date; to: Date }): Promise<RetentionReport> {
+  if (db === null || useFirestore("analytics")) return getRetentionReportFirestore(range);
   const { from, to } = range;
   const sessions = await db.execute(sql`
     with s as (

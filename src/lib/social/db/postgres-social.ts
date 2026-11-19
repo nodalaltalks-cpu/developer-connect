@@ -4,6 +4,8 @@ import { getDb } from "../../developer-connect/db/client.ts";
 import { enquirySubmissions, leads, socialEvents, socialVideos } from "../../developer-connect/db/schema.ts";
 import type { EnquiryStore } from "../enquiry-service.ts";
 import type { SocialSummary, SocialVideo, SocialVideoInput, ValidSocialEvent } from "../types.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import * as fs from "../firestore/firestore-social.ts";
 
 /** The database side of the social features: the Founder's video list, the anonymous event log and the enquiry answers. */
 
@@ -21,21 +23,25 @@ const toVideo = (row: typeof socialVideos.$inferSelect): SocialVideo => ({
 });
 
 export async function listActiveVideos(): Promise<SocialVideo[]> {
+  if (useFirestore("social")) return fs.listActiveVideos();
   const rows = await getDb().select().from(socialVideos).where(eq(socialVideos.active, true)).orderBy(socialVideos.sortOrder, desc(socialVideos.createdAt)).limit(40);
   return rows.map(toVideo);
 }
 
 export async function listAllVideos(): Promise<SocialVideo[]> {
+  if (useFirestore("social")) return fs.listAllVideos();
   const rows = await getDb().select().from(socialVideos).orderBy(socialVideos.sortOrder, desc(socialVideos.createdAt)).limit(200);
   return rows.map(toVideo);
 }
 
 export async function videoExists(id: string): Promise<boolean> {
+  if (useFirestore("social")) return fs.videoExists(id);
   const rows = await getDb().select({ id: socialVideos.id }).from(socialVideos).where(eq(socialVideos.id, id)).limit(1);
   return rows.length > 0;
 }
 
 export async function createVideo(input: SocialVideoInput, now: Date): Promise<SocialVideo> {
+  if (useFirestore("social")) return fs.createVideo(input, now);
   const [row] = await getDb()
     .insert(socialVideos)
     .values({ id: randomUUID(), ...input, createdAt: now, updatedAt: now })
@@ -44,14 +50,17 @@ export async function createVideo(input: SocialVideoInput, now: Date): Promise<S
 }
 
 export async function updateVideo(id: string, patch: Partial<SocialVideoInput>, now: Date): Promise<void> {
+  if (useFirestore("social")) return fs.updateVideo(id, patch, now);
   await getDb().update(socialVideos).set({ ...patch, updatedAt: now }).where(eq(socialVideos.id, id));
 }
 
 export async function deleteVideo(id: string): Promise<void> {
+  if (useFirestore("social")) return fs.deleteVideo(id);
   await getDb().delete(socialVideos).where(eq(socialVideos.id, id));
 }
 
 export async function recordSocialEvent(event: ValidSocialEvent, ctx: { sessionId: string; deviceType: string; now: Date }): Promise<void> {
+  if (useFirestore("social")) return fs.recordSocialEvent(event, ctx);
   await getDb()
     .insert(socialEvents)
     .values({
@@ -73,6 +82,7 @@ export async function recordSocialEvent(event: ValidSocialEvent, ctx: { sessionI
 
 export const postgresEnquiryStore: EnquiryStore = {
   async insert(row) {
+    if (useFirestore("social")) return fs.firestoreEnquiryStore.insert(row);
     await getDb()
       .insert(enquirySubmissions)
       .values({ id: randomUUID(), leadId: row.leadId, createdAt: row.createdAt, answers: row.answers, howFound: row.howFound, utmSource: row.utmSource, utmMedium: row.utmMedium, utmCampaign: row.utmCampaign, landingPath: row.landingPath });
@@ -94,6 +104,7 @@ export interface EnquiryRow {
 
 /** The Founder's list of enquiry-form submissions, newest first, with the lead each created. */
 export async function listEnquiries(limit = 100): Promise<EnquiryRow[]> {
+  if (useFirestore("social")) return fs.listEnquiries(limit);
   const rows = await getDb()
     .select({
       id: enquirySubmissions.id,
@@ -119,6 +130,7 @@ const n = (v: unknown) => Number(v ?? 0);
 
 /** Everything the social dashboard shows for a date range, computed in the database in a few bounded queries. */
 export async function socialSummary(from: Date, to: Date): Promise<SocialSummary> {
+  if (useFirestore("social")) return fs.socialSummary(from, to);
   const db = getDb();
   const range = sql`occurred_at >= ${from.toISOString()}::timestamptz and occurred_at < ${to.toISOString()}::timestamptz`;
 

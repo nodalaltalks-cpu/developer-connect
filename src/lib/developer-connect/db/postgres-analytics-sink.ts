@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "./client.ts";
 import { analyticsEvents } from "./schema.ts";
 import type { AnalyticsEvent, AnalyticsEventSink } from "../events.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { recordAnalyticsEvent } from "../../firestore/analytics-events.ts";
 
 /**
  * Real, persisted analytics — not a dashboard, just structured storage so
@@ -12,6 +14,7 @@ import type { AnalyticsEvent, AnalyticsEventSink } from "../events.ts";
  */
 export const postgresAnalyticsSink: AnalyticsEventSink = {
   async record(event: AnalyticsEvent) {
+    if (useFirestore("analytics")) return recordAnalyticsEvent(event);
     const { eventName, occurredAt, sessionId, anonymousUserId, userId, ...rest } = event;
     const { developerId, ...payload } = rest as typeof rest & { developerId?: string };
 

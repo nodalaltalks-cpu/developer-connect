@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireFounder } from "@/lib/auth";
 import { SectionHeading } from "@/components/admin/empty-state";
-import { getDb } from "@/lib/developer-connect/db/client";
+
 import { RANGE_PRESETS, parseInsightFilters } from "@/lib/leads/call-analytics";
-import { getRetentionReport, share } from "@/lib/retention/report";
+import { getRetentionReport, retentionDb, share } from "@/lib/retention/report";
 
 export const metadata = { title: "Retention | Developer Connects", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export default async function RetentionPage({ searchParams }: PageProps<"/admin/
   await requireFounder();
   const params = await searchParams;
   const { range } = parseInsightFilters({ range: first(params.range) ?? "last30", from: first(params.from), to: first(params.to) }, new Date());
-  const r = await getRetentionReport(getDb(), range);
+  const r = await getRetentionReport(retentionDb(), range);
   const advisorTotal = r.reachedAdvisor.returning + r.reachedAdvisor.firstVisit;
 
   return (

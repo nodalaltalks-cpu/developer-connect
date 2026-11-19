@@ -6,6 +6,8 @@ import * as schema from "../../developer-connect/db/schema.ts";
 import { staffEvents, staffMembers } from "../../developer-connect/db/schema.ts";
 import { StaffNotFoundError, StaffStateError } from "../errors.ts";
 import type { NewStaffMember, StaffEventInput, StaffPatch, StaffRepository } from "../repository.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { createFirestoreStaffRepository } from "../firestore/firestore-repository.ts";
 import { PLACEHOLDER_PREFIX, type ExitReason, type StaffEvent, type StaffEventType, type StaffMember } from "../types.ts";
 
 /** PostgreSQL adapter for the team. Same database and schema.ts as the rest of the product (migrations 0018 and 0027). */
@@ -136,6 +138,7 @@ function build(db: Db): StaffRepository {
 }
 
 export function createPostgresStaffRepository(): StaffRepository {
+  if (useFirestore("staff")) return createFirestoreStaffRepository();
   return build(getDb());
 }
 

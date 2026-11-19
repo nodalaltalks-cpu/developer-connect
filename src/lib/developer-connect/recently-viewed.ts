@@ -3,6 +3,8 @@ import { getDb } from "./db/client.ts";
 import { analyticsEvents } from "./db/schema.ts";
 import type { DeveloperConnectRepositories } from "./repository.ts";
 import { toPublicDeveloperProfile, type PublicDeveloperProfile } from "./public-view.ts";
+import { useFirestore } from "../firestore/backend.ts";
+import { readEvents } from "../firestore/analytics-events.ts";
 
 const DEFAULT_LIMIT = 5;
 
@@ -28,26 +30,46 @@ export async function getRecentlyViewedDevelopers(
 ): Promise<PublicDeveloperProfile[]> {
   if (!identity.userId && !identity.sessionId) return [];
 
-  const db = getDb();
-  const identityCondition = identity.userId
-    ? eq(analyticsEvents.userId, identity.userId)
-    : eq(analyticsEvents.sessionId, identity.sessionId!);
+  let rows: Array<{ developerId: string | null }>;
+  if (useFirestore("analytics")) {
+    // Most recent view per distinct developer, newest first (the events are read newest-first, so first sight wins).
+    const events = await readEvents({
+      names: ["developer_page_viewed"],
+      userId: identity.userId,
+      sessionId: identity.userId ? undefined : identity.sessionId,
+      newestFirst: true,
+      limit: 300,
+    });
+    const seen = new Set<string>();
+    rows = [];
+    for (const e of events) {
+      if (!e.developerId || seen.has(e.developerId)) continue;
+      seen.add(e.developerId);
+      rows.push({ developerId: e.developerId });
+      if (rows.length >= limit * 2) break;
+    }
+  } else {
+    const db = getDb();
+    const identityCondition = identity.userId
+      ? eq(analyticsEvents.userId, identity.userId)
+      : eq(analyticsEvents.sessionId, identity.sessionId!);
 
-  // Most recent view per distinct developer — a developer viewed 5 times
-  // today should appear once, at its most recent view time, not crowd
-  // out everything else.
-  const rows = await db
-    .select({
-      developerId: analyticsEvents.developerId,
-      lastViewedAt: sql<string>`max(${analyticsEvents.occurredAt})`,
-    })
-    .from(analyticsEvents)
-    .where(
-      and(eq(analyticsEvents.eventName, "developer_page_viewed"), identityCondition, sql`${analyticsEvents.developerId} is not null`),
-    )
-    .groupBy(analyticsEvents.developerId)
-    .orderBy(desc(sql`max(${analyticsEvents.occurredAt})`))
-    .limit(limit * 2); // headroom: some may no longer be publicly verified by the time we filter below
+    // Most recent view per distinct developer — a developer viewed 5 times
+    // today should appear once, at its most recent view time, not crowd
+    // out everything else.
+    rows = await db
+      .select({
+        developerId: analyticsEvents.developerId,
+        lastViewedAt: sql<string>`max(${analyticsEvents.occurredAt})`,
+      })
+      .from(analyticsEvents)
+      .where(
+        and(eq(analyticsEvents.eventName, "developer_page_viewed"), identityCondition, sql`${analyticsEvents.developerId} is not null`),
+      )
+      .groupBy(analyticsEvents.developerId)
+      .orderBy(desc(sql`max(${analyticsEvents.occurredAt})`))
+      .limit(limit * 2); // headroom: some may no longer be publicly verified by the time we filter below
+  }
 
   const developerIds = rows.map((r) => r.developerId).filter((id): id is string => Boolean(id));
   if (developerIds.length === 0) return [];

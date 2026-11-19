@@ -158,7 +158,7 @@ test("migration: 0019 is additive, separate from 0017/0018, never touches produc
   assert.doesNotMatch(readFileSync(path.join(dir, "0018_phase2_staff_foundation.sql"), "utf8"), /lead_requirement/, "0018 must not contain Step 3 changes");
 });
 
-test("portability: the requirement code uses standard PostgreSQL only — no Neon-specific application logic, no Firebase", () => {
+test("portability: the requirement code uses standard PostgreSQL only — no Neon-specific application logic", () => {
   const files = [
     "src/lib/leads/requirement-service.ts",
     "src/lib/leads/requirement-locations.ts",
@@ -168,7 +168,8 @@ test("portability: the requirement code uses standard PostgreSQL only — no Neo
     "src/components/leads/requirement-section.tsx",
   ];
   for (const rel of files) {
-    assert.doesNotMatch(read(rel), /@neondatabase|neon\.tech|neon_|firebase|firestore/i, `${rel} must stay provider-neutral`);
+    // The backend switch (DATA_BACKEND=firestore) lives in the Postgres adapter file, so only Neon-specific names are banned.
+    assert.doesNotMatch(read(rel), /@neondatabase|neon\.tech|neon_/i, `${rel} must stay free of Neon-specific logic`);
   }
   assert.doesNotMatch(read("src/lib/developer-connect/db/migrations/0019_phase2_buyer_requirements.sql"), /neon|extension|pgcrypto/i);
   assert.match(read("src/lib/developer-connect/db/migrations/0019_phase2_buyer_requirements.sql"), /gen_random_uuid\(\)/, "built-in since PostgreSQL 13");

@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "../developer-connect/db/client.ts";
+import { useFirestore } from "../firestore/backend.ts";
+import { getFirestoreDb } from "../firestore/client.ts";
 import { getInfrastructureEntityCounts, getDatabaseTableSizes } from "../admin-analytics/queries.ts";
 import {
   DATABASE_LATENCY_THRESHOLDS_MS,
@@ -45,7 +47,50 @@ function realDatabaseCapacityBytes(): number | null {
  * reported only when a real provider quota is available; see
  * neonManagementApiKey() above for exactly why it currently is not.
  */
+/**
+ * Firestore variant of the database check: a real timed read (connectivity + latency) judged by the same thresholds as
+ * before. Firestore does not report a storage size to the application (usage and billing live in the Firebase console),
+ * so storage is reported as not measured, with that reason, rather than invented.
+ */
+async function checkFirestoreHealth(): Promise<DatabaseHealth> {
+  let connectionOk = true;
+  let latencyMs: number | null = null;
+  try {
+    const start = Date.now();
+    await getFirestoreDb().collection("counters").limit(1).get();
+    latencyMs = Date.now() - start;
+  } catch {
+    connectionOk = false;
+  }
+  const storage: CapacityInfo = {
+    measured: false,
+    usedBytes: null,
+    capacityBytes: null,
+    remainingBytes: null,
+    usagePercent: null,
+    reason: "Firestore does not report storage size to the app. See Usage in the Firebase console (project settings) for stored data and daily reads and writes.",
+  };
+  let status: DatabaseHealth["status"] = "HEALTHY";
+  let summary = "Database is working normally";
+  let detail = "Developer Connects can reach its database and responses are fast.";
+  if (!connectionOk) {
+    status = "ACTION_REQUIRED";
+    summary = "Database connection problem";
+    detail = "Developer Connects is having trouble talking to its database.";
+  } else if (latencyMs !== null && latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.CRITICAL_ABOVE) {
+    status = "ACTION_REQUIRED";
+    summary = "Database is responding very slowly";
+    detail = `The last check took ${latencyMs}ms to complete, well above what's normal.`;
+  } else if (latencyMs !== null && latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.DEGRADED_ABOVE) {
+    status = "NEEDS_ATTENTION";
+    summary = "Database is responding slowly";
+    detail = "Some database requests are taking longer than usual.";
+  }
+  return { status, summary, detail, connectionOk, latencyMs, storage, tableBreakdown: [] };
+}
+
 export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
+  if (useFirestore("analytics")) return checkFirestoreHealth();
   let connectionOk = true;
   let latencyMs: number | null = null;
   let usedBytes: number | null = null;

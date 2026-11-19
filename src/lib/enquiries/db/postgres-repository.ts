@@ -4,6 +4,8 @@ import { getDb } from "../../developer-connect/db/client.ts";
 import { buyerEnquiries } from "../../developer-connect/db/schema.ts";
 import type { BuyerEnquiryRepository } from "../repository.ts";
 import type { BuyerEnquiry, EnquiryKind, RatingSummary } from "../types.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { createFirestoreBuyerEnquiryRepository } from "../firestore/firestore-repository.ts";
 
 function toEntry(row: typeof buyerEnquiries.$inferSelect): BuyerEnquiry {
   return {
@@ -23,7 +25,9 @@ function toEntry(row: typeof buyerEnquiries.$inferSelect): BuyerEnquiry {
   };
 }
 
-export function createPostgresBuyerEnquiryRepository(db = getDb()): BuyerEnquiryRepository {
+export function createPostgresBuyerEnquiryRepository(dbOrTx?: ReturnType<typeof getDb>): BuyerEnquiryRepository {
+  if (useFirestore("enquiries")) return createFirestoreBuyerEnquiryRepository();
+  const db = dbOrTx ?? getDb();
   return {
     async create(input) {
       const [row] = await db

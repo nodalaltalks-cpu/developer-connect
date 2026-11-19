@@ -6,6 +6,8 @@ import * as schema from "../../developer-connect/db/schema.ts";
 import { notifications } from "../../developer-connect/db/schema.ts";
 import type { Notification } from "../types.ts";
 import type { NotificationRepository } from "../repository.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { createFirestoreNotificationRepository } from "../firestore/firestore-repository.ts";
 
 type DbOrTx = NodePgDatabase<typeof schema>;
 
@@ -32,7 +34,10 @@ function toNotification(row: typeof notifications.$inferSelect): Notification {
  * instead of always going through the module-level pool. Every existing
  * call site keeps working unchanged, since this defaults to `getDb()`.
  */
-export function createPostgresNotificationRepository(db: DbOrTx = getDb()): NotificationRepository {
+export function createPostgresNotificationRepository(dbOrTx?: DbOrTx): NotificationRepository {
+  // DATA_BACKEND=firestore swaps the store without touching any of the ~20 call sites.
+  if (useFirestore("notifications")) return createFirestoreNotificationRepository();
+  const db = dbOrTx ?? getDb();
   return {
     async create(input) {
       const [row] = await db

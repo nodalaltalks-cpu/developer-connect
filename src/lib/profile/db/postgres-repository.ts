@@ -3,6 +3,8 @@ import { getDb } from "../../developer-connect/db/client.ts";
 import { profiles } from "../../developer-connect/db/schema.ts";
 import type { Profile } from "../types.ts";
 import type { ProfileRepository } from "../repository.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { createFirestoreProfileRepository } from "../firestore/firestore-repository.ts";
 
 function toProfile(row: typeof profiles.$inferSelect): Profile {
   return {
@@ -20,6 +22,7 @@ function toProfile(row: typeof profiles.$inferSelect): Profile {
  * a full-row overwrite, so updating one field can never clobber another.
  */
 export function createPostgresProfileRepository(): ProfileRepository {
+  if (useFirestore("profile")) return createFirestoreProfileRepository();
   const db = getDb();
 
   return {

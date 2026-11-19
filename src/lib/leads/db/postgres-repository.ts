@@ -69,6 +69,8 @@ import type {
 } from "../repository.ts";
 import { assertNoImmutableFields } from "../repository.ts";
 import type { Booking, Lead, LeadActivitySummary, LeadCall, LeadConsent, LeadEvent, LeadFollowUp, LeadImportBatch, LeadRequirement, MarketingTouch } from "../types.ts";
+import { useFirestore } from "../../firestore/backend.ts";
+import { createFirestoreLeadRepositories } from "../firestore/index.ts";
 
 /**
  * PostgreSQL adapter for the lead repositories. Lives in the same database
@@ -1514,6 +1516,7 @@ function build(db: DbOrTx): LeadRepositories {
 }
 
 export function createPostgresLeadRepositories(): LeadRepositories {
+  if (useFirestore("leads")) return createFirestoreLeadRepositories();
   return build(getDb());
 }
 

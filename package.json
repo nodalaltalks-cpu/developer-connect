@@ -13,11 +13,16 @@
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:migrate:test": "dotenv -e .env.local -- node scripts/with-test-database.cjs npx drizzle-kit migrate",
     "db:seed:test": "dotenv -e .env.local -- node --experimental-strip-types src/lib/developer-connect/db/seed-test-data.ts",
+    "test:firestore": "firebase emulators:exec --only firestore --project demo-developer-connect \"node --test --test-concurrency=1 src/lib/firestore/__tests__/*.emulator.test.ts\"",
+    "test:firestore:leads": "firebase emulators:exec --only firestore --project demo-developer-connect \"node scripts/run-leads-firestore-tests.cjs\"",
+    "firestore:migrate": "dotenv -e .env.local -- node scripts/migrate-postgres-to-firestore.ts",
+    "firestore:compare": "dotenv -e .env.local -- node scripts/compare-backends.ts",
     "test:db": "dotenv -e .env.local -- npm test"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.2",
     "drizzle-orm": "^0.45.2",
+    "firebase-admin": "^14.5.1",
     "libphonenumber-js": "^1.13.14",
     "next": "16.3.4",
     "pg": "^8.23.0",

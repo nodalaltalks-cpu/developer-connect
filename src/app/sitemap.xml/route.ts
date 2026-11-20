@@ -1,4 +1,16 @@
+import { unstable_cache } from "next/cache";
 import { buildSitemapEntries } from "@/lib/sitemap-entries";
+
+/**
+ * Building the sitemap reads the whole published directory (about 1,200 developers plus their verification records). Kept
+ * for an hour and shared by every server instance, so crawlers and monitors cost one build an hour instead of one per request.
+ * Dates are stored as text because the cache keeps plain data only.
+ */
+const cachedSitemapEntries = unstable_cache(
+  async () => (await buildSitemapEntries()).map((e) => ({ url: e.url, lastModified: e.lastModified ? new Date(e.lastModified).toISOString() : null })),
+  ["sitemap-entries"],
+  { revalidate: 3600, tags: ["public-developers"] },
+);
 
 /**
  * /sitemap.xml as a route handler (not the sitemap.ts metadata convention)
@@ -22,7 +34,7 @@ function escapeXml(value: string): string {
 }
 
 export async function GET() {
-  const entries = await buildSitemapEntries();
+  const entries = await cachedSitemapEntries();
   const urls = entries
     .map((entry) => {
       const lastModified = entry.lastModified ? new Date(entry.lastModified).toISOString() : null;

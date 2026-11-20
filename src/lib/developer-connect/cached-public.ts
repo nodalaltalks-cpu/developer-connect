@@ -13,10 +13,10 @@ import { getPublicDeveloperBySlug, getPublicDirectoryPage, listRelatedVerifiedDe
  * CACHE_SECONDS means the same page seen by many visitors costs one query, and the database can sleep in between.
  *
  * What a visitor sees does not change: these are the same public, non-personal results, at most CACHE_SECONDS old (a
- * developer edit shows up within five minutes). Nothing personal is cached here: no sign-in, no recently-viewed list, no
+ * developer edit shows up within half an hour). Nothing personal is cached here: no sign-in, no recently-viewed list, no
  * session. Every value is plain data (no dates), so it survives being stored.
  */
-const CACHE_SECONDS = 300;
+const CACHE_SECONDS = 1800;
 const TAG = "public-developers";
 
 export const cachedPublicDeveloperBySlug = unstable_cache(

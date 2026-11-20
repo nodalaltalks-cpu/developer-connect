@@ -135,7 +135,9 @@ const candidateFromVerified = (developerId: string, v: CandidateDoc): WebsiteCan
  * stops several directory/search calls inside one render from each re-reading the collection. It is bypassed inside
  * transactions and dropped on every write made by this process.
  */
-const TTL_MS = 30_000;
+// Ten minutes: every page, the sitemap and each crawler hit reads all ~1,200 published developers, and a short copy made the
+// free Firestore read quota run out. An admin edit still clears it on that instance at once (invalidate below).
+const TTL_MS = 10 * 60_000;
 let publishedCache: { at: number; rows: Array<{ id: string; data: FirebaseFirestore.DocumentData }> } | null = null;
 let activeCache: { at: number; rows: Developer[] } | null = null;
 const invalidate = () => {
@@ -145,18 +147,29 @@ const invalidate = () => {
 
 async function loadPublished(ctx: FsCtx) {
   if (!ctx.inTx && publishedCache && Date.now() - publishedCache.at < TTL_MS) return publishedCache.rows;
-  const views = await ctx.query(ctx.db.collection(DEVELOPERS).where("isPublished", "==", true));
-  const rows = views.map((v) => ({ id: v.id, data: v.data()! }));
-  if (!ctx.inTx) publishedCache = { at: Date.now(), rows };
-  return rows;
+  try {
+    const views = await ctx.query(ctx.db.collection(DEVELOPERS).where("isPublished", "==", true));
+    const rows = views.map((v) => ({ id: v.id, data: v.data()! }));
+    if (!ctx.inTx) publishedCache = { at: Date.now(), rows };
+    return rows;
+  } catch (error) {
+    // Firestore refused (free daily quota, outage): the last good copy beats an error page for a visitor or crawler.
+    if (!ctx.inTx && publishedCache) return publishedCache.rows;
+    throw error;
+  }
 }
 
 async function loadActive(ctx: FsCtx): Promise<Developer[]> {
   if (!ctx.inTx && activeCache && Date.now() - activeCache.at < TTL_MS) return activeCache.rows;
-  const views = await ctx.query(ctx.db.collection(DEVELOPERS).where("status", "==", "ACTIVE"));
-  const rows = views.map((v) => toDeveloper(v.id, v.data()!));
-  if (!ctx.inTx) activeCache = { at: Date.now(), rows };
-  return rows;
+  try {
+    const views = await ctx.query(ctx.db.collection(DEVELOPERS).where("status", "==", "ACTIVE"));
+    const rows = views.map((v) => toDeveloper(v.id, v.data()!));
+    if (!ctx.inTx) activeCache = { at: Date.now(), rows };
+    return rows;
+  } catch (error) {
+    if (!ctx.inTx && activeCache) return activeCache.rows;
+    throw error;
+  }
 }
 
 function toPublishedEntry(row: { id: string; data: FirebaseFirestore.DocumentData }): PublishedDeveloperEntry {

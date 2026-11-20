@@ -44,6 +44,8 @@ export interface UsageReport {
   /** CONNECTED: real numbers. NOT_CONNECTED: see `problem`. */
   connection: "CONNECTED" | "NOT_CONNECTED";
   problem: UsageProblem | null;
+  /** Google's short reason when something failed. */
+  detail: string | null;
   serviceAccountEmail: string | null;
   projectId: string | null;
   checkedAt: Date;
@@ -57,10 +59,24 @@ export interface UsageReport {
 
 class UsageSourceError extends Error {
   problem: UsageProblem;
-  constructor(problem: UsageProblem, message: string) {
+  /** Google's own short reason (status + message), shown to the founder so a failure can be diagnosed. Never contains credentials. */
+  detail: string | null;
+  constructor(problem: UsageProblem, message: string, detail: string | null = null) {
     super(message);
     this.problem = problem;
+    this.detail = detail;
   }
+}
+
+function googleReason(status: number, body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { error?: { message?: string; status?: string } };
+    const text = [parsed.error?.status, parsed.error?.message].filter(Boolean).join(": ");
+    if (text) return `HTTP ${status} ${text}`.slice(0, 300);
+  } catch {
+    // Not JSON: fall through.
+  }
+  return `HTTP ${status}`;
 }
 
 function account(): { projectId: string; email: string; credential: ReturnType<typeof cert> } {
@@ -105,10 +121,10 @@ async function fetchMetric(kind: UsageKind, start: Date, end: Date, alignSeconds
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       if (response.status === 403 && /has not been used|is disabled|SERVICE_DISABLED/i.test(body)) {
-        throw new UsageSourceError("api-disabled", "The Cloud Monitoring API is turned off for this project");
+        throw new UsageSourceError("api-disabled", "The Cloud Monitoring API is turned off for this project", googleReason(response.status, body));
       }
-      if (response.status === 401 || response.status === 403) throw new UsageSourceError("permission", "The service account may not read monitoring data");
-      throw new UsageSourceError("unreachable", `Cloud Monitoring answered ${response.status}`);
+      if (response.status === 401 || response.status === 403) throw new UsageSourceError("permission", "The service account may not read monitoring data", googleReason(response.status, body));
+      throw new UsageSourceError("unreachable", `Cloud Monitoring answered ${response.status}`, googleReason(response.status, body));
     }
     const body = (await response.json()) as { timeSeries?: Array<{ points?: RawPoint[] }>; nextPageToken?: string };
     for (const series of body.timeSeries ?? []) {
@@ -180,8 +196,8 @@ async function syncHistory(stored: StoredUsage, now: Date): Promise<StoredUsage>
 
 const globalState = globalThis as unknown as { __platformUsageCache?: { at: number; report: UsageReport } };
 
-function notConnected(problem: UsageProblem, now: Date, projectId: string | null, email: string | null): UsageReport {
-  return { connection: "NOT_CONNECTED", problem, serviceAccountEmail: email, projectId, checkedAt: now, today: null, assessment: null, windows: [], advice: null, historyFrom: null };
+function notConnected(problem: UsageProblem, detail: string | null, now: Date, projectId: string | null, email: string | null): UsageReport {
+  return { connection: "NOT_CONNECTED", problem, detail, serviceAccountEmail: email, projectId, checkedAt: now, today: null, assessment: null, windows: [], advice: null, historyFrom: null };
 }
 
 export async function getFirestoreUsage(now: Date = new Date()): Promise<UsageReport> {
@@ -207,6 +223,7 @@ export async function getFirestoreUsage(now: Date = new Date()): Promise<UsageRe
     report = {
       connection: "CONNECTED",
       problem: null,
+      detail: null,
       serviceAccountEmail: email,
       projectId,
       checkedAt: now,
@@ -218,7 +235,8 @@ export async function getFirestoreUsage(now: Date = new Date()): Promise<UsageRe
     };
   } catch (error) {
     const problem = error instanceof UsageSourceError ? error.problem : "unreachable";
-    report = notConnected(problem, now, projectId, email);
+    const detail = error instanceof UsageSourceError ? error.detail : error instanceof Error ? error.message.slice(0, 200) : null;
+    report = notConnected(problem, detail, now, projectId, email);
   }
   globalState.__platformUsageCache = { at: now.getTime(), report };
   return report;

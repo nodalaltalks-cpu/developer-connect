@@ -60,6 +60,7 @@ export function PlatformHealthUsage({ usage }: { usage: UsageReport }) {
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Firestore usage</p>
         <p className="mt-2 font-medium text-foreground">🟡 {info.title}</p>
         <p className="mt-1 text-sm text-foreground">{info.steps}</p>
+        {usage.detail && <p className="mt-2 break-words text-xs text-muted-foreground">Google says: {usage.detail}</p>}
         {usage.serviceAccountEmail && (
           <p className="mt-2 break-all text-xs text-muted-foreground">
             Service account: {usage.serviceAccountEmail}

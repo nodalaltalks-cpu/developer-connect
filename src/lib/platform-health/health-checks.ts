@@ -461,11 +461,9 @@ export function checkObjectStorageHealth(): ObjectStorageHealth {
  * affecting Platform Health's status or warnings.
  */
 export async function getPlatformHealth(): Promise<PlatformHealth> {
-  const [database, authentication, usage] = await Promise.all([
-    checkDatabaseHealth(),
-    checkAuthenticationHealth(),
-    firestoreBackendEnabled("analytics") ? getFirestoreUsage().catch(() => undefined) : Promise.resolve(undefined),
-  ]);
+  const [database, authentication] = await Promise.all([checkDatabaseHealth(), checkAuthenticationHealth()]);
+  // Usage runs AFTER the timed probes: fetching and parsing monitoring data at the same moment would inflate their timings.
+  const usage = firestoreBackendEnabled("analytics") ? await getFirestoreUsage().catch(() => undefined) : undefined;
   const deployment = checkDeploymentHealth();
   const storage = checkObjectStorageHealth();
 

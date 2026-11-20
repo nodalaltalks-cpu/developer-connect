@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPlatformHealth } from "@/lib/platform-health/health-checks";
 import { formatRelativeTime } from "@/lib/platform-health/format";
 import { PlatformHealthStatusBadge } from "./platform-health-status-badge";
+import { PlatformHealthAutoRefresh } from "./platform-health-refresh";
 
 /**
  * Compact, non-dominant summary for the main Founder Dashboard — every
@@ -42,6 +43,9 @@ export async function PlatformHealthSummaryCard() {
           <li key={fact}>{fact}</li>
         ))}
       </ul>
+      <div className="mt-2">
+        <PlatformHealthAutoRefresh intervalMs={30_000} />
+      </div>
       <Link
         href="/admin/platform-health"
         className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline"

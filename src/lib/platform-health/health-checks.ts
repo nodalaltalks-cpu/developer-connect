@@ -10,7 +10,11 @@ import {
   HEALTH_CHECK_TIMEOUT_MS,
 } from "./thresholds.ts";
 import { computeOverallStatus, computeOverallMessage, buildWarnings } from "./algorithm.ts";
+import { FIRESTORE_PROBE_AREAS, runProbe, detectRisingLatency, nextQuotaReset } from "./firestore-probe.ts";
+import { recordLatencySample } from "./latency-history.ts";
 import type {
+  DatabaseAreaProbe,
+  PlatformHealthWarning,
   DatabaseHealth,
   DatabaseTableBreakdown,
   CapacityInfo,
@@ -53,15 +57,83 @@ function realDatabaseCapacityBytes(): number | null {
  * so storage is reported as not measured, with that reason, rather than invented.
  */
 async function checkFirestoreHealth(): Promise<DatabaseHealth> {
-  let connectionOk = true;
-  let latencyMs: number | null = null;
+  // One timed read per product area, in parallel, so the page can say WHERE the problem is.
+  let db: ReturnType<typeof getFirestoreDb> | null = null;
   try {
-    const start = Date.now();
-    await getFirestoreDb().collection("counters").limit(1).get();
-    latencyMs = Date.now() - start;
+    db = getFirestoreDb();
   } catch {
-    connectionOk = false;
+    db = null;
   }
+  const areas: DatabaseAreaProbe[] = await Promise.all(
+    FIRESTORE_PROBE_AREAS.map((area) =>
+      runProbe(area, async () => {
+        if (!db) throw Object.assign(new Error("Firestore is not configured"), { code: 7 });
+        await db.collection(area.collection).limit(1).get();
+      }),
+    ),
+  );
+  const okLatencies = areas.filter((a) => a.latencyMs !== null).map((a) => a.latencyMs as number);
+  const connectionOk = okLatencies.length > 0;
+  // The headline response time is the slowest area that answered: a problem anywhere should be visible, not averaged away.
+  const latencyMs = okLatencies.length > 0 ? Math.max(...okLatencies) : null;
+  const history = latencyMs !== null ? recordLatencySample(latencyMs) : [];
+  const trend = detectRisingLatency(history);
+  const reset = nextQuotaReset();
+  const byId = (id: string) => FIRESTORE_PROBE_AREAS.find((a) => a.id === id);
+
+  const issues: PlatformHealthWarning[] = [];
+  const quotaAreas = areas.filter((a) => a.problem === "quota");
+  if (quotaAreas.length > 0) {
+    issues.push({
+      id: "database-quota-reached",
+      category: "DATABASE",
+      level: "ACTION_REQUIRED",
+      title: "Firestore's daily free limit is used up",
+      explanation: `The free plan allows 50,000 reads and 20,000 writes a day. Pages that need the database will fail until it resets at ${reset.text}.`,
+      recommendedAction: "Wait for the reset, or upgrade the Firebase project to the Blaze plan to remove the daily cap.",
+    });
+  }
+  for (const area of areas) {
+    if (area.problem === null || area.problem === "quota") continue;
+    const info = byId(area.id);
+    issues.push({
+      id: `database-area-${area.id}-${area.problem}`,
+      category: "DATABASE",
+      level: "ACTION_REQUIRED",
+      title: `${area.label} is failing`,
+      explanation: `${area.message}. This affects ${info?.whatBreaks ?? "part of the site"}.`,
+      recommendedAction:
+        area.problem === "index"
+          ? "A Firestore index is missing. Ask Claude to add it and deploy the indexes."
+          : area.problem === "permission"
+            ? "The Firebase key may have been revoked or changed. Check FIREBASE_SERVICE_ACCOUNT in Vercel."
+            : "Check the Firebase status page, then the Vercel runtime logs for this deployment.",
+    });
+  }
+  const slowAreas = areas.filter((a) => a.problem === null && a.status !== "HEALTHY");
+  for (const area of slowAreas) {
+    const info = byId(area.id);
+    const critical = area.status === "ACTION_REQUIRED";
+    issues.push({
+      id: `database-area-${area.id}-${critical ? "critical" : "slow"}`,
+      category: "DATABASE",
+      level: critical ? "ACTION_REQUIRED" : "NEEDS_ATTENTION",
+      title: `${area.label} is ${critical ? "responding very slowly" : "getting slow"}`,
+      explanation: `A small read took ${area.latencyMs}ms. This affects ${info?.whatBreaks ?? "part of the site"}.`,
+      recommendedAction: "Usually temporary. If it stays slow for several minutes, check the Firebase status page.",
+    });
+  }
+  if (trend.rising && slowAreas.length === 0 && issues.length === 0) {
+    issues.push({
+      id: "database-trend-rising",
+      category: "DATABASE",
+      level: "NEEDS_ATTENTION",
+      title: "Early warning: the database is getting slower",
+      explanation: `Responses went from about ${trend.baselineMs}ms to about ${trend.recentMs}ms. Nothing is broken yet.`,
+      recommendedAction: "Keep an eye on it. If it keeps climbing, check the Firebase status page.",
+    });
+  }
+
   const storage: CapacityInfo = {
     measured: false,
     usedBytes: null,
@@ -70,23 +142,26 @@ async function checkFirestoreHealth(): Promise<DatabaseHealth> {
     usagePercent: null,
     reason: "Firestore does not report storage size to the app. See Usage in the Firebase console (project settings) for stored data and daily reads and writes.",
   };
-  let status: DatabaseHealth["status"] = "HEALTHY";
-  let summary = "Database is working normally";
-  let detail = "Developer Connects can reach its database and responses are fast.";
-  if (!connectionOk) {
-    status = "ACTION_REQUIRED";
-    summary = "Database connection problem";
-    detail = "Developer Connects is having trouble talking to its database.";
-  } else if (latencyMs !== null && latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.CRITICAL_ABOVE) {
-    status = "ACTION_REQUIRED";
-    summary = "Database is responding very slowly";
-    detail = `The last check took ${latencyMs}ms to complete, well above what's normal.`;
-  } else if (latencyMs !== null && latencyMs > DATABASE_LATENCY_THRESHOLDS_MS.DEGRADED_ABOVE) {
-    status = "NEEDS_ATTENTION";
-    summary = "Database is responding slowly";
-    detail = "Some database requests are taking longer than usual.";
-  }
-  return { status, summary, detail, connectionOk, latencyMs, storage, tableBreakdown: [] };
+  const worst = issues.find((i) => i.level === "ACTION_REQUIRED") ?? issues[0];
+  const status: DatabaseHealth["status"] = issues.some((i) => i.level === "ACTION_REQUIRED")
+    ? "ACTION_REQUIRED"
+    : issues.length > 0
+      ? "NEEDS_ATTENTION"
+      : "HEALTHY";
+  const summary = worst ? worst.title : "Database is working normally";
+  const detail = worst ? worst.explanation : "Every part of the database answered quickly.";
+  return {
+    status,
+    summary,
+    detail,
+    connectionOk,
+    latencyMs,
+    storage,
+    tableBreakdown: [],
+    areas,
+    issues,
+    trendSamples: history.length,
+  };
 }
 
 export async function checkDatabaseHealth(): Promise<DatabaseHealth> {

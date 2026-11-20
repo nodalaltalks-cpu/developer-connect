@@ -1,6 +1,12 @@
 import { getPlatformHealth } from "@/lib/platform-health/health-checks";
 import { formatBytes, formatPercent } from "@/lib/platform-health/format";
-import { DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT } from "@/lib/platform-health/thresholds";
+import {
+  DATABASE_STORAGE_USAGE_THRESHOLDS_PERCENT,
+  DATABASE_EARLY_WARNING_MS,
+  DATABASE_LATENCY_THRESHOLDS_MS,
+  TREND_RULE,
+} from "@/lib/platform-health/thresholds";
+import { nextQuotaReset } from "@/lib/platform-health/firestore-probe";
 import { PlatformHealthStatusBadge } from "@/components/admin/platform-health-status-badge";
 import { PlatformHealthRefresh } from "@/components/admin/platform-health-refresh";
 import { PlatformHealthCategoryCard } from "@/components/admin/platform-health-category-card";
@@ -31,6 +37,12 @@ export default async function PlatformHealthPage() {
     }
   } else if (database.storage.measured) {
     limitsToWatch.push("Database capacity information is not exposed by your provider.");
+  }
+  if (database.areas) {
+    // Firestore's free plan has hard daily caps the app cannot read; say so plainly instead of pretending to measure them.
+    limitsToWatch.push(
+      `Firestore free plan: 50,000 reads and 20,000 writes a day, resetting at ${nextQuotaReset().text}. The app cannot read today's usage, so check Firebase → Firestore → Usage. If a cap is hit, this page turns red.`,
+    );
   }
 
   return (
@@ -64,6 +76,33 @@ export default async function PlatformHealthPage() {
               </p>
             </div>
           ))}
+        </div>
+      )}
+
+      {database.areas && database.areas.length > 0 && (
+        <div className="mt-6 rounded-lg border border-border p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Which part is slow or failing
+          </p>
+          <ul className="mt-3 divide-y divide-border">
+            {database.areas.map((area) => (
+              <li key={area.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="text-foreground">
+                  {area.status === "HEALTHY" ? "🟢" : area.status === "NEEDS_ATTENTION" ? "🟡" : "🔴"} {area.label}
+                </span>
+                <span className="text-muted-foreground">
+                  {area.problem ? area.message : `${area.latencyMs}ms`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Each line is a small live read of that part of the database. Early warnings: yellow above {DATABASE_EARLY_WARNING_MS}ms,
+            red above {DATABASE_LATENCY_THRESHOLDS_MS.CRITICAL_ABOVE}ms, or when the last few responses are twice as slow as before.
+            {database.trendSamples !== undefined && database.trendSamples < TREND_RULE.MIN_SAMPLES
+              ? ` The "getting slower" rule needs ${TREND_RULE.MIN_SAMPLES} checks to start; so far ${database.trendSamples}.`
+              : ""}
+          </p>
         </div>
       )}
 

@@ -71,7 +71,10 @@ export function buildWarnings(input: {
 }): PlatformHealthWarning[] {
   const warnings: PlatformHealthWarning[] = [];
 
-  if (input.database.status === "ACTION_REQUIRED" || input.database.status === "NEEDS_ATTENTION") {
+  if (input.database.issues) {
+    // Firestore: the check already worked out exactly which area is wrong and why, so use those cards as they are.
+    warnings.push(...input.database.issues);
+  } else if (input.database.status === "ACTION_REQUIRED" || input.database.status === "NEEDS_ATTENTION") {
     const level = input.database.status;
     const { connectionOk, latencyMs, storage } = input.database;
     const usagePercent = storage.usagePercent;

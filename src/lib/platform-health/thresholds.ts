@@ -28,6 +28,23 @@ export const DATABASE_LATENCY_THRESHOLDS_MS = {
   CRITICAL_ABOVE: 1000,
 } as const;
 
+/**
+ * Early warning for Firestore: with the functions in Mumbai next to the database a tiny read normally takes well under 100ms,
+ * so anything above this is worth hearing about before it reaches DEGRADED_ABOVE.
+ */
+export const DATABASE_EARLY_WARNING_MS = 150;
+
+/**
+ * "Getting slower" rule: the median of the last RECENT_COUNT measurements is more than RISE_FACTOR times the median of the
+ * earlier ones, and above MIN_RECENT_MS (so a jump from 5ms to 12ms never raises an alarm).
+ */
+export const TREND_RULE = {
+  MIN_SAMPLES: 8,
+  RECENT_COUNT: 3,
+  RISE_FACTOR: 2,
+  MIN_RECENT_MS: 100,
+} as const;
+
 export const AUTHENTICATION_LATENCY_THRESHOLDS_MS = {
   /** Clerk's own Backend API is a third-party network call, inherently slower than a local DB round-trip — a wider margin than the database threshold is intentional, not inconsistent. */
   DEGRADED_ABOVE: 800,

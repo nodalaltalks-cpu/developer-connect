@@ -57,12 +57,29 @@ export interface DatabaseTableBreakdown {
   percentOfTotal: number | null;
 }
 
+/** One timed read of one part of the database: lets the page say WHERE something is slow or failing. */
+export interface DatabaseAreaProbe {
+  id: string;
+  label: string;
+  status: HealthStatus;
+  latencyMs: number | null;
+  /** Null when the read worked. */
+  problem: "quota" | "index" | "permission" | "timeout" | "unavailable" | "other" | null;
+  message: string | null;
+}
+
 export interface DatabaseHealth extends HealthCheckResult {
   connectionOk: boolean;
   latencyMs: number | null;
   storage: CapacityInfo;
   /** Real per-table size/row-count breakdown for every application table — empty only if storage itself couldn't be measured. */
   tableBreakdown: DatabaseTableBreakdown[];
+  /** Firestore only: one timed read per product area. */
+  areas?: DatabaseAreaProbe[];
+  /** Firestore only: ready-made warning cards (quota, failing area, slow area, getting slower). When present they replace the generic database warning. */
+  issues?: PlatformHealthWarning[];
+  /** Firestore only: how many recent measurements the "getting slower" rule had to work with. */
+  trendSamples?: number;
 }
 
 /**

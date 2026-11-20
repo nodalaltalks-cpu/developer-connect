@@ -7,6 +7,7 @@ import {
   TREND_RULE,
 } from "@/lib/platform-health/thresholds";
 import { nextQuotaReset } from "@/lib/platform-health/firestore-probe";
+import { PlatformHealthUsage } from "@/components/admin/platform-health-usage";
 import { PlatformHealthStatusBadge } from "@/components/admin/platform-health-status-badge";
 import { PlatformHealthRefresh } from "@/components/admin/platform-health-refresh";
 import { PlatformHealthCategoryCard } from "@/components/admin/platform-health-category-card";
@@ -39,9 +40,10 @@ export default async function PlatformHealthPage() {
     limitsToWatch.push("Database capacity information is not exposed by your provider.");
   }
   if (database.areas) {
-    // Firestore's free plan has hard daily caps the app cannot read; say so plainly instead of pretending to measure them.
     limitsToWatch.push(
-      `Firestore free plan: 50,000 reads and 20,000 writes a day, resetting at ${nextQuotaReset().text}. The app cannot read today's usage, so check Firebase → Firestore → Usage. If a cap is hit, this page turns red.`,
+      health.usage?.connection === "CONNECTED"
+        ? `Firestore free plan: 50,000 reads, 20,000 writes and 20,000 deletes a day, resetting at ${nextQuotaReset().text}. Live usage is in the section above.`
+        : `Firestore free plan: 50,000 reads, 20,000 writes and 20,000 deletes a day, resetting at ${nextQuotaReset().text}. Live usage is not connected yet; see the Firestore usage section above. If a cap is hit, this page turns red.`,
     );
   }
 
@@ -105,6 +107,8 @@ export default async function PlatformHealthPage() {
           </p>
         </div>
       )}
+
+      {health.usage && <PlatformHealthUsage usage={health.usage} />}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <PlatformHealthCategoryCard

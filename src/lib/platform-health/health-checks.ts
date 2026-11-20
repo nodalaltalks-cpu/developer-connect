@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "../developer-connect/db/client.ts";
-import { useFirestore } from "../firestore/backend.ts";
+import { useFirestore as firestoreBackendEnabled } from "../firestore/backend.ts";
 import { getFirestoreDb } from "../firestore/client.ts";
 import { getInfrastructureEntityCounts, getDatabaseTableSizes } from "../admin-analytics/queries.ts";
 import {
@@ -12,6 +12,8 @@ import {
 import { computeOverallStatus, computeOverallMessage, buildWarnings } from "./algorithm.ts";
 import { FIRESTORE_PROBE_AREAS, runProbe, detectRisingLatency, nextQuotaReset } from "./firestore-probe.ts";
 import { recordLatencySample } from "./latency-history.ts";
+import { getFirestoreUsage } from "./usage-source.ts";
+import { usageWarnings } from "./usage.ts";
 import type {
   DatabaseAreaProbe,
   PlatformHealthWarning,
@@ -177,7 +179,7 @@ async function checkFirestoreHealth(): Promise<DatabaseHealth> {
 }
 
 export async function checkDatabaseHealth(): Promise<DatabaseHealth> {
-  if (useFirestore("analytics")) return checkFirestoreHealth();
+  if (firestoreBackendEnabled("analytics")) return checkFirestoreHealth();
   let connectionOk = true;
   let latencyMs: number | null = null;
   let usedBytes: number | null = null;
@@ -459,12 +461,24 @@ export function checkObjectStorageHealth(): ObjectStorageHealth {
  * affecting Platform Health's status or warnings.
  */
 export async function getPlatformHealth(): Promise<PlatformHealth> {
-  const [database, authentication] = await Promise.all([checkDatabaseHealth(), checkAuthenticationHealth()]);
+  const [database, authentication, usage] = await Promise.all([
+    checkDatabaseHealth(),
+    checkAuthenticationHealth(),
+    firestoreBackendEnabled("analytics") ? getFirestoreUsage().catch(() => undefined) : Promise.resolve(undefined),
+  ]);
   const deployment = checkDeploymentHealth();
   const storage = checkObjectStorageHealth();
 
-  const overallStatus = computeOverallStatus([database.status, authentication.status, deployment.status, storage.status]);
+  // Usage against the free daily limits is its own early-warning signal: it can be yellow/red long before anything breaks.
+  const usageStatus = usage?.assessment?.status ?? "NOT_MEASURED";
+  const overallStatus = computeOverallStatus([database.status, authentication.status, deployment.status, storage.status, usageStatus]);
   const warnings = buildWarnings({ database, authentication, deployment });
+  if (usage?.assessment) {
+    const text = (at: Date) => at.toLocaleTimeString("en-GB", { timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit" }) + " Dubai time";
+    warnings.push(...usageWarnings(usage.assessment, text));
+  }
+  // Most severe first, so the headline sentence is always the most urgent one.
+  warnings.sort((a, b) => Number(b.level === "ACTION_REQUIRED") - Number(a.level === "ACTION_REQUIRED"));
   const overallMessage = computeOverallMessage(overallStatus, warnings);
 
   return {
@@ -476,5 +490,6 @@ export async function getPlatformHealth(): Promise<PlatformHealth> {
     deployment,
     storage,
     warnings,
+    usage,
   };
 }

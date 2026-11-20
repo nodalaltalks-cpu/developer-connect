@@ -137,4 +137,6 @@ export interface PlatformHealth {
   deployment: DeploymentHealth;
   storage: ObjectStorageHealth;
   warnings: PlatformHealthWarning[];
+  /** Firestore only: real read/write/delete usage against the free plan (see usage-source.ts). */
+  usage?: import("./usage-source.ts").UsageReport;
 }

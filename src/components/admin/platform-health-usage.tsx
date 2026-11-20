@@ -19,6 +19,11 @@ const ADVICE_STYLE = {
 } as const;
 
 const PROBLEM_TEXT: Record<NonNullable<UsageReport["problem"]>, { title: string; steps: string }> = {
+  billing: {
+    title: "Live usage needs Google billing, which the free Spark plan does not have",
+    steps:
+      "Google only shares exact usage numbers (through Cloud Monitoring) with projects that have a billing account attached. The permission is already correct. Until billing is attached, check Firebase console → Firestore → Usage for today's numbers; the daily limit alerts on this page still work.",
+  },
   permission: {
     title: "Usage isn't connected yet: one permission is missing",
     steps:

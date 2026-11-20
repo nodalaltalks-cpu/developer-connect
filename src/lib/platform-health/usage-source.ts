@@ -38,7 +38,7 @@ const HISTORY_DAYS = 40;
 const CACHE_MS = 60_000;
 const RESYNC_MS = 6 * 3600_000;
 
-export type UsageProblem = "permission" | "api-disabled" | "not-configured" | "unreachable";
+export type UsageProblem = "billing" | "permission" | "api-disabled" | "not-configured" | "unreachable";
 
 export interface UsageReport {
   /** CONNECTED: real numbers. NOT_CONNECTED: see `problem`. */
@@ -120,6 +120,9 @@ async function fetchMetric(kind: UsageKind, start: Date, end: Date, alignSeconds
     }
     if (!response.ok) {
       const body = await response.text().catch(() => "");
+      if (response.status === 403 && /requires billing|enable billing|billing to be enabled/i.test(body)) {
+        throw new UsageSourceError("billing", "Cloud Monitoring needs billing turned on for this project", googleReason(response.status, body));
+      }
       if (response.status === 403 && /has not been used|is disabled|SERVICE_DISABLED/i.test(body)) {
         throw new UsageSourceError("api-disabled", "The Cloud Monitoring API is turned off for this project", googleReason(response.status, body));
       }

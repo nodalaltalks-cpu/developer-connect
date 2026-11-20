@@ -64,6 +64,18 @@ async function checkFirestoreHealth(): Promise<DatabaseHealth> {
   } catch {
     db = null;
   }
+  // The first read on a fresh server instance also pays for opening the connection and fetching a Google access token (a few
+  // hundred ms, shared by every probe). That is start-up cost, not database slowness, so do one throwaway read per instance
+  // first and time the real probes afterwards. A failed warm-up is retried next time; the probes below report the failure.
+  const warm = globalThis as unknown as { __platformHealthWarm?: boolean };
+  if (db && !warm.__platformHealthWarm) {
+    try {
+      await db.collection("counters").limit(1).get();
+      warm.__platformHealthWarm = true;
+    } catch {
+      // Reported by the probes themselves.
+    }
+  }
   const areas: DatabaseAreaProbe[] = await Promise.all(
     FIRESTORE_PROBE_AREAS.map((area) =>
       runProbe(area, async () => {

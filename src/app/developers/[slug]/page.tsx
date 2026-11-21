@@ -15,7 +15,9 @@ import { DeveloperAtAGlance } from "@/components/developer-at-a-glance";
 import { getDeveloperProfile } from "@/lib/developer-connect/developer-profiles";
 import { SiteFooter } from "@/components/site-footer";
 import { LoginConversionPrompt } from "@/components/login-conversion-prompt";
-import { cachedPublicDeveloperBySlug, cachedRelatedDevelopers } from "@/lib/developer-connect/cached-public";
+import { cachedPublicDeveloperBySlug, cachedPublicDirectoryPage, cachedRelatedDevelopers } from "@/lib/developer-connect/cached-public";
+import { locationPath, resolveLocationPage } from "@/lib/developer-connect/location-pages";
+import { guideForArea, guidePath } from "@/lib/seo/guides";
 import type { PublicDeveloperProfile } from "@/lib/developer-connect/public-view";
 import {
   alsoKnownAs,
@@ -146,6 +148,14 @@ export default async function DeveloperPage({
   const relatedDevelopers = developer.officialWebsite
     ? await cachedRelatedDevelopers(developer.id, developer.city, developer.country)
     : [];
+  // Location context: how many developers the directory lists for this city, where to see them, the regulator a buyer checks a
+  // project against here, and the neighbourhood guide when one exists. All of it is data the site already holds.
+  const location = developer.officialWebsite ? resolveLocationPage(developer.country, developer.city) : null;
+  const cityTotal =
+    location?.city
+      ? (await cachedPublicDirectoryPage(location.country, location.city, (location.cityAliases ?? []).join("|"), 0, 1)).total
+      : 0;
+  const areaGuide = guideForArea(developer.city);
   // The heading only says "in {city}" when that is true of every link.
   const relatedAllInCity = relatedDevelopers.every(
     (other) => other.city.toLowerCase() === developer.city.toLowerCase(),
@@ -260,6 +270,41 @@ export default async function DeveloperPage({
                     ? `How to research developers in ${buyDirectGuide.name} →`
                     : "How to research a developer before you buy →"}
                 </Link>
+              </section>
+            )}
+
+            {developer.officialWebsite && location && (
+              <section className="mt-10 border-t border-border pt-8">
+                <h2 className="text-lg font-semibold text-foreground">Researching property in {location.phrase}</h2>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {location.city && cityTotal > 0
+                    ? `${developer.displayName} is one of ${cityTotal} developers listed for ${location.city} on Developer Connects. `
+                    : ""}
+                  <Link href={locationPath(location)} className="font-medium text-accent-hover hover:underline">
+                    {location.city ? `See every developer listed in ${location.city}` : `See every developer listed in ${location.phrase}`}
+                  </Link>
+                  .
+                </p>
+                {buyDirectGuide && (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Regulator to check: </span>
+                    {buyDirectGuide.regulator.url ? (
+                      <a href={buyDirectGuide.regulator.url} rel="noopener" className="text-accent-hover hover:underline">
+                        {buyDirectGuide.regulator.name}
+                      </a>
+                    ) : (
+                      buyDirectGuide.regulator.name
+                    )}
+                    . {buyDirectGuide.regulator.check}
+                  </p>
+                )}
+                {areaGuide && (
+                  <p className="mt-3 text-sm">
+                    <Link href={guidePath(areaGuide)} className="font-medium text-accent-hover hover:underline">
+                      {areaGuide.title} →
+                    </Link>
+                  </p>
+                )}
               </section>
             )}
           </div>

@@ -11,6 +11,11 @@ import { GUIDES, GUIDES_PATH, getGuide, guidePath, relatedGuides } from "@/lib/s
 import { officialSourcesFor } from "@/lib/seo/sources";
 import { articleSchema, breadcrumbSchema, faqSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
+import { cachedPublicDirectoryPage } from "@/lib/developer-connect/cached-public";
+import { locationPath } from "@/lib/developer-connect/location-pages";
+import { directoryCityForGuide, spreadOffset } from "@/lib/seo/guide-developers";
+
+const GUIDE_DEVELOPER_COUNT = 10;
 
 export const dynamicParams = false;
 
@@ -39,6 +44,20 @@ export default async function GuidePage({ params }: PageProps<"/guides/[slug]">)
   if (!guide) notFound();
   const path = guidePath(guide);
   const related = relatedGuides(guide);
+  // Neighbourhood guides link to real, verified developers in their city (a different slice per guide), which also gives the
+  // developer pages a route in that does not depend on the sitemap. A directory read that fails never breaks the guide.
+  const guideCity = directoryCityForGuide(guide);
+  let cityDevelopers: Awaited<ReturnType<typeof cachedPublicDirectoryPage>>["developers"] = [];
+  let cityTotal = 0;
+  if (guideCity) {
+    try {
+      cityTotal = (await cachedPublicDirectoryPage(guideCity.country, guideCity.city, "", 0, 1)).total;
+      const offset = spreadOffset(guide.slug, cityTotal, GUIDE_DEVELOPER_COUNT);
+      cityDevelopers = (await cachedPublicDirectoryPage(guideCity.country, guideCity.city, "", offset, GUIDE_DEVELOPER_COUNT)).developers;
+    } catch {
+      cityDevelopers = [];
+    }
+  }
   const schema = [
     breadcrumbSchema([
       { name: "Home", path: "/" },
@@ -71,6 +90,27 @@ export default async function GuidePage({ params }: PageProps<"/guides/[slug]">)
             <OfficialSources sources={officialSourcesFor(guide.market)} />
 
             <AdviceCta />
+
+            {guideCity && cityDevelopers.length > 0 && (
+              <section className="mt-12">
+                <h2 className="text-lg font-semibold text-foreground">Developers listed in {guideCity.city}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Developer Connects lists {cityTotal} verified developers for {guideCity.city}. A few of them are below.
+                </p>
+                <ul className="mt-3 grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                  {cityDevelopers.map((d) => (
+                    <li key={d.id} className="min-w-0">
+                      <Link href={`/developers/${d.slug}`} className="block truncate py-2 text-accent-hover underline-offset-4 hover:underline">
+                        {d.displayName}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <Link href={locationPath(guideCity)} className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-accent-hover hover:underline">
+                  See every developer listed in {guideCity.city} →
+                </Link>
+              </section>
+            )}
 
             {related.length > 0 && (
               <section className="mt-12">

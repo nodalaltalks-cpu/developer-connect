@@ -175,7 +175,7 @@ test("wiring: the landing page shows the video section, the public pages exist, 
   assert.match(read("src/app/links/page.tsx"), /TrackedLink/);
   assert.match(read("src/app/enquire/page.tsx"), /EnquiryForm/);
   const nav = read("src/components/admin/admin-nav.tsx");
-  assert.match(nav, /\/admin\/social/);
+  assert.doesNotMatch(nav, /\/admin\/social\b/, "the social analytics section is switched off (lib/hidden-admin-sections.ts)");
   assert.match(nav, /\/admin\/enquiries/);
   assert.match(read("src/app/admin/_actions/social-actions.ts"), /await requireFounderForAction\(\)/);
   assert.match(read("src/lib/advisor-contact.ts"), /developerconnects02@gmail\.com/);

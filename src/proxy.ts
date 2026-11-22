@@ -1,5 +1,6 @@
 import type { NextFetchEvent } from "next/server";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isHiddenAdminPath } from "@/lib/hidden-admin-sections";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 /**
@@ -53,6 +54,8 @@ function carriesClerkState(req: NextRequest): boolean {
  * removed.
  */
 export default function proxy(req: NextRequest, event: NextFetchEvent) {
+  // Switched-off founder sections (see lib/hidden-admin-sections.ts) are gone, not just unlinked.
+  if (isHiddenAdminPath(req.nextUrl.pathname)) return new NextResponse("Not found", { status: 404 });
   if (
     req.method === "GET" &&
     !isProtectedRoute(req) &&

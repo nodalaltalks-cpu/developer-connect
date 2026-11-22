@@ -4,7 +4,6 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { AnalyticsConsentProvider } from "@/components/analytics-consent";
 import { AdvisorProvider } from "@/components/advisor/advisor";
 import { AttributionCapture } from "@/components/attribution-capture";
-import { BehaviourTracker } from "@/components/behaviour-tracker";
 import { getGaMeasurementId, getGoogleAdsId, getMetaPixelId } from "@/lib/analytics-config";
 import { founderSchema, organizationSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
@@ -108,7 +107,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         >
           <AttributionCapture />
-          <BehaviourTracker />
           <AnalyticsConsentProvider measurementId={gaMeasurementId} metaPixelId={metaPixelId} adsId={googleAdsId}>
             <AnalyticsEvents />
             <AdvisorProvider>{children}</AdvisorProvider>

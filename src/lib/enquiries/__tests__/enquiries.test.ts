@@ -151,10 +151,10 @@ test("wiring: signed-in only, owner from the session, live cursor and alerts are
   assert.match(read("src/app/api/alerts/ratings/route.ts"), /!isFounder\(user\)\) return new Response\(null, \{ status: 404/);
   assert.match(read("src/app/admin/_actions/rating-actions.ts"), /requireFounderForAction\(\)/);
   assert.match(read("src/app/admin/ratings/page.tsx"), /requireFounder\(\)/);
-  assert.match(read("src/components/admin/admin-nav.tsx"), /"\/admin\/ratings"/);
+  assert.doesNotMatch(read("src/components/admin/admin-nav.tsx"), /"\/admin\/ratings"/, "the ratings section is switched off (lib/hidden-admin-sections.ts)");
   assert.match(read("src/app/api/live/route.ts"), /latestRatedAt\(\)/);
-  assert.match(read("src/app/admin/layout.tsx"), /<RatingAlerts \/>/);
-  assert.match(read("src/components/site-header.tsx"), /showDashboard && <RatingAlerts \/>/);
+  assert.doesNotMatch(read("src/app/admin/layout.tsx"), /<RatingAlerts \/>/, "the rating pop-up polling is switched off");
+  assert.doesNotMatch(read("src/components/site-header.tsx"), /<RatingAlerts \/>/);
   assert.match(read("src/app/profile/page.tsx"), /<EnquiryHistory initial=\{enquiries\} \/>/);
   assert.match(read("src/lib/leads/gate/gate-service.ts"), /kind: "DEVELOPER_CONNECT"/);
   assert.match(read("src/app/_actions/enquiry-actions.ts"), /kind: "QUICK_ENQUIRY"/);

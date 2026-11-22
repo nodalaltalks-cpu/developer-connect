@@ -90,7 +90,7 @@ export default async function AdminLeadsPage({ searchParams }: PageProps<"/admin
         <StatTile label="Due today" value={counts.dueToday} href={tileHref("due_today")} />
         <StatTile label="Qualified" value={counts.qualified} href={tileHref("qualified")} />
         <StatTile label="Site visits scheduled" value={counts.siteVisitScheduled} href="/admin/site-visits" />
-        <StatTile label="Booked" value={counts.booked} href="/admin/finance" />
+        <StatTile label="Booked" value={counts.booked} />
       </StatGrid>
       <p className="mt-2 text-xs text-muted-foreground">
         Counts only — no conversion rates until there are enough leads to mean something. Hot, warm, cold and follow-up counts exclude closed-out leads.

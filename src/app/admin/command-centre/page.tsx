@@ -1,5 +1,4 @@
 import { LiveRefresh } from "@/components/live-refresh";
-import { RatingsTile } from "@/components/admin/ratings-tile";
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { requireFounder } from "@/lib/auth";
@@ -78,8 +77,6 @@ export default async function CommandCentrePage({ searchParams }: PageProps<"/ad
         )}
       </section>
 
-      <RatingsTile />
-
       <section aria-labelledby="overview-heading" className="mt-8">
         <h2 id="overview-heading" className="text-base font-semibold text-foreground">
           What happened
@@ -105,10 +102,7 @@ export default async function CommandCentrePage({ searchParams }: PageProps<"/ad
           );
         })}
         <p className="mt-2 text-xs text-muted-foreground">
-          Recent leads have had less time to qualify or book, so rates for a short range understate where they will end up.{" "}
-          <Link href="/admin/finance" className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
-            Full finance
-          </Link>
+          Recent leads have had less time to qualify or book, so rates for a short range understate where they will end up.
         </p>
       </section>
 
@@ -161,11 +155,6 @@ export default async function CommandCentrePage({ searchParams }: PageProps<"/ad
             ))}
           </ul>
         )}
-        <p className="mt-2 text-xs text-muted-foreground">
-          <Link href="/admin/acquisition" className="inline-flex min-h-11 items-center text-accent-hover hover:underline">
-            Acquisition detail
-          </Link>
-        </p>
       </section>
 
       <section aria-labelledby="proj-heading" className="mt-8">

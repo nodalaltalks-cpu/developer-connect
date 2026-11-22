@@ -15,7 +15,7 @@ const PRIMARY = [
   { href: "/admin/command-centre", label: "Attention" },
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/staff", label: "Team" },
-  { href: "/admin/finance", label: "Finance" },
+  { href: "/admin/developers", label: "Developers" },
 ];
 
 export function AdminBottomNav({ badges = {} }: { badges?: Record<string, number> }) {

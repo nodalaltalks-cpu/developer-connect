@@ -13,9 +13,9 @@ import { buttonClassName } from "@/components/ui/button";
  *  - It stops after IDLE_MS with no mouse, keyboard, touch or scroll and resumes on the next one, so a page left open on a
  *    desk does not keep the database busy all day (each refresh is a handful of small reads on the free plan).
  */
-const IDLE_MS = 5 * 60_000;
+const IDLE_MS = 2 * 60_000;
 
-export function PlatformHealthAutoRefresh({ intervalMs = 10_000 }: { intervalMs?: number }) {
+export function PlatformHealthAutoRefresh({ intervalMs = 600_000 }: { intervalMs?: number }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const pendingRef = useRef(isPending);
@@ -97,7 +97,7 @@ export function PlatformHealthRefresh({ checkedAt }: { checkedAt: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <PlatformHealthAutoRefresh intervalMs={10_000} />
+      <PlatformHealthAutoRefresh intervalMs={600_000} />
       <p className="text-sm text-muted-foreground">Last checked: {formatRelativeTime(new Date(checkedAt))}</p>
       <button
         type="button"

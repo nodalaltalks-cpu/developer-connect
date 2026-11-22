@@ -13,7 +13,15 @@ import { getDeviceType, getOrCreateSessionId } from "@/lib/session";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * Visitor tracking into Firestore is switched off to stay inside the free daily allowance (every stored event is a write): the page
+ * tracker is no longer mounted, and anything that still posts here (an older cached page, the install banner) is accepted and
+ * dropped. Google Analytics 4 keeps measuring visits. Set VISITOR_TRACKING=on to store events again.
+ */
+const VISITOR_TRACKING_ON = process.env.VISITOR_TRACKING === "on";
+
 export async function POST(request: Request): Promise<Response> {
+  if (!VISITOR_TRACKING_ON) return new Response(null, { status: 204 });
   try {
     const length = Number(request.headers.get("content-length") ?? 0);
     if (length > MAX_BODY_BYTES) return new Response(null, { status: 204 });

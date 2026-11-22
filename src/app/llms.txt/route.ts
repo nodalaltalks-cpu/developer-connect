@@ -33,6 +33,7 @@ Each developer page is at ${BASE_URL}/developers/{developer-slug} and states the
 - [How to research a developer before you buy](${BASE_URL}${BUY_DIRECT_PATH})
 - [FAQ](${BASE_URL}/faq)
 - [Home loan EMI calculator (rupees and dirhams)](${BASE_URL}/tools/home-loan-emi-calculator)
+- [Possession delay interest calculator (flat handed over late, India)](${BASE_URL}/tools/possession-delay-interest-calculator)
 - [Property glossary: Mumbai and Dubai terms explained](${BASE_URL}/property-glossary)
 - [About](${BASE_URL}/about)
 

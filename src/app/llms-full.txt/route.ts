@@ -1,7 +1,7 @@
 import { GUIDES } from "@/lib/seo/guides";
 import { CONSULTANT_PAGES } from "@/lib/seo/consultant-pages";
 import { consultantToMarkdown, guideToMarkdown } from "@/lib/seo/markdown";
-import { EMI_TOOL_FAQ, EMI_TOOL_PATH, GLOSSARY, GLOSSARY_PATH } from "@/lib/seo/tools";
+import { DELAY_TOOL_FAQ, DELAY_TOOL_PATH, EMI_TOOL_FAQ, EMI_TOOL_PATH, GLOSSARY, GLOSSARY_PATH } from "@/lib/seo/tools";
 
 /**
  * /llms-full.txt: the full text of every buyer guide and city page in one Markdown file, so an AI assistant answering "how do I buy a
@@ -36,6 +36,16 @@ Source: https://developerconnects.com${EMI_TOOL_PATH}
 EMI = P × r × (1 + r)^n ÷ ((1 + r)^n − 1), where P is the loan amount, r the monthly rate (yearly rate ÷ 12 ÷ 100) and n the number of monthly instalments.
 
 ${EMI_TOOL_FAQ.map((f) => `### ${f.question}\n\n${f.answer}`).join("\n\n")}
+
+---
+
+# Possession delay interest calculator
+
+Source: https://developerconnects.com${DELAY_TOOL_PATH}
+
+Simple interest on the amount paid, for each day between the possession date in the agreement and the handover date. The yearly rate is set by the state's RERA rules, so the buyer enters it. Information only; not legal advice.
+
+${DELAY_TOOL_FAQ.map((f) => `### ${f.question}\n\n${f.answer}`).join("\n\n")}
 `;
   return new Response(body, { headers: { "Content-Type": "text/markdown; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
 }

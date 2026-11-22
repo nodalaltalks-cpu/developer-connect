@@ -6,7 +6,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { AdviceCta, Breadcrumb } from "@/components/seo/article-parts";
 import { SHARE_IMAGES } from "@/lib/share-image";
 import { GUIDES_PATH, guidePath, guidesByTopic } from "@/lib/seo/guides";
-import { EMI_TOOL_PATH, GLOSSARY_PATH } from "@/lib/seo/tools";
+import { DELAY_TOOL_PATH, EMI_TOOL_PATH, GLOSSARY_PATH } from "@/lib/seo/tools";
 import { breadcrumbSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 
@@ -71,6 +71,12 @@ export default function GuidesPage() {
                   <Link href={EMI_TOOL_PATH} className="block py-5 hover:bg-muted/60">
                     <span className="font-serif text-xl font-medium text-foreground">Home loan EMI calculator</span>
                     <span className="mt-1 block text-sm leading-6 text-muted-foreground">Your EMI, total interest and how much you can borrow, in rupees or dirhams.</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link href={DELAY_TOOL_PATH} className="block py-5 hover:bg-muted/60">
+                    <span className="font-serif text-xl font-medium text-foreground">Possession delay interest calculator</span>
+                    <span className="mt-1 block text-sm leading-6 text-muted-foreground">Flat handed over late? See the interest you may be owed for the delay under RERA.</span>
                   </Link>
                 </li>
                 <li>

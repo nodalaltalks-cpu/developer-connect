@@ -4,6 +4,15 @@ import type { FaqEntry } from "./types.ts";
 
 export const EMI_TOOL_PATH = "/tools/home-loan-emi-calculator";
 export const BASIC_CALCULATOR_PATH = "/tools/calculator";
+export const DELAY_TOOL_PATH = "/tools/possession-delay-interest-calculator";
+
+export const DELAY_TOOL_FAQ: readonly FaqEntry[] = [
+  { question: "What can I claim if my flat is handed over late?", answer: "Under India's RERA Act, a buyer who chooses to stay in a delayed project is entitled to interest on the amount paid for the period of delay, at the rate set by the state's RERA rules. Many states link that rate to the State Bank of India's highest marginal cost of lending rate plus two percentage points, but the rule is the state's own, so check the current one for your state and read your agreement." },
+  { question: "Which amount does the interest apply to?", answer: "The amount you have paid to the developer towards the flat, as shown in your receipts. Whether taxes and other charges count can depend on the state and your agreement, so ask for a statement of account and check with the RERA authority or a lawyer." },
+  { question: "Does a RERA extension take away my right to interest?", answer: "Do not assume it does or does not. An extension of a project's registration with the regulator and the possession date written in your agreement are separate things. Read the delay clause in your agreement and ask a property lawyer how an extension affects your case." },
+  { question: "Can I take my money back instead?" , answer: "RERA also allows a buyer to withdraw from a delayed project and ask for the amount paid back with interest. This calculator covers only the case where you stay in the project and claim interest for the delay." },
+  { question: "Is the figure exact?", answer: "No. It is simple interest on the amount you enter, for each day between the date in your agreement and the handover date. Your rate, the payment dates, extensions and the way the authority counts the delay can change the amount, so treat it as a starting point for a conversation with a lawyer or the RERA authority." },
+];
 export const GLOSSARY_PATH = "/property-glossary";
 
 export const EMI_TOOL_FAQ: readonly FaqEntry[] = [

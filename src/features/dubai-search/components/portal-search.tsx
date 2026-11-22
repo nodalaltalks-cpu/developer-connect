@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { track } from "../lib/analytics.ts";
 import { COMMUNITIES, communityLabel, getCommunity } from "../lib/communities.ts";
 import { pagePath, intentSlug } from "../lib/intents.ts";
@@ -37,6 +37,7 @@ export function PortalSearch({
   const [kind, setKind] = useState<Kind>("apartments");
   const [bedrooms, setBedrooms] = useState<number | null>(null);
   const [searched, setSearched] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const community = getCommunity(communityId) ?? COMMUNITIES[0];
 
   useEffect(() => {
@@ -54,6 +55,8 @@ export function PortalSearch({
         e.preventDefault();
         setSearched(true);
         track("search_submit", community.id);
+        // The results sit below the button, often off-screen: bring them into view.
+        requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
       }}
       className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6"
       aria-label="Search Dubai property across portals"
@@ -117,7 +120,7 @@ export function PortalSearch({
         Search all portals
       </button>
 
-      <div aria-live="polite" className={searched ? "mt-6" : "mt-6 hidden sm:block"}>
+      <div ref={resultsRef} aria-live="polite" className={`scroll-mt-20 ${searched ? "mt-6" : "mt-6 hidden sm:block"}`}>
         <p className="text-sm font-semibold text-neutral-900">Your search is ready on each website:</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {links.map((l) => (

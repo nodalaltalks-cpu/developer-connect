@@ -351,8 +351,9 @@ test("page: no other query parameter can influence what is listed or indexed", (
   const page = read("../../../app/developers/page.tsx");
   assert.doesNotMatch(page, /resolvedSearchParams\.(q|query|state|search|utm)/);
   // The only structured data is the BreadcrumbList mirroring the visible breadcrumb.
-  assert.equal((page.match(/application\/ld\+json/g) ?? []).length, 1);
+  assert.equal((page.match(/application\/ld\+json/g) ?? []).length, 2, "the breadcrumb and the ItemList of the developers shown");
   assert.match(page, /breadcrumbStructuredData\(/);
+  assert.match(page, /serializeJsonLd\(itemListJsonLd\)/);
   // Only country and city ever reach the directory filter.
   assert.equal((page.match(/resolvedSearchParams\.\w+/g) ?? []).filter((usage, index, all) => all.indexOf(usage) === index).sort().join(","),
     "resolvedSearchParams.city,resolvedSearchParams.country,resolvedSearchParams.page");

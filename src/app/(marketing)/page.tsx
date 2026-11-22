@@ -17,6 +17,7 @@ import { PublishedTestimonials } from "@/components/published-testimonials";
 import { ContinueResearch } from "@/components/continue-research";
 import { BuyerJourney } from "@/components/buyer-journey";
 import { GuidesStrip } from "@/components/guides-strip";
+import { ToolsStrip } from "@/components/tools-strip";
 import { ProofBand } from "@/components/proof-band";
 import { marketFromParams } from "@/lib/hero-market";
 import { FEATURED_DEVELOPERS, FEATURED_SELECTION_NOTE } from "@/lib/featured-developers";
@@ -127,6 +128,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
           <ProofBand />
           <BuyerJourney />
+          <ToolsStrip />
 
           {/* RESEARCH: featured developers, then the way into everything else */}
           <Container className="defer-section py-16 sm:py-24">

@@ -44,7 +44,7 @@ export default async function GuidePage({ params }: PageProps<"/guides/[slug]">)
   if (!guide) notFound();
   const path = guidePath(guide);
   const related = relatedGuides(guide);
-  // Neighbourhood guides link to real, verified developers in their city (a different slice per guide), which also gives the
+  // Neighbourhood guides link to real developers in their city (a different slice per guide), which also gives the
   // developer pages a route in that does not depend on the sitemap. A directory read that fails never breaks the guide.
   const guideCity = directoryCityForGuide(guide);
   let cityDevelopers: Awaited<ReturnType<typeof cachedPublicDirectoryPage>>["developers"] = [];
@@ -95,7 +95,7 @@ export default async function GuidePage({ params }: PageProps<"/guides/[slug]">)
               <section className="mt-12">
                 <h2 className="text-lg font-semibold text-foreground">Developers listed in {guideCity.city}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Developer Connects lists {cityTotal} verified developers for {guideCity.city}. A few of them are below.
+                  Developer Connects lists {cityTotal} developers for {guideCity.city}. A few of them are below.
                 </p>
                 <ul className="mt-3 grid grid-cols-1 gap-x-6 sm:grid-cols-2">
                   {cityDevelopers.map((d) => (

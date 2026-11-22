@@ -10,6 +10,7 @@ import { ProfileHeaderLink } from "@/components/profile-header-link";
 import { AccountMenu } from "@/components/account-menu";
 import { WorkspaceLink } from "@/components/workspace-link";
 import { SiteShare } from "@/components/site-share";
+import { DubaiSearchNavLink } from "@/features/dubai-search/components/nav-link";
 import { AdvisorTrigger } from "@/components/advisor/advisor";
 import { isFounder } from "@/lib/auth";
 import { isPrimaryEmailVerified } from "@/lib/profile/account-signals";
@@ -66,6 +67,7 @@ export async function SiteHeader() {
           >
             Guides
           </Link>
+          <DubaiSearchNavLink />
           <SiteShare />
           {userId ? (
             <>

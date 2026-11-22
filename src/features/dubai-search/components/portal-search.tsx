@@ -6,6 +6,7 @@ import { COMMUNITIES, communityLabel, getCommunity } from "../lib/communities.ts
 import { pagePath, intentSlug } from "../lib/intents.ts";
 import { type Kind, type Purpose, portalLinks, PORTAL_NOTICE, supportsKind } from "../lib/portals.ts";
 import { PortalButton } from "./portal-button.tsx";
+import { SearchBasics } from "./search-basics.tsx";
 import { BTN_QUIET, CHIP, CHIP_OFF, CHIP_ON, FIELD, LABEL } from "./ui.ts";
 import Link from "next/link";
 
@@ -21,7 +22,16 @@ const BEDS: Array<{ id: number | null; label: string }> = [
  * The search box. Pick the area, buy or rent, type and bedrooms, and the same search is ready on every portal. Nothing is
  * fetched: each button is a link to the portal's own results page.
  */
-export function PortalSearch({ initialCommunity = "jumeirah-village-circle", initialPurpose = "buy" }: { initialCommunity?: string; initialPurpose?: Purpose }) {
+export function PortalSearch({
+  initialCommunity = "jumeirah-village-circle",
+  initialPurpose = "buy",
+  basics = "always",
+}: {
+  initialCommunity?: string;
+  initialPurpose?: Purpose;
+  /** "after-search": show the basic details only once the visitor has pressed Search (used where the page already shows them above). */
+  basics?: "always" | "after-search";
+}) {
   const [communityId, setCommunityId] = useState(initialCommunity);
   const [purpose, setPurpose] = useState<Purpose>(initialPurpose);
   const [kind, setKind] = useState<Kind>("apartments");
@@ -115,6 +125,7 @@ export function PortalSearch({ initialCommunity = "jumeirah-village-circle", ini
           ))}
         </div>
         <p className="mt-3 text-xs leading-5 text-neutral-500">{PORTAL_NOTICE}</p>
+        {(basics === "always" || searched) && <SearchBasics community={community} purpose={purpose} kind={kind} bedrooms={bedrooms} />}
         <Link href={pageHref} className={`${BTN_QUIET} mt-3`}>
           Read the guide to this search →
         </Link>

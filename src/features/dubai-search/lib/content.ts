@@ -86,3 +86,45 @@ export function faqFor(c: Community, i: Intent): FaqItem[] {
 }
 
 export const REVIEWED_LINE = `Area description last reviewed ${COMMUNITIES_REVIEWED}. Portal results change constantly and are not shown or stored here.`;
+
+export interface DetailRow {
+  label: string;
+  why: string;
+}
+
+/** The basic details a buyer or renter should read off every advertisement, so the same flat can be compared across websites. */
+export function compareDetails(i: Pick<Intent, "purpose" | "kind" | "bedrooms">): DetailRow[] {
+  const sizeWhy =
+    i.kind === "apartments"
+      ? "Built-up area in square feet. The same flat can be listed with slightly different sizes."
+      : "Built-up area and plot size are different numbers. Check which one the advertisement means.";
+  const rows: DetailRow[] = [
+    {
+      label: i.purpose === "buy" ? "Asking price" : "Yearly rent",
+      why: i.purpose === "buy" ? "The total in AED, and the price per square foot, which makes homes of different sizes comparable." : "Rents are normally quoted per year. Check whether bills and fees are included.",
+    },
+    { label: "Size", why: sizeWhy },
+    { label: i.kind === "apartments" ? "Bedrooms and bathrooms" : "Bedrooms, bathrooms and maid room", why: "Confirm the layout, not only the headline number of bedrooms." },
+    { label: "Building or project", why: "The same building can be advertised by several agents. The name is how you spot repeats." },
+  ];
+  if (i.kind === "apartments") rows.push({ label: "Floor, unit and view", why: "Higher floors and better views usually cost more. Ask for the unit number to tell two listings apart." });
+  rows.push({
+    label: i.purpose === "buy" ? "Ready or off-plan" : "Furnished or unfurnished",
+    why: i.purpose === "buy" ? "A ready home can be lived in or rented now. For off-plan, ask for the handover date and the payment plan." : "Furnished homes are usually quoted higher. Ask for a list of what is included.",
+  });
+  if (i.purpose === "buy") rows.push({ label: "Service charge", why: "A yearly charge per square foot paid to the building or community. It is a running cost, and it differs a lot between buildings." });
+  else rows.push({ label: "Cheques, deposit and fees", why: "How many payments the rent can be split into, the security deposit, and any agent or registration fees." });
+  rows.push(
+    { label: "Parking and amenities", why: "Parking spaces, gym, pool and other amenities change the real value of two otherwise similar homes." },
+    { label: "Advertising permit number", why: "Dubai advertisements should show one. Ask for it and check it on the regulator service. It does not prove availability or ownership." },
+    { label: "When it was last updated", why: "Old advertisements are often already sold or rented." },
+  );
+  return rows;
+}
+
+export function agentQuestions(i: Pick<Intent, "purpose">): string[] {
+  const common = ["Is it still available, and can I see it this week?", "Is the price negotiable, and is the figure in the advertisement the one I would pay?"];
+  return i.purpose === "buy"
+    ? [...common, "Is the home vacant or tenanted, and is there a mortgage on it?", "What are the service charge and the other costs of buying?", "Can I see the title and the permit documents before I pay anything?"]
+    : [...common, "What is included in the rent, and what are the deposit and the fees?", "How many cheques can I pay in, and what is the contract length?", "Who pays for maintenance and for the cooling charges?"];
+}

@@ -15,6 +15,7 @@ import { allPages, intentLabel, isIndexable, pagePath, pageTitle, resolve } from
 import { portalLinks, PORTAL_NOTICE } from "@/features/dubai-search/lib/portals";
 import { PortalButton } from "@/features/dubai-search/components/portal-button";
 import { PortalSearch } from "@/features/dubai-search/components/portal-search";
+import { SearchBasics } from "@/features/dubai-search/components/search-basics";
 import { CommunityGrid, CompareCta, Faq, GuideLinks, IntentLinks, SECTION_PATH } from "@/features/dubai-search/components/section-parts";
 
 export const dynamicParams = false;
@@ -82,6 +83,7 @@ export default async function IntentPage({ params }: PageProps<"/dubai-property-
                 ))}
               </div>
               <p className="mt-3 text-xs leading-5 text-neutral-500">{PORTAL_NOTICE}</p>
+              <SearchBasics community={c} purpose={i.purpose} kind={i.kind} bedrooms={i.bedrooms} />
             </section>
 
             <section aria-labelledby="dps-check" className="mt-12">
@@ -106,7 +108,7 @@ export default async function IntentPage({ params }: PageProps<"/dubai-property-
             <section aria-label="Change your search" className="mt-12">
               <h2 className="font-serif text-2xl font-medium text-foreground sm:text-3xl">Change your search</h2>
               <div className="mt-5">
-                <PortalSearch initialCommunity={c.id} initialPurpose={i.purpose} />
+                <PortalSearch initialCommunity={c.id} initialPurpose={i.purpose} basics="after-search" />
               </div>
             </section>
 

@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { directCtx, type FsCtx } from "../../firestore/tx.ts";
+import { getFirestoreDb } from "../../firestore/client.ts";
+import { markSnapshotStale, readPublishedSnapshot, writePublishedSnapshot } from "./public-snapshot.ts";
 import { compareCodePoints, monotonic, reqDate, safeId, toDate, toTs } from "../../firestore/convert.ts";
 import type { Developer, DeveloperEditEvent, Evidence, VerificationEvent, WebsiteCandidate } from "../types.ts";
 import type {
@@ -140,17 +142,41 @@ const candidateFromVerified = (developerId: string, v: CandidateDoc): WebsiteCan
 const TTL_MS = 10 * 60_000;
 let publishedCache: { at: number; rows: Array<{ id: string; data: FirebaseFirestore.DocumentData }> } | null = null;
 let activeCache: { at: number; rows: Developer[] } | null = null;
+// True after this process changed a developer: its next read rebuilds the stored snapshot from the collection instead of trusting it.
+let snapshotDirty = false;
+let pendingStaleMark: Promise<unknown> | null = null;
 const invalidate = () => {
   publishedCache = null;
   activeCache = null;
+  snapshotDirty = true;
+  // Tell the other server instances the stored copy is out of date. Sent now and again a few seconds later, because this is
+  // usually called inside a transaction that has not committed yet.
+  const mark = () => markSnapshotStale(getFirestoreDb()).catch(() => undefined);
+  pendingStaleMark = mark();
+  setTimeout(() => void mark(), 3000);
 };
 
 async function loadPublished(ctx: FsCtx) {
   if (!ctx.inTx && publishedCache && Date.now() - publishedCache.at < TTL_MS) return publishedCache.rows;
   try {
+    // The stored snapshot costs ~17 reads; rebuilding it from the collection costs one read per developer (~1,240).
+    if (!ctx.inTx) {
+      if (pendingStaleMark) await pendingStaleMark;
+      if (!snapshotDirty) {
+        const stored = await readPublishedSnapshot(ctx.db).catch(() => null);
+        if (stored) {
+          publishedCache = { at: Date.now(), rows: stored };
+          return stored;
+        }
+      }
+    }
     const views = await ctx.query(ctx.db.collection(DEVELOPERS).where("isPublished", "==", true));
     const rows = views.map((v) => ({ id: v.id, data: v.data()! }));
-    if (!ctx.inTx) publishedCache = { at: Date.now(), rows };
+    if (!ctx.inTx) {
+      publishedCache = { at: Date.now(), rows };
+      snapshotDirty = false;
+      await writePublishedSnapshot(ctx.db, rows).catch(() => undefined);
+    }
     return rows;
   } catch (error) {
     // Firestore refused (free daily quota, outage): the last good copy beats an error page for a visitor or crawler.

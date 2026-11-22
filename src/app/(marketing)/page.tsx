@@ -127,8 +127,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           </section>
 
           <ProofBand />
-          <BuyerJourney />
           <ToolsStrip />
+          <BuyerJourney />
 
           {/* RESEARCH: featured developers, then the way into everything else */}
           <Container className="defer-section py-16 sm:py-24">

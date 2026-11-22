@@ -52,11 +52,20 @@ export function PortalSearch({ initialCommunity = "jumeirah-village-circle", ini
         <label className="block">
           <span className={LABEL}>Where in Dubai?</span>
           <select value={communityId} onChange={(e) => setCommunityId(e.target.value)} className={`${FIELD} mt-1`}>
-            {COMMUNITIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {communityLabel(c)}
-              </option>
-            ))}
+            <optgroup label="Most searched">
+              {COMMUNITIES.filter((c) => c.popular).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {communityLabel(c)}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="All Dubai areas, A to Z">
+              {[...COMMUNITIES].sort((a, b) => a.name.localeCompare(b.name)).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {communityLabel(c)}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </label>
         <div role="group" aria-label="Buy or rent" className="flex items-end gap-2">

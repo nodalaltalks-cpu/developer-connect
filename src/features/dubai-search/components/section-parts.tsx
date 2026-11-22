@@ -24,14 +24,15 @@ export function Faq({ items, heading = "Common questions" }: { items: readonly F
   );
 }
 
-export function CommunityGrid({ heading = "Search by area", exclude }: { heading?: string; exclude?: string }) {
+export function CommunityGrid({ heading = "Search by area", exclude, all = false }: { heading?: string; exclude?: string; all?: boolean }) {
+  const sorted = [...COMMUNITIES].sort((a, b) => a.name.localeCompare(b.name));
   return (
     <section aria-labelledby="dps-areas" className="mt-14">
       <h2 id="dps-areas" className="font-serif text-2xl font-medium text-foreground sm:text-3xl">
         {heading}
       </h2>
       <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {COMMUNITIES.filter((c) => c.id !== exclude).map((c) => (
+        {COMMUNITIES.filter((c) => c.popular && c.id !== exclude).map((c) => (
           <li key={c.id}>
             <Link href={pagePath(c.id)} className="flex min-h-14 flex-col justify-center rounded-xl border border-border bg-white px-4 py-3 hover:border-accent">
               <span className="text-sm font-semibold text-foreground">{communityLabel(c)}</span>
@@ -40,6 +41,20 @@ export function CommunityGrid({ heading = "Search by area", exclude }: { heading
           </li>
         ))}
       </ul>
+      {all && (
+        <>
+          <h3 className="mt-10 text-sm font-semibold uppercase tracking-[0.18em] text-brass-700">All Dubai areas, A to Z</h3>
+          <ul className="mt-3 columns-2 gap-6 sm:columns-3 lg:columns-4">
+            {sorted.map((c) => (
+              <li key={c.id} className="break-inside-avoid">
+                <Link href={pagePath(c.id)} className="inline-flex min-h-11 items-center text-sm text-accent-hover underline-offset-4 hover:underline">
+                  {communityLabel(c)}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

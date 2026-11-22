@@ -44,14 +44,16 @@ function normalise(q: PortalQuery): PortalQuery {
   return { ...q, bedrooms: q.kind === "apartments" ? q.bedrooms : null };
 }
 
-export function bayutUrl(input: PortalQuery): string {
+export function bayutUrl(input: PortalQuery): string | null {
   const q = normalise(input);
+  if (!q.community.bayutSlug) return null;
   const path = q.purpose === "buy" ? "for-sale" : "to-rent";
   return `https://www.bayut.com/${path}/${bedroomWord(q.bedrooms)}${q.kind}/dubai/${q.community.bayutSlug}/`;
 }
 
-export function propertyFinderUrl(input: PortalQuery): string {
+export function propertyFinderUrl(input: PortalQuery): string | null {
   const q = normalise(input);
+  if (!q.community.propertyFinderSlug) return null;
   const section = q.purpose === "buy" ? "buy" : "rent";
   const word = q.purpose === "buy" ? "for-sale" : "for-rent";
   return `https://www.propertyfinder.ae/en/${section}/dubai/${bedroomWord(q.bedrooms)}${q.kind}-${word}-${q.community.propertyFinderSlug}.html`;
@@ -66,10 +68,12 @@ export function dubizzleUrl(q: Pick<PortalQuery, "purpose" | "kind">): string {
 export function portalLinks(query: PortalQuery): PortalLink[] {
   const q = normalise(query);
   const place = q.community.name;
+  const bayut = bayutUrl(q);
+  const pf = propertyFinderUrl(q);
   return [
-    { id: "bayut", name: "Bayut", url: bayutUrl(q), detail: `Opens Bayut's results for ${place}` },
-    { id: "property-finder", name: "Property Finder", url: propertyFinderUrl(q), detail: `Opens Property Finder's results for ${place}` },
-    { id: "dubizzle", name: "dubizzle", url: dubizzleUrl(q), detail: q.kind === "apartments" ? `Opens dubizzle's Dubai apartments page. Choose ${place} in its location filter` : `Opens dubizzle's Dubai property page. Choose ${q.kind} and ${place} in its filters` },
+    ...(bayut ? [{ id: "bayut" as const, name: "Bayut", url: bayut, detail: `Opens Bayut's results for ${place}` }] : []),
+    ...(pf ? [{ id: "property-finder" as const, name: "Property Finder", url: pf, detail: `Opens Property Finder's results for ${place}` }] : []),
+    { id: "dubizzle" as const, name: "dubizzle", url: dubizzleUrl(q), detail: q.kind === "apartments" ? `Opens dubizzle's Dubai apartments page. Choose ${place} in its location filter` : `Opens dubizzle's Dubai property page. Choose ${q.kind} and ${place} in its filters` },
   ];
 }
 

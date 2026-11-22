@@ -4,7 +4,7 @@ A permanent section of developerconnects.com at `/dubai-property-search`: search
 
 ## How it works
 
-1. **Search once.** Pick an area (12 communities), buy or rent, type (apartments, plus villas and townhouses where both portals have them) and bedrooms (studio to 3).
+1. **Search once.** Pick an area (116 Dubai areas: every area Bayut and Property Finder list for Dubai), buy or rent, type (apartments, plus villas and townhouses where the area has them) and bedrooms (studio to 3).
 2. **Open every website.** Each button opens that portal's own live results page for the same search, in a new tab. Nothing is fetched, copied or stored, so the buyer always sees the portal's current listings and we never republish anyone's content.
 3. **Compare and check.** The comparison tool at `/dubai-property-search/compare` takes listings the buyer found (a link plus typed details, or a CSV they are allowed to use), tells them whether any look like the same flat, shows the price gap, and carries a checklist. Everything stays in the browser.
 
@@ -17,15 +17,19 @@ There is no free, permitted listing feed from the portals, and we do not scrape.
 | Address | Purpose |
 |---|---|
 | `/dubai-property-search` | Section home: the search, how it works, areas, comparison tool, guides, FAQ. |
-| `/dubai-property-search/{community}` | One page per area (12). |
-| `/dubai-property-search/{community}/{intent}` | One page per thing people search for, such as `2-bedroom-apartments-for-sale`, `studio-apartments-for-rent`, `villas-for-sale` (126 pages). |
+| `/dubai-property-search/{area}` | One page per area (116). |
+| `/dubai-property-search/{area}/{intent}` | One page per thing people search for, such as `apartments-for-rent`, `villas-for-sale`, and for described areas `2-bedroom-apartments-for-sale` (806 routes in all). |
 | `/dubai-property-search/compare` | The comparison tool. |
 
 Each page has its own introduction, a plain checklist, FAQs, breadcrumbs, canonical, JSON-LD (BreadcrumbList and FAQPage only: no Product or Offer markup, since we sell nothing), links to our Dubai guides, and clear independence wording. The sitemap and `llms.txt` list the section, and the footer and header link to it. No page uses a price, yield, ranking or prediction.
 
-### Which pages search engines are offered
+### Which pages search engines are offered (279 in the sitemap)
 
-The section home, all area pages, all apartments / villas / townhouses pages, and the single-bedroom-count pages for the four most-searched areas (JVC, Dubai Marina, Downtown Dubai, Business Bay). The other bedroom pages work for visitors but are `noindex,follow` and left out of the sitemap, so a wall of near-identical pages cannot hurt the whole site. After a few weeks of Search Console data, switch an area on with `indexBedroomPages: true` in `lib/communities.ts`.
+An area is offered to search engines only if it has a written description (63 of the 116 do). For those: the area page, its apartments / villas / townhouses pages, and the single-bedroom-count pages for the four most-searched areas (JVC, Dubai Marina, Downtown Dubai, Business Bay). Areas without a description work for visitors and keep only their main pages, marked `noindex,follow`. To bring an area in, write its two-sentence description in `lib/communities.ts` (plain facts only; a test rejects numbers, rankings and predictions). After a few weeks of Search Console data, prune or widen with `indexBedroomPages`.
+
+### Where the 116 areas come from
+
+The area lists the two portals publish on their own Dubai pages (read 2026-11-22), joined by name: 82 areas are on both, 22 on Bayut only and 12 on Property Finder only. An area shows a button only for the portals that list it. Villa and townhouse pages exist only where Bayut showed at least 30 of them and Property Finder has the page (22 areas for villas, 13 for townhouses). A few areas may have more villas than the scan counted (the count could not be read for some pages), so those were left out rather than guessed.
 
 ## Where the portal links come from
 

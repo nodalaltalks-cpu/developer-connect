@@ -37,7 +37,8 @@ export function intentsFor(c: Community): Intent[] {
     for (const kind of kinds) {
       if (!supportsKind(c, kind)) continue;
       out.push({ slug: intentSlug(purpose, kind, null), purpose, kind, bedrooms: null });
-      if (kind === "apartments") for (const b of [0, 1, 2, 3]) out.push({ slug: intentSlug(purpose, kind, b), purpose, kind, bedrooms: b });
+      // Bedroom pages exist only for areas with a written description; the rest keep the main pages.
+      if (kind === "apartments" && c.about) for (const b of [0, 1, 2, 3]) out.push({ slug: intentSlug(purpose, kind, b), purpose, kind, bedrooms: b });
     }
   }
   return out;
@@ -55,11 +56,11 @@ export function intentLabel(i: Pick<Intent, "purpose" | "kind" | "bedrooms">): s
 
 /**
  * Only pages likely to be useful on their own are offered to search engines: every community page, every apartments / villas /
- * townhouses page, and the bedroom pages of the four most-searched communities. The remaining bedroom pages work for visitors but
+ * townhouses page of every area with a written description, and the bedroom pages of the four most-searched communities. The remaining bedroom pages work for visitors but
  * are marked noindex until Search Console shows they earn their place, so a wall of near-identical pages cannot drag the whole site down.
  */
 export function isIndexable(c: Community, i: Intent): boolean {
-  return i.bedrooms === null || c.indexBedroomPages;
+  return !!c.about && (i.bedrooms === null || c.indexBedroomPages);
 }
 
 export function pagePath(communityId: string, intentSlugValue?: string): string {
@@ -81,7 +82,7 @@ export function resolve(communityId: string, slug: string): { community: Communi
 export function sitemapPaths(): string[] {
   const out = ["/dubai-property-search", "/dubai-property-search/compare"];
   for (const c of COMMUNITIES) {
-    out.push(pagePath(c.id));
+    if (c.about) out.push(pagePath(c.id));
     for (const i of intentsFor(c)) if (isIndexable(c, i)) out.push(pagePath(c.id, i.slug));
   }
   return out;

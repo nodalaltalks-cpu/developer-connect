@@ -65,7 +65,7 @@ export default function DubaiPropertySearchPage() {
               </ol>
             </section>
 
-            <CommunityGrid />
+            <CommunityGrid heading="Popular areas" all />
             <CompareCta />
             <GuideLinks />
             <Faq items={HUB_FAQ} />

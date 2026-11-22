@@ -8,7 +8,7 @@ import { SHARE_IMAGES } from "@/lib/share-image";
 import { breadcrumbSchema, faqSchema } from "@/lib/seo/schema";
 import { serializeJsonLd } from "@/lib/developer-connect/developer-page-content";
 import { dubaiSearchEnabled } from "@/features/dubai-search/flag";
-import { COMMUNITIES, communityLabel, getCommunity } from "@/features/dubai-search/lib/communities";
+import { COMMUNITIES, communityLabel, getCommunity, isDescribed } from "@/features/dubai-search/lib/communities";
 import { REVIEWED_LINE } from "@/features/dubai-search/lib/content";
 import { pagePath } from "@/features/dubai-search/lib/intents";
 import { PortalSearch } from "@/features/dubai-search/components/portal-search";
@@ -32,6 +32,7 @@ export async function generateMetadata({ params }: PageProps<"/dubai-property-se
     title,
     description,
     alternates: { canonical: path },
+    robots: isDescribed(c) ? undefined : { index: false, follow: true },
     openGraph: { title, description, url: path, siteName: "Developer Connects", images: SHARE_IMAGES, type: "website" },
     twitter: { card: "summary_large_image", images: SHARE_IMAGES, title, description },
   };
@@ -71,7 +72,7 @@ export default async function CommunityPage({ params }: PageProps<"/dubai-proper
             <Breadcrumb items={[{ name: "Home", href: "/" }, { name: "Dubai Property Search", href: SECTION_PATH }, { name: place }]} />
             <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-brass-700">Dubai Property Search</p>
             <h1 className="mt-3 text-balance font-serif text-4xl font-medium leading-[1.08] tracking-[-0.015em] text-foreground sm:text-5xl">Property in {place}, Dubai</h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">{c.about}</p>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">{c.about ?? `Open the same ${c.name} search on the property websites and compare what each shows.`}</p>
 
             <div className="mt-8">
               <PortalSearch initialCommunity={c.id} />

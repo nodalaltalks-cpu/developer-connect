@@ -35,7 +35,8 @@ export function introFor(c: Community, i: Intent): string {
                 ? "Townhouses are often sold in clusters by the same developer, so several listings can describe near-identical homes in the same street."
                 : "Apartments here range from studios to larger layouts, so narrow by bedrooms before you compare prices.";
   const rentNote = i.purpose === "rent" ? " Rents on the portals are normally quoted per year, so check whether a figure is yearly before you compare it with a monthly budget." : "";
-  return `${c.about} Looking for ${label} in ${place}? ${sizeNote}${rentNote}`;
+  const lead = c.about ?? `${c.name} is one of the Dubai areas listed by the property websites.`;
+  return `${lead} Looking for ${label} in ${place}? ${sizeNote}${rentNote}`;
 }
 
 export function checklistFor(i: Intent): string[] {

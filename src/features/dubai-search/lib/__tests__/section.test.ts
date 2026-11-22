@@ -20,8 +20,8 @@ test("portal links match the real address patterns verified on Bayut and Propert
   assert.equal(bayutUrl({ community: palm, purpose: "buy", kind: "villas", bedrooms: null }), "https://www.bayut.com/for-sale/villas/dubai/palm-jumeirah/");
   assert.equal(propertyFinderUrl({ community: hills, purpose: "rent", kind: "villas", bedrooms: null }), "https://www.propertyfinder.ae/en/rent/dubai/villas-for-rent-dubai-hills-estate.html");
   // The two portals spell JLT differently; both spellings were checked.
-  assert.match(bayutUrl({ community: jlt, purpose: "buy", kind: "apartments", bedrooms: null }), /jumeirah-lake-towers-jlt\/$/);
-  assert.match(propertyFinderUrl({ community: jlt, purpose: "buy", kind: "apartments", bedrooms: null }), /apartments-for-sale-jumeirah-lake-towers\.html$/);
+  assert.match(bayutUrl({ community: jlt, purpose: "buy", kind: "apartments", bedrooms: null })!, /jumeirah-lake-towers-jlt\/$/);
+  assert.match(propertyFinderUrl({ community: jlt, purpose: "buy", kind: "apartments", bedrooms: null })!, /apartments-for-sale-jumeirah-lake-towers\.html$/);
 });
 
 test("villas and townhouses never get a bedroom segment, and every link is https on the portal's own domain", () => {
@@ -69,7 +69,7 @@ test("sitemap: only useful pages are offered to search engines, and everything o
     const r = resolve(community, intent)!;
     assert.ok(r && isIndexable(r.community, r.intent), path);
   }
-  assert.ok(paths.length > 60 && paths.length < 200, `unexpected page count ${paths.length}`);
+  assert.ok(paths.length > 150 && paths.length < 600, `unexpected page count ${paths.length}`);
   assert.equal(pagePath("arjan"), "/dubai-property-search/arjan");
 });
 
@@ -78,7 +78,7 @@ test("content: every page has its own introduction and its own question wording,
   const questions = new Set<string>();
   let pages = 0;
   for (const c of COMMUNITIES) {
-    assert.doesNotMatch(c.about, /\d|%|AED|best|guarantee|cheap|safest|investment return|yield/i, `${c.name} about`);
+    if (c.about) assert.doesNotMatch(c.about, /\d|%|AED|best|guarantee|cheap|safest|investment return|yield/i, `${c.name} about`);
     for (const i of intentsFor(c)) {
       pages++;
       intros.add(introFor(c, i));
@@ -103,4 +103,31 @@ test("hub and comparison FAQs state independence from the portals and that nothi
   assert.match(text, /not affiliated/i);
   assert.match(text, /do not copy|never open or copy/i);
   assert.match(text, /earn nothing/i);
+});
+
+test("coverage: every Dubai area the portals list is searchable, and each area only offers buttons for portals that list it", () => {
+  assert.ok(COMMUNITIES.length >= 110, `only ${COMMUNITIES.length} areas`);
+  assert.equal(new Set(COMMUNITIES.map((c) => c.id)).size, COMMUNITIES.length, "area ids are unique");
+  for (const c of COMMUNITIES) {
+    assert.ok(c.bayutSlug || c.propertyFinderSlug, `${c.id} is on no portal`);
+    const ids = portalLinks({ community: c, purpose: "buy", kind: "apartments", bedrooms: null }).map((l) => l.id);
+    assert.equal(ids.includes("bayut"), !!c.bayutSlug, `${c.id} bayut button`);
+    assert.equal(ids.includes("property-finder"), !!c.propertyFinderSlug, `${c.id} property finder button`);
+    assert.ok(ids.includes("dubizzle"));
+  }
+  const pfOnly = COMMUNITIES.find((c) => !c.bayutSlug)!;
+  assert.ok(!portalLinks({ community: pfOnly, purpose: "rent", kind: "apartments", bedrooms: 1 }).some((l) => l.id === "bayut"), "a Property Finder only area has no Bayut button");
+  assert.ok(COMMUNITIES.some((c) => c.propertyFinderSlug && !c.bayutSlug) && COMMUNITIES.some((c) => c.bayutSlug && !c.propertyFinderSlug));
+});
+
+test("coverage: villa and townhouse pages exist only for areas that have them, and areas without a description stay out of the sitemap", () => {
+  const villaAreas = COMMUNITIES.filter((c) => c.villas).map((c) => c.id);
+  assert.ok(villaAreas.includes("palm-jumeirah") && villaAreas.includes("dubai-hills-estate") && villaAreas.includes("arabian-ranches"));
+  assert.ok(!villaAreas.includes("downtown-dubai") && !villaAreas.includes("business-bay") && !villaAreas.includes("dubai-marina"), "tower areas have no villa pages");
+  assert.ok(!getCommunity("al-furjan")!.townhouses, "Property Finder has no townhouse page there");
+  const paths = new Set(sitemapPaths());
+  for (const c of COMMUNITIES) {
+    assert.equal(paths.has(pagePath(c.id)), !!c.about, `${c.id} sitemap`);
+    if (!c.about) assert.ok(intentsFor(c).every((i) => i.bedrooms === null), "areas without a description keep only the main pages");
+  }
 });

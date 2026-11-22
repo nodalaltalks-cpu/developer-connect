@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
+import { createPublicRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { listVerifiedDevelopers } from "@/lib/developer-connect/search-service";
 import { approvedLocationPages, locationPath } from "@/lib/developer-connect/location-pages";
 import { buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
@@ -52,7 +52,7 @@ const STATIC_ROUTES = ["/", "/developers", "/buy-direct-from-developer", "/guide
  * cost with zero actual effect on crawling or ranking.
  */
 export async function buildSitemapEntries(): Promise<MetadataRoute.Sitemap> {
-  const repos = createPostgresRepositories();
+  const repos = createPublicRepositories();
   const verifiedDevelopers = await listVerifiedDevelopers(repos);
 
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({

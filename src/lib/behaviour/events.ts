@@ -153,6 +153,26 @@ export function toAnalyticsEvent(raw: RawClientEvent, ctx: VisitorContext): Anal
   }
 }
 
+/**
+ * Clicks that Google Analytics already receives (shares, sign-in, hero market buttons) and have no place in the lead funnel are not
+ * stored in Firestore: each one was a write against the free daily allowance.
+ */
+const NOT_STORED_CTAS: readonly string[] = ["whatsapp_share", "email_share", "copy_link", "native_share", "sign_in", "hero_market_dubai", "hero_market_mumbai"];
+/** A page left in under this many seconds says nothing a page view does not already say. */
+export const MIN_ENGAGED_SECONDS_STORED = 10;
+
+/** Whether a valid event is worth a stored document. Invalid events are still rejected (and counted) by toAnalyticsEvent. */
+export function isWorthRecording(raw: RawClientEvent): boolean {
+  if (!raw || typeof raw !== "object") return true;
+  if (raw.name === "cta_clicked" && typeof raw.ctaId === "string" && NOT_STORED_CTAS.includes(raw.ctaId)) return false;
+  if (raw.name === "page_engagement") {
+    const seconds = typeof raw.engagedSeconds === "number" ? raw.engagedSeconds : 0;
+    const clicks = typeof raw.clicks === "number" ? raw.clicks : 0;
+    if (seconds < MIN_ENGAGED_SECONDS_STORED && clicks === 0) return false;
+  }
+  return true;
+}
+
 export interface IngestResult {
   accepted: number;
   rejected: number;

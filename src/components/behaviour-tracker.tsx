@@ -25,7 +25,16 @@ export function BehaviourTracker() {
     let flushed = false;
 
     const params = new URLSearchParams(window.location.search);
-    send([
+    // A refresh or a back-and-forth to the same page in one browser session is the same visit: count the page once.
+    let firstViewThisSession = true;
+    try {
+      const key = `dc:pv:${pathname}`;
+      if (window.sessionStorage.getItem(key)) firstViewThisSession = false;
+      else window.sessionStorage.setItem(key, "1");
+    } catch {
+      // storage blocked: count it
+    }
+    if (firstViewThisSession) send([
       {
         name: "page_viewed",
         path: pathname,

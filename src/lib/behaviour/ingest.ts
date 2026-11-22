@@ -1,5 +1,5 @@
 import { safeRecordAnalyticsEvent, type AnalyticsEventSink } from "../developer-connect/events.ts";
-import { isBotUserAgent, parseBatchBody, toAnalyticsEvent, type IngestResult, type VisitorContext } from "./events.ts";
+import { isBotUserAgent, isWorthRecording, parseBatchBody, toAnalyticsEvent, type IngestResult, type VisitorContext } from "./events.ts";
 
 /**
  * The collector's whole decision, framework-free so it can be tested without a server: drop bots and visitors who sent a
@@ -15,6 +15,8 @@ export async function ingestBehaviour(sink: AnalyticsEventSink, body: string, ct
   let accepted = 0;
   let rejected = 0;
   for (const raw of events) {
+    // Free-quota saving: a short engagement summary and clicks that Google Analytics already counts are not stored a second time.
+    if (!isWorthRecording(raw)) continue;
     const event = toAnalyticsEvent(raw, ctx);
     if (!event) {
       rejected += 1;

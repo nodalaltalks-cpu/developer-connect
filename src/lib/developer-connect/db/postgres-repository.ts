@@ -22,7 +22,7 @@ import type {
 import { NotFoundError } from "../errors.ts";
 import { normalizeUrl } from "../url.ts";
 import { useFirestore } from "../../firestore/backend.ts";
-import { createFirestoreRepositories } from "../firestore/firestore-repository.ts";
+import { createFirestoreRepositories, createPublicFirestoreRepositories } from "../firestore/firestore-repository.ts";
 
 type DbOrTx = NodePgDatabase<typeof schema>;
 
@@ -556,5 +556,14 @@ function buildRepositories(db: DbOrTx): DeveloperConnectRepositories {
  */
 export function createPostgresRepositories(): DeveloperConnectRepositories {
   if (useFirestore("developers")) return createFirestoreRepositories();
+  return buildRepositories(getDb());
+}
+
+/**
+ * The repositories for public, read-only pages. With Firestore as the backend, published developers are read from the file shipped
+ * with the deployment (see firestore/static-published.ts), so public traffic costs no reads. Any other backend is unchanged.
+ */
+export function createPublicRepositories(): DeveloperConnectRepositories {
+  if (useFirestore("developers")) return createPublicFirestoreRepositories();
   return buildRepositories(getDb());
 }

@@ -55,7 +55,7 @@ export default async function BehaviourPage({ searchParams }: PageProps<"/admin/
   await requireFounder();
   const params = await searchParams;
   const now = new Date();
-  const range = parseInsightFilters({ range: first(params.range) ?? "last30", from: first(params.from), to: first(params.to) }, now).range;
+  const range = parseInsightFilters({ range: first(params.range) ?? "last7", from: first(params.from), to: first(params.to) }, now).range;
   const report = await loadBehaviourReport(range.from, range.to);
 
   const findings = buildFindings(report);

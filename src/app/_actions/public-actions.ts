@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import { isBotUserAgent } from "@/lib/behaviour/events";
-import { createPostgresRepositories } from "@/lib/developer-connect/db/postgres-repository";
+import { createPublicRepositories } from "@/lib/developer-connect/db/postgres-repository";
 import { getPublicDirectoryPage, searchPublicDevelopers } from "@/lib/developer-connect/search-service";
 import { postgresAnalyticsSink } from "@/lib/developer-connect/db/postgres-analytics-sink";
 import { safeRecordAnalyticsEvent } from "@/lib/developer-connect/events";
@@ -59,7 +59,7 @@ export async function searchDevelopers(
   rawQuery: string,
   geo?: DeveloperGeoFilter,
 ): Promise<PublicDeveloperProfile[]> {
-  const repos = createPostgresRepositories();
+  const repos = createPublicRepositories();
   const userId = await currentUserId();
   const preferredCity = await preferredCityFor(userId);
   const results = await searchPublicDevelopers(repos, rawQuery, geo, preferredCity);
@@ -116,7 +116,7 @@ export async function loadMoreDirectoryDevelopers(
   if (!hasActiveFilter && !(await currentUserId())) return { developers: [], total: 0 };
   if (!Number.isFinite(offset) || offset < 0) return { developers: [], total: 0 };
 
-  return getPublicDirectoryPage(createPostgresRepositories(), filter, offset);
+  return getPublicDirectoryPage(createPublicRepositories(), filter, offset);
 }
 
 export async function recordSearchResultClick(

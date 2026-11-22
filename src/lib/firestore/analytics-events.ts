@@ -70,8 +70,35 @@ function toStored(id: string, d: FirebaseFirestore.DocumentData): StoredEvent {
   };
 }
 
+// A dashboard opened twice in a row, or by two people, asked Firestore for every event in its date range each time: one read per
+// event. The same answer is kept for EVENTS_TTL_MS per server instance. Per-person and per-session lookups (recently viewed,
+// a visitor's own history) are never kept, so they are always current.
+const EVENTS_TTL_MS = 20 * 60_000;
+const eventsMemo = new Map<string, { at: number; rows: Promise<StoredEvent[]> }>();
+const HOUR = 3_600_000;
+
+function memoKey(filter: EventFilter): string | null {
+  if (filter.userId || filter.sessionId || filter.developerId) return null;
+  const hour = (d?: Date) => (d ? Math.floor(d.getTime() / HOUR) : null);
+  return JSON.stringify([hour(filter.from), hour(filter.to), filter.names ?? null, filter.newestFirst ?? false, filter.limit ?? null, filter.fields ?? null]);
+}
+
 /** Reads matching events in pages of 5,000 so a wide date range never needs one enormous response. */
 export async function readEvents(filter: EventFilter = {}): Promise<StoredEvent[]> {
+  const key = memoKey(filter);
+  if (!key) return readEventsUncached(filter);
+  const hit = eventsMemo.get(key);
+  if (hit && Date.now() - hit.at < EVENTS_TTL_MS) return hit.rows;
+  const rows = readEventsUncached(filter);
+  eventsMemo.set(key, { at: Date.now(), rows });
+  rows.catch(() => {
+    if (eventsMemo.get(key)?.rows === rows) eventsMemo.delete(key);
+  });
+  if (eventsMemo.size > 40) for (const [k, v] of eventsMemo) if (Date.now() - v.at > EVENTS_TTL_MS) eventsMemo.delete(k);
+  return rows;
+}
+
+async function readEventsUncached(filter: EventFilter): Promise<StoredEvent[]> {
   let q: FirebaseFirestore.Query = getFirestoreDb().collection("analyticsEvents");
   if (filter.names?.length === 1) q = q.where("eventName", "==", filter.names[0]);
   else if (filter.names && filter.names.length > 1) q = q.where("eventName", "in", filter.names);

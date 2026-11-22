@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { createPostgresRepositories } from "./db/postgres-repository";
+import { createPublicRepositories } from "./db/postgres-repository";
 import { createPostgresTestimonialRepository } from "../testimonials/postgres-repository";
 import { getPublishedTestimonials } from "../testimonials/service";
 import type { PublicTestimonial } from "../testimonials/model";
@@ -21,20 +21,20 @@ const CACHE_SECONDS = 86_400;
 const TAG = "public-developers";
 
 export const cachedPublicDeveloperBySlug = unstable_cache(
-  async (slug: string) => getPublicDeveloperBySlug(createPostgresRepositories(), slug),
+  async (slug: string) => getPublicDeveloperBySlug(createPublicRepositories(), slug),
   ["public-developer-by-slug"],
   { revalidate: CACHE_SECONDS, tags: [TAG] },
 );
 
 export const cachedPublicDirectoryPage = unstable_cache(
   async (country: string | undefined, city: string | undefined, cityAliases: string, offset: number, pageSize: number) =>
-    getPublicDirectoryPage(createPostgresRepositories(), { country, city, cityAliases: cityAliases ? cityAliases.split("|") : undefined }, offset, pageSize),
+    getPublicDirectoryPage(createPublicRepositories(), { country, city, cityAliases: cityAliases ? cityAliases.split("|") : undefined }, offset, pageSize),
   ["public-directory-page"],
   { revalidate: CACHE_SECONDS, tags: [TAG] },
 );
 
 export const cachedRelatedDevelopers = unstable_cache(
-  async (id: string, city: string, country: string) => listRelatedVerifiedDevelopers(createPostgresRepositories(), { id, city, country }),
+  async (id: string, city: string, country: string) => listRelatedVerifiedDevelopers(createPublicRepositories(), { id, city, country }),
   ["public-related-developers"],
   { revalidate: CACHE_SECONDS, tags: [TAG] },
 );

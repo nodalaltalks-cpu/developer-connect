@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { directCtx, type FsCtx } from "../../firestore/tx.ts";
 import { getFirestoreDb } from "../../firestore/client.ts";
 import { markSnapshotStale, readPublishedSnapshot, writePublishedSnapshot } from "./public-snapshot.ts";
+import { staticPublishedRows } from "./static-published.ts";
 import { compareCodePoints, monotonic, reqDate, safeId, toDate, toTs } from "../../firestore/convert.ts";
 import type { Developer, DeveloperEditEvent, Evidence, VerificationEvent, WebsiteCandidate } from "../types.ts";
 import type {
@@ -154,7 +155,11 @@ const invalidate = () => {
   setTimeout(() => void mark(), 3000);
 };
 
-async function loadPublished(ctx: FsCtx) {
+async function loadPublished(ctx: FsCtx, fromFile = false) {
+  if (fromFile && !ctx.inTx) {
+    const shipped = await staticPublishedRows();
+    if (shipped) return shipped;
+  }
   if (!ctx.inTx && publishedCache && Date.now() - publishedCache.at < TTL_MS) return publishedCache.rows;
   try {
     // The stored snapshot costs ~17 reads; rebuilding it from the collection costs one read per developer (~1,240).
@@ -188,8 +193,8 @@ async function loadPublished(ctx: FsCtx) {
  * open, so search never needed them). Read from the same stored snapshot as the directory, so a cold server instance costs ~17
  * reads, not one per developer.
  */
-async function loadActive(ctx: FsCtx): Promise<Developer[]> {
-  const rows = await loadPublished(ctx);
+async function loadActive(ctx: FsCtx, fromFile = false): Promise<Developer[]> {
+  const rows = await loadPublished(ctx, fromFile);
   return rows.filter((r) => r.data.status === "ACTIVE").map((r) => toDeveloper(r.id, r.data));
 }
 
@@ -218,7 +223,7 @@ function matchesFilter(row: { data: FirebaseFirestore.DocumentData }, filter: Pu
 
 // --- repositories --------------------------------------------------------------------------------------------------
 
-function buildDeveloperRepository(ctx: FsCtx): DeveloperRepository {
+function buildDeveloperRepository(ctx: FsCtx, fromFile = false): DeveloperRepository {
   const col = () => ctx.db.collection(DEVELOPERS);
 
   return {
@@ -260,6 +265,13 @@ function buildDeveloperRepository(ctx: FsCtx): DeveloperRepository {
       return views.filter((v) => v.exists).map((v) => toDeveloper(v.id, v.data()!));
     },
     async getBySlug(slug) {
+      if (fromFile && !ctx.inTx) {
+        const shipped = await staticPublishedRows();
+        if (shipped) {
+          const hit = shipped.find((r) => r.data.slug === slug);
+          return hit ? toDeveloper(hit.id, hit.data) : null;
+        }
+      }
       const rows = await ctx.query(col().where("slug", "==", slug).limit(1));
       return rows[0] ? toDeveloper(rows[0].id, rows[0].data()!) : null;
     },
@@ -330,7 +342,7 @@ function buildDeveloperRepository(ctx: FsCtx): DeveloperRepository {
     async search(query, limit = 20, geo) {
       const q = query.toLowerCase();
       const geoTokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      const rows = (await loadActive(ctx)).filter((d) => {
+      const rows = (await loadActive(ctx, fromFile)).filter((d) => {
         if (geo?.country && lc(d.country) !== geo.country.toLowerCase()) return false;
         if (geo?.state && lc(d.state) !== geo.state.toLowerCase()) return false;
         if (geo?.city && lc(d.city) !== geo.city.toLowerCase()) return false;
@@ -343,7 +355,7 @@ function buildDeveloperRepository(ctx: FsCtx): DeveloperRepository {
       return rows.slice(0, limit);
     },
     async listPublishedPage(filter, page) {
-      const matches = (await loadPublished(ctx)).filter((r) => matchesFilter(r, filter));
+      const matches = (await loadPublished(ctx, fromFile)).filter((r) => matchesFilter(r, filter));
       matches.sort(
         (a, b) =>
           compareCodePoints(lc(a.data.displayName), lc(b.data.displayName)) ||
@@ -356,7 +368,7 @@ function buildDeveloperRepository(ctx: FsCtx): DeveloperRepository {
       // Round-robin across cities: each city's developers are shuffled by a seeded hash (their index is their "round"),
       // cities are ordered by a seeded hash too, and round 1 of every city comes before round 2 of any.
       const byCity = new Map<string, Array<{ id: string; data: FirebaseFirestore.DocumentData }>>();
-      for (const r of await loadPublished(ctx)) {
+      for (const r of await loadPublished(ctx, fromFile)) {
         const key = lc(r.data.city);
         byCity.set(key, [...(byCity.get(key) ?? []), r]);
       }
@@ -369,11 +381,11 @@ function buildDeveloperRepository(ctx: FsCtx): DeveloperRepository {
       return ranked.slice(0, count).map((r) => toPublishedEntry(r.row));
     },
     async countPublished() {
-      return (await loadPublished(ctx)).length;
+      return (await loadPublished(ctx, fromFile)).length;
     },
     async listPublishedLocations() {
       const seen = new Map<string, { country: string; state: string; city: string }>();
-      for (const r of await loadPublished(ctx)) {
+      for (const r of await loadPublished(ctx, fromFile)) {
         const loc = { country: r.data.country as string, state: r.data.state as string, city: r.data.city as string };
         seen.set(`${loc.country}\u0000${loc.state}\u0000${loc.city}`, loc);
       }
@@ -411,7 +423,7 @@ async function syncVerified(c: FsCtx, before: WebsiteCandidate | null, after: We
   invalidate();
 }
 
-function buildCandidateRepository(ctx: FsCtx): WebsiteCandidateRepository {
+function buildCandidateRepository(ctx: FsCtx, fromFile = false): WebsiteCandidateRepository {
   const col = () => ctx.db.collection(CANDIDATES);
   const list = async (q: FirebaseFirestore.Query) => (await ctx.query(q)).map((v) => toCandidate(v.id, v.data()!));
 
@@ -449,6 +461,13 @@ function buildCandidateRepository(ctx: FsCtx): WebsiteCandidateRepository {
       return rows.find((r) => normalizeUrl(r.url).normalizedPath === normalizedPath) ?? null;
     },
     async getVerifiedForDeveloper(developerId) {
+      if (fromFile && !ctx.inTx) {
+        const shipped = await staticPublishedRows();
+        if (shipped) {
+          const hit = shipped.find((r) => r.id === developerId);
+          return hit?.data.verified ? candidateFromVerified(hit.id, hit.data.verified) : null;
+        }
+      }
       const rows = await list(col().where("developerId", "==", developerId).where("verificationStatus", "==", "VERIFIED").limit(1));
       return rows[0] ?? null;
     },
@@ -584,10 +603,10 @@ function buildDeveloperEditEventRepository(ctx: FsCtx): DeveloperEditEventReposi
   };
 }
 
-function buildRepositories(ctx: FsCtx): DeveloperConnectRepositories {
+function buildRepositories(ctx: FsCtx, fromFile = false): DeveloperConnectRepositories {
   return {
-    developers: buildDeveloperRepository(ctx),
-    candidates: buildCandidateRepository(ctx),
+    developers: buildDeveloperRepository(ctx, fromFile),
+    candidates: buildCandidateRepository(ctx, fromFile),
     evidence: buildEvidenceRepository(ctx),
     events: buildVerificationEventRepository(ctx),
     developerEditEvents: buildDeveloperEditEventRepository(ctx),
@@ -598,4 +617,13 @@ function buildRepositories(ctx: FsCtx): DeveloperConnectRepositories {
 
 export function createFirestoreRepositories(): DeveloperConnectRepositories {
   return buildRepositories(directCtx());
+}
+
+/**
+ * The repositories for public, read-only pages: published developers come from the file shipped with the deployment
+ * (src/data/published-snapshot.json) instead of Firestore, so visitors and crawlers cost no reads. Falls back to Firestore
+ * when the file is empty or PUBLIC_DATA_SOURCE=firestore. Everything else (writes, admin, history) behaves as before.
+ */
+export function createPublicFirestoreRepositories(): DeveloperConnectRepositories {
+  return buildRepositories(directCtx(), true);
 }

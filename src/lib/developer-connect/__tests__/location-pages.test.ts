@@ -335,7 +335,7 @@ test("page: uses the helper for validation, canonical, titles, breadcrumbs and p
   const page = read("../../../app/developers/page.tsx");
   assert.match(page, /resolveLocationPage\(resolvedSearchParams\.country, resolvedSearchParams\.city\)/);
   assert.match(page, /cachedPublicDirectoryPage\(country, city, cityAliases,/);
-  assert.match(readFileSync("src/lib/developer-connect/cached-public.ts", "utf8"), /getPublicDirectoryPage\(createPostgresRepositories\(\), \{ country, city, cityAliases: cityAliases \? cityAliases\.split\("\|"\) : undefined \}/, "the cached read still uses the existing directory filter");
+  assert.match(readFileSync("src/lib/developer-connect/cached-public.ts", "utf8"), /getPublicDirectoryPage\(createPublicRepositories\(\), \{ country, city, cityAliases: cityAliases \? cityAliases\.split\("\|"\) : undefined \}/, "the cached read still uses the existing directory filter");
   assert.match(page, /alternates: \{ canonical \}/);
   assert.match(page, /const canonical = developersPath\(location, page\);/);
   assert.match(page, /locationMetadataText\(location, page\)/);

@@ -100,7 +100,7 @@ test("collector: bots and Global Privacy Control visitors are ignored entirely; 
 
 test("collector: valid events are stored, invalid ones counted, a batch is capped at 20, a failing sink never throws", async () => {
   const { sink, events } = memorySink();
-  const result = await ingestBehaviour(sink, body({ name: "page_viewed", path: "/" }, { name: "cta_clicked", path: "/", ctaId: "nope" }, { name: "page_engagement", path: "/", engagedSeconds: 5, maxScrollPercent: 50, clicks: 0 }), ctx());
+  const result = await ingestBehaviour(sink, body({ name: "page_viewed", path: "/" }, { name: "cta_clicked", path: "/", ctaId: "nope" }, { name: "page_engagement", path: "/", engagedSeconds: 15, maxScrollPercent: 50, clicks: 0 }), ctx());
   assert.deepEqual([result.accepted, result.rejected], [2, 1]);
   assert.deepEqual(events.map((e) => e.eventName), ["page_viewed", "page_engagement"]);
 

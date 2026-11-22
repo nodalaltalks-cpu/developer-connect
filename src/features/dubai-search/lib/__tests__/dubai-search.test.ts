@@ -175,9 +175,9 @@ test("local analytics summary counts events and distinct visit days", () => {
   assert.equal(s.counts.search_submit, 1);
 });
 
-test("the feature flag is off unless explicitly set to true", () => {
-  assert.equal(dubaiSearchEnabled({}), false);
-  assert.equal(dubaiSearchEnabled({ DUBAI_SEARCH_ENABLED: "1" }), false);
-  assert.equal(dubaiSearchEnabled({ DUBAI_SEARCH_ENABLED: "false" }), false);
+test("the section is on by default and only the explicit value false switches it off", () => {
+  assert.equal(dubaiSearchEnabled({}), true);
   assert.equal(dubaiSearchEnabled({ DUBAI_SEARCH_ENABLED: "true" }), true);
+  assert.equal(dubaiSearchEnabled({ DUBAI_SEARCH_ENABLED: "1" }), true);
+  assert.equal(dubaiSearchEnabled({ DUBAI_SEARCH_ENABLED: "false" }), false);
 });

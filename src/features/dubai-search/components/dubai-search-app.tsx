@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { summariseEvents, track, type StoredEvent } from "../lib/analytics.ts";
 import { DEMO_LABEL, DEMO_LISTINGS } from "../lib/demo-data.ts";
@@ -10,6 +9,9 @@ import { filterListings, sortGroups } from "../lib/search.ts";
 import { sourceName } from "../lib/sources.ts";
 import { addSearch, describeFilters, LIMITS, mergeUserListings, pushRecent, readJson, toggle, writeJson, type SavedSearch } from "../lib/storage.ts";
 import { DEFAULT_FILTERS, type Listing, type SearchFilters, type SortKey } from "../lib/types.ts";
+
+/** The comparison tool starts wide open: any area, any type, ready or off-plan. */
+const WORKBENCH_FILTERS: SearchFilters = { ...DEFAULT_FILTERS, query: "", propertyTypes: [], completion: "any" };
 import { AddListings } from "./add-listings.tsx";
 import { CompareView } from "./compare-view.tsx";
 import { GroupCard } from "./group-card.tsx";
@@ -33,7 +35,7 @@ function usedFilters(f: SearchFilters): string {
 }
 
 export function DubaiSearchApp() {
-  const [applied, setApplied] = useState<SearchFilters>(DEFAULT_FILTERS);
+  const [applied, setApplied] = useState<SearchFilters>(WORKBENCH_FILTERS);
   const [formKey, setFormKey] = useState(0);
   const [sort, setSort] = useState<SortKey>("relevance");
   const [shown, setShown] = useState(PAGE);
@@ -45,6 +47,7 @@ export function DubaiSearchApp() {
   const [recent, setRecent] = useState<string[]>([]);
   const [compare, setCompare] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [sample, setSample] = useState(false);
   const [demoOpen, setDemoOpen] = useState<Listing | null>(null);
   const [events, setEvents] = useState<StoredEvent[]>([]);
 
@@ -62,14 +65,15 @@ export function DubaiSearchApp() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  const all = useMemo<Listing[]>(() => [...DEMO_LISTINGS, ...userListings], [userListings]);
+  const all = useMemo<Listing[]>(() => (sample ? [...DEMO_LISTINGS, ...userListings] : userListings), [sample, userListings]);
   const byId = useMemo(() => new Map(all.map((l) => [l.id, l])), [all]);
   const groups = useMemo(() => sortGroups(groupListings(filterListings(all, applied)), sort), [all, applied, sort]);
   const advertisementCount = groups.reduce((n, g) => n + g.members.length, 0);
   const compareListings = compare.map((id) => byId.get(id)).filter((l): l is Listing => !!l);
   const resolve = (ids: string[]) => ids.map((id) => byId.get(id)).filter((l): l is Listing => !!l);
   const refreshEvents = () => setEvents(readJson<StoredEvent[]>("events", []));
-  const hasDemo = groups.some((g) => g.members.some((m) => m.isDemo)) || groups.length === 0;
+  const hasDemo = sample && groups.some((g) => g.members.some((m) => m.isDemo));
+  const noListings = all.length === 0;
 
   function search(f: SearchFilters) {
     setApplied(f);
@@ -141,28 +145,16 @@ export function DubaiSearchApp() {
   const savedListings = resolve(saved);
 
   return (
-    <div className="min-h-dvh bg-neutral-50 text-neutral-900">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="inline-flex min-h-11 items-center text-sm font-medium text-neutral-600 hover:text-neutral-900">
-            ← Developer Connects
-          </Link>
-          <span className="rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold tracking-wide text-white">EXPERIMENT</span>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-4 pb-48 pt-8 sm:pb-32 sm:px-6 sm:pt-12">
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">Dubai Property Search</p>
-          <h1 className="mt-2 max-w-3xl text-balance text-3xl font-semibold tracking-tight sm:text-5xl">One search. Multiple property websites. Better property discovery.</h1>
-          <p className="mt-4 max-w-2xl text-base text-neutral-600">
-            Search once, compare the same property across sources, then open the original advertisement. Free for everyone: no sign-in, no fees, no sponsored results, and nothing ranks higher for payment.
+    <div className="text-neutral-900">
+      <main className="pb-48 sm:pb-32">
+        {sample && (
+          <p role="note" className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
+            {DEMO_LABEL}. These sample listings are made up so you can try the tool. Nothing links to a real advertisement.{" "}
+            <button type="button" className="underline" onClick={() => setSample(false)}>
+              Hide the samples
+            </button>
           </p>
-        </section>
-
-        <p role="note" className="mt-6 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
-          {DEMO_LABEL}. Every property below is made up so you can try the full search and comparison flow. Nothing links to a real advertisement.
-        </p>
+        )}
 
         <div className="mt-6">
           <SearchForm key={formKey} value={applied} onSearch={search} />
@@ -172,7 +164,7 @@ export function DubaiSearchApp() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold">
-                {groups.length} {groups.length === 1 ? "property" : "properties"}
+                {groups.length} {groups.length === 1 ? "property" : "properties"} in your list
               </h2>
               <p className="text-sm text-neutral-600">
                 {advertisementCount} advertisement{advertisementCount === 1 ? "" : "s"} · {describeFilters(applied)}
@@ -195,10 +187,18 @@ export function DubaiSearchApp() {
             </div>
           </div>
 
-          {groups.length === 0 ? (
+          {noListings ? (
+            <div className={`${CARD} mt-5 p-8 text-center`}>
+              <p className="text-base font-semibold">Your list is empty.</p>
+              <p className="mx-auto mt-1 max-w-lg text-sm text-neutral-600">Open “Add your own listings” below and paste the links and details of the properties you found on different websites. We will tell you if any are the same flat.</p>
+              <button type="button" className={`${BTN_QUIET} mt-4`} onClick={() => setSample(true)}>
+                Try it with sample listings
+              </button>
+            </div>
+          ) : groups.length === 0 ? (
             <div className={`${CARD} mt-5 p-8 text-center`}>
               <p className="text-base font-semibold">No properties match.</p>
-              <p className="mt-1 text-sm text-neutral-600">Try a wider budget, fewer filters, or tick fewer sources. The demonstration data covers Jumeirah Village Circle best.</p>
+              <p className="mt-1 text-sm text-neutral-600">Try a wider budget or fewer filters.</p>
             </div>
           ) : (
             <div className="mt-5 grid gap-4">

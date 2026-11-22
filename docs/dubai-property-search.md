@@ -1,84 +1,58 @@
-# Dubai Property Search (experiment)
+# Dubai Property Search
 
-A free, isolated property metasearch experiment for Dubai: search once, see the same property advertised on several sources, compare, then open the original advertisement. Built on branch `feat/dubai-property-search`. **Not deployed.** Off by default.
+A permanent section of developerconnects.com at `/dubai-property-search`: search Dubai property once and open the same search on Bayut, Property Finder and dubizzle, then compare. Built to be found by people who are already searching for Dubai property.
 
-## What it is, and is not
+## How it works
 
-- **Free for everyone, permanently.** No payments, subscriptions, sponsored or paid-ranked results, commissions, paid enquiries, checkout or monetisation code anywhere. A test fails if payment or promotion wording appears in what the feature renders.
-- **Zero cost.** No paid API, data feed, database, AI service, analytics or hosting. It uses no Firestore, no Postgres and no server storage at all.
-- **Demo data only.** Every property comes from a seeded generator (`lib/demo-data.ts`) and is labelled **DEMO DATA — NOT LIVE PROPERTY INVENTORY** on the page. Demo links use `example.invalid` and are never opened; the "View original" button explains this instead.
-- **No real portal is integrated or tested.** See "Sources" below.
+1. **Search once.** Pick an area (12 communities), buy or rent, type (apartments, plus villas and townhouses where both portals have them) and bedrooms (studio to 3).
+2. **Open every website.** Each button opens that portal's own live results page for the same search, in a new tab. Nothing is fetched, copied or stored, so the buyer always sees the portal's current listings and we never republish anyone's content.
+3. **Compare and check.** The comparison tool at `/dubai-property-search/compare` takes listings the buyer found (a link plus typed details, or a CSV they are allowed to use), tells them whether any look like the same flat, shows the price gap, and carries a checklist. Everything stays in the browser.
 
-## Enable, disable
+## Why there are no fake listings
 
-| Action | How |
+There is no free, permitted listing feed from the portals, and we do not scrape. Showing made-up listings on a public, indexed site would mislead buyers and search engines, so the live pages contain none. The generated sample listings (`lib/demo-data.ts`) appear only if a visitor presses "Try it with sample listings" inside the comparison tool, under a banner reading "DEMO DATA — NOT LIVE PROPERTY INVENTORY".
+
+## Pages (all server-rendered, no database)
+
+| Address | Purpose |
 |---|---|
-| Enable locally | Add `DUBAI_SEARCH_ENABLED=true` to `.env.local`, run `npm run dev`, open `/dubai-property-search`. |
-| Enable on a deployment | Set the environment variable `DUBAI_SEARCH_ENABLED=true` for that environment and redeploy. |
-| Disable | Remove the variable (or set anything other than `true`). The nav link, the phone strip and the homepage section render nothing, and `/dubai-property-search` answers 404. No code change is needed. |
+| `/dubai-property-search` | Section home: the search, how it works, areas, comparison tool, guides, FAQ. |
+| `/dubai-property-search/{community}` | One page per area (12). |
+| `/dubai-property-search/{community}/{intent}` | One page per thing people search for, such as `2-bedroom-apartments-for-sale`, `studio-apartments-for-rent`, `villas-for-sale` (126 pages). |
+| `/dubai-property-search/compare` | The comparison tool. |
 
-`/dubai-property-search/promo-preview` is a review aid that shows the real header and the homepage section on their own. It is also behind the flag.
+Each page has its own introduction, a plain checklist, FAQs, breadcrumbs, canonical, JSON-LD (BreadcrumbList and FAQPage only: no Product or Offer markup, since we sell nothing), links to our Dubai guides, and clear independence wording. The sitemap and `llms.txt` list the section, and the footer and header link to it. No page uses a price, yield, ranking or prediction.
 
-## Where it appears
+### Which pages search engines are offered
 
-- **Route:** `/dubai-property-search` (search-first, its own page; "← Developer Connects" leads back). `noindex` while an experiment, and not in the sitemap.
-- **Navigation:** a "Dubai Property Search NEW" link in the header on large screens. On phones and tablets the header has no room (the logo would shrink), so a slim "NEW · Dubai Property Search →" strip sits under the header on the homepage.
-- **Homepage:** one section ("Searching for property in Dubai?") after the Free tools section. The hero and every existing section are untouched.
+The section home, all area pages, all apartments / villas / townhouses pages, and the single-bedroom-count pages for the four most-searched areas (JVC, Dubai Marina, Downtown Dubai, Business Bay). The other bedroom pages work for visitors but are `noindex,follow` and left out of the sitemap, so a wall of near-identical pages cannot hurt the whole site. After a few weeks of Search Console data, switch an area on with `indexBedroomPages: true` in `lib/communities.ts`.
 
-## What was built
+## Where the portal links come from
 
-Search by community or building (short names such as JVC work), buy or rent, property type, bedrooms, price range, size, ready or off-plan, furnishing and chosen sources. Sorting by price, size, most sources and recently checked. Results grouped by property. Compare up to four advertisements side by side. Save properties, save searches, search history, recently viewed, and "View original". Add your own listings by pasting a link and typing the details (the page is never fetched), or import a CSV you are authorised to use. Local, browser-only usage counts.
+`lib/portals.ts`. On 2026-11-22 each Bayut and Property Finder address pattern and every area slug was checked by opening the real page (a made-up place did not work on either site, so a working slug means the portal recognised it). dubizzle blocked page loading in the verification browser, so no location link could be verified: its button opens the Dubai apartments page (or the general property page for villas and townhouses) and the buyer picks the area there. If a portal changes an address, only that file and its test need updating. Developer Connects is not affiliated with any portal and earns nothing from clicks.
 
-### Duplicate detection (`lib/duplicates.ts`)
+## Free, with nothing to pay for
 
-Pairs of advertisements from different sources are classified:
+No payments, subscriptions, sponsored or paid-ranked results, commissions, or monetisation anywhere in the section. A test fails if payment, promotion or "verified" wording appears. It uses no Firestore, Postgres, server storage or paid service.
 
-- **Confirmed:** same purpose, community, building and bedrooms, the same unit number shown by both, area within 2%.
-- **Probable:** same building and bedrooms, the same known floor, area within 3%, asking prices within 15%, no sign of a different unit.
-- **Similar (kept separate):** everything else, including any advertisement with no floor and no unit (stacked flats often share an area, so area alone proves nothing).
+## Trust wording
 
-A group forms only when every pair inside it agrees, so a chain of maybes never merges. The page always tells the buyer to confirm the unit, price and availability with the advertiser. Measured on the demo data (which has known ground truth): confirmed groups never mix units; probable errors are held under 20% by a test.
+No "verified" state exists. A permit number is shown only as the advertiser's claim and "not checked by us"; Madmoun QR is "not checked"; availability is only what the advertiser says; "last recorded" is not a confirmation. The duplicate checker (`lib/duplicates.ts`) is deliberately cautious: it is sure only when the unit number matches and areas agree; with no unit number it says "possibly the same", only for the same known floor; everything unclear stays separate; a group forms only if every pair agrees.
 
-### Trust (`lib/trust.ts`)
+## Controls
 
-Each indicator says exactly what was checked. There is **no "verified" state**: an advertiser's permit number is shown as their claim, "not checked by us", with the note that a permit does not guarantee availability, ownership or clear title; Madmoun QR is "not checked"; availability is only what the advertiser says; "last recorded" is explicitly not a confirmation that the property is still available.
+- **Kill switch:** set `DUBAI_SEARCH_ENABLED=false` in the environment and redeploy. The header link, homepage section, sitemap entries and every page under the section disappear (the pages answer 404). Unset or any other value means on.
+- **Add an area:** add it to `lib/communities.ts` with portal slugs you have verified, and a plain two-sentence description with no prices or predictions. Tests check the page set, the links and that no invented numbers appear.
+- **Counts on this device:** the page records basic usage in the visitor's own browser only. Outbound clicks are also sent to the site's existing Google Analytics, if present, as a `portal_click` event (portal and page only). Measure traffic and clicks there and in Search Console.
 
-## Sources: what is real
+## Touches on existing files
 
-| Source | State |
-|---|---|
-| Sample Portal A/B/C, Sample Agency Site | **Made-up demonstration sources.** |
-| Links you add; your CSV import | **Real and working**, stored only in your browser. |
-| Bayut, Property Finder, dubizzle, Houza, PropSearch | **Not integrated.** No free public listing feed was found. Property Finder's customer agreement points to separate API Access Terms; Bayut's and dubizzle's terms were not retrieved or reviewed. Public access does not give permission to copy or republish listings, so nothing is collected. |
-| Agency and developer websites | Realistic route: a feed or CSV an agency chooses to share. The CSV import is where to test it. |
-| Dubai Land Department open data (Dubai Pulse) | Not integrated. Official transaction data (past sales, not advertisements); could later give price context. Licence terms not reviewed. |
+`src/components/site-header.tsx` (header link), `src/app/(marketing)/page.tsx` (phone strip and homepage section), `src/components/site-footer.tsx` (link), `src/lib/sitemap-entries.ts` (section pages), `src/app/llms.txt/route.ts` (two lines), `package.json` (test glob). Everything else is under `src/features/dubai-search/` and `src/app/dubai-property-search/`.
 
-Before any real integration: read each site's own terms, ask permission or for a feed, and never copy photos or private contact details.
+## Remove it
 
-## Isolation: exactly what touches existing files
-
-New files only, except three small edits:
-
-| File | Edit |
-|---|---|
-| `src/components/site-header.tsx` | one import and `<DubaiSearchNavLink />` |
-| `src/app/(marketing)/page.tsx` | two imports, `<DubaiSearchMobileStrip />` under the header and `<DubaiSearchPromo />` after the tools section |
-| `package.json` | one test glob added to `npm test` |
-
-No existing URL, SEO setting, database, business logic or global style changed. The experiment's own styles are plain Tailwind classes inside its components.
-
-## Remove the whole experiment
-
-1. Delete `src/features/dubai-search/` and `src/app/dubai-property-search/` and this file.
-2. In `src/components/site-header.tsx` remove the `DubaiSearchNavLink` import and its one use.
-3. In `src/app/(marketing)/page.tsx` remove the `DubaiSearchPromo` and `DubaiSearchMobileStrip` imports and their two uses.
-4. In `package.json` remove `"src/features/dubai-search/lib/__tests__/*.test.ts"` from the `test` script.
-5. Remove `DUBAI_SEARCH_ENABLED` from any environment.
-6. Visitors' browsers hold harmless `dcds:v1:*` localStorage keys; they are never read again.
-
-Or, if the branch was never merged, simply delete it: `git branch -D feat/dubai-property-search`.
+Delete `src/features/dubai-search/` and `src/app/dubai-property-search/`; remove the imports and uses listed above; remove the test glob from `package.json`. Or use the kill switch.
 
 ## Tests
 
-- `npm test` includes `src/features/dubai-search/lib/__tests__` (search, filters, sorting, duplicate classification, trust wording, CSV and link validation, saving, local analytics, the flag).
-- `node --import tsx --test src/features/dubai-search/components/__tests__/flag-and-ui.test.tsx` checks that every entry point renders nothing when the flag is off, the agreed copy when on, and that no payment, promotion or "verified" wording appears.
+`npm test` covers the feature's logic (search, duplicates, trust wording, CSV and link validation, portal links, page set, sitemap rules, content rules). `node --import tsx --test src/features/dubai-search/components/__tests__/*.test.tsx` covers the rendered components.

@@ -22,17 +22,16 @@ function withFlag<T>(value: string | undefined, fn: () => T): T {
   }
 }
 
-test("flag off: the header link, the phone strip and the homepage section render nothing at all", () => {
-  withFlag(undefined, () => {
+test("kill switch: with DUBAI_SEARCH_ENABLED=false the header link, the phone strip and the homepage section render nothing at all", () => {
+  withFlag("false", () => {
     assert.equal(renderToStaticMarkup(<DubaiSearchNavLink />), "");
     assert.equal(renderToStaticMarkup(<DubaiSearchMobileStrip />), "");
     assert.equal(renderToStaticMarkup(<DubaiSearchPromo />), "");
   });
-  withFlag("false", () => assert.equal(renderToStaticMarkup(<DubaiSearchPromo />), ""));
 });
 
-test("flag on: the link, the strip and the section appear, point at the new route and carry the agreed copy", () => {
-  withFlag("true", () => {
+test("by default the link, the strip and the section appear, point at the section and read as a finished product", () => {
+  withFlag(undefined, () => {
     const nav = renderToStaticMarkup(<DubaiSearchNavLink />);
     assert.match(nav, /href="\/dubai-property-search"/);
     assert.match(nav, /Dubai Property Search/);
@@ -41,12 +40,13 @@ test("flag on: the link, the strip and the section appear, point at the new rout
     assert.match(renderToStaticMarkup(<DubaiSearchMobileStrip />), /lg:hidden/);
     const promo = renderToStaticMarkup(<DubaiSearchPromo />);
     assert.match(promo, /Searching for property in Dubai\?/);
-    assert.match(promo, /Discover and compare property advertisements across multiple real estate platforms, all from one search\./);
+    assert.match(promo, /Bayut, Property Finder and dubizzle/);
+    assert.doesNotMatch(promo, /experiment|demonstration data|early version/i);
     assert.match(promo, /Search Dubai Properties/);
   });
 });
 
-test("the experiment never offers payment, subscriptions or ranking for money anywhere in what it renders", () => {
+test("the section never offers payment, subscriptions or ranking for money anywhere in what it renders", () => {
   const groups = groupListings(DEMO_LISTINGS.filter((l) => l.purpose === "buy")).slice(0, 5);
   const html = [
     renderToStaticMarkup(<SourcesPanel />),

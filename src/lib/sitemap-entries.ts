@@ -5,6 +5,8 @@ import { approvedLocationPages, locationPath } from "@/lib/developer-connect/loc
 import { buyDirectMarkets, buyDirectPath } from "@/lib/developer-connect/buy-direct-guides";
 import { GUIDES, guidePath } from "@/lib/seo/guides";
 import { CONSULTANT_PAGES, consultantPath } from "@/lib/seo/consultant-pages";
+import { dubaiSearchEnabled } from "../features/dubai-search/flag.ts";
+import { sitemapPaths as dubaiSearchSitemapPaths } from "../features/dubai-search/lib/intents.ts";
 
 const BASE_URL = "https://developerconnects.com";
 
@@ -80,5 +82,8 @@ export async function buildSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     ...(developer.officialWebsite?.verifiedAt ? { lastModified: developer.officialWebsite.verifiedAt } : {}),
   }));
 
-  return [...staticEntries, ...locationEntries, ...guideEntries, ...developerEntries];
+  // Dubai Property Search: only pages that are useful on their own (see features/dubai-search/lib/intents.ts), and none when the section is switched off.
+  const dubaiSearchEntries: MetadataRoute.Sitemap = dubaiSearchEnabled() ? dubaiSearchSitemapPaths().map((path) => ({ url: `${BASE_URL}${path}` })) : [];
+
+  return [...staticEntries, ...locationEntries, ...guideEntries, ...dubaiSearchEntries, ...developerEntries];
 }

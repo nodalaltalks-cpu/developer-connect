@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 /**
- * The Founder's rating pop-up. While a Founder page is open and visible it asks /api/alerts/ratings every 8 seconds whether a buyer
+ * The Founder's rating pop-up. While a Founder page is open and visible it asks /api/alerts/ratings every 45 seconds whether a buyer
  * has rated the service since it last looked, and shows a card for each new one (who, how many stars, what they wrote) with a link to
  * the ratings page. Cards fade after 15 seconds and never stack more than three. The "since" moment is kept in the Founder's own
  * browser so a reload does not repeat an alert they have already seen.
  */
 
-const POLL_MS = 8_000;
+const POLL_MS = 45_000;
 const SHOW_MS = 15_000;
 const SEEN_KEY = "dc_rating_alert_since";
 

@@ -16,8 +16,8 @@ import { alertHeadline, bannerText, newLeadKey, NEW_LEAD_REPEAT_MS, NEW_LEAD_VIB
  * screen at least once since opening it; a fully closed app needs a push service. The banner and pop-up wait for the next open.
  */
 
-const POLL_VISIBLE_MS = 10_000;
-const POLL_HIDDEN_MS = 30_000;
+const POLL_VISIBLE_MS = 20_000;
+const POLL_HIDDEN_MS = 90_000;
 const SEEN_KEY = "dc_seen_new_leads";
 
 function readSeen(): string[] {

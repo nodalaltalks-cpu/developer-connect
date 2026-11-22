@@ -3,6 +3,7 @@ import { isFounder } from "@/lib/authorization";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
 import { getEmployee } from "@/lib/team/session";
+import { shortCache } from "@/lib/short-cache";
 
 /**
  * The live-update cursor. It returns ONE number: the newest event position the signed-in person is allowed to see. The browser
@@ -20,12 +21,12 @@ export async function GET(): Promise<Response> {
   try {
     const user = await currentUser();
     if (user && isFounder(user)) {
-      const events = await createPostgresLeadRepositories().events.latestSeq({});
+      const events = await shortCache("live:founder", 10_000, () => createPostgresLeadRepositories().events.latestSeq({}));
       // A new or changed buyer rating also moves the cursor, so the Founder's pages refresh when one arrives. Both parts only ever
       // grow, so their sum changes whenever either does. Best effort: ratings being unreachable never stops the live cursor.
       let ratings = 0;
       try {
-        const latest = await createPostgresBuyerEnquiryRepository().latestRatedAt();
+        const latest = await shortCache("live:ratings", 30_000, () => createPostgresBuyerEnquiryRepository().latestRatedAt());
         ratings = latest ? Math.floor(latest.getTime() / 1000) : 0;
       } catch {
         ratings = 0;
@@ -34,7 +35,8 @@ export async function GET(): Promise<Response> {
     }
     const employee = user ? await getEmployee() : null;
     if (employee?.actor.actorId) {
-      const cursor = await createPostgresLeadRepositories().events.latestSeq({ personId: employee.actor.actorId });
+      const personId = employee.actor.actorId;
+      const cursor = await shortCache(`live:${personId}`, 10_000, () => createPostgresLeadRepositories().events.latestSeq({ personId }));
       return Response.json({ cursor }, { headers: NO_STORE });
     }
   } catch (error) {

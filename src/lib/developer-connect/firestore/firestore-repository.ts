@@ -141,13 +141,11 @@ const candidateFromVerified = (developerId: string, v: CandidateDoc): WebsiteCan
 // free Firestore read quota run out. An admin edit still clears it on that instance at once (invalidate below).
 const TTL_MS = 10 * 60_000;
 let publishedCache: { at: number; rows: Array<{ id: string; data: FirebaseFirestore.DocumentData }> } | null = null;
-let activeCache: { at: number; rows: Developer[] } | null = null;
 // True after this process changed a developer: its next read rebuilds the stored snapshot from the collection instead of trusting it.
 let snapshotDirty = false;
 let pendingStaleMark: Promise<unknown> | null = null;
 const invalidate = () => {
   publishedCache = null;
-  activeCache = null;
   snapshotDirty = true;
   // Tell the other server instances the stored copy is out of date. Sent now and again a few seconds later, because this is
   // usually called inside a transaction that has not committed yet.
@@ -185,17 +183,14 @@ async function loadPublished(ctx: FsCtx) {
   }
 }
 
+/**
+ * The developers the public search looks through: the published ones that are ACTIVE (a developer who is not published has no page to
+ * open, so search never needed them). Read from the same stored snapshot as the directory, so a cold server instance costs ~17
+ * reads, not one per developer.
+ */
 async function loadActive(ctx: FsCtx): Promise<Developer[]> {
-  if (!ctx.inTx && activeCache && Date.now() - activeCache.at < TTL_MS) return activeCache.rows;
-  try {
-    const views = await ctx.query(ctx.db.collection(DEVELOPERS).where("status", "==", "ACTIVE"));
-    const rows = views.map((v) => toDeveloper(v.id, v.data()!));
-    if (!ctx.inTx) activeCache = { at: Date.now(), rows };
-    return rows;
-  } catch (error) {
-    if (!ctx.inTx && activeCache) return activeCache.rows;
-    throw error;
-  }
+  const rows = await loadPublished(ctx);
+  return rows.filter((r) => r.data.status === "ACTIVE").map((r) => toDeveloper(r.id, r.data));
 }
 
 function toPublishedEntry(row: { id: string; data: FirebaseFirestore.DocumentData }): PublishedDeveloperEntry {

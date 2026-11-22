@@ -28,6 +28,24 @@ import type {
 
 const db = () => getFirestoreDb();
 
+/**
+ * Whole-collection reads (every developer, every website candidate, every profile) are billed one read per document. A founder
+ * dashboard that refreshes itself used to repeat them every few seconds, which alone can use the free daily quota. They are kept
+ * for a few minutes instead; a failed read is not kept.
+ */
+const WHOLE_READ_MS = 5 * 60_000;
+const wholeReads = new Map<string, { at: number; value: Promise<unknown> }>();
+function memoRead<T>(key: string, read: () => Promise<T>): Promise<T> {
+  const hit = wholeReads.get(key);
+  if (hit && Date.now() - hit.at < WHOLE_READ_MS) return hit.value as Promise<T>;
+  const value = read();
+  wholeReads.set(key, { at: Date.now(), value });
+  value.catch(() => {
+    if (wholeReads.get(key)?.value === value) wholeReads.delete(key);
+  });
+  return value;
+}
+
 export type EventName = string;
 
 function buildFunnel(steps: { label: string; count: number }[]): ConversionStep[] {
@@ -270,8 +288,8 @@ export async function getDeveloperIntelligence(query: DeveloperIntelligenceQuery
   const term = query.search?.trim().toLowerCase();
 
   const [developerSnap, candidateSnap] = await Promise.all([
-    db().collection("developers").where("status", "==", "ACTIVE").get(),
-    db().collection("websiteCandidates").select("developerId", "verificationStatus", "canonicalDomain").get(),
+    memoRead("developers-active-full", () => db().collection("developers").where("status", "==", "ACTIVE").get()),
+    memoRead("candidates-intel", () => db().collection("websiteCandidates").select("developerId", "verificationStatus", "canonicalDomain").get()),
   ]);
   const candidatesByDeveloper = new Map<string, Array<{ status: string; domain: string }>>();
   for (const c of candidateSnap.docs) {
@@ -354,7 +372,7 @@ export async function getDataQuality(): Promise<DataQuality> {
     // `isPublished` is "ACTIVE with a verified candidate", maintained with every candidate change.
     collectionCount("developers", [["isPublished", "==", true]]),
     collectionCount("websiteCandidates", [["verificationStatus", "==", "VERIFIED"], ["lastCheckedAt", "==", null]]),
-    db().collection("websiteCandidates").where("verificationStatus", "in", ["DISCOVERED", "PENDING_VERIFICATION"]).select().get(),
+    memoRead("candidates-unreviewed", () => db().collection("websiteCandidates").where("verificationStatus", "in", ["DISCOVERED", "PENDING_VERIFICATION"]).select().get()),
   ]);
   const withEvidence = new Set((await docsWhereIn("evidence", "websiteCandidateId", unreviewed.docs.map((d) => d.id))).map((e) => e.data.websiteCandidateId as string));
   return {
@@ -458,7 +476,7 @@ export async function getUserAndProfileIntelligence(range?: ResolvedDateRange): 
     collectionCount("profiles"),
     collectionCount("profiles", windowWhere("createdAt")),
     collectionCount("profiles", windowWhere("updatedAt")),
-    db().collection("profiles").select("data").get(),
+    memoRead("profiles-data", () => db().collection("profiles").select("data").get()),
   ]);
 
   const completions = profileDocs.docs.map((d) => ({ userId: d.id, completion: calculateProfileCompletion((d.data().data ?? {}) as Record<string, unknown>) }));
@@ -687,8 +705,8 @@ function describeActivity(eventName: string, payload: Record<string, unknown>, d
 
 export async function getDeveloperVerificationBreakdown(): Promise<DeveloperVerificationBreakdown> {
   const [developerSnap, candidateSnap] = await Promise.all([
-    db().collection("developers").where("status", "==", "ACTIVE").select().get(),
-    db().collection("websiteCandidates").select("developerId", "verificationStatus").get(),
+    memoRead("developers-active-ids", () => db().collection("developers").where("status", "==", "ACTIVE").select().get()),
+    memoRead("candidates-breakdown", () => db().collection("websiteCandidates").select("developerId", "verificationStatus").get()),
   ]);
   const byDeveloper = new Map<string, string[]>();
   for (const c of candidateSnap.docs) byDeveloper.set(c.data().developerId, [...(byDeveloper.get(c.data().developerId) ?? []), c.data().verificationStatus]);

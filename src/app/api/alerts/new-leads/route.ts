@@ -1,4 +1,5 @@
 import { currentUser, isFounder } from "@/lib/auth";
+import { shortCache } from "@/lib/short-cache";
 import { createPostgresLeadRepositories } from "@/lib/leads/db/postgres-repository";
 import { endOfDayIn } from "@/lib/leads/lead-views";
 import type { NewLeadItem } from "@/lib/leads/new-lead-alert";
@@ -25,15 +26,18 @@ export async function GET(): Promise<Response> {
 
     const repos = createPostgresLeadRepositories();
     const now = new Date();
-    const result = await repos.leads.list({
-      view: "new",
-      sourceType: "DIGITAL",
-      ...(founder ? {} : { ownerId: employee!.actor.actorId! }),
-      limit: 10,
-      offset: 0,
-      now,
-      endOfToday: endOfDayIn(now),
-    });
+    // Each answer reads up to ten leads, so it is kept for 15 seconds per person: several tabs or quick polls cost one read set.
+    const result = await shortCache(`alerts:new-leads:${founder ? "founder" : employee!.actor.actorId}`, 15_000, () =>
+      repos.leads.list({
+        view: "new",
+        sourceType: "DIGITAL",
+        ...(founder ? {} : { ownerId: employee!.actor.actorId! }),
+        limit: 10,
+        offset: 0,
+        now,
+        endOfToday: endOfDayIn(now),
+      }),
+    );
     if (founder) {
       // Anything still without an owner goes to the Founder while they are the only active team member (a no-op once a team exists).
       const unowned = result.leads.filter((lead) => lead.ownerId === null && lead.returnedAt === null);

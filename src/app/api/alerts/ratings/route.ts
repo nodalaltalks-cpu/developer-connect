@@ -1,4 +1,5 @@
 import { currentUser, isFounder } from "@/lib/auth";
+import { shortCache } from "@/lib/short-cache";
 import { createPostgresBuyerEnquiryRepository } from "@/lib/enquiries/db/postgres-repository";
 import { raterLabel } from "@/lib/enquiries/service";
 
@@ -22,7 +23,7 @@ export async function GET(request: Request): Promise<Response> {
   const since = parsed && !Number.isNaN(parsed.getTime()) && parsed.getTime() <= now.getTime() ? parsed : now;
 
   try {
-    const rows = await createPostgresBuyerEnquiryRepository().listRated({ since, limit: 5 });
+    const rows = await shortCache(`alerts:ratings:${since.getTime()}`, 20_000, () => createPostgresBuyerEnquiryRepository().listRated({ since, limit: 5 }));
     const items = rows
       .reverse()
       .map((r) => ({

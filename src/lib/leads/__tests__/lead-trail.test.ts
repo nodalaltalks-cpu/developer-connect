@@ -103,7 +103,8 @@ test("missed leads: one name everywhere (no separate 'overdue'), tiles open the 
 
 test("erased leads: follow-ups of an erased lead are not counted as created or completed", () => {
   const sql = read("src/lib/leads/db/postgres-repository.ts");
-  const stats = sql.slice(sql.indexOf("async statsByStaff(from, to, now)"), sql.indexOf("async eraseForLead(leadId) {\n        await db.update(leadFollowUps)"));
+  const statsStart = sql.indexOf("async statsByStaff(from, to, now)");
+  const stats = sql.slice(statsStart, sql.indexOf("async eraseForLead(leadId)", statsStart));
   assert.equal((stats.match(/liveLead/g) ?? []).length, 3, "created, completed and missed all exclude erased leads");
   assert.match(read("src/lib/leads/memory-repository.ts"), /const live = !!owner && !owner\.erasedAt && !owner\.prospect;/);
 });

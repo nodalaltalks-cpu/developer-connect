@@ -1,5 +1,5 @@
 /**
- * Measures the real assistant (needs ANTHROPIC_API_KEY; costs a few rupees per run):
+ * Measures the real assistant with whichever model is configured (your own: ASK_LOCAL_URL + ASK_LOCAL_MODEL, or Claude: ANTHROPIC_API_KEY):
  *   node --import tsx scripts/eval-ask.ts
  *
  * For every question in src/lib/ask/eval-set.ts it runs retrieval + Claude exactly as the site does, then checks:
@@ -10,9 +10,7 @@
  */
 import { ANSWERABLE } from "../src/lib/ask/eval-set.ts";
 import { retrieve } from "../src/lib/ask/retrieve.ts";
-import { buildMessages } from "../src/lib/ask/prompt.ts";
-import { formatAnswer } from "../src/lib/ask/answer.ts";
-import { askClaude, askSettings } from "../src/lib/ask/claude.ts";
+import { generate, pickProvider } from "../src/lib/ask/engine.ts";
 
 interface Trap {
   q: string;
@@ -38,20 +36,22 @@ interface Outcome {
 }
 
 async function run(q: string, market?: "india" | "dubai") {
+  const provider = pickProvider();
+  if (!provider) throw new Error("No model configured");
   const retrieval = retrieve(q, { market, k: 6 });
   if (!retrieval.answerable) return { retrieval, formatted: null, text: "(declined before the AI)" };
   let streamed = "";
-  const result = await askClaude({ messages: buildMessages([], q, retrieval.passages), onText: (t) => (streamed += t) });
-  const formatted = formatAnswer(result.content, retrieval.passages);
-  return { retrieval, formatted, text: formatted.text || streamed };
+  const result = await generate(provider, { history: [], question: q, passages: retrieval.passages, onText: (t) => (streamed += t) });
+  return { retrieval, formatted: result.formatted, text: result.formatted.text || streamed };
 }
 
 async function main() {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("Set ANTHROPIC_API_KEY to run this evaluation.");
+  const provider = pickProvider();
+  if (!provider) {
+    console.error("Configure a model first: ASK_LOCAL_URL + ASK_LOCAL_MODEL (your own model) or ANTHROPIC_API_KEY.");
     process.exit(2);
   }
-  console.log(`Model: ${askSettings().model}, effort: ${askSettings().effort}\n`);
+  console.log(`Provider: ${provider}\n`);
   const outcomes: Outcome[] = [];
 
   for (const c of ANSWERABLE) {

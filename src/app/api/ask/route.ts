@@ -1,7 +1,5 @@
 import { retrieve, type RetrievedPassage } from "@/lib/ask/retrieve";
-import { buildMessages } from "@/lib/ask/prompt";
-import { formatAnswer } from "@/lib/ask/answer";
-import { askClaude, askEnabled } from "@/lib/ask/claude";
+import { generate, pickProvider } from "@/lib/ask/engine";
 import { rateLimit, validateAsk, visitorKey, withinDailyCap } from "@/lib/ask/limits";
 
 /**
@@ -69,11 +67,11 @@ export async function POST(request: Request): Promise<Response> {
   if (!retrieval.answerable) return json({ mode: "declined", message: DECLINED_MESSAGE });
 
   const cap = Number(process.env.ASK_DAILY_CAP) || DEFAULT_DAILY_CAP;
-  if (!askEnabled() || !withinDailyCap(cap)) {
+  const provider = pickProvider();
+  if (!provider || !withinDailyCap(cap)) {
     return json({ mode: "search", market: retrieval.market, results: searchResults(retrieval.passages) });
   }
 
-  const messages = buildMessages(history, question, retrieval.passages);
   const startedAt = Date.now();
   const encoder = new TextEncoder();
 
@@ -81,12 +79,12 @@ export async function POST(request: Request): Promise<Response> {
     async start(controller) {
       const send = (event: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       try {
-        const result = await askClaude({ messages, onText: (text) => send({ t: "delta", text }), signal: request.signal });
-        const formatted = formatAnswer(result.content, retrieval.passages);
+        const result = await generate(provider, { history, question, passages: retrieval.passages, onText: (text) => send({ t: "delta", text }), signal: request.signal });
+        const formatted = result.formatted;
         console.info(
-          JSON.stringify({ ask: { ms: Date.now() - startedAt, model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, stop: result.stopReason, sources: retrieval.passages.map((p) => p.id), cited: formatted.sources.length, notCovered: formatted.notCovered, uncited: formatted.uncited } }),
+          JSON.stringify({ ask: { ms: Date.now() - startedAt, provider: result.provider, model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, dropped: result.dropped, sources: retrieval.passages.map((p) => p.id), cited: formatted.sources.length, notCovered: formatted.notCovered, uncited: formatted.uncited } }),
         );
-        if (result.stopReason === "refusal" || formatted.notCovered) {
+        if (result.refused || formatted.notCovered) {
           send({ t: "declined", message: DECLINED_MESSAGE, results: searchResults(retrieval.passages) });
         } else if (formatted.uncited) {
           // An answer we cannot tie to a source is never shown as an answer.

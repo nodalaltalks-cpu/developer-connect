@@ -38,7 +38,7 @@ export async function getRecentlyViewedDevelopers(
       userId: identity.userId,
       sessionId: identity.userId ? undefined : identity.sessionId,
       newestFirst: true,
-      limit: 300,
+      limit: 50,
     });
     const seen = new Set<string>();
     rows = [];

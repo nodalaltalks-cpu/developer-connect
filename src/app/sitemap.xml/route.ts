@@ -9,7 +9,7 @@ import { buildSitemapEntries } from "@/lib/sitemap-entries";
 const cachedSitemapEntries = unstable_cache(
   async () => (await buildSitemapEntries()).map((e) => ({ url: e.url, lastModified: e.lastModified ? new Date(e.lastModified).toISOString() : null })),
   ["sitemap-entries"],
-  { revalidate: 3600, tags: ["public-developers"] },
+  { revalidate: 86_400, tags: ["public-developers"] },
 );
 
 /**

@@ -16,7 +16,8 @@ import { getPublicDeveloperBySlug, getPublicDirectoryPage, listRelatedVerifiedDe
  * developer edit shows up within half an hour). Nothing personal is cached here: no sign-in, no recently-viewed list, no
  * session. Every value is plain data (no dates), so it survives being stored.
  */
-const CACHE_SECONDS = 1800;
+// A day: every admin edit clears these through the "public-developers" tag, so the long life only helps (crawlers cost ~nothing).
+const CACHE_SECONDS = 86_400;
 const TAG = "public-developers";
 
 export const cachedPublicDeveloperBySlug = unstable_cache(

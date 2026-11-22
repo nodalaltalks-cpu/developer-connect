@@ -138,9 +138,25 @@ export default async function DevelopersIndexPage({
     breadcrumbs.map((item) => ({ name: item.label, path: item.href ?? developersPath(location, 1) })),
   );
 
+  // ItemList mirrors the developers visibly listed on this page (names and links only), so search engines and AI assistants can
+  // read the list as structured data. Nothing here is claimed beyond what the page itself shows.
+  const itemListJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: location ? `Real estate developers in ${location.phrase}` : "Real estate developers in India and the UAE",
+    numberOfItems: total,
+    itemListElement: developers.map((developer, index) => ({
+      "@type": "ListItem",
+      position: (page - 1) * PAGE_SIZE + index + 1,
+      name: developer.displayName,
+      url: `https://developerconnects.com/developers/${developer.slug}`,
+    })),
+  };
+
   return (
     <div className="flex flex-1 flex-col">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemListJsonLd) }} />
       <SiteHeader />
 
       <main className="flex-1">

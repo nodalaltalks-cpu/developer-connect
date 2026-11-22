@@ -34,8 +34,6 @@ Each developer page is at ${BASE_URL}/developers/{developer-slug} and states the
 - [FAQ](${BASE_URL}/faq)
 - [Home loan EMI calculator (rupees and dirhams)](${BASE_URL}/tools/home-loan-emi-calculator)
 - [Ask Developer Connects: property questions answered from our guides, with sources](${BASE_URL}/ask)
-- [Dubai Property Search: one search opened on Bayut, Property Finder and dubizzle, by area, buy or rent, type and bedrooms](${BASE_URL}/dubai-property-search)
-- [Compare Dubai property listings: is it the same flat advertised twice?](${BASE_URL}/dubai-property-search/compare)
 - [Possession delay interest calculator (flat handed over late, India)](${BASE_URL}/tools/possession-delay-interest-calculator)
 - [Property glossary: Mumbai and Dubai terms explained](${BASE_URL}/property-glossary)
 - [About](${BASE_URL}/about)

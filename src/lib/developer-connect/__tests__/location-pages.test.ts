@@ -378,7 +378,7 @@ test("sitemap: lists only the approved locations (page 1) from the single approv
   const sitemap = read("../../sitemap-entries.ts");
   assert.match(sitemap, /approvedLocationPages\(\)\.map\(\(location\) => \(\{/);
   assert.match(sitemap, /url: `\$\{BASE_URL\}\$\{locationPath\(location\)\}`/);
-  assert.match(sitemap, /\[\.\.\.staticEntries, \.\.\.locationEntries, \.\.\.guideEntries, \.\.\.dubaiSearchEntries, \.\.\.developerEntries\]/);
+  assert.match(sitemap, /\[\.\.\.staticEntries, \.\.\.locationEntries, \.\.\.guideEntries, \.\.\.developerEntries\]/);
 });
 
 test("footer: the country links point at the approved country pages and fall back to the old filter otherwise", () => {

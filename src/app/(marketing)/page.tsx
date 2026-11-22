@@ -18,8 +18,6 @@ import { ContinueResearch } from "@/components/continue-research";
 import { BuyerJourney } from "@/components/buyer-journey";
 import { GuidesStrip } from "@/components/guides-strip";
 import { ToolsStrip } from "@/components/tools-strip";
-import { DubaiSearchPromo } from "@/features/dubai-search/components/promo";
-import { DubaiSearchMobileStrip } from "@/features/dubai-search/components/nav-link";
 import { ProofBand } from "@/components/proof-band";
 import { marketFromParams } from "@/lib/hero-market";
 import { FEATURED_DEVELOPERS, FEATURED_SELECTION_NOTE } from "@/lib/featured-developers";
@@ -88,7 +86,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }} />
       <EmployeeHomeRedirect />
       <SiteHeader />
-      <DubaiSearchMobileStrip />
 
       <main className="flex-1">
         <HeroMarketProvider fromAddress={heroMarket}>
@@ -131,7 +128,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
           <ProofBand />
           <ToolsStrip />
-          <DubaiSearchPromo />
           <BuyerJourney />
 
           {/* RESEARCH: featured developers, then the way into everything else */}

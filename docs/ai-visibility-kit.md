@@ -16,7 +16,9 @@ Nobody can buy or guarantee a place in an AI answer. These assistants quote sour
 | IndexNow (Bing, which feeds ChatGPT search and Copilot) | Yes. Use sparingly: a full ping makes Bing crawl everything at once |
 | Bing Webmaster Tools | Set up (2026-10-25) |
 
-What is NOT in place, and is the real gap: reviews, third-party mentions, a LinkedIn company page, YouTube, answers in the places buyers ask, press. See sections 3 and 4.
+Already in place off the website (confirmed by the founder 2026-11-22): a LinkedIn company page for Developer Connects (under the NoDalalTalks umbrella), plus Instagram and Facebook pages, all connected.
+
+What is NOT in place, and is the real gap: Google reviews, third-party mentions, YouTube, answers in the places buyers ask, press, and the company LinkedIn page being named in the website's Organization markup (`sameAs` currently lists only Instagram and Facebook). See sections 3 and 4.
 
 ## 2. The one description to use everywhere
 
@@ -36,8 +38,8 @@ Rules: never add "best", "top", "#1", ratings, award claims or numbers you canno
 
 Week 1
 1. Google Business Profile: resume verification. Category "Real estate consultant". Paste section 2. Highest-impact single item for Google and Gemini.
-2. LinkedIn Company Page "Developer Connects" with section 2. Founder headline: "Founder, Developer Connects | Property advisory, Mumbai and Dubai". Link the site.
-3. Make sure Instagram, Facebook and the website show the same name, phone and email.
+2. LinkedIn company page (already made): paste section 2 into its About, check the website link, and make the page's name read exactly "Developer Connects". Because it sits under the NoDalalTalks umbrella, make sure its description says what Developer Connects is on its own (section 2), so an assistant does not read it as the same business as NoDalalTalks. Founder headline: "Founder, Developer Connects | Property advisory, Mumbai and Dubai".
+3. Make sure LinkedIn, Instagram, Facebook and the website show the same name, phone and email. Send the company LinkedIn URL so the website's Organization markup can name it (`sameAs`).
 
 Week 2
 4. Ask every past client for a Google review with the direct link, on WhatsApp. Real, detailed reviews only; never offer anything in return.
